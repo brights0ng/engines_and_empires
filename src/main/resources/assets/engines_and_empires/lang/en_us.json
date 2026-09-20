@@ -1,0 +1,13 @@
+{
+  "itemGroup.engines_and_empires": "Example Mod Tab",
+  "block.engines_and_empires.example_block": "Example Block",
+  "item.engines_and_empires.example_item": "Example Item",
+
+  "engines_and_empires.configuration.title": "Example Mod Configs",
+  "engines_and_empires.configuration.section.engines_and_empires.common.toml": "Example Mod Configs",
+  "engines_and_empires.configuration.section.engines_and_empires.common.toml.title": "Example Mod Configs",
+  "engines_and_empires.configuration.items": "Item List",
+  "engines_and_empires.configuration.logDirtBlock": "Log Dirt Block",
+  "engines_and_empires.configuration.magicNumberIntroduction": "Magic Number Text",
+  "engines_and_empires.configuration.magicNumber": "Magic Number"
+}
