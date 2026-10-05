@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=east": { "model": "engines_and_empires:block/dry_wall_torch" },
+    "facing=north": { "model": "engines_and_empires:block/dry_wall_torch", "y": 270 },
+    "facing=south": { "model": "engines_and_empires:block/dry_wall_torch", "y": 90 },
+    "facing=west": { "model": "engines_and_empires:block/dry_wall_torch", "y": 180 }
+  }
+}

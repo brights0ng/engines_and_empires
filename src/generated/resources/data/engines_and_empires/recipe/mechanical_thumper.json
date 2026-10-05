@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "A": {
+      "item": "create:andesite_casing"
+    },
+    "C": {
+      "item": "create:cogwheel"
+    },
+    "I": {
+      "item": "minecraft:iron_block"
+    }
+  },
+  "pattern": [
+    "A",
+    "C",
+    "I"
+  ],
+  "result": {
+    "count": 1,
+    "id": "engines_and_empires:mechanical_thumper"
+  }
+}

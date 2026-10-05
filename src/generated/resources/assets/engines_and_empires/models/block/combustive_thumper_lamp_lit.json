@@ -1,0 +1,126 @@
+{
+  "elements": [
+    {
+      "faces": {
+        "down": {
+          "texture": "#lamp",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        },
+        "east": {
+          "texture": "#lamp",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        },
+        "north": {
+          "texture": "#lamp",
+          "uv": [
+            6.5,
+            6.5,
+            9.5,
+            9.5
+          ]
+        },
+        "up": {
+          "texture": "#lamp",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        },
+        "west": {
+          "texture": "#lamp",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        }
+      },
+      "from": [
+        6.45,
+        9.95,
+        0.45
+      ],
+      "to": [
+        9.55,
+        13.05,
+        1
+      ]
+    },
+    {
+      "faces": {
+        "down": {
+          "texture": "#lamp",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        },
+        "east": {
+          "texture": "#lamp",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        },
+        "south": {
+          "texture": "#lamp",
+          "uv": [
+            6.5,
+            6.5,
+            9.5,
+            9.5
+          ]
+        },
+        "up": {
+          "texture": "#lamp",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        },
+        "west": {
+          "texture": "#lamp",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        }
+      },
+      "from": [
+        6.45,
+        9.95,
+        15
+      ],
+      "to": [
+        9.55,
+        13.05,
+        15.55
+      ]
+    }
+  ],
+  "textures": {
+    "lamp": "engines_and_empires:block/mechanical_thumper_lamp_lit",
+    "particle": "engines_and_empires:block/mechanical_thumper_lamp_lit"
+  }
+}

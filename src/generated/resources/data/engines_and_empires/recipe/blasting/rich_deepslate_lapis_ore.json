@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:blasting",
+  "category": "misc",
+  "cookingtime": 100,
+  "experience": 0.2,
+  "ingredient": {
+    "item": "engines_and_empires:rich_deepslate_lapis_ore"
+  },
+  "result": {
+    "count": 5,
+    "id": "minecraft:lapis_lazuli"
+  }
+}

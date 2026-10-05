@@ -1,0 +1,42 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.brights0ng.enginesandempires.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "NoiseGeneratorSettingsMixin",
+    "BoreheadBreakingMixin",
+    "EncumberedWeightMixin",
+    "LevelChunkFrontierMixin",
+    "MonsterDarknessMixin",
+    "ItemStackFreshnessMixin",
+    "ContainerMenuFreshnessMixin",
+    "InventoryFreshnessMixin",
+    "ItemEntityFreshnessMixin",
+    "HopperFreshnessMixin",
+    "ItemHandlerFreshnessMixin",
+    "ItemStackHandlerExtractMixin",
+    "LootTableFreshnessMixin",
+    "MerchantContainerFreshnessMixin",
+    "EatFreshnessMixin",
+    "PlayerEatStageMixin",
+    "ServerLevelWeatherMixin",
+    "LevelWeatherMixin",
+    "WeatherCommandMixin",
+    "SubLevelSilhouetteMixin"
+  ],
+  "client": [
+    "client.EncumberedTooltipMixin",
+    "client.EncumberedOverlayMixin",
+    "client.SelectedFoodNameMixin",
+    "client.GameRendererCloudDepthMixin",
+    "client.LevelRendererCloudsMixin",
+    "client.LevelRendererRainMixin",
+    "client.LevelRainLevelMixin",
+    "client.LevelRendererSkyMixin",
+    "client.ClientLevelSkyColourMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

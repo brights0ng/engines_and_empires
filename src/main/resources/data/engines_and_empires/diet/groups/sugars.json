@@ -1,0 +1,18 @@
+{
+  "icon": "minecraft:sugar",
+  "color": "#e8e8e8",
+  "order": 4,
+  "gain_multiplier": 1.0,
+  "decay_multiplier": 1.0,
+  "default_value": 0.5,
+  "beneficial": true,
+  "is_negative": false,
+  "ignore_attack": false,
+  "ignore_hunger": false,
+  "ignore_saturation": false,
+  "translation_key": "diet.group.sugars",
+  "effects": [
+    "51-80.99:attribute(minecraft:generic.movement_speed,0.005)",
+    "81-100:attribute(minecraft:generic.movement_speed,0.005),effect(minecraft:hunger,1)"
+  ]
+}

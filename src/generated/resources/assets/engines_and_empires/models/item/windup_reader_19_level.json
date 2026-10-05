@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "engines_and_empires:item/windup_reader_19",
+    "layer1": "engines_and_empires:item/windup_reader_arrow_level"
+  }
+}

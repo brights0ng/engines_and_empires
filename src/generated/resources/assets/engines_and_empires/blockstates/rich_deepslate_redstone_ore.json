@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "engines_and_empires:block/rich_deepslate_redstone_ore"
+    },
+    "lit=true": {
+      "model": "engines_and_empires:block/rich_deepslate_redstone_ore"
+    }
+  }
+}

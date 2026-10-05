@@ -1,0 +1,70 @@
+{
+  "elements": [
+    {
+      "faces": {
+        "down": {
+          "texture": "#cap",
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#cap",
+          "tintindex": 0,
+          "uv": [
+            6.0,
+            6.0,
+            10.0,
+            10.0
+          ]
+        },
+        "north": {
+          "texture": "#cap",
+          "tintindex": 0,
+          "uv": [
+            6.0,
+            6.0,
+            10.0,
+            10.0
+          ]
+        },
+        "south": {
+          "texture": "#cap",
+          "tintindex": 0,
+          "uv": [
+            6.0,
+            6.0,
+            10.0,
+            10.0
+          ]
+        },
+        "up": {
+          "texture": "#cap",
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#cap",
+          "tintindex": 0,
+          "uv": [
+            6.0,
+            6.0,
+            10.0,
+            10.0
+          ]
+        }
+      },
+      "from": [
+        6,
+        8,
+        6
+      ],
+      "to": [
+        10,
+        12,
+        10
+      ]
+    }
+  ],
+  "textures": {
+    "cap": "engines_and_empires:block/brass_geophone_cap_lit",
+    "particle": "engines_and_empires:block/brass_geophone_cap_lit"
+  }
+}

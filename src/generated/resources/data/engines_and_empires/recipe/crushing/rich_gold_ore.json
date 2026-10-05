@@ -1,0 +1,31 @@
+{
+  "type": "create:crushing",
+  "ingredients": [
+    {
+      "item": "engines_and_empires:rich_gold_ore"
+    }
+  ],
+  "processing_time": 250,
+  "results": [
+    {
+      "count": 8,
+      "id": "create:crushed_raw_gold"
+    },
+    {
+      "chance": 0.75,
+      "id": "create:crushed_raw_gold"
+    },
+    {
+      "count": 7,
+      "id": "create:experience_nugget"
+    },
+    {
+      "chance": 0.5,
+      "id": "create:experience_nugget"
+    },
+    {
+      "chance": 0.125,
+      "id": "minecraft:cobblestone"
+    }
+  ]
+}

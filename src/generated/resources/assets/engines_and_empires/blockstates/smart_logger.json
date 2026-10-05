@@ -1,0 +1,64 @@
+{
+  "variants": {
+    "facing=east,part=back_left": {
+      "model": "engines_and_empires:block/smart_logger_back_left",
+      "y": 270
+    },
+    "facing=east,part=back_right": {
+      "model": "engines_and_empires:block/smart_logger_back_right",
+      "y": 270
+    },
+    "facing=east,part=front_left": {
+      "model": "engines_and_empires:block/smart_logger_front_left",
+      "y": 270
+    },
+    "facing=east,part=front_right": {
+      "model": "engines_and_empires:block/smart_logger_front_right",
+      "y": 270
+    },
+    "facing=north,part=back_left": {
+      "model": "engines_and_empires:block/smart_logger_back_left",
+      "y": 180
+    },
+    "facing=north,part=back_right": {
+      "model": "engines_and_empires:block/smart_logger_back_right",
+      "y": 180
+    },
+    "facing=north,part=front_left": {
+      "model": "engines_and_empires:block/smart_logger_front_left",
+      "y": 180
+    },
+    "facing=north,part=front_right": {
+      "model": "engines_and_empires:block/smart_logger_front_right",
+      "y": 180
+    },
+    "facing=south,part=back_left": {
+      "model": "engines_and_empires:block/smart_logger_back_left"
+    },
+    "facing=south,part=back_right": {
+      "model": "engines_and_empires:block/smart_logger_back_right"
+    },
+    "facing=south,part=front_left": {
+      "model": "engines_and_empires:block/smart_logger_front_left"
+    },
+    "facing=south,part=front_right": {
+      "model": "engines_and_empires:block/smart_logger_front_right"
+    },
+    "facing=west,part=back_left": {
+      "model": "engines_and_empires:block/smart_logger_back_left",
+      "y": 90
+    },
+    "facing=west,part=back_right": {
+      "model": "engines_and_empires:block/smart_logger_back_right",
+      "y": 90
+    },
+    "facing=west,part=front_left": {
+      "model": "engines_and_empires:block/smart_logger_front_left",
+      "y": 90
+    },
+    "facing=west,part=front_right": {
+      "model": "engines_and_empires:block/smart_logger_front_right",
+      "y": 90
+    }
+  }
+}

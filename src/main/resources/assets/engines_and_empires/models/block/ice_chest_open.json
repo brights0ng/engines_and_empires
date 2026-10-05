@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "bottom": "engines_and_empires:block/ice_chest_bottom",
+    "side": "engines_and_empires:block/ice_chest_side",
+    "top": "engines_and_empires:block/ice_chest_top_open"
+  }
+}

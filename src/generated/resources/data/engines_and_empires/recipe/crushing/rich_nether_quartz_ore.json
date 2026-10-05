@@ -1,0 +1,31 @@
+{
+  "type": "create:crushing",
+  "ingredients": [
+    {
+      "item": "engines_and_empires:rich_nether_quartz_ore"
+    }
+  ],
+  "processing_time": 350,
+  "results": [
+    {
+      "count": 14,
+      "id": "engines_and_empires:quartz_chip"
+    },
+    {
+      "chance": 0.05,
+      "id": "engines_and_empires:quartz_chip"
+    },
+    {
+      "count": 3,
+      "id": "create:experience_nugget"
+    },
+    {
+      "chance": 0.75,
+      "id": "create:experience_nugget"
+    },
+    {
+      "chance": 0.125,
+      "id": "minecraft:netherrack"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "values": [
+    "#engines_and_empires:premium_thumper_fuel",
+    {
+      "id": "#c:gasoline",
+      "required": false
+    },
+    {
+      "id": "#c:biodiesel",
+      "required": false
+    }
+  ]
+}

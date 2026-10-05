@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_choked_combustive_thumper": {
+      "conditions": {
+        "items": [
+          {
+            "items": "engines_and_empires:choked_combustive_thumper"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "engines_and_empires:combustive_thumper_from_choked"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_choked_combustive_thumper"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "engines_and_empires:combustive_thumper_from_choked"
+    ]
+  }
+}

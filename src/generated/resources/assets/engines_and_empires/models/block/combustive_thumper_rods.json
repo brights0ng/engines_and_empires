@@ -1,0 +1,133 @@
+{
+  "elements": [
+    {
+      "faces": {
+        "east": {
+          "texture": "#pole",
+          "uv": [
+            7.0,
+            0.0,
+            9.0,
+            16.0
+          ]
+        },
+        "north": {
+          "texture": "#pole",
+          "uv": [
+            7.0,
+            0.0,
+            9.0,
+            16.0
+          ]
+        },
+        "south": {
+          "texture": "#pole",
+          "uv": [
+            7.0,
+            0.0,
+            9.0,
+            16.0
+          ]
+        },
+        "up": {
+          "texture": "#pole",
+          "uv": [
+            11.0,
+            1.0,
+            13.0,
+            3.0
+          ]
+        },
+        "west": {
+          "texture": "#pole",
+          "uv": [
+            7.0,
+            0.0,
+            9.0,
+            16.0
+          ]
+        }
+      },
+      "from": [
+        3,
+        -8,
+        7
+      ],
+      "to": [
+        5,
+        18,
+        9
+      ]
+    },
+    {
+      "faces": {
+        "east": {
+          "texture": "#pole",
+          "uv": [
+            7.0,
+            0.0,
+            9.0,
+            16.0
+          ]
+        },
+        "north": {
+          "texture": "#pole",
+          "uv": [
+            7.0,
+            0.0,
+            9.0,
+            16.0
+          ]
+        },
+        "south": {
+          "texture": "#pole",
+          "uv": [
+            7.0,
+            0.0,
+            9.0,
+            16.0
+          ]
+        },
+        "up": {
+          "texture": "#pole",
+          "uv": [
+            11.0,
+            1.0,
+            13.0,
+            3.0
+          ]
+        },
+        "west": {
+          "texture": "#pole",
+          "uv": [
+            7.0,
+            0.0,
+            9.0,
+            16.0
+          ]
+        }
+      },
+      "from": [
+        11,
+        -8,
+        7
+      ],
+      "to": [
+        13,
+        18,
+        9
+      ]
+    }
+  ],
+  "textures": {
+    "axis": "create:block/axis",
+    "axis_top": "create:block/axis_top",
+    "copper": "create:block/copper_casing",
+    "gauge": "engines_and_empires:block/combustive_thumper_gauge",
+    "iron": "create:block/industrial_iron_block",
+    "iron_top": "create:block/industrial_iron_block_top",
+    "lamp": "engines_and_empires:block/mechanical_thumper_lamp",
+    "particle": "create:block/copper_casing",
+    "pole": "create:block/mechanical_press_pole"
+  }
+}

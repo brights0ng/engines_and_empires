@@ -1,0 +1,31 @@
+{
+  "type": "create:crushing",
+  "ingredients": [
+    {
+      "item": "engines_and_empires:rich_redstone_ore"
+    }
+  ],
+  "processing_time": 250,
+  "results": [
+    {
+      "count": 10,
+      "id": "minecraft:redstone"
+    },
+    {
+      "chance": 0.95,
+      "id": "minecraft:redstone"
+    },
+    {
+      "count": 3,
+      "id": "create:experience_nugget"
+    },
+    {
+      "chance": 0.75,
+      "id": "create:experience_nugget"
+    },
+    {
+      "chance": 0.125,
+      "id": "minecraft:cobblestone"
+    }
+  ]
+}

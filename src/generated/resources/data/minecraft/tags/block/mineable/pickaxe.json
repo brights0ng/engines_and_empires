@@ -1,0 +1,31 @@
+{
+  "values": [
+    "engines_and_empires:rich_coal_ore",
+    "engines_and_empires:rich_deepslate_coal_ore",
+    "engines_and_empires:rich_iron_ore",
+    "engines_and_empires:rich_deepslate_iron_ore",
+    "engines_and_empires:rich_copper_ore",
+    "engines_and_empires:rich_deepslate_copper_ore",
+    "engines_and_empires:rich_zinc_ore",
+    "engines_and_empires:rich_deepslate_zinc_ore",
+    "engines_and_empires:rich_redstone_ore",
+    "engines_and_empires:rich_deepslate_redstone_ore",
+    "engines_and_empires:rich_lapis_ore",
+    "engines_and_empires:rich_deepslate_lapis_ore",
+    "engines_and_empires:rich_gold_ore",
+    "engines_and_empires:rich_deepslate_gold_ore",
+    "engines_and_empires:rich_emerald_ore",
+    "engines_and_empires:rich_deepslate_emerald_ore",
+    "engines_and_empires:rich_diamond_ore",
+    "engines_and_empires:rich_deepslate_diamond_ore",
+    "engines_and_empires:rich_nether_gold_ore",
+    "engines_and_empires:rich_nether_quartz_ore",
+    "engines_and_empires:strike_plate",
+    "engines_and_empires:mechanical_thumper",
+    "engines_and_empires:combustive_thumper",
+    "engines_and_empires:combustive_thumper_column",
+    "engines_and_empires:smart_logger",
+    "engines_and_empires:choked_mechanical_thumper",
+    "engines_and_empires:choked_combustive_thumper"
+  ]
+}

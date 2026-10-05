@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "A": {
+      "item": "create:andesite_alloy"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "pattern": [
+    " A ",
+    " I ",
+    " I "
+  ],
+  "result": {
+    "count": 1,
+    "id": "engines_and_empires:andesite_geophone"
+  }
+}

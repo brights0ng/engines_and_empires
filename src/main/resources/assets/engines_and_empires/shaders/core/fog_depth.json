@@ -1,0 +1,12 @@
+{
+  "vertex": "engines_and_empires:fog_depth",
+  "fragment": "engines_and_empires:fog_depth",
+  "samplers": [
+    { "name": "DepthSampler" }
+  ],
+  "uniforms": [
+    { "name": "InvViewProj", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+    { "name": "TerrainFogEnd", "type": "float", "count": 1, "values": [ 1000000.0 ] },
+    { "name": "TerrainFogShape", "type": "int", "count": 1, "values": [ 0 ] }
+  ]
+}

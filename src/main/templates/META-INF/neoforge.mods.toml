@@ -29,6 +29,9 @@ version="${mod_version}" #mandatory
 # A display name for the mod
 displayName="${mod_name}" #mandatory
 
+# Enum constants this mod adds (currently one: the arm pose for holding the portable record display up in both hands).
+enumExtensions="META-INF/enumextensions.json"
+
 # A URL to query for updates for this mod. See the JSON update specification https://docs.neoforged.net/docs/misc/updatechecker/
 #updateJSONURL="https://change.me.example.invalid/updates.json" #optional
 
@@ -85,6 +88,63 @@ Core mod for the Engines and Empires modpack.
     versionRange="${minecraft_version_range}"
     ordering="NONE"
     side="BOTH"
+
+# Create. The pack is built on it, and the ore system looks up Create's blocks (zinc ore) by id. Rich zinc ore
+# copies Create's zinc ore when it is registered, so this mod must load AFTER Create.
+[[dependencies.${mod_id}]]
+    modId="create"
+    type="required"
+    versionRange="${create_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+# Create Aeronautics' Offroad module. The ore system changes what its borehead bearing's rock cutting wheels drop.
+[[dependencies.${mod_id}]]
+    modId="offroad"
+    type="required"
+    versionRange="${simulated_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+# Encumbered. The core mod supplies every item's carry weight to it (see the weight package and its mixins).
+[[dependencies.${mod_id}]]
+    modId="encumbered"
+    type="required"
+    versionRange="${encumbered_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+# Deeper and Darker (optional). Its mobs come up around stirred deposits (deep_roster/stirred.json) and are named by id
+# only, so the mod runs without it: the rosters and tags just skip them.
+[[dependencies.${mod_id}]]
+    modId="deeperdarker"
+    type="optional"
+    versionRange="[1.4,)"
+    ordering="NONE"
+    side="BOTH"
+
+# AppleSkin (optional). Its food previews show what spoiled food really gives (food/compat/AppleSkinCompat, hooked up
+# only when it is installed). Built against the 3.0.x API.
+[[dependencies.${mod_id}]]
+    modId="appleskin"
+    type="optional"
+    versionRange="[3.0,)"
+    ordering="NONE"
+    side="BOTH"
+
+# Diet - AppleSeed Edition (optional). Spoiled food feeds it less and fresh food more (food/compat/DietCompat), and
+# death resets nutrition to 25%. Uses its hook API plus its DietData class, as of 3.0.2. The core mod's datapack
+# overrides its groups (data/engines_and_empires/diet/groups), which it only reads when it is installed.
+[[dependencies.${mod_id}]]
+    modId="appleseed"
+    type="optional"
+    versionRange="[3.0.2,)"
+    ordering="NONE"
+    side="BOTH"
+
+# Mixins. Currently one: it switches off vanilla's large terrain-noise ore veins (see NoiseGeneratorSettingsMixin).
+[[mixins]]
+    config="${mod_id}.mixins.json"
 
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares
 # that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't

@@ -1,0 +1,20 @@
+{
+  "icon": "minecraft:apple",
+  "color": "#9e2a2b",
+  "order": 1,
+  "gain_multiplier": 1.0,
+  "decay_multiplier": 1.0,
+  "default_value": 0.5,
+  "beneficial": true,
+  "is_negative": false,
+  "ignore_attack": false,
+  "ignore_hunger": false,
+  "ignore_saturation": false,
+  "translation_key": "diet.group.fruits",
+  "effects": [
+    "0-25:effect(minecraft:mining_fatigue,0)",
+    "61-70.99:attribute(minecraft:generic.attack_speed,0.05)",
+    "71-80.99:attribute(minecraft:generic.attack_speed,0.1)",
+    "81-100:attribute(minecraft:generic.attack_speed,0.1),attribute(minecraft:generic.max_health,2.0)"
+  ]
+}

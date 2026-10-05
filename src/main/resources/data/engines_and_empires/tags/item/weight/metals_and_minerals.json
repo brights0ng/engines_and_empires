@@ -1,0 +1,19 @@
+{
+  "replace": false,
+  "values": [
+    "#c:ingots",
+    "#c:raw_materials",
+    "#c:gems",
+    "#c:dusts",
+    "#minecraft:coals",
+    {
+      "id": "#c:plates",
+      "required": false
+    },
+    {
+      "id": "#create:crushed_raw_materials",
+      "required": false
+    },
+    "minecraft:flint"
+  ]
+}

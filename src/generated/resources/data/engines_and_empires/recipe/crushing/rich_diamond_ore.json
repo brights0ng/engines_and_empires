@@ -1,0 +1,31 @@
+{
+  "type": "create:crushing",
+  "ingredients": [
+    {
+      "item": "engines_and_empires:rich_diamond_ore"
+    }
+  ],
+  "processing_time": 350,
+  "results": [
+    {
+      "count": 10,
+      "id": "engines_and_empires:diamond_chip"
+    },
+    {
+      "chance": 0.95,
+      "id": "engines_and_empires:diamond_chip"
+    },
+    {
+      "count": 3,
+      "id": "create:experience_nugget"
+    },
+    {
+      "chance": 0.75,
+      "id": "create:experience_nugget"
+    },
+    {
+      "chance": 0.125,
+      "id": "minecraft:cobblestone"
+    }
+  ]
+}

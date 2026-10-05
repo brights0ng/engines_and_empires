@@ -1,0 +1,9 @@
+{
+  "loot_tables": [
+    "*"
+  ],
+  "stages": {
+    "stale": 1,
+    "rotting": 1
+  }
+}

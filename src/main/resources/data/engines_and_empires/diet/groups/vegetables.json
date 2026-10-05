@@ -1,0 +1,20 @@
+{
+  "icon": "minecraft:carrot",
+  "color": "#4a7c23",
+  "order": 2,
+  "gain_multiplier": 1.0,
+  "decay_multiplier": 1.0,
+  "default_value": 0.5,
+  "beneficial": true,
+  "is_negative": false,
+  "ignore_attack": false,
+  "ignore_hunger": false,
+  "ignore_saturation": false,
+  "translation_key": "diet.group.vegetables",
+  "effects": [
+    "0-25:effect(minecraft:nausea,0)",
+    "61-70.99:attribute(minecraft:generic.armor_toughness,0.5)",
+    "71-80.99:attribute(minecraft:generic.armor_toughness,1.0)",
+    "81-100:attribute(minecraft:generic.armor_toughness,1.0),attribute(minecraft:player.block_break_speed,0.1)"
+  ]
+}

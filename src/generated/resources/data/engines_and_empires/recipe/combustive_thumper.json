@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "B": {
+      "item": "minecraft:iron_bars"
+    },
+    "C": {
+      "item": "create:copper_sheet"
+    },
+    "F": {
+      "item": "create:fluid_tank"
+    },
+    "I": {
+      "item": "minecraft:iron_block"
+    },
+    "Q": {
+      "item": "create:copper_casing"
+    }
+  },
+  "pattern": [
+    " F ",
+    "BIB",
+    "CQC"
+  ],
+  "result": {
+    "count": 1,
+    "id": "engines_and_empires:combustive_thumper"
+  }
+}

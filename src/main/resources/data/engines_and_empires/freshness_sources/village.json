@@ -1,0 +1,12 @@
+{
+  "loot_tables": [
+    "minecraft:chests/village/*"
+  ],
+  "traders": [
+    "minecraft:villager"
+  ],
+  "stages": {
+    "fresh": 1,
+    "ripe": 1
+  }
+}

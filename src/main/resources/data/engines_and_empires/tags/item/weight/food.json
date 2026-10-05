@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "#c:foods",
+    "minecraft:wheat",
+    "minecraft:sugar",
+    "minecraft:egg"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "loot_tables": [
+    "minecraft:chests/pillager_outpost",
+    "minecraft:chests/woodland_mansion",
+    "minecraft:chests/bastion_*"
+  ],
+  "stages": {
+    "ripe": 1,
+    "stale": 1
+  }
+}

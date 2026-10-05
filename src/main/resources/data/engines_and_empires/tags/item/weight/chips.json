@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "engines_and_empires:coal_chip",
+    "engines_and_empires:diamond_chip",
+    "engines_and_empires:quartz_chip"
+  ]
+}

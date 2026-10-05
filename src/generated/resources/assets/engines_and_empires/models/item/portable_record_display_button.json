@@ -1,0 +1,68 @@
+{
+  "elements": [
+    {
+      "faces": {
+        "down": {
+          "texture": "#trim",
+          "uv": [
+            12.6,
+            10.0,
+            14.5,
+            10.6
+          ]
+        },
+        "east": {
+          "texture": "#trim",
+          "uv": [
+            10.0,
+            2.3999996,
+            10.6,
+            3.7999992
+          ]
+        },
+        "south": {
+          "texture": "#trim",
+          "uv": [
+            12.6,
+            2.3999996,
+            14.5,
+            3.7999992
+          ]
+        },
+        "up": {
+          "texture": "#trim",
+          "uv": [
+            12.6,
+            10.0,
+            14.5,
+            10.6
+          ]
+        },
+        "west": {
+          "texture": "#trim"
+        }
+      },
+      "from": [
+        -3.4,
+        12.200001,
+        10
+      ],
+      "to": [
+        -1.5,
+        13.6,
+        10.6
+      ]
+    }
+  ],
+  "textures": {
+    "casing": "create:block/railway_casing",
+    "dark": "create:block/industrial_iron_block",
+    "grip": "minecraft:block/dark_oak_planks",
+    "lens_green": "engines_and_empires:item/prd_lens_green",
+    "lens_red": "engines_and_empires:item/prd_lens_red",
+    "lens_yellow": "engines_and_empires:item/prd_lens_yellow",
+    "particle": "create:block/railway_casing",
+    "screen": "engines_and_empires:item/prd_screen",
+    "trim": "create:block/brass_block"
+  }
+}
