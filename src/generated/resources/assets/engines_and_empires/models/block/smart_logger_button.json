@@ -1,0 +1,40 @@
+{
+  "elements": [
+    {
+      "faces": {
+        "down": {
+          "texture": "#bronze"
+        },
+        "east": {
+          "texture": "#bronze"
+        },
+        "north": {
+          "texture": "#bronze"
+        },
+        "south": {
+          "texture": "#bronze"
+        },
+        "up": {
+          "texture": "#bronze"
+        },
+        "west": {
+          "texture": "#bronze"
+        }
+      },
+      "from": [
+        6,
+        0,
+        6.5
+      ],
+      "to": [
+        10,
+        1,
+        9.5
+      ]
+    }
+  ],
+  "textures": {
+    "bronze": "engines_and_empires:block/smart_logger_button",
+    "particle": "engines_and_empires:block/smart_logger_button"
+  }
+}

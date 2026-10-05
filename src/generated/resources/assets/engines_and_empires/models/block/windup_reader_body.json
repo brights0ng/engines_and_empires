@@ -1,0 +1,200 @@
+{
+  "elements": [
+    {
+      "faces": {
+        "down": {
+          "texture": "#body"
+        },
+        "east": {
+          "texture": "#body",
+          "uv": [
+            4.0,
+            5.5,
+            12.0,
+            10.5
+          ]
+        },
+        "north": {
+          "texture": "#body",
+          "uv": [
+            4.0,
+            5.5,
+            12.0,
+            10.5
+          ]
+        },
+        "south": {
+          "texture": "#body",
+          "uv": [
+            4.0,
+            5.5,
+            12.0,
+            10.5
+          ]
+        },
+        "up": {
+          "texture": "#body"
+        },
+        "west": {
+          "texture": "#body",
+          "uv": [
+            4.0,
+            5.5,
+            12.0,
+            10.5
+          ]
+        }
+      },
+      "from": [
+        4,
+        0,
+        4
+      ],
+      "to": [
+        12,
+        5,
+        12
+      ]
+    },
+    {
+      "faces": {
+        "down": {
+          "texture": "#body",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        },
+        "east": {
+          "texture": "#body",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        },
+        "north": {
+          "texture": "#body",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        },
+        "south": {
+          "texture": "#body",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        },
+        "up": {
+          "texture": "#body",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        },
+        "west": {
+          "texture": "#body",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        }
+      },
+      "from": [
+        12,
+        1,
+        7
+      ],
+      "to": [
+        14,
+        3,
+        9
+      ]
+    },
+    {
+      "faces": {
+        "down": {
+          "texture": "#body",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        },
+        "east": {
+          "texture": "#body",
+          "uv": [
+            7.0,
+            5.5,
+            9.0,
+            10.5
+          ]
+        },
+        "north": {
+          "texture": "#body",
+          "uv": [
+            7.0,
+            5.5,
+            9.0,
+            10.5
+          ]
+        },
+        "south": {
+          "texture": "#body",
+          "uv": [
+            7.0,
+            5.5,
+            9.0,
+            10.5
+          ]
+        },
+        "up": {
+          "texture": "#body",
+          "uv": [
+            7.0,
+            7.0,
+            9.0,
+            9.0
+          ]
+        },
+        "west": {
+          "texture": "#body",
+          "uv": [
+            7.0,
+            5.5,
+            9.0,
+            10.5
+          ]
+        }
+      },
+      "from": [
+        13,
+        3,
+        7
+      ],
+      "to": [
+        15,
+        8,
+        9
+      ]
+    }
+  ],
+  "textures": {
+    "body": "engines_and_empires:block/windup_reader",
+    "particle": "engines_and_empires:block/windup_reader"
+  }
+}

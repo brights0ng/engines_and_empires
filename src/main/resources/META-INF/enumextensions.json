@@ -1,0 +1,13 @@
+{
+  "entries": [
+    {
+      "enum": "net/minecraft/client/model/HumanoidModel$ArmPose",
+      "name": "ENGINES_AND_EMPIRES_PRD_RAISED",
+      "constructor": "(ZLnet/neoforged/neoforge/client/IArmPoseTransformer;)V",
+      "parameters": {
+        "class": "dev/brights0ng/enginesandempires/geophone/client/PrdArmPose",
+        "field": "RAISED"
+      }
+    }
+  ]
+}

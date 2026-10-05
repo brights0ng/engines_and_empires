@@ -1,0 +1,18 @@
+{
+  "type": "create:splashing",
+  "ingredients": [
+    {
+      "item": "minecraft:soul_sand"
+    }
+  ],
+  "results": [
+    {
+      "chance": 0.445,
+      "id": "engines_and_empires:quartz_chip"
+    },
+    {
+      "chance": 0.005,
+      "id": "minecraft:gold_nugget"
+    }
+  ]
+}

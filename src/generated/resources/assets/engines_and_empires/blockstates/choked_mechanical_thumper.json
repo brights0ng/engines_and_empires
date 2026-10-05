@@ -1,0 +1,11 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "engines_and_empires:block/choked_mechanical_thumper",
+      "y": 90
+    },
+    "axis=z": {
+      "model": "engines_and_empires:block/choked_mechanical_thumper"
+    }
+  }
+}

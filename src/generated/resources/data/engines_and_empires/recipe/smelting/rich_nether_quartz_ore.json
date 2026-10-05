@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:smelting",
+  "category": "misc",
+  "cookingtime": 200,
+  "experience": 0.2,
+  "ingredient": {
+    "item": "engines_and_empires:rich_nether_quartz_ore"
+  },
+  "result": {
+    "count": 5,
+    "id": "engines_and_empires:quartz_chip"
+  }
+}

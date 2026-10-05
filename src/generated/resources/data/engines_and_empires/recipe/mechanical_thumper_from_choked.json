@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:smelting",
+  "category": "blocks",
+  "cookingtime": 200,
+  "experience": 0.35,
+  "ingredient": {
+    "item": "engines_and_empires:choked_mechanical_thumper"
+  },
+  "result": {
+    "count": 1,
+    "id": "engines_and_empires:mechanical_thumper"
+  }
+}

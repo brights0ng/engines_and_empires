@@ -1,0 +1,18 @@
+{
+  "variants": {
+    "axis=x,part=middle": {
+      "model": "engines_and_empires:block/combustive_thumper_middle",
+      "y": 90
+    },
+    "axis=x,part=top": {
+      "model": "engines_and_empires:block/combustive_thumper_top",
+      "y": 90
+    },
+    "axis=z,part=middle": {
+      "model": "engines_and_empires:block/combustive_thumper_middle"
+    },
+    "axis=z,part=top": {
+      "model": "engines_and_empires:block/combustive_thumper_top"
+    }
+  }
+}

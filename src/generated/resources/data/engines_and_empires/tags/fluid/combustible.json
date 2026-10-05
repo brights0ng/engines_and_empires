@@ -1,0 +1,21 @@
+{
+  "values": [
+    "#engines_and_empires:thumper_fuel",
+    {
+      "id": "#c:crude_oil",
+      "required": false
+    },
+    {
+      "id": "#c:plantoil",
+      "required": false
+    },
+    {
+      "id": "#c:ethanol",
+      "required": false
+    },
+    {
+      "id": "#c:fuel",
+      "required": false
+    }
+  ]
+}

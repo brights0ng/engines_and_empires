@@ -1,0 +1,20 @@
+{
+  "icon": "minecraft:wheat",
+  "color": "#d4a017",
+  "order": 0,
+  "gain_multiplier": 1.0,
+  "decay_multiplier": 1.0,
+  "default_value": 0.5,
+  "beneficial": true,
+  "is_negative": false,
+  "ignore_attack": false,
+  "ignore_hunger": false,
+  "ignore_saturation": false,
+  "translation_key": "diet.group.grains",
+  "effects": [
+    "0-25:effect(minecraft:slowness,0)",
+    "61-70.99:attribute(minecraft:generic.max_health,1.0)",
+    "71-80.99:attribute(minecraft:generic.max_health,2.0)",
+    "81-100:attribute(minecraft:generic.max_health,2.0),attribute(minecraft:generic.attack_damage,0.5)"
+  ]
+}

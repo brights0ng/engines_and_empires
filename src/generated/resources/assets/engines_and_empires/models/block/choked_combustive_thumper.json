@@ -1,0 +1,128 @@
+{
+  "elements": [
+    {
+      "faces": {
+        "down": {
+          "texture": "#copper"
+        },
+        "east": {
+          "texture": "#copper"
+        },
+        "north": {
+          "texture": "#copper"
+        },
+        "south": {
+          "texture": "#copper"
+        },
+        "west": {
+          "texture": "#copper"
+        }
+      },
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        2,
+        13,
+        16
+      ]
+    },
+    {
+      "faces": {
+        "down": {
+          "texture": "#copper"
+        },
+        "east": {
+          "texture": "#copper"
+        },
+        "north": {
+          "texture": "#copper"
+        },
+        "south": {
+          "texture": "#copper"
+        },
+        "west": {
+          "texture": "#copper"
+        }
+      },
+      "from": [
+        14,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        13,
+        16
+      ]
+    },
+    {
+      "faces": {
+        "down": {
+          "texture": "#copper"
+        },
+        "north": {
+          "texture": "#copper"
+        },
+        "south": {
+          "texture": "#copper"
+        }
+      },
+      "from": [
+        2,
+        0,
+        1
+      ],
+      "to": [
+        14,
+        13,
+        15
+      ]
+    },
+    {
+      "faces": {
+        "down": {
+          "texture": "#iron"
+        },
+        "east": {
+          "texture": "#iron"
+        },
+        "north": {
+          "texture": "#iron"
+        },
+        "south": {
+          "texture": "#iron"
+        },
+        "up": {
+          "texture": "#iron_top"
+        },
+        "west": {
+          "texture": "#iron"
+        }
+      },
+      "from": [
+        0,
+        13,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ]
+    }
+  ],
+  "textures": {
+    "axis": "create:block/axis",
+    "axis_top": "create:block/axis_top",
+    "copper": "minecraft:block/sculk",
+    "gauge": "engines_and_empires:block/combustive_thumper_gauge",
+    "iron": "create:block/industrial_iron_block",
+    "iron_top": "create:block/industrial_iron_block_top",
+    "lamp": "engines_and_empires:block/mechanical_thumper_lamp",
+    "particle": "minecraft:block/sculk",
+    "pole": "create:block/mechanical_press_pole"
+  }
+}

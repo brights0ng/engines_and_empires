@@ -1,0 +1,124 @@
+{
+  "elements": [
+    {
+      "faces": {
+        "down": {
+          "texture": "#iron_top"
+        },
+        "east": {
+          "texture": "#iron",
+          "uv": [
+            3.0,
+            8.0,
+            13.0,
+            16.0
+          ]
+        },
+        "north": {
+          "texture": "#iron",
+          "uv": [
+            3.0,
+            8.0,
+            13.0,
+            16.0
+          ]
+        },
+        "south": {
+          "texture": "#iron",
+          "uv": [
+            3.0,
+            8.0,
+            13.0,
+            16.0
+          ]
+        },
+        "up": {
+          "texture": "#iron"
+        },
+        "west": {
+          "texture": "#iron",
+          "uv": [
+            3.0,
+            8.0,
+            13.0,
+            16.0
+          ]
+        }
+      },
+      "from": [
+        3,
+        16,
+        3
+      ],
+      "to": [
+        13,
+        24,
+        13
+      ]
+    },
+    {
+      "faces": {
+        "east": {
+          "texture": "#copper",
+          "uv": [
+            5.0,
+            6.0,
+            11.0,
+            8.0
+          ]
+        },
+        "north": {
+          "texture": "#copper",
+          "uv": [
+            5.0,
+            6.0,
+            11.0,
+            8.0
+          ]
+        },
+        "south": {
+          "texture": "#copper",
+          "uv": [
+            5.0,
+            6.0,
+            11.0,
+            8.0
+          ]
+        },
+        "up": {
+          "texture": "#copper"
+        },
+        "west": {
+          "texture": "#copper",
+          "uv": [
+            5.0,
+            6.0,
+            11.0,
+            8.0
+          ]
+        }
+      },
+      "from": [
+        5,
+        24,
+        5
+      ],
+      "to": [
+        11,
+        26,
+        11
+      ]
+    }
+  ],
+  "textures": {
+    "axis": "create:block/axis",
+    "axis_top": "create:block/axis_top",
+    "copper": "create:block/copper_casing",
+    "gauge": "engines_and_empires:block/combustive_thumper_gauge",
+    "iron": "create:block/industrial_iron_block",
+    "iron_top": "create:block/industrial_iron_block_top",
+    "lamp": "engines_and_empires:block/mechanical_thumper_lamp",
+    "particle": "create:block/copper_casing",
+    "pole": "create:block/mechanical_press_pole"
+  }
+}

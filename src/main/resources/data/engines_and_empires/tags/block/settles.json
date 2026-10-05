@@ -1,0 +1,24 @@
+{
+  "values": [
+    "#minecraft:beds",
+    "minecraft:lantern",
+    "minecraft:soul_lantern",
+    "minecraft:hay_block",
+    "minecraft:crafting_table",
+    "minecraft:furnace",
+    "minecraft:blast_furnace",
+    "minecraft:smoker",
+    "minecraft:cartography_table",
+    "minecraft:fletching_table",
+    "minecraft:smithing_table",
+    "minecraft:loom",
+    "minecraft:stonecutter",
+    "minecraft:grindstone",
+    "minecraft:composter",
+    "minecraft:barrel",
+    "minecraft:brewing_stand",
+    "minecraft:lectern",
+    "#minecraft:cauldrons",
+    "#minecraft:anvil"
+  ]
+}

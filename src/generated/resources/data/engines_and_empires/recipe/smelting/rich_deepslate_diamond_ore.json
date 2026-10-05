@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:smelting",
+  "category": "misc",
+  "cookingtime": 200,
+  "experience": 1.0,
+  "ingredient": {
+    "item": "engines_and_empires:rich_deepslate_diamond_ore"
+  },
+  "result": {
+    "count": 5,
+    "id": "engines_and_empires:diamond_chip"
+  }
+}

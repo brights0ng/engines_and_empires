@@ -1,0 +1,30 @@
+# Encumbered server settings for Engines and Empires. Copy into the pack's defaultconfigs/ folder: new worlds then
+# start with these in serverconfig/. Weights are in kpg (Create Aeronautics' mass unit), set by the core mod.
+
+[encumberance]
+	# Threshold 1 (Encumbered): cannot sprint
+	threshold1 = 100.0
+	# Threshold 2 (Overencumbered): cannot sprint, jump or swim, movement speed is decreased, sinks in water
+	threshold2 = 200.0
+
+[debufs]
+	disablesinkingdebuf = false
+	disablesprintingdebuf = false
+
+[multipliers]
+	# Jump strength when overencumbered (0 = no jumping)
+	jumpstrength = 0.0
+	# Movement speed when overencumbered (vanilla is 0.1, so this is a quarter)
+	movementspeed = 0.025
+
+[thresholds]
+	# 0 = never blocked, 1 = can't mount at threshold 1, 2 = can't mount at threshold 2
+	horsethreshold = 2
+	donkeythreshold = 2
+	mulethreshold = 2
+	camelthreshold = 2
+	boatthreshold = 2
+	pigthreshold = 2
+	striderthreshold = 2
+	minecartthreshold = 0
+	elytrathreshold = 1

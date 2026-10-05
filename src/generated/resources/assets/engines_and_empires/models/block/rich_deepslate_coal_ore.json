@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "engines_and_empires:block/rich_deepslate_coal_ore"
+  }
+}

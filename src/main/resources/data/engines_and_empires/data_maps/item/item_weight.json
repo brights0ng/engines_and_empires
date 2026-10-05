@@ -1,0 +1,22 @@
+{
+  "values": {
+    "#engines_and_empires:weight/metals_and_minerals": {
+      "weight": 0.5
+    },
+    "#engines_and_empires:weight/nuggets": {
+      "weight": 0.05
+    },
+    "#engines_and_empires:weight/chips": {
+      "weight": 0.1
+    },
+    "#engines_and_empires:weight/food": {
+      "weight": 0.1
+    },
+    "#engines_and_empires:weight/seeds_and_plants": {
+      "weight": 0.05
+    },
+    "#engines_and_empires:weight/small_materials": {
+      "weight": 0.05
+    }
+  }
+}

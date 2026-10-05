@@ -1,0 +1,6 @@
+{
+  "values": [
+    { "id": "deeperdarker:sculk_snapper", "required": false },
+    { "id": "deeperdarker:sculk_centipede", "required": false }
+  ]
+}

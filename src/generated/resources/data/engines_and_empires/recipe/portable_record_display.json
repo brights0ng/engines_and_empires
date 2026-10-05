@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "B": {
+      "item": "create:brass_ingot"
+    },
+    "C": {
+      "item": "minecraft:compass"
+    },
+    "G": {
+      "item": "minecraft:glass_pane"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    }
+  },
+  "pattern": [
+    " G ",
+    "BCB",
+    " R "
+  ],
+  "result": {
+    "count": 1,
+    "id": "engines_and_empires:portable_record_display"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "engines_and_empires:smart_logger"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    },
+    "has_windup_reader": {
+      "conditions": {
+        "items": [
+          {
+            "items": "engines_and_empires:windup_reader"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_windup_reader"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "engines_and_empires:smart_logger"
+    ]
+  }
+}

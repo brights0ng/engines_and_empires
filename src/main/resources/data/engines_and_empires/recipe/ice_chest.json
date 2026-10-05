@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "PPP",
+    "IWI",
+    "IBI"
+  ],
+  "key": {
+    "P": { "tag": "c:plates/iron" },
+    "I": { "tag": "c:ingots/iron" },
+    "W": { "tag": "minecraft:wool" },
+    "B": { "item": "minecraft:barrel" }
+  },
+  "result": {
+    "id": "engines_and_empires:ice_chest",
+    "count": 1
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "packs": 0,
+  "fixed": [
+    {"entity": "deeperdarker:shattered", "min": 5, "max": 7},
+    {"entity": "deeperdarker:shriek_worm", "min": 2, "max": 4},
+    {"entity": "minecraft:warden", "min": 1, "max": 2},
+    {"entity": "deeperdarker:stalker", "count": 1}
+  ]
+}

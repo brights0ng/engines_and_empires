@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "A": {
+      "item": "create:andesite_alloy"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "pattern": [
+    "IAI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "engines_and_empires:strike_plate"
+  }
+}

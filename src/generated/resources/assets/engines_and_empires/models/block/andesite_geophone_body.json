@@ -1,0 +1,177 @@
+{
+  "elements": [
+    {
+      "faces": {
+        "down": {
+          "texture": "#rod"
+        },
+        "east": {
+          "texture": "#rod",
+          "uv": [
+            7.0,
+            4.0,
+            9.0,
+            12.0
+          ]
+        },
+        "north": {
+          "texture": "#rod",
+          "uv": [
+            7.0,
+            4.0,
+            9.0,
+            12.0
+          ]
+        },
+        "south": {
+          "texture": "#rod",
+          "uv": [
+            7.0,
+            4.0,
+            9.0,
+            12.0
+          ]
+        },
+        "up": {
+          "texture": "#rod"
+        },
+        "west": {
+          "texture": "#rod",
+          "uv": [
+            7.0,
+            4.0,
+            9.0,
+            12.0
+          ]
+        }
+      },
+      "from": [
+        7,
+        -8,
+        7
+      ],
+      "to": [
+        9,
+        0,
+        9
+      ]
+    },
+    {
+      "faces": {
+        "down": {
+          "texture": "#guard"
+        },
+        "east": {
+          "texture": "#guard",
+          "uv": [
+            5.0,
+            7.5,
+            11.0,
+            8.5
+          ]
+        },
+        "north": {
+          "texture": "#guard",
+          "uv": [
+            5.0,
+            7.5,
+            11.0,
+            8.5
+          ]
+        },
+        "south": {
+          "texture": "#guard",
+          "uv": [
+            5.0,
+            7.5,
+            11.0,
+            8.5
+          ]
+        },
+        "up": {
+          "texture": "#guard"
+        },
+        "west": {
+          "texture": "#guard",
+          "uv": [
+            5.0,
+            7.5,
+            11.0,
+            8.5
+          ]
+        }
+      },
+      "from": [
+        5,
+        0,
+        5
+      ],
+      "to": [
+        11,
+        1,
+        11
+      ]
+    },
+    {
+      "faces": {
+        "down": {
+          "texture": "#rod"
+        },
+        "east": {
+          "texture": "#rod",
+          "uv": [
+            7.0,
+            4.5,
+            9.0,
+            11.5
+          ]
+        },
+        "north": {
+          "texture": "#rod",
+          "uv": [
+            7.0,
+            4.5,
+            9.0,
+            11.5
+          ]
+        },
+        "south": {
+          "texture": "#rod",
+          "uv": [
+            7.0,
+            4.5,
+            9.0,
+            11.5
+          ]
+        },
+        "up": {
+          "texture": "#rod"
+        },
+        "west": {
+          "texture": "#rod",
+          "uv": [
+            7.0,
+            4.5,
+            9.0,
+            11.5
+          ]
+        }
+      },
+      "from": [
+        7,
+        1,
+        7
+      ],
+      "to": [
+        9,
+        8,
+        9
+      ]
+    }
+  ],
+  "textures": {
+    "guard": "engines_and_empires:block/andesite_geophone_guard",
+    "particle": "engines_and_empires:block/andesite_geophone",
+    "rod": "engines_and_empires:block/andesite_geophone"
+  }
+}

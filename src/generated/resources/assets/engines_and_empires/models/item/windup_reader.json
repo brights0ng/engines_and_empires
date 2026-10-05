@@ -1,0 +1,1027 @@
+{
+  "parent": "minecraft:item/generated",
+  "overrides": [
+    {
+      "model": "engines_and_empires:item/windup_reader_0",
+      "predicate": {
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_1",
+      "predicate": {
+        "engines_and_empires:angle": 0.015625,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_2",
+      "predicate": {
+        "engines_and_empires:angle": 0.046875,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_3",
+      "predicate": {
+        "engines_and_empires:angle": 0.078125,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_4",
+      "predicate": {
+        "engines_and_empires:angle": 0.109375,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_5",
+      "predicate": {
+        "engines_and_empires:angle": 0.140625,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_6",
+      "predicate": {
+        "engines_and_empires:angle": 0.171875,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_7",
+      "predicate": {
+        "engines_and_empires:angle": 0.203125,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_8",
+      "predicate": {
+        "engines_and_empires:angle": 0.234375,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_9",
+      "predicate": {
+        "engines_and_empires:angle": 0.265625,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_10",
+      "predicate": {
+        "engines_and_empires:angle": 0.296875,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_11",
+      "predicate": {
+        "engines_and_empires:angle": 0.328125,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_12",
+      "predicate": {
+        "engines_and_empires:angle": 0.359375,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_13",
+      "predicate": {
+        "engines_and_empires:angle": 0.390625,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_14",
+      "predicate": {
+        "engines_and_empires:angle": 0.421875,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_15",
+      "predicate": {
+        "engines_and_empires:angle": 0.453125,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_16",
+      "predicate": {
+        "engines_and_empires:angle": 0.484375,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_17",
+      "predicate": {
+        "engines_and_empires:angle": 0.515625,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_18",
+      "predicate": {
+        "engines_and_empires:angle": 0.546875,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_19",
+      "predicate": {
+        "engines_and_empires:angle": 0.578125,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_20",
+      "predicate": {
+        "engines_and_empires:angle": 0.609375,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_21",
+      "predicate": {
+        "engines_and_empires:angle": 0.640625,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_22",
+      "predicate": {
+        "engines_and_empires:angle": 0.671875,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_23",
+      "predicate": {
+        "engines_and_empires:angle": 0.703125,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_24",
+      "predicate": {
+        "engines_and_empires:angle": 0.734375,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_25",
+      "predicate": {
+        "engines_and_empires:angle": 0.765625,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_26",
+      "predicate": {
+        "engines_and_empires:angle": 0.796875,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_27",
+      "predicate": {
+        "engines_and_empires:angle": 0.828125,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_28",
+      "predicate": {
+        "engines_and_empires:angle": 0.859375,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_29",
+      "predicate": {
+        "engines_and_empires:angle": 0.890625,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_30",
+      "predicate": {
+        "engines_and_empires:angle": 0.921875,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_31",
+      "predicate": {
+        "engines_and_empires:angle": 0.953125,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_0",
+      "predicate": {
+        "engines_and_empires:angle": 0.984375,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_0_up",
+      "predicate": {
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_1_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.015625,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_2_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.046875,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_3_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.078125,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_4_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.109375,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_5_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.140625,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_6_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.171875,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_7_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.203125,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_8_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.234375,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_9_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.265625,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_10_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.296875,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_11_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.328125,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_12_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.359375,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_13_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.390625,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_14_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.421875,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_15_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.453125,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_16_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.484375,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_17_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.515625,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_18_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.546875,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_19_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.578125,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_20_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.609375,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_21_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.640625,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_22_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.671875,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_23_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.703125,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_24_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.734375,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_25_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.765625,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_26_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.796875,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_27_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.828125,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_28_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.859375,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_29_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.890625,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_30_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.921875,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_31_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.953125,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_0_up",
+      "predicate": {
+        "engines_and_empires:angle": 0.984375,
+        "engines_and_empires:height": 0.25,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_0_level",
+      "predicate": {
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_1_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.015625,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_2_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.046875,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_3_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.078125,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_4_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.109375,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_5_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.140625,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_6_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.171875,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_7_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.203125,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_8_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.234375,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_9_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.265625,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_10_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.296875,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_11_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.328125,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_12_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.359375,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_13_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.390625,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_14_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.421875,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_15_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.453125,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_16_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.484375,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_17_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.515625,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_18_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.546875,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_19_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.578125,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_20_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.609375,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_21_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.640625,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_22_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.671875,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_23_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.703125,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_24_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.734375,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_25_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.765625,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_26_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.796875,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_27_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.828125,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_28_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.859375,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_29_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.890625,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_30_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.921875,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_31_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.953125,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_0_level",
+      "predicate": {
+        "engines_and_empires:angle": 0.984375,
+        "engines_and_empires:height": 0.5,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_0_down",
+      "predicate": {
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_1_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.015625,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_2_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.046875,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_3_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.078125,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_4_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.109375,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_5_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.140625,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_6_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.171875,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_7_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.203125,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_8_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.234375,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_9_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.265625,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_10_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.296875,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_11_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.328125,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_12_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.359375,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_13_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.390625,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_14_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.421875,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_15_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.453125,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_16_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.484375,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_17_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.515625,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_18_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.546875,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_19_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.578125,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_20_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.609375,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_21_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.640625,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_22_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.671875,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_23_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.703125,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_24_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.734375,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_25_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.765625,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_26_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.796875,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_27_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.828125,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_28_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.859375,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_29_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.890625,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_30_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.921875,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_31_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.953125,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    },
+    {
+      "model": "engines_and_empires:item/windup_reader_0_down",
+      "predicate": {
+        "engines_and_empires:angle": 0.984375,
+        "engines_and_empires:height": 0.75,
+        "engines_and_empires:reading": 1.0
+      }
+    }
+  ],
+  "textures": {
+    "layer0": "engines_and_empires:item/windup_reader_idle"
+  }
+}

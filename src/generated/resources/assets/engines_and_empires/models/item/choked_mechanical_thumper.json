@@ -1,0 +1,24 @@
+{
+  "parent": "engines_and_empires:block/choked_mechanical_thumper",
+  "display": {
+    "fixed": {
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "gui": {
+      "rotation": [
+        30,
+        225,
+        0
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "packs": 0,
+  "fixed": [
+    {"entity": "deeperdarker:sculk_leech", "min": 2, "max": 4},
+    {"entity": "deeperdarker:sculk_centipede", "min": 2, "max": 4},
+    {"entity": "deeperdarker:shattered", "min": 2, "max": 4},
+    {"entity": "deeperdarker:sculk_snapper", "count": 1}
+  ]
+}

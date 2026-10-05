@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:blasting",
+  "category": "misc",
+  "cookingtime": 100,
+  "experience": 1.0,
+  "ingredient": {
+    "item": "engines_and_empires:rich_zinc_ore"
+  },
+  "result": {
+    "count": 10,
+    "id": "create:zinc_nugget"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "B": {
+      "item": "create:brass_casing"
+    },
+    "C": {
+      "item": "create:cogwheel"
+    },
+    "G": {
+      "item": "minecraft:glass_pane"
+    },
+    "R": {
+      "item": "engines_and_empires:windup_reader"
+    }
+  },
+  "pattern": [
+    "GGG",
+    "BRB",
+    "CBC"
+  ],
+  "result": {
+    "count": 1,
+    "id": "engines_and_empires:smart_logger"
+  }
+}
