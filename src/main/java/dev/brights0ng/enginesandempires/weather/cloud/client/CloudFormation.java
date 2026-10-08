@@ -4,74 +4,56 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
-import dev.brights0ng.enginesandempires.weather.cloud.CloudScale;
-
 /**
- * One Project Atmosphere region: its clusters, which PA spawns together and moves as a rigid group. The renderer
- * voxelizes a formation into one shared grid, so overlapping clusters merge into one shape with aligned voxels.
+ * One cloud formation: its domes, which the simulation spawns together and moves as a rigid group. The renderer
+ * voxelizes a formation into one shared grid, so overlapping domes merge into one shape with aligned voxels.
  *
- * @param regionId PA's region id
- * @param members  the region's clusters, sorted by id
+ * @param regionId the formation's id
+ * @param members  its domes, sorted by id
  * @param anchor   the member the grid is laid out from (the lowest id, so it stays the same between updates)
+ * @param time     the game time the members' offsets from the anchor are taken at: a merged layer sheet holds the
+ *                 domes of several simulation clouds, each moving at its own velocity (2026-10-07)
  */
-public record CloudFormation(UUID regionId, List<CloudShape> members, CloudShape anchor) {
+public record CloudFormation(UUID regionId, List<CloudShape> members, CloudShape anchor, double time) {
 
+    /** One simulation cloud's domes (they move together, so the offsets are the same at any time). */
     public static CloudFormation of(UUID regionId, List<CloudShape> clusters) {
         List<CloudShape> sorted = clusters.stream().sorted(Comparator.comparing(CloudShape::id)).toList();
-        return new CloudFormation(regionId, sorted, sorted.getFirst());
+        return new CloudFormation(regionId, sorted, sorted.getFirst(), sorted.getFirst().simulationTick());
     }
 
-    /**
-     * Roughly how far the formation reaches from its anchor's centre, horizontally (blocks), anvil included, at the
-     * real widths it is drawn with ({@code CloudScale.horizontal}).
-     */
+    /** Domes from any clouds, with their offsets taken at game time {@code time}. */
+    public static CloudFormation of(UUID regionId, List<CloudShape> clusters, double time) {
+        List<CloudShape> sorted = clusters.stream().sorted(Comparator.comparing(CloudShape::id)).toList();
+        return new CloudFormation(regionId, sorted, sorted.getFirst(), time);
+    }
+
+    /** Roughly how far the formation reaches from its anchor's centre, horizontally (blocks), anvil included. */
     public double reach() {
         double reach = 0;
         for (CloudShape m : members) {
             double dx = offsetX(m);
             double dz = offsetZ(m);
-            double r = m.radius() * spread(m);
-            reach = Math.max(reach, Math.sqrt(dx * dx + dz * dz) + r * (1.3 + 2.1 * m.anvilStrength()));
+            reach = Math.max(reach, Math.sqrt(dx * dx + dz * dz) + m.radius() * (1.3 + 2.1 * m.anvilStrength()));
         }
         return reach;
     }
 
-    /** How much wider than PA's radius cluster {@code c} is drawn. */
-    public static double spread(CloudShape c) {
-        return Double.isFinite(c.spread()) ? c.spread() : CloudScale.horizontal(c.typeId());
-    }
-
-    /**
-     * Where member {@code m} is drawn relative to where the anchor is drawn, x (blocks). With layouts (in game): each
-     * cluster's own drawn offset, so regrouping doesn't move it; without (shapes built by hand):
-     * its offset from the anchor stretched by the anchor type's width.
-     */
+    /** Where member {@code m} is relative to the anchor, x (blocks). */
     public double offsetX(CloudShape m) {
-        if (m.laidOut() && anchor.laidOut()) {
-            return (m.cx() + m.dispX()) - (anchor.cx() + anchor.dispX());
-        }
-        return (m.cx() - anchor.cx()) * CloudScale.horizontal(anchor.typeId());
+        return m.xAt(time) - anchor.xAt(time);
     }
 
     public double offsetZ(CloudShape m) {
-        if (m.laidOut() && anchor.laidOut()) {
-            return (m.cz() + m.dispZ()) - (anchor.cz() + anchor.dispZ());
+        return m.zAt(time) - anchor.zAt(time);
+    }
+
+    /** The darkest member's storm darkness, for outlines and info. */
+    public float darkness() {
+        float d = 0;
+        for (CloudShape m : members) {
+            d = Math.max(d, m.stormDarkness());
         }
-        return (m.cz() - anchor.cz()) * CloudScale.horizontal(anchor.typeId());
-    }
-
-    /** How far the anchor is drawn from PA's centre for it, x (0 without a layout). */
-    public double originX() {
-        return anchor.laidOut() ? anchor.dispX() : 0;
-    }
-
-    public double originZ() {
-        return anchor.laidOut() ? anchor.dispZ() : 0;
-    }
-
-    /** The darkest storm tier among the members, for outlines and info. */
-    public String stormTier() {
-        CloudShape darkest = members.stream().max(Comparator.comparingDouble(CloudShape::stormDarkness)).orElse(anchor);
-        return darkest.stormTier();
+        return d;
     }
 }

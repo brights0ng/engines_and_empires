@@ -182,5 +182,8 @@
   "gui.engines_and_empires.ice_chest.slowdown": "Food inside spoils %s%% slower",
   "gui.engines_and_empires.ice_chest.needs_food": "Ice only melts while there is food inside",
   "force_group.engines_and_empires.wind": "Wind",
-  "force_group.engines_and_empires.wind.description": "The weather's wind pushing on this contraption's silhouette"
+  "force_group.engines_and_empires.wind.description": "The weather's wind pushing on this contraption's silhouette",
+  "block.engines_and_empires.glaze": "Glaze",
+  "death.attack.engines_and_empires.hail": "%1$s was battered to death by hail",
+  "death.attack.engines_and_empires.hail.player": "%1$s was battered to death by hail while fighting %2$s"
 }

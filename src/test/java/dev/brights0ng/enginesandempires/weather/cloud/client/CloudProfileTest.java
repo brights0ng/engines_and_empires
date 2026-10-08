@@ -5,19 +5,19 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
-/** Times each step of a supercell build (sampling, filling, meshing), printed to the test output. */
+/** Times each step of a cumulonimbus build (sampling, filling, meshing), printed to the test output. */
 class CloudProfileTest {
 
     private static final UUID REGION = UUID.randomUUID();
 
     private static CloudShape c(int id, double x, double z, float r, float base, float top, float tower, int seed) {
-        return new CloudShape(new UUID(0, id), REGION, "minecraft:overworld", x, (base + top) / 2, z, 0.3, 0, 0, 0,
-                r, base, top, 0.8f, 0.88f, 0.5f, 1, 0, 1, 1, "cumulonimbus", tower, 0.8f, 1, 0.4f, "SEVERE_CORE",
-                0.82f, 0.8f, 0.6f, seed);
+        return new CloudShape(new UUID(0, id), REGION, "minecraft:overworld", x, z, 0.3, 0, 0,
+                r, base, top, 0.8f, 0.88f, 0.5f, 1, 0, 0, "cumulonimbus_capillatus", tower, 0.8f, 0.4f, 0.82f, 0.8f, 0.6f,
+                seed);
     }
 
     @Test
-    void profileSupercell() {
+    void profileCumulonimbus() {
         CloudFormation f = CloudFormation.of(REGION, List.of(
                 c(1, 0, 0, 260, 180, 520, 0.9f, 101),
                 c(2, -220, 120, 180, 185, 380, 0.4f, 102),

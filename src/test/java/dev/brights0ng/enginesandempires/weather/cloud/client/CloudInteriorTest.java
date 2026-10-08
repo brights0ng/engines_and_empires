@@ -21,21 +21,20 @@ class CloudInteriorTest {
 
     private static CloudShape cloud(UUID id, double x, double z, float radius, float base, float top, float coverage,
                                     float tower, float anvil, int seed, String type) {
-        return new CloudShape(id, REGION, "minecraft:overworld", x, (base + top) / 2, z, 0.3, 0, 0, 0,
-                radius, base, top, 0.8f, coverage, 0.5f, 1, 0, 1, 1, type, tower, anvil, 1, 0.4f,
-                "CLOUDY", 0.18f, 0, 0, seed);
+        return new CloudShape(id, REGION, "minecraft:overworld", x, z, 0.3, 0, 0,
+                radius, base, top, 0.8f, coverage, 0.5f, 1, 0, 0, type, tower, anvil, 0.4f, 0.18f, 0, 0, seed);
     }
 
     private static CloudFormation cumulus() {
-        return CloudFormation.of(REGION, List.of(cloud(new UUID(0, 1), 0, 0, 90, 120, 200, 1, 0.3f, 0, 7,
-                "projectatmosphere:cumulus_mediocris")));
+        return CloudFormation.of(REGION, List.of(cloud(new UUID(0, 1), 0, 0, 225, 120, 200, 1, 0.3f, 0, 7,
+                "cumulus_mediocris")));
     }
 
     private static CloudFormation storm() {
         return CloudFormation.of(REGION, List.of(
-                cloud(new UUID(0, 1), 0, 0, 260, 180, 520, 0.9f, 0.9f, 0.8f, 101, "projectatmosphere:cumulonimbus_calvus"),
-                cloud(new UUID(0, 2), -220, 120, 180, 185, 380, 0.85f, 0.4f, 0.8f, 102,
-                        "projectatmosphere:cumulus_congestus")));
+                cloud(new UUID(0, 1), 0, 0, 800, 180, 520, 0.9f, 0.9f, 0.8f, 101, "cumulonimbus_calvus"),
+                cloud(new UUID(0, 2), -660, 360, 540, 185, 380, 0.85f, 0.4f, 0.8f, 102,
+                        "cumulus_congestus")));
     }
 
     @Test
@@ -104,11 +103,12 @@ class CloudInteriorTest {
 
     @Test
     void visibilityFollowsTypeAndLifecycle() {
-        assertEquals(FogTuning.stormCloudVisibility, FogTuning.cloudVisibility("projectatmosphere:supercell"));
-        assertEquals(FogTuning.stormCloudVisibility, FogTuning.cloudVisibility("projectatmosphere:nimbostratus"));
-        assertEquals(FogTuning.congestusVisibility, FogTuning.cloudVisibility("projectatmosphere:stratus_nebulosus"));
-        assertEquals(FogTuning.fairCloudVisibility, FogTuning.cloudVisibility("projectatmosphere:cumulus_humilis"));
-        assertEquals(0, FogTuning.cloudVisibility("projectatmosphere:cirrus", 0));
+        assertEquals(FogTuning.stormCloudVisibility, FogTuning.cloudVisibility("cumulonimbus_capillatus"));
+        assertEquals(FogTuning.stormCloudVisibility, FogTuning.cloudVisibility("engines_and_empires:nimbostratus"));
+        assertEquals(FogTuning.congestusVisibility, FogTuning.cloudVisibility("stratus"));
+        assertEquals(FogTuning.fairCloudVisibility, FogTuning.cloudVisibility("cumulus_humilis"));
+        assertEquals(0, FogTuning.cloudVisibility("cirrus", 0));
+        assertEquals(0, FogTuning.cloudVisibility("cirrostratus", 0));
         // Fully formed: the type's; barely there: the wisp's.
         assertEquals(FogTuning.stormCloudVisibility, FogTuning.cloudVisibility("cumulonimbus_calvus", 0), 1e-9);
         assertEquals(FogTuning.wispVisibility, FogTuning.cloudVisibility("cumulonimbus_calvus", 1), 1e-9);

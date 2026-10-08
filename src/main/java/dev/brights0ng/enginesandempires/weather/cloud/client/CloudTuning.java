@@ -25,6 +25,8 @@ public final class CloudTuning {
     public static volatile double noiseScale = 1.0;
     /** Strength of the churning features. */
     public static volatile double noiseStrength = 1.0;
+    /** How smoothly a cumulus's bubbles blend into each other (1 = the first bubble model; higher fills creases). */
+    public static volatile double bubbleSmoothing = 1.6;
 
     // ---- shading (see CloudVoxelizer#brightness)
     /** Multiplier on every cloud type's water content: higher makes thick clouds darker. */
@@ -33,29 +35,27 @@ public final class CloudTuning {
     public static volatile double baseLight = 0.22;
     /** How quickly clouds darken with depth: lower keeps more of the grey for the very thickest clouds. */
     public static volatile double shadeContrast = 0.35;
+    /** Cumulus: how bright the side away from the sun is, as a share of the sunlit side. */
+    public static volatile double shadowSide = 0.65;
+    /** Cumulus: how strongly creases between bubbles darken. */
+    public static volatile double creases = 0.35;
+    /** Cumulus: how strongly thin edges glow when you look toward the sun (the silver lining). */
+    public static volatile double silverLining = 0.9;
+    /** How strongly clouds shade the clouds below them (0 = not at all, 1 = realistic). */
+    public static volatile double cloudShadows = 1.0;
 
-    // ---- supercell elements (multipliers on top of the design defaults in Supercell.Look)
-    /** How much supercells differ from each other: 1 as designed, 0 all the same, 2 twice as varied. */
-    public static volatile double variety = 1.0;
-    public static volatile double updraftWidth = 1.0;
-    public static volatile double updraftLean = 1.0;
-    public static volatile double updraftBaseFlare = 1.0;
-    public static volatile double updraftWaist = 1.0;
-    public static volatile double updraftBulges = 1.0;
-    public static volatile double overshootHeight = 1.0;
-    public static volatile double anvilLength = 1.0;
-    public static volatile double anvilWidth = 1.0;
-    public static volatile double anvilThickness = 1.0;
-    public static volatile double backshearReach = 1.0;
-    public static volatile double forwardFlankLength = 1.0;
-    public static volatile double forwardFlankWidth = 1.0;
-    public static volatile double shelfReach = 1.0;
-    public static volatile double shelfWidth = 1.0;
-    public static volatile double shelfHeight = 1.0;
-    public static volatile double flankingLineLength = 1.0;
-    public static volatile double flankingTowerHeight = 1.0;
-    public static volatile double wallCloudSize = 1.0;
-    public static volatile double mammatusSize = 1.0;
+    // ---- wisps (CloudWisps)
+    public static volatile boolean wisps = true;
+    /** How far away (blocks, to the cloud's edge) cumulus get wisps. */
+    public static volatile double wispDistance = 300;
+    /** Multiplier on how many wisps a cloud has. */
+    public static volatile double wispDensity = 1.0;
+    /** Multiplier on the wisps' opacity. */
+    public static volatile double wispOpacity = 1.0;
+
+    // ---- veils (CloudVeilRenderer: cirrostratus and cirrus)
+    /** Multiplier on the see-through high clouds' opacity (0 hides them). */
+    public static volatile double veilOpacity = 1.0;
 
     /** Bumped whenever any value changes, so every storm is rebuilt with the new ones. */
     public static volatile int version;

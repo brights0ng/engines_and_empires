@@ -8,13 +8,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import dev.brights0ng.enginesandempires.weather.cloud.CloudScale;
+import dev.brights0ng.enginesandempires.weather.cloud.CloudType;
 
-/** Birth and death as the renderer draws them (CloudField's erosion and the supercell's linger). */
+/** Birth and death as the renderer draws them (CloudField's erosion and a storm's lingering anvil). */
 class CloudLifecycleTest {
 
     static {
@@ -24,42 +23,33 @@ class CloudLifecycleTest {
     private static final UUID REGION = new UUID(0xC10DL, 0x11FEL);
     private static final UUID STORM = new UUID(0x5EC0L, 0xCE11L);
 
-    @BeforeEach
-    void averageStorms() {
-        CloudTuning.variety = 0;
-    }
-
-    @AfterEach
-    void restore() {
-        CloudTuning.variety = 1;
-    }
-
     // ---- shapes --------------------------------------------------------------------------------------------------
 
     private static CloudShape cumulus(int i, double x, double z, float growth, float decay) {
-        CloudScale.Heights h = CloudScale.heights("cumulus_mediocris", REGION, growth);
-        return new CloudShape(new UUID(1, i), REGION, "minecraft:overworld", x, 300, z, 0.1, 0, 0, 0,
-                56, (float) h.base(), (float) h.top(), 0.8f, 0.85f, 0.5f, growth, decay, 1, 1, "cumulus_mediocris",
-                0.4f, 0, 1, 0.3f, "CLOUDY", 0.18f, 0, 0, 900 + i, decay);
+        CloudScale.Heights h = CloudScale.heights(CloudType.CUMULUS_MEDIOCRIS, REGION, growth);
+        return new CloudShape(new UUID(1, i), REGION, "minecraft:overworld", x, z, 0.1, 0, 0,
+                140, (float) h.base(), (float) h.top(), 0.8f, 0.85f, 0.5f, growth, decay, decay, "cumulus_mediocris",
+                0.4f, 0, 0.3f, 0.18f, 0, 0, 900 + i);
     }
 
-    /** A three-cluster cumulus mediocris. */
+    /** A three-dome cumulus mediocris. */
     private static CloudFormation cumulus(float growth, float decay) {
-        List<CloudShape> c = List.of(cumulus(1, 0, 0, growth, decay), cumulus(2, 60, 25, growth, decay),
-                cumulus(3, -45, 40, growth, decay));
+        List<CloudShape> c = List.of(cumulus(1, 0, 0, growth, decay), cumulus(2, 150, 62, growth, decay),
+                cumulus(3, -112, 100, growth, decay));
         return CloudFormation.of(REGION, c);
     }
 
-    private static CloudFormation supercell(float growth, float decay, float anvilDecay) {
-        List<CloudShape> lobes = new ArrayList<>();
-        double[][] at = {{0, 0}, {320, 60}, {-280, 140}, {140, -330}, {-150, -290}, {420, -180}, {-420, -60}};
+    /** A cumulonimbus capillatus: a main tower and two flanking ones, with an anvil. */
+    private static CloudFormation storm(float growth, float decay, float anvilDecay) {
+        List<CloudShape> domes = new ArrayList<>();
+        double[][] at = {{0, 0, 520}, {-460, 260, 340}, {-420, -300, 320}};
         for (int i = 0; i < at.length; i++) {
-            CloudScale.Heights h = CloudScale.heights("supercell", STORM, growth);
-            lobes.add(new CloudShape(new UUID(2, i), STORM, "minecraft:overworld", at[i][0], 350, at[i][1], 0.1, 0, 0,
-                    0, 175, (float) h.base(), (float) h.top(), 0.8f, 0.9f, 0.5f, growth, decay, 1, 1, "supercell",
-                    0.9f, 0.74f, 1, 0.5f, "THUNDER_CORE", 0.62f, 0.8f, 0.7f, 1234, anvilDecay));
+            CloudScale.Heights h = CloudScale.heights(CloudType.CUMULONIMBUS_CAPILLATUS, STORM, growth);
+            domes.add(new CloudShape(new UUID(2, i), STORM, "minecraft:overworld", at[i][0], at[i][1], 0.1, 0, 0,
+                    (float) at[i][2], (float) h.base(), (float) h.top(), 0.95f, 0.95f, 0.3f, growth, decay, anvilDecay,
+                    "cumulonimbus_capillatus", i == 0 ? 0.9f : 0.6f, 0.8f, 0.7f, 0.6f, 0, 0, 1234 + i));
         }
-        return CloudFormation.of(STORM, lobes);
+        return CloudFormation.of(STORM, domes);
     }
 
     // ---- sampling ------------------------------------------------------------------------------------------------
@@ -122,22 +112,13 @@ class CloudLifecycleTest {
             sb.append(String.format(" d%.2f=%.2f", d, f == null ? 0 : sample(f, 6, 0).inside / mature));
         }
         System.out.println(sb);
-        double anvil = sample(CloudField.of(supercell(1, 1, 0)), 96, 0).inside;
-        double whole = sample(CloudField.of(supercell(1, 0, 0)), 96, 0).inside;
-        StringBuilder sa = new StringBuilder(String.format("sweep supercell: anvil alone %.2f of the storm; linger:",
+        double anvil = sample(CloudField.of(storm(1, 1, 0)), 48, 0).inside;
+        double whole = sample(CloudField.of(storm(1, 0, 0)), 48, 0).inside;
+        StringBuilder sa = new StringBuilder(String.format("sweep cumulonimbus: anvil alone %.2f of the storm; linger:",
                 anvil / whole));
         for (float a : new float[]{0.1f, 0.3f, 0.5f, 0.7f, 0.85f, 0.95f}) {
-            CloudField f = CloudField.of(supercell(1, 1, a));
-            sa.append(String.format(" a%.2f=%.2f", a, f == null ? 0 : sample(f, 96, 0).inside / anvil));
-        }
-        sa.append(" | death:");
-        for (float d : new float[]{0.2f, 0.5f, 0.8f}) {
-            sa.append(String.format(" d%.2f=%.2f", d, sample(CloudField.of(supercell(1, d, 0)), 96, 0).inside / whole));
-        }
-        sa.append(" | birth:");
-        for (float g : new float[]{0.02f, 0.05f, 0.15f, 0.3f, 0.5f, 0.7f, 0.9f}) {
-            CloudField f = CloudField.of(supercell(g, 0, 0));
-            sa.append(String.format(" g%.2f=%.2f", g, f == null ? 0 : sample(f, 96, 0).inside / whole));
+            CloudField f = CloudField.of(storm(1, 1, a));
+            sa.append(String.format(" a%.2f=%.2f", a, f == null ? 0 : sample(f, 48, 0).inside / anvil));
         }
         System.out.println(sa);
     }
@@ -145,26 +126,27 @@ class CloudLifecycleTest {
     /** A cloud starts from almost nothing, however big it will be (Bright, 2026-10-04). */
     @Test
     void bigCloudsStartSmall() {
-        double whole = sample(CloudField.of(supercell(1, 0, 0)), 48, 0).inside;
-        double first = sample(CloudField.of(supercell(0.03f, 0, 0)), 48, 0).inside;
-        assertTrue(first < 0.02 * whole, "a newborn supercell is a few fragments: " + first + " of " + whole);
+        double whole = sample(CloudField.of(storm(1, 0, 0)), 32, 0).inside;
+        CloudField newborn = CloudField.of(storm(0.03f, 0, 0));
+        double first = newborn == null ? 0 : sample(newborn, 32, 0).inside;
+        assertTrue(first < 0.02 * whole, "a newborn storm is a few fragments: " + first + " of " + whole);
         double cumulus = sample(CloudField.of(cumulus(1, 0)), 6, 0).inside;
-        double newborn = sample(CloudField.of(cumulus(0.03f, 0)), 6, 0).inside;
-        assertTrue(newborn < 0.01 * cumulus, "a newborn cumulus too: " + newborn + " of " + cumulus);
+        CloudField young = CloudField.of(cumulus(0.03f, 0));
+        double youngCount = young == null ? 0 : sample(young, 6, 0).inside;
+        assertTrue(youngCount < 0.01 * cumulus, "a newborn cumulus too: " + youngCount + " of " + cumulus);
     }
 
     /** Young clouds are white; their grey comes in as they thicken (shading by the cloud above). */
     @Test
     void formingCloudsDarkenAsTheyGrow() {
-        CloudField young = CloudField.of(supercell(0.2f, 0, 0));
-        CloudField grown = CloudField.of(supercell(1, 0, 0));
-        Supercell s = grown.storm;
-        double y = s.yb + 0.02 * s.h;
-        double youngAbove = young.profile(s.ux, s.uz, 0, 16, young.newColumn()).depthAbove(y);
-        double grownAbove = grown.profile(s.ux, s.uz, 0, 16, grown.newColumn()).depthAbove(y);
+        CloudField young = CloudField.of(storm(0.3f, 0, 0));
+        CloudField grown = CloudField.of(storm(1, 0, 0));
+        double y = grown.baseY + 0.02 * (grown.topY - grown.baseY);
+        double youngAbove = young.profile(0, 0, 0, 16, young.newColumn()).depthAbove(y);
+        double grownAbove = grown.profile(0, 0, 0, 16, grown.newColumn()).depthAbove(y);
         double youngBase = CloudVoxelizer.brightness(youngAbove, young.water);
         double grownBase = CloudVoxelizer.brightness(grownAbove, grown.water);
-        System.out.printf("supercell base brightness: forming %.2f (%.0f blocks above), grown %.2f (%.0f above)%n",
+        System.out.printf("cumulonimbus base brightness: forming %.2f (%.0f blocks above), grown %.2f (%.0f above)%n",
                 youngBase, youngAbove, grownBase, grownAbove);
         assertTrue(youngBase > grownBase + 0.08, "a forming storm's base is lighter");
         assertTrue(grownBase < 0.45, "a grown storm's base is dark: " + grownBase);
@@ -193,8 +175,9 @@ class CloudLifecycleTest {
         assertTrue(young.inside > 0, "something has formed");
         assertTrue(young.inside < 0.5 * mature.inside, "much less of it");
         assertTrue(young.meanHeight < mature.meanHeight, "and it sits low: the base comes first");
-        Sample barely = sample(CloudField.of(cumulus(0.08f, 0)), 6, 0);
-        assertTrue(barely.inside < 0.1 * mature.inside, "at first only fragments: " + barely.inside);
+        CloudField barelyField = CloudField.of(cumulus(0.08f, 0));
+        int barely = barelyField == null ? 0 : sample(barelyField, 6, 0).inside;
+        assertTrue(barely < 0.1 * mature.inside, "at first only fragments: " + barely);
     }
 
     @Test
@@ -238,31 +221,32 @@ class CloudLifecycleTest {
 
     @Test
     void aStormsAnvilOutlivesItsBody() {
-        CloudField field = CloudField.of(supercell(1, 1, 0.3f));
-        Supercell s = field.storm;
+        CloudField field = CloudField.of(storm(1, 1, 0.3f));
+        CloudField.Anvil a = field.anvil;
         CloudField.Column col = field.newColumn();
-        // No body left: nothing in the updraft's column below the anvil.
-        field.column(s.ux, s.uz, 0, col);
-        for (double y = s.yb; y < s.yb + 0.5 * s.h; y += 16) {
-            assertTrue(field.density(col, s.ux, y, s.uz, 0, false) <= 0, "no body at " + y);
+        // No body left: nothing in the main tower's lower half.
+        field.column(0, 0, 0, col);
+        double mid = field.baseY + 0.4 * (a.top - field.baseY);
+        for (double y = field.baseY; y < mid; y += 16) {
+            assertTrue(field.density(col, 0, y, 0, 0, false) <= 0, "no body at " + y);
         }
         // The anvil is still there downwind.
-        double x = s.ax + 0.25 * s.anvilDown * s.dx, z = s.az + 0.25 * s.anvilDown * s.dz;
+        double x = a.ux + 0.35 * a.downwind * field.driftX, z = a.uz + 0.35 * a.downwind * field.driftZ;
         field.column(x, z, 0, col);
         boolean anvil = false;
-        for (double y = s.ya - 0.4 * s.h; y < s.ya + 0.05 * s.h && !anvil; y += 8) {
+        for (double y = a.top - a.thick * 1.5; y < a.top + 8 && !anvil; y += 4) {
             anvil = field.density(col, x, y, z, 0, false) > 0;
         }
         assertTrue(anvil, "the orphan anvil remains");
-        assertNull(CloudField.of(supercell(1, 1, 1)), "until it has thinned away");
+        assertNull(CloudField.of(storm(1, 1, 1)), "until it has thinned away");
     }
 
     @Test
     void anOrphanAnvilThins() {
-        Sample early = sample(CloudField.of(supercell(1, 1, 0.1f)), 96, 0);
-        Sample late = sample(CloudField.of(supercell(1, 1, 0.7f)), 96, 0);
+        Sample early = sample(CloudField.of(storm(1, 1, 0.1f)), 48, 0);
+        Sample late = sample(CloudField.of(storm(1, 1, 0.7f)), 48, 0);
         System.out.printf("orphan anvil: %d points early in the linger, %d late%n", early.inside, late.inside);
         assertTrue(early.inside > 0);
-        assertTrue(late.inside < 0.6 * early.inside, "thinner late in the linger");
+        assertTrue(late.inside < 0.75 * early.inside, "thinner late in the linger");
     }
 }

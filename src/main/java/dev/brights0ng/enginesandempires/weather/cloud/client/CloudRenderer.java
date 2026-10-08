@@ -57,7 +57,7 @@ public final class CloudRenderer {
         try {
             event.registerShader(new ShaderInstance(event.getResourceProvider(),
                     ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "clouds"),
-                    DefaultVertexFormat.POSITION_COLOR), s -> shader = s);
+                    CloudMeshes.FORMAT), s -> shader = s);
         } catch (IOException e) {
             EnginesAndEmpiresMod.LOGGER.error("Clouds: couldn't load the cloud shader", e);
         }
@@ -67,6 +67,13 @@ public final class CloudRenderer {
                     DefaultVertexFormat.POSITION), FoggedTerrainDepth::setShader);
         } catch (IOException e) {
             EnginesAndEmpiresMod.LOGGER.error("Clouds: couldn't load the fogged-terrain depth shader", e);
+        }
+        try {
+            event.registerShader(new ShaderInstance(event.getResourceProvider(),
+                    ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "cloud_veil"),
+                    DefaultVertexFormat.POSITION_COLOR), CloudVeilRenderer::setShader);
+        } catch (IOException e) {
+            EnginesAndEmpiresMod.LOGGER.error("Clouds: couldn't load the high-cloud veil shader", e);
         }
     }
 
@@ -84,6 +91,10 @@ public final class CloudRenderer {
                 FoggedTerrainDepth.apply(event.getModelViewMatrix(), event.getProjectionMatrix());
                 drawClouds(level, event.getModelViewMatrix(), event.getProjectionMatrix(), event.getFrustum(), camera,
                         time, partial);
+                // The see-through high clouds, over the voxel clouds' depth.
+                CloudVeilRenderer.render(event.getModelViewMatrix(), event.getProjectionMatrix(), camera, partial);
+                // Wisps last: translucent, blended over the clouds.
+                CloudWispRenderer.render(event.getModelViewMatrix(), event.getProjectionMatrix(), camera, time);
             }
         } else if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             CloudOutlines.render(camera, time);
@@ -95,9 +106,14 @@ public final class CloudRenderer {
         if (shader == null) {
             return;
         }
-        Vec3 tint = tint(level, partial);
         float drawDistance = CloudConfig.drawDistance();
-        shader.safeGetUniform("CloudTint").set((float) tint.x, (float) tint.y, (float) tint.z);
+        // The light's colours by the time of day (CloudColours), with a mild dimming in rain and thunder.
+        double h = CloudColours.sunHeight(level.getTimeOfDay(partial));
+        double dim = 1 - 0.15 * level.getRainLevel(partial) - 0.1 * level.getThunderLevel(partial);
+        double[] sky = CloudColours.sky(h);
+        double[] sun = CloudColours.sun(h);
+        shader.safeGetUniform("SkyColor").set((float) (sky[0] * dim), (float) (sky[1] * dim), (float) (sky[2] * dim));
+        shader.safeGetUniform("SunColor").set((float) (sun[0] * dim), (float) (sun[1] * dim), (float) (sun[2] * dim));
         if (dev.brights0ng.enginesandempires.weather.fog.client.FogEffects.insideCloud() != null) {
             // Inside a cloud its faces (holes, the far wall) fade into the fog like everything else, in every
             // direction: the game's fog, which the in-cloud fog has just set.
@@ -110,12 +126,18 @@ public final class CloudRenderer {
             shader.safeGetUniform("CloudFogSphere").set(0f);
         }
         shader.safeGetUniform("Flash").set(0f);
+        CloudLight light = CloudLight.at(level.getTimeOfDay(partial));
+        shader.safeGetUniform("LightDir").set((float) light.x(), (float) light.y(), (float) light.z());
+        shader.safeGetUniform("LightStrength").set((float) light.strength());
+        shader.safeGetUniform("SilverStrength").set((float) CloudTuning.silverLining);
+        shader.safeGetUniform("ShadowSide").set((float) CloudTuning.shadowSide);
 
         // One shader setup for all sections; per formation only the offset changes.
         Uniform offset = shader.getUniform("CloudOffset");
         if (offset == null) {
             return;
         }
+        Uniform bias = shader.getUniform("DepthBias");
         RenderSystem.enableDepthTest();
         RenderSystem.depthMask(true);
         RenderSystem.disableBlend();
@@ -137,6 +159,11 @@ public final class CloudRenderer {
                 if (!offsetSet) {
                     offset.set((float) (x - camera.x), (float) -camera.y, (float) (z - camera.z));
                     offset.upload();
+                    if (bias != null) {
+                        // Two depth-buffer steps per layer (24-bit depth: 2^-23 in clip-space z per step).
+                        bias.set((float) (d.depthLayer() * 2 * Math.scalb(1.0, -23)));
+                        bias.upload();
+                    }
                     offsetSet = true;
                 }
                 s.buffer.bind();

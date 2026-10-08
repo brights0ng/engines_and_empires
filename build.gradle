@@ -144,6 +144,7 @@ configurations {
 }
 def prepareColonyMods = tasks.register("prepareColonyMods", Sync) {
     from(configurations.colonyRuntime)
+    from(fileTree("libs") { include "*.jar" })
     into("run/mods")
 }
 
@@ -223,6 +224,9 @@ dependencies {
     localRuntime("maven.modrinth:deeperdarker:${deeper_darker_version}")
 
     // libs/ (git-ignored) holds Serene Seasons 10.1.0.9 and GlitchCore 2.1.0.2 (its library) for the client run.
+    // The core mod compiles against Serene Seasons' API (weather/climate/compat) but only touches it when it is
+    // installed; the server and game test runs go without it.
+    compileOnly files("libs/SereneSeasons-neoforge-1.21.1-10.1.0.9.jar")
     // Project Atmosphere was removed on 2026-10-05: the core mod now owns the weather (claude/weather-backbone-plan.md).
 }
 

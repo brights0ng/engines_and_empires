@@ -31,9 +31,9 @@ class CloudVoxelizerTest {
 
     private static CloudShape cloudMoving(UUID id, double x, double z, double vx, double vz, float radius, float base,
                                           float top, float coverage, float tower, float anvil, int seed) {
-        return new CloudShape(id, REGION, "minecraft:overworld", x, (base + top) / 2, z, vx, 0, vz, 0,
-                radius, base, top, 0.8f, coverage, 0.5f, 1, 0, 1, 1, "cumulus", tower, anvil, 1, 0.4f,
-                "CLOUDY", 0.18f, 0, 0, seed);
+        return new CloudShape(id, REGION, "minecraft:overworld", x, z, vx, vz, 0,
+                radius, base, top, 0.8f, coverage, 0.5f, 1, 0, 0, "cumulus_mediocris", tower, anvil, 0.4f, 0.18f, 0, 0,
+                seed);
     }
 
     private static void assertClosed(Mesh m, CloudVoxelizer.Result r) {

@@ -39,6 +39,10 @@ public final class CloudClient {
             return;
         }
         CloudTracker.tick();
+        if (level.getGameTime() % 20 == 0) {
+            // The clouds' shadows on each other, for the next rebuilds (CloudShadows).
+            CloudShadows.update(CloudTracker.clouds(), level.getGameTime());
+        }
         // The shared rain query reads the clouds where they are drawn.
         dev.brights0ng.enginesandempires.weather.rain.LocalWeather.setClient(CloudTracker.clouds(), level.getGameTime(),
                 TRACKED, level.dimension().location().toString());
@@ -46,15 +50,22 @@ public final class CloudClient {
         dev.brights0ng.enginesandempires.weather.rain.client.LocalRainRenderer.tick(level);
         if (!CloudRenderer.active(level)) {
             CloudMeshes.clear();
+            CloudWispRenderer.clear();
+            CloudVeilRenderer.clear();
             return;
         }
         Vec3 camera = mc.gameRenderer.getMainCamera().getPosition();
         CloudMeshes.tick(level.getGameTime(), camera);
+        CloudWispRenderer.tick(level.getGameTime(), camera);
+        CloudVeilRenderer.tick(level, camera);
     }
 
     private static void onLevelUnload(LevelEvent.Unload event) {
         if (event.getLevel().isClientSide()) {
             CloudMeshes.clear();
+            CloudWispRenderer.clear();
+            CloudVeilRenderer.clear();
+            dev.brights0ng.enginesandempires.weather.cloud.sim.CloudSyncClient.clear();
             dev.brights0ng.enginesandempires.weather.rain.LocalWeather.clearClient();
             dev.brights0ng.enginesandempires.weather.rain.ClientWeather.clear();
             dev.brights0ng.enginesandempires.weather.rain.client.ClientSky.clear();
@@ -124,14 +135,85 @@ public final class CloudClient {
                     }
                     for (CloudFormation f : CloudTracker.formations()) {
                         CloudShape c = f.anchor();
-                        String line = String.format("  %s %s x%d at %.0f %.0f, reach %.0f, y %.0f-%.0f, cover %.2f, v %.3f %.3f b/t, formed %.0f%% eroded %.0f%% anvil %.0f%%",
-                                c.typeId(), f.stormTier(), f.members().size(), c.cx(), c.cz(), f.reach(), c.baseY(),
+                        String line = String.format("  %s x%d at %.0f %.0f, reach %.0f, y %.0f-%.0f, cover %.2f, v %.3f %.3f b/t, formed %.0f%% eroded %.0f%% anvil %.0f%%",
+                                c.typeId(), f.members().size(), c.cx(), c.cz(), f.reach(), c.baseY(),
                                 c.topY(), c.effectiveCoverage(), c.vx(), c.vz(), 100 * c.growth(), 100 * c.decay(),
                                 100 * c.anvilDecay());
                         ctx.getSource().sendSuccess(() -> Component.literal(line), false);
                     }
                     return 1;
-                }))));
+                }))
+                .then(Commands.literal("dump").executes(ctx -> {
+                    String msg = dump();
+                    ctx.getSource().sendSuccess(() -> Component.literal(msg), false);
+                    return 1;
+                }))
+                .then(Commands.literal("profile").then(Commands.argument("seconds",
+                        com.mojang.brigadier.arguments.IntegerArgumentType.integer(5, 600)).executes(ctx -> {
+                    String msg = profile(com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "seconds"));
+                    ctx.getSource().sendSuccess(() -> Component.literal(msg), false);
+                    return 1;
+                })))));
+    }
+
+    /**
+     * {@code /eae clouds dump}: saves the sky (every formation, the camera's place relative to it, the cloud settings)
+     * to {@code cloud-dump.txt} in the game folder, for benchmarking the mesher offline ({@link CloudDump}).
+     */
+    private static String dump() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) {
+            return "No world loaded.";
+        }
+        long time = mc.level.getGameTime();
+        Vec3 cam = mc.gameRenderer.getMainCamera().getPosition();
+        java.util.List<CloudDump.Entry> entries = new java.util.ArrayList<>();
+        for (CloudFormation f : CloudTracker.formations()) {
+            double ax = CloudTracker.x(f.anchor(), time);
+            double az = CloudTracker.z(f.anchor(), time);
+            entries.add(new CloudDump.Entry(f, cam.x - ax, cam.y, cam.z - az));
+        }
+        java.nio.file.Path path = mc.gameDirectory.toPath().resolve("cloud-dump.txt");
+        try {
+            CloudDump.write(path, new CloudDump.Snapshot(time, CloudConfig.voxelSize(), CloudConfig.drawDistance(),
+                    entries));
+            return "Saved " + entries.size() + " cloud formations to " + path.getFileName() + ".";
+        } catch (java.io.IOException e) {
+            dev.brights0ng.enginesandempires.EnginesAndEmpiresMod.LOGGER.warn("Clouds: dump failed", e);
+            return "Couldn't save the clouds: " + e.getMessage();
+        }
+    }
+
+    /** A profiling recording in progress, if any. */
+    private static jdk.jfr.Recording recording;
+
+    /**
+     * {@code /eae clouds profile <seconds>}: records where every thread spends its time (Java Flight Recorder,
+     * sampling every 10 ms) to {@code cloud-profile.jfr} in the game folder, written when the time is up.
+     */
+    private static String profile(int seconds) {
+        if (recording != null && recording.getState() == jdk.jfr.RecordingState.RUNNING) {
+            return "A profile is already being recorded.";
+        }
+        java.nio.file.Path path = Minecraft.getInstance().gameDirectory.toPath().resolve("cloud-profile.jfr");
+        try {
+            jdk.jfr.Recording r = new jdk.jfr.Recording();
+            r.setName("Engines and Empires clouds");
+            r.enable("jdk.ExecutionSample").withPeriod(java.time.Duration.ofMillis(10));
+            r.enable("jdk.ThreadCPULoad").withPeriod(java.time.Duration.ofSeconds(1));
+            r.enable("jdk.GarbageCollection");
+            r.enable("jdk.ObjectAllocationSample").with("throttle", "150/s");
+            r.setToDisk(true);
+            r.setDestination(path);
+            r.setDuration(java.time.Duration.ofSeconds(seconds));
+            r.start();
+            recording = r;
+            return "Profiling for " + seconds + " s; it will be saved to " + path.getFileName()
+                    + " when done. Stay near the clouds.";
+        } catch (Exception e) {
+            dev.brights0ng.enginesandempires.EnginesAndEmpiresMod.LOGGER.warn("Clouds: profiling failed", e);
+            return "Couldn't start profiling: " + e.getMessage();
+        }
     }
 
     private CloudClient() {

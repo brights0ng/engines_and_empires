@@ -62,13 +62,17 @@ public class EnginesAndEmpiresMod {
         // Diet: spoiled food feeds its groups less, death resets them to 25% (only if Diet is installed)
         dev.brights0ng.enginesandempires.food.compat.DietCompat.registerIfLoaded();
 
-        // Wind: Project Atmosphere's wind pushes Sable's physics objects (its settings are a SERVER config of their own)
+        // Wind: the weather's wind pushes Sable's physics objects (its settings are a SERVER config of their own)
         dev.brights0ng.enginesandempires.weather.wind.WindContent.register(modEventBus);
         modContainer.registerConfig(ModConfig.Type.SERVER, dev.brights0ng.enginesandempires.weather.wind.WindConfig.SPEC,
                 dev.brights0ng.enginesandempires.weather.wind.WindConfig.FILE_NAME);
-        // Localized weather: rain and snow under the pack's clouds, and PA's height cooling (a SERVER config of its own)
+        // Weather: the climate baseline (biome climates in a data map), temperature, and rain and snow under the pack's
+        // clouds (a SERVER config of its own)
+        modEventBus.addListener(dev.brights0ng.enginesandempires.weather.climate.ClimateDataMaps::register);
         modContainer.registerConfig(ModConfig.Type.SERVER, dev.brights0ng.enginesandempires.weather.rain.WeatherConfig.SPEC,
                 dev.brights0ng.enginesandempires.weather.rain.WeatherConfig.FILE_NAME);
+        // Weather on the ground: glaze (freezing rain's ice layer) and the crops hail knocks back
+        dev.brights0ng.enginesandempires.weather.surface.SurfaceContent.register(modEventBus);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {

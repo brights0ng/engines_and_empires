@@ -1,0 +1,20 @@
+{
+  "variants": {
+    "layers=1,snow=0": { "model": "engines_and_empires:block/glaze_1" },
+    "layers=1,snow=1": { "model": "engines_and_empires:block/glaze_1_on_snow_1" },
+    "layers=1,snow=2": { "model": "engines_and_empires:block/glaze_1_on_snow_2" },
+    "layers=1,snow=3": { "model": "engines_and_empires:block/glaze_1_on_snow_3" },
+    "layers=1,snow=4": { "model": "engines_and_empires:block/glaze_1_on_snow_4" },
+    "layers=1,snow=5": { "model": "engines_and_empires:block/glaze_1_on_snow_5" },
+    "layers=1,snow=6": { "model": "engines_and_empires:block/glaze_1_on_snow_6" },
+    "layers=1,snow=7": { "model": "engines_and_empires:block/glaze_1_on_snow_7" },
+    "layers=2,snow=0": { "model": "engines_and_empires:block/glaze_2" },
+    "layers=2,snow=1": { "model": "engines_and_empires:block/glaze_2_on_snow_1" },
+    "layers=2,snow=2": { "model": "engines_and_empires:block/glaze_2_on_snow_2" },
+    "layers=2,snow=3": { "model": "engines_and_empires:block/glaze_2_on_snow_3" },
+    "layers=2,snow=4": { "model": "engines_and_empires:block/glaze_2_on_snow_4" },
+    "layers=2,snow=5": { "model": "engines_and_empires:block/glaze_2_on_snow_5" },
+    "layers=2,snow=6": { "model": "engines_and_empires:block/glaze_2_on_snow_6" },
+    "layers=2,snow=7": { "model": "engines_and_empires:block/glaze_2_on_snow_7" }
+  }
+}

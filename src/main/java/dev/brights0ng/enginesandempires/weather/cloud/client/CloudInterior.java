@@ -51,7 +51,7 @@ public final class CloudInterior {
             if (CloudVoxelizer.voxelDensity(field, voxel, fe.liveTime, sx, sy, sz, size, lx, y, lz) <= 0) {
                 continue;
             }
-            String type = field.storm != null ? "supercell" : fe.liveFrom.anchor().typeId();
+            String type = fe.liveFrom.anchor().typeId();
             double visibility = FogTuning.cloudVisibility(type, thinness(fe.liveFrom));
             if (visibility <= 0 || (best != null && best.visibility() <= visibility)) {
                 continue;

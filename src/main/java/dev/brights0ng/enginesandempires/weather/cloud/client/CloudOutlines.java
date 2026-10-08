@@ -9,9 +9,9 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Debug view: each cloud's outline as Project Atmosphere sends it. A ring at the base and one at the top, four posts
- * between them, and an arrow from the centre to where the cloud will be in 10 seconds. Coloured by storm tier: white
- * clear or cloudy, blue rain, yellow thunder, red severe or cyclone.
+ * Debug view: each cloud's outline as the simulation sends it. A ring at the base and one at the top, four posts
+ * between them, and an arrow from the centre to where the cloud will be in 10 seconds. Coloured by what it does:
+ * white dry, blue raining, yellow thunder (from phase 4b), grey for layer clouds that are dry.
  *
  * <p>Toggled with {@code /eae clouds outlines} or the {@code debug.outlines} client config.
  */
@@ -27,7 +27,7 @@ public final class CloudOutlines {
         VertexConsumer lines = buffers.getBuffer(RenderType.lines());
         PoseStack.Pose pose = new PoseStack().last();
         for (CloudShape c : CloudTracker.clouds()) {
-            int[] rgb = colour(c.stormTier());
+            int[] rgb = colour(c);
             float x = (float) (CloudTracker.x(c, time) - camera.x);
             float z = (float) (CloudTracker.z(c, time) - camera.z);
             float base = (float) (c.baseY() - camera.y);
@@ -72,13 +72,13 @@ public final class CloudOutlines {
         lines.addVertex(pose, x1, y1, z1).setColor(rgb[0], rgb[1], rgb[2], 255).setNormal(pose, dx, dy, dz);
     }
 
-    private static int[] colour(String tier) {
-        return switch (tier) {
-            case "RAIN_CORE" -> new int[]{80, 150, 255};
-            case "THUNDER_CORE" -> new int[]{255, 220, 60};
-            case "SEVERE_CORE", "CYCLONE_CORE" -> new int[]{255, 60, 60};
-            default -> new int[]{255, 255, 255};
-        };
+    private static int[] colour(CloudShape c) {
+        if (c.precipitation() > 0.02f) {
+            return c.lightning() > 0.02f ? new int[]{255, 220, 60} : new int[]{80, 150, 255};
+        }
+        dev.brights0ng.enginesandempires.weather.cloud.CloudType t =
+                dev.brights0ng.enginesandempires.weather.cloud.CloudType.of(c.typeId());
+        return t != null && t.layer() ? new int[]{170, 170, 170} : new int[]{255, 255, 255};
     }
 
     private CloudOutlines() {

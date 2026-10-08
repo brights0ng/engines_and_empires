@@ -15,7 +15,7 @@ public final class CloudConfig {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
     static {
-        BUILDER.comment("The pack's voxel cloud renderer. It draws the clouds Project Atmosphere simulates.")
+        BUILDER.comment("The pack's voxel cloud renderer. It draws the clouds the weather simulation makes.")
                 .push("clouds");
     }
 
@@ -34,7 +34,7 @@ public final class CloudConfig {
 
     public static final ModConfigSpec.DoubleValue REBUILD_SECONDS = BUILDER
             .comment("The shortest time between rebuilds of one cloud formation, in seconds: clouds slowly churn, and",
-                    "pick up Project Atmosphere's changes (growing, shrinking, changing type). A whole formation is",
+                    "pick up the simulation's changes (growing, shrinking, changing type). A whole formation is",
                     "rebuilt at once and swapped in when done, so big storms may take longer than this (see",
                     "lod.rebuildBudget). Moving a cloud is free.")
             .defineInRange("rebuildSeconds", 1.0, 0.25, 30.0);
@@ -85,48 +85,10 @@ public final class CloudConfig {
             "Size of the churning lumps and billows, relative to the cloud's size.");
     public static final ModConfigSpec.DoubleValue NOISE_STRENGTH = shape("noiseStrength",
             "How strongly the churn changes the outline.");
-    public static final ModConfigSpec.DoubleValue VARIETY = shape("supercell.variety",
-            "How much supercells differ from each other (low- to high-precipitation, sheared, unstable): 1.0 as",
-            "designed, 0 makes them all the same, 2.0 twice as varied.");
-    public static final ModConfigSpec.DoubleValue UPDRAFT_WIDTH = shape("supercell.updraftWidth",
-            "Width of the main tower.");
-    public static final ModConfigSpec.DoubleValue UPDRAFT_LEAN = shape("supercell.updraftLean",
-            "How far the tower leans downwind (more with height).");
-    public static final ModConfigSpec.DoubleValue UPDRAFT_BASE_FLARE = shape("supercell.updraftBaseFlare",
-            "How much wider the tower's base (the rotating rain-free base) is than its middle.");
-    public static final ModConfigSpec.DoubleValue UPDRAFT_WAIST = shape("supercell.updraftWaist",
-            "How much the tower narrows in its middle (higher is narrower).");
-    public static final ModConfigSpec.DoubleValue UPDRAFT_BULGES = shape("supercell.updraftBulges",
-            "Size of the large bulges along the tower.");
-    public static final ModConfigSpec.DoubleValue OVERSHOOT_HEIGHT = shape("supercell.overshootHeight",
-            "Height of the overshooting top above the anvil.");
-    public static final ModConfigSpec.DoubleValue ANVIL_LENGTH = shape("supercell.anvilLength",
-            "How far the anvil reaches downwind.");
-    public static final ModConfigSpec.DoubleValue ANVIL_WIDTH = shape("supercell.anvilWidth",
-            "How wide the anvil spreads.");
-    public static final ModConfigSpec.DoubleValue ANVIL_THICKNESS = shape("supercell.anvilThickness",
-            "How thick the anvil is.");
-    public static final ModConfigSpec.DoubleValue BACKSHEAR_REACH = shape("supercell.backshearReach",
-            "How far the anvil overhangs the tower upwind.");
-    public static final ModConfigSpec.DoubleValue FORWARD_FLANK_LENGTH = shape("supercell.forwardFlankLength",
-            "Length of the forward flank (the rain area under the anvil).");
-    public static final ModConfigSpec.DoubleValue FORWARD_FLANK_WIDTH = shape("supercell.forwardFlankWidth",
-            "Width of the forward flank.");
-    public static final ModConfigSpec.DoubleValue SHELF_REACH = shape("supercell.shelfReach",
-            "How far the shelf cloud sticks out ahead of the forward flank.");
-    public static final ModConfigSpec.DoubleValue SHELF_WIDTH = shape("supercell.shelfWidth",
-            "Width of the shelf cloud's arc.");
-    public static final ModConfigSpec.DoubleValue SHELF_HEIGHT = shape("supercell.shelfHeight",
-            "Height of the shelf cloud's tiers.");
-    public static final ModConfigSpec.DoubleValue FLANKING_LINE_LENGTH = shape("supercell.flankingLineLength",
-            "Length of the flanking line of towers to the right-rear.");
-    public static final ModConfigSpec.DoubleValue FLANKING_TOWER_HEIGHT = shape("supercell.flankingTowerHeight",
-            "Height of the flanking line's towers.");
-    public static final ModConfigSpec.DoubleValue WALL_CLOUD_SIZE = shape("supercell.wallCloudSize",
-            "Size of the wall cloud under the tower.");
-    public static final ModConfigSpec.DoubleValue MAMMATUS_SIZE = shape("supercell.mammatusSize",
-            "Size of the pouches under the anvil.");
-
+    public static final ModConfigSpec.DoubleValue BUBBLE_SMOOTHING = BUILDER
+            .comment("How smoothly a cumulus's bubbles blend into each other: 1 = crisp creases between bubbles,",
+                    "higher fills them in (softer, rounder lumps), 0.5 = sharper.")
+            .defineInRange("bubbleSmoothing", 1.6, 0.5, 4.0);
     private static ModConfigSpec.DoubleValue shape(String path, String... comment) {
         return BUILDER.comment(comment).defineInRange(path, 1.0, 0.0, 10.0);
     }
@@ -146,6 +108,48 @@ public final class CloudConfig {
             .comment("How quickly clouds darken with depth (0.1 to 1). Higher darkens even modest clouds; lower saves",
                     "the grey for the very thickest.")
             .defineInRange("contrast", 0.35, 0.05, 1.0);
+    public static final ModConfigSpec.DoubleValue SHADOW_SIDE = BUILDER
+            .comment("How bright a cloud's side away from the sun (or moon) is, as a share of the sunlit side.",
+                    "1 = no sun shading. Applies live.")
+            .defineInRange("shadowSide", 0.65, 0.2, 1.0);
+    public static final ModConfigSpec.DoubleValue CREASES = BUILDER
+            .comment("Cumulus: how strongly the creases between bubbles darken (0 = not at all).")
+            .defineInRange("creases", 0.35, 0.0, 0.8);
+    public static final ModConfigSpec.DoubleValue SILVER_LINING = BUILDER
+            .comment("Cumulus: how strongly thin edges glow when you look toward the sun (0 = no silver lining).",
+                    "Applies live.")
+            .defineInRange("silverLining", 0.9, 0.0, 3.0);
+    public static final ModConfigSpec.DoubleValue CLOUD_SHADOWS = BUILDER
+            .comment("How strongly clouds shade the clouds below them: a cumulus under a thick deck goes grey (0 = not at",
+                    "all, 1 = realistic). Changes rebuild the clouds.")
+            .defineInRange("cloudShadows", 1.0, 0.0, 2.0);
+
+    static {
+        BUILDER.pop().comment("Wisps: soft haze along the edges of nearby cumulus and ragged shreds under their bases,",
+                "drifting off and fading. Changes apply live.").push("wisps");
+    }
+
+    public static final ModConfigSpec.BooleanValue WISPS_ENABLED = BUILDER
+            .comment("Whether wisps are drawn.")
+            .define("enabled", true);
+    public static final ModConfigSpec.DoubleValue WISP_DISTANCE = BUILDER
+            .comment("How far away (blocks, to the cloud's edge) cumulus get wisps.")
+            .defineInRange("distance", 300.0, 0.0, 2048.0);
+    public static final ModConfigSpec.DoubleValue WISP_DENSITY = BUILDER
+            .comment("How many wisps a cloud has, as a multiplier (forming and dying clouds have more).")
+            .defineInRange("density", 1.0, 0.0, 5.0);
+    public static final ModConfigSpec.DoubleValue WISP_OPACITY = BUILDER
+            .comment("How opaque the wisps are, as a multiplier.")
+            .defineInRange("opacity", 1.0, 0.0, 3.0);
+
+    static {
+        BUILDER.pop().comment("The see-through high clouds: cirrostratus strips and veils, and cirrus. Changes apply live.")
+                .push("veils");
+    }
+
+    public static final ModConfigSpec.DoubleValue VEIL_OPACITY = BUILDER
+            .comment("How opaque cirrostratus and cirrus are, as a multiplier (0 hides them).")
+            .defineInRange("opacity", 1.0, 0.0, 3.0);
 
     static {
         BUILDER.pop().comment("How rain and snow are drawn. Changes apply live.").push("rain");
@@ -170,7 +174,7 @@ public final class CloudConfig {
             .define("enabled", true);
 
     public static final ModConfigSpec.DoubleValue FOG_STORM_CLOUD = BUILDER
-            .comment("Visibility inside supercells, cumulonimbus and nimbostratus. 0 = no fog.")
+            .comment("Visibility inside cumulonimbus and nimbostratus. 0 = no fog.")
             .defineInRange("cloud.stormVisibility", 5.0, 0.0, 512.0);
     public static final ModConfigSpec.DoubleValue FOG_CONGESTUS = BUILDER
             .comment("Visibility inside cumulus congestus and stratus. 0 = no fog.")
@@ -289,29 +293,19 @@ public final class CloudConfig {
         CloudTuning.rebuildBudget = REBUILD_BUDGET.get();
         CloudTuning.noiseScale = NOISE_SCALE.get();
         CloudTuning.noiseStrength = NOISE_STRENGTH.get();
-        CloudTuning.variety = VARIETY.get();
-        CloudTuning.updraftWidth = UPDRAFT_WIDTH.get();
-        CloudTuning.updraftLean = UPDRAFT_LEAN.get();
-        CloudTuning.updraftBaseFlare = UPDRAFT_BASE_FLARE.get();
-        CloudTuning.updraftWaist = UPDRAFT_WAIST.get();
-        CloudTuning.updraftBulges = UPDRAFT_BULGES.get();
-        CloudTuning.overshootHeight = OVERSHOOT_HEIGHT.get();
-        CloudTuning.anvilLength = ANVIL_LENGTH.get();
-        CloudTuning.anvilWidth = ANVIL_WIDTH.get();
-        CloudTuning.anvilThickness = ANVIL_THICKNESS.get();
-        CloudTuning.backshearReach = BACKSHEAR_REACH.get();
-        CloudTuning.forwardFlankLength = FORWARD_FLANK_LENGTH.get();
-        CloudTuning.forwardFlankWidth = FORWARD_FLANK_WIDTH.get();
-        CloudTuning.shelfReach = SHELF_REACH.get();
-        CloudTuning.shelfWidth = SHELF_WIDTH.get();
-        CloudTuning.shelfHeight = SHELF_HEIGHT.get();
-        CloudTuning.flankingLineLength = FLANKING_LINE_LENGTH.get();
-        CloudTuning.flankingTowerHeight = FLANKING_TOWER_HEIGHT.get();
-        CloudTuning.wallCloudSize = WALL_CLOUD_SIZE.get();
-        CloudTuning.mammatusSize = MAMMATUS_SIZE.get();
+        CloudTuning.bubbleSmoothing = BUBBLE_SMOOTHING.get();
         CloudTuning.waterContent = WATER_CONTENT.get();
         CloudTuning.baseLight = BASE_LIGHT.get();
         CloudTuning.shadeContrast = SHADE_CONTRAST.get();
+        CloudTuning.shadowSide = SHADOW_SIDE.get();
+        CloudTuning.creases = CREASES.get();
+        CloudTuning.silverLining = SILVER_LINING.get();
+        CloudTuning.cloudShadows = CLOUD_SHADOWS.get();
+        CloudTuning.wisps = WISPS_ENABLED.get();
+        CloudTuning.wispDistance = WISP_DISTANCE.get();
+        CloudTuning.wispDensity = WISP_DENSITY.get();
+        CloudTuning.wispOpacity = WISP_OPACITY.get();
+        CloudTuning.veilOpacity = VEIL_OPACITY.get();
         dev.brights0ng.enginesandempires.weather.rain.RainSlant.averageSeconds = RAIN_SLANT_SECONDS.get();
         dev.brights0ng.enginesandempires.weather.rain.RainSlant.maxChangePerSecond = RAIN_SLANT_RATE.get();
         applyFog();
@@ -339,16 +333,9 @@ public final class CloudConfig {
 
     private static String snapshot() {
         return CloudTuning.sectionSize + "|" + CloudTuning.maxVoxel + "|" + java.util.Arrays.toString(CloudTuning.lodDistances)
-                + "|" + CloudTuning.noiseScale + "|" + CloudTuning.noiseStrength + "|" + CloudTuning.variety + "|"
-                + CloudTuning.updraftWidth + "|"
-                + CloudTuning.updraftLean + "|" + CloudTuning.updraftBaseFlare + "|" + CloudTuning.updraftWaist + "|"
-                + CloudTuning.updraftBulges + "|" + CloudTuning.overshootHeight + "|" + CloudTuning.anvilLength + "|"
-                + CloudTuning.anvilWidth + "|" + CloudTuning.anvilThickness + "|" + CloudTuning.backshearReach + "|"
-                + CloudTuning.forwardFlankLength + "|" + CloudTuning.forwardFlankWidth + "|" + CloudTuning.shelfReach
-                + "|" + CloudTuning.shelfWidth + "|" + CloudTuning.shelfHeight + "|" + CloudTuning.flankingLineLength
-                + "|" + CloudTuning.flankingTowerHeight + "|" + CloudTuning.wallCloudSize + "|"
-                + CloudTuning.mammatusSize + "|" + CloudTuning.waterContent + "|" + CloudTuning.baseLight + "|"
-                + CloudTuning.shadeContrast;
+                + "|" + CloudTuning.noiseScale + "|" + CloudTuning.noiseStrength + "|" + CloudTuning.waterContent + "|" + CloudTuning.baseLight + "|"
+                + CloudTuning.shadeContrast + "|" + CloudTuning.shadowSide + "|"
+                + CloudTuning.creases + "|" + CloudTuning.bubbleSmoothing + "|" + CloudTuning.cloudShadows;
     }
 
     private CloudConfig() {

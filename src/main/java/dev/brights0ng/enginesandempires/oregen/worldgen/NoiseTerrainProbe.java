@@ -21,7 +21,7 @@ import net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator;
  *
  * <p>The density function holds no per-chunk state, so one instance can be used from any thread.
  */
-final class NoiseTerrainProbe implements TerrainProbe {
+public final class NoiseTerrainProbe implements TerrainProbe {
 
     private final DensityFunction finalDensity;
 
@@ -34,7 +34,7 @@ final class NoiseTerrainProbe implements TerrainProbe {
      * dimension whose terrain is not noise-based (a flat or void world, say) cannot be predicted, so both
      * get a probe that accepts everything and rejects nothing.
      */
-    static TerrainProbe forLevel(ServerLevel level) {
+    public static TerrainProbe forLevel(ServerLevel level) {
         if (OreWorldgen.SKY_SHOWCASE) {
             return TerrainProbe.ALL_SOLID;
         }

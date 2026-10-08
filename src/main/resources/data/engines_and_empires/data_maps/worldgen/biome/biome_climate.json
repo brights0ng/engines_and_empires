@@ -1,0 +1,69 @@
+{
+  "values": {
+    "minecraft:plains":                  { "mean": 11,  "seasonal_swing": 12, "humidity": 0.50, "surface": "land" },
+    "minecraft:sunflower_plains":        { "mean": 12,  "seasonal_swing": 12, "humidity": 0.50, "surface": "land" },
+    "minecraft:meadow":                  { "mean": 8,   "seasonal_swing": 11, "humidity": 0.60, "surface": "land" },
+    "minecraft:mushroom_fields":         { "mean": 15,  "seasonal_swing": 5,  "humidity": 0.85, "surface": "land" },
+
+    "minecraft:forest":                  { "mean": 10,  "seasonal_swing": 11, "humidity": 0.60, "surface": "forest" },
+    "minecraft:flower_forest":           { "mean": 11,  "seasonal_swing": 11, "humidity": 0.60, "surface": "forest" },
+    "minecraft:birch_forest":            { "mean": 9,   "seasonal_swing": 12, "humidity": 0.60, "surface": "forest" },
+    "minecraft:old_growth_birch_forest": { "mean": 9,   "seasonal_swing": 12, "humidity": 0.62, "surface": "forest" },
+    "minecraft:dark_forest":             { "mean": 12,  "seasonal_swing": 10, "humidity": 0.70, "surface": "forest" },
+    "minecraft:cherry_grove":            { "mean": 12,  "seasonal_swing": 10, "humidity": 0.65, "surface": "forest" },
+    "minecraft:windswept_forest":        { "mean": 6,   "seasonal_swing": 11, "humidity": 0.55, "surface": "forest" },
+
+    "minecraft:taiga":                   { "mean": 3,   "seasonal_swing": 15, "humidity": 0.60, "surface": "forest" },
+    "minecraft:old_growth_pine_taiga":   { "mean": 5,   "seasonal_swing": 13, "humidity": 0.65, "surface": "forest" },
+    "minecraft:old_growth_spruce_taiga": { "mean": 4,   "seasonal_swing": 14, "humidity": 0.65, "surface": "forest" },
+    "minecraft:snowy_taiga":             { "mean": -6,  "seasonal_swing": 17, "humidity": 0.55, "surface": "forest" },
+    "minecraft:grove":                   { "mean": -1,  "seasonal_swing": 13, "humidity": 0.55, "surface": "forest" },
+
+    "minecraft:snowy_plains":            { "mean": -10, "seasonal_swing": 15, "humidity": 0.40, "surface": "land" },
+    "minecraft:ice_spikes":              { "mean": -15, "seasonal_swing": 12, "humidity": 0.35, "surface": "ice", "frozen": true },
+    "minecraft:snowy_slopes":            { "mean": -6,  "seasonal_swing": 12, "humidity": 0.45, "surface": "land", "frozen": true },
+    "minecraft:frozen_peaks":            { "mean": -8,  "seasonal_swing": 10, "humidity": 0.40, "surface": "ice", "frozen": true },
+    "minecraft:jagged_peaks":            { "mean": -8,  "seasonal_swing": 10, "humidity": 0.40, "surface": "land", "frozen": true },
+    "minecraft:stony_peaks":             { "mean": 3,   "seasonal_swing": 11, "humidity": 0.40, "surface": "land" },
+
+    "minecraft:windswept_hills":         { "mean": 6,   "seasonal_swing": 11, "humidity": 0.50, "surface": "land" },
+    "minecraft:windswept_gravelly_hills":{ "mean": 5,   "seasonal_swing": 11, "humidity": 0.45, "surface": "land" },
+
+    "minecraft:desert":                  { "mean": 24,  "seasonal_swing": 10, "humidity": 0.08, "surface": "land" },
+    "minecraft:badlands":                { "mean": 22,  "seasonal_swing": 12, "humidity": 0.10, "surface": "land" },
+    "minecraft:eroded_badlands":         { "mean": 22,  "seasonal_swing": 12, "humidity": 0.10, "surface": "land" },
+    "minecraft:wooded_badlands":         { "mean": 20,  "seasonal_swing": 12, "humidity": 0.15, "surface": "land" },
+
+    "minecraft:savanna":                 { "mean": 26,  "seasonal_swing": 4,  "humidity": 0.30, "surface": "land" },
+    "minecraft:savanna_plateau":         { "mean": 24,  "seasonal_swing": 4,  "humidity": 0.30, "surface": "land" },
+    "minecraft:windswept_savanna":       { "mean": 24,  "seasonal_swing": 5,  "humidity": 0.30, "surface": "land" },
+
+    "minecraft:jungle":                  { "mean": 27,  "seasonal_swing": 2,  "humidity": 0.95, "surface": "forest" },
+    "minecraft:sparse_jungle":           { "mean": 26,  "seasonal_swing": 3,  "humidity": 0.85, "surface": "forest" },
+    "minecraft:bamboo_jungle":           { "mean": 27,  "seasonal_swing": 2,  "humidity": 0.95, "surface": "forest" },
+
+    "minecraft:swamp":                   { "mean": 16,  "seasonal_swing": 9,  "humidity": 0.85, "surface": "forest" },
+    "minecraft:mangrove_swamp":          { "mean": 26,  "seasonal_swing": 3,  "humidity": 0.90, "surface": "forest" },
+
+    "minecraft:beach":                   { "mean": 15,  "seasonal_swing": 8,  "humidity": 0.65, "surface": "land" },
+    "minecraft:snowy_beach":             { "mean": -4,  "seasonal_swing": 13, "humidity": 0.50, "surface": "land" },
+    "minecraft:stony_shore":             { "mean": 10,  "seasonal_swing": 9,  "humidity": 0.60, "surface": "land" },
+
+    "minecraft:river":                   { "mean": 12,  "seasonal_swing": 10, "humidity": 0.70, "surface": "water" },
+    "minecraft:frozen_river":            { "mean": -8,  "seasonal_swing": 14, "humidity": 0.50, "surface": "water" },
+
+    "minecraft:warm_ocean":              { "mean": 26,  "seasonal_swing": 2,  "humidity": 0.85, "surface": "water" },
+    "minecraft:lukewarm_ocean":          { "mean": 20,  "seasonal_swing": 4,  "humidity": 0.80, "surface": "water" },
+    "minecraft:deep_lukewarm_ocean":     { "mean": 19,  "seasonal_swing": 4,  "humidity": 0.80, "surface": "water" },
+    "minecraft:ocean":                   { "mean": 14,  "seasonal_swing": 6,  "humidity": 0.80, "surface": "water" },
+    "minecraft:deep_ocean":              { "mean": 12,  "seasonal_swing": 5,  "humidity": 0.80, "surface": "water" },
+    "minecraft:cold_ocean":              { "mean": 6,   "seasonal_swing": 6,  "humidity": 0.75, "surface": "water" },
+    "minecraft:deep_cold_ocean":         { "mean": 5,   "seasonal_swing": 6,  "humidity": 0.75, "surface": "water" },
+    "minecraft:frozen_ocean":            { "mean": -8,  "seasonal_swing": 6,  "humidity": 0.55, "surface": "ice", "frozen": true },
+    "minecraft:deep_frozen_ocean":       { "mean": -8,  "seasonal_swing": 6,  "humidity": 0.55, "surface": "ice", "frozen": true },
+
+    "minecraft:lush_caves":              { "mean": 14,  "seasonal_swing": 3,  "humidity": 0.90, "surface": "land" },
+    "minecraft:dripstone_caves":         { "mean": 12,  "seasonal_swing": 2,  "humidity": 0.50, "surface": "land" },
+    "minecraft:deep_dark":               { "mean": 12,  "seasonal_swing": 1,  "humidity": 0.40, "surface": "land" }
+  }
+}

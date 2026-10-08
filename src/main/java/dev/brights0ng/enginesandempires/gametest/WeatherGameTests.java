@@ -1,10 +1,17 @@
 package dev.brights0ng.enginesandempires.gametest;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.enginesandempires.weather.climate.Baseline;
+import dev.brights0ng.enginesandempires.weather.climate.BiomeClimate;
+import dev.brights0ng.enginesandempires.weather.climate.Climate;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.Biomes;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -48,6 +55,124 @@ public final class WeatherGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = SCRATCH)
+    public static void biomeClimatesComeFromTheDataMap(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        var biomes = level.registryAccess().registryOrThrow(Registries.BIOME);
+        BiomeClimate plains = Climate.climateOf(biomes.getHolderOrThrow(Biomes.PLAINS));
+        BiomeClimate peaks = Climate.climateOf(biomes.getHolderOrThrow(Biomes.FROZEN_PEAKS));
+        BiomeClimate desert = Climate.climateOf(biomes.getHolderOrThrow(Biomes.DESERT));
+        helper.assertTrue(plains.mean() == 11 && !plains.frozen(), "plains from the data map: " + plains);
+        helper.assertTrue(peaks.frozen(), "frozen peaks never thaw: " + peaks);
+        helper.assertTrue(desert.humidity() < 0.2 && desert.mean() > 20, "desert is hot and dry: " + desert);
+        helper.succeed();
+    }
+
+    @GameTest(template = SCRATCH)
+    public static void anAlwaysFrozenBiomeStaysBelowFreezing(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        Holder<Biome> iceSpikes = level.registryAccess().registryOrThrow(Registries.BIOME)
+                .getHolderOrThrow(Biomes.ICE_SPIKES);
+        BlockPos at = helper.absolutePos(new BlockPos(3, 2, 3));
+        // Far down the warm side of the climate bands, at the bottom of the world: as warm as it gets.
+        Baseline.Sample s = Climate.sample(level, at.getX(), level.getMinBuildHeight(), 16000,
+                Climate.climateOf(iceSpikes));
+        helper.assertTrue(s.temperature() <= BiomeClimate.FROZEN_MAX, "held below freezing: " + s.temperature());
+        helper.succeed();
+    }
+
+    @GameTest(template = SCRATCH)
+    public static void theTemperatureServiceGivesAPlausibleValue(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        double t = dev.brights0ng.enginesandempires.weather.climate.Temperature.at(level,
+                helper.absolutePos(new BlockPos(3, 2, 3)));
+        helper.assertTrue(Double.isFinite(t) && t > -60 && t < 60, "a plausible air temperature: " + t);
+        helper.succeed();
+    }
+
     private WeatherGameTests() {
+    }
+
+    @GameTest(template = SCRATCH, batch = "weather_systems")
+    public static void theWorldHasWeatherSystemsAndWind(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        var sim = dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim.of(level);
+        helper.assertTrue(sim != null, "the Overworld runs the weather systems");
+        helper.assertTrue(!sim.systems().isEmpty(), "spun up with systems already in place");
+        BlockPos at = helper.absolutePos(new BlockPos(3, 2, 3));
+        var wind = dev.brights0ng.enginesandempires.weather.sim.world.Atmosphere.wind(level, at.getX(), at.getZ());
+        helper.assertTrue(wind != null && Math.hypot(wind.aloftX(), wind.aloftZ()) > 0.5, "the jet blows aloft");
+        helper.succeed();
+    }
+
+    @GameTest(template = SCRATCH, batch = "weather_systems")
+    public static void aSpawnedLowLowersThePressure(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        var sim = dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim.of(level);
+        double x = 2_000_000;
+        double z = 0;
+        double before = dev.brights0ng.enginesandempires.weather.sim.world.Atmosphere.pressure(level, x, z);
+        var low = sim.spawn(dev.brights0ng.enginesandempires.weather.sim.WeatherSystem.Kind.LOW, x, z);
+        double after = dev.brights0ng.enginesandempires.weather.sim.world.Atmosphere.pressure(level, x, z);
+        sim.systems().remove(low);
+        helper.assertTrue(after < before - 10, "a low at its centre: " + before + " -> " + after);
+        helper.succeed();
+    }
+
+    @GameTest(template = SCRATCH, batch = "weather_systems", timeoutTicks = 300)
+    public static void theAtmosphereFieldStepsQuickly(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        var sim = dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim.of(level);
+        // The field lives around players; the test server has none, so open a player-sized patch here.
+        BlockPos at = helper.absolutePos(new BlockPos(3, 2, 3));
+        sim.field().ensure(at.getX(), at.getZ(), 16000, sim.readEnv(), sim.time());
+        helper.assertTrue(sim.field().covers(at.getX(), at.getZ()), "field tiles here");
+        helper.runAfterDelay(210, () -> {
+            double anomaly = sim.anomaly(at.getX(), at.getZ());
+            helper.assertTrue(Double.isFinite(anomaly) && Math.abs(anomaly) < 30, "a sane air-mass anomaly: " + anomaly);
+            helper.assertTrue(sim.lastStepMillis() < 40, "a live step stays cheap: " + sim.lastStepMillis() + " ms");
+            helper.succeed();
+        });
+    }
+
+    /** Phase 4a/4b: a cloud spawned over a spot is a server cloud and covers the sky there; set raining, it rains. */
+    @GameTest(template = SCRATCH, batch = "weather_systems")
+    public static void aSpawnedCloudCoversTheSkyAndRains(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        var sim = dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim.of(level);
+        BlockPos at = helper.absolutePos(new BlockPos(3, 2, 3));
+        sim.field().ensure(at.getX(), at.getZ(), 2000, sim.readEnv(), sim.time());
+        var cloud = dev.brights0ng.enginesandempires.weather.sim.world.CloudWorld.spawn(level,
+                dev.brights0ng.enginesandempires.weather.cloud.CloudType.NIMBOSTRATUS, at.getX(), at.getZ());
+        helper.assertTrue(cloud != null, "a cloud was added");
+        // Next tick, so the per-tick caches pick it up.
+        helper.runAfterDelay(1, () -> {
+            var shapes = dev.brights0ng.enginesandempires.weather.cloud.CloudSources.server(level);
+            helper.assertTrue(shapes.stream().anyMatch(s -> s.regionId().equals(cloud.id)),
+                    "the server's clouds include it");
+            BlockPos below = helper.absolutePos(new BlockPos(3, 40, 3));
+            var here = dev.brights0ng.enginesandempires.weather.rain.LocalWeather.at(level, below.getX() + 0.5,
+                    below.getY(), below.getZ() + 0.5);
+            helper.assertTrue(here.cover() > 0.3, "under the cloud: " + here.cover());
+            // Whatever the air here, make it rain (and reach the ground).
+            cloud.forcedRain = 1;
+            cloud.precipitation = 1;
+            cloud.rainBottom = Float.NEGATIVE_INFINITY;
+            cloud.version++;
+        });
+        helper.runAfterDelay(3, () -> {
+            try {
+                BlockPos below = helper.absolutePos(new BlockPos(3, 40, 3));
+                var here = dev.brights0ng.enginesandempires.weather.rain.LocalWeather.at(level, below.getX() + 0.5,
+                        below.getY(), below.getZ() + 0.5);
+                boolean dryBiome = !level.getBiome(below).value().hasPrecipitation();
+                helper.assertTrue(here.falling() || dryBiome, "a raining nimbostratus rains on the ground under it");
+                helper.assertTrue(level.isRainingAt(below) || here.snow() || dryBiome,
+                        "and vanilla's rain check agrees");
+            } finally {
+                sim.cloudSim().clouds().remove(cloud);
+            }
+            helper.succeed();
+        });
     }
 }

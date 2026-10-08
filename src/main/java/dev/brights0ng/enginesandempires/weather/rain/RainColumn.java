@@ -23,7 +23,8 @@ public final class RainColumn {
 
     public double target;
     public double strength;
-    public boolean snow;
+    /** How it looks here ({@link Precip#look}: never mixed); rain until sampled. */
+    public Precip look = Precip.RAIN;
     public boolean active;
     /** Where the streak meets the ground: height (world y) and spot (world x, z). */
     public double ground;
@@ -40,10 +41,15 @@ public final class RainColumn {
 
     /** A column seen for the first time: drawn as it is, no front. */
     public static RainColumn first(double strength, boolean snow, double ground, long tick) {
+        return first(strength, snow ? Precip.SNOW : Precip.RAIN, ground, tick);
+    }
+
+    /** A column seen for the first time, looking like {@code look}: drawn as it is, no front. */
+    public static RainColumn first(double strength, Precip look, double ground, long tick) {
         RainColumn c = new RainColumn();
         c.target = strength;
         c.strength = strength;
-        c.snow = snow;
+        c.look = look;
         c.ground = ground;
         c.active = strength > RainModel.MIN;
         c.head = ground;
@@ -55,9 +61,17 @@ public final class RainColumn {
 
     /** Blocks per tick a drop falls: drizzle 4 m/s up to heavy rain 9 m/s, snow 1.2 m/s. */
     public static double fallPerTick(boolean snow, double strength) {
-        double mps = snow ? RainModel.SNOW_FALL
-                : RainModel.DRIZZLE_FALL + (RainModel.HEAVY_FALL - RainModel.DRIZZLE_FALL) * Math.min(1, strength);
-        return mps / 20;
+        return fallPerTick(snow ? Precip.SNOW : Precip.RAIN, strength);
+    }
+
+    /** Blocks per tick {@code kind} falls ({@link Precip#fallMps}). */
+    public static double fallPerTick(Precip kind, double strength) {
+        return kind.fallMps(strength) / 20;
+    }
+
+    /** Whether it looks like snow here. */
+    public boolean snow() {
+        return look == Precip.SNOW;
     }
 
     /** One tick, with the drawn band's top at {@code top} (world y). */
@@ -65,7 +79,7 @@ public final class RainColumn {
         prevHead = head;
         prevTail = tail;
         boolean raining = target > RainModel.MIN;
-        double v = fallPerTick(snow, Math.max(strength, target));
+        double v = fallPerTick(look, Math.max(strength, target));
         if (raining) {
             if (!active) {
                 // Rain starts at the top and falls.
@@ -105,8 +119,13 @@ public final class RainColumn {
         return from + (tail - from) * pt;
     }
 
-    /** Whether rain reaches the ground here now. */
+    /** Whether rain (liquid: it splashes) reaches the ground here now. */
     public boolean landing() {
-        return active && head <= ground + 0.5 && !snow;
+        return reaching() && !look.frozen;
+    }
+
+    /** Whether anything reaches the ground here now. */
+    public boolean reaching() {
+        return active && head <= ground + 0.5;
     }
 }

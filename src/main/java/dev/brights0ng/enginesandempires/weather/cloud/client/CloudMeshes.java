@@ -48,13 +48,22 @@ import net.minecraft.world.phys.Vec3;
  * A formation is rebuilt as a whole: every section for the same moment (a generation), uploaded as each finishes but
  * kept hidden, then all swapped in at once. So neighbouring sections always show the cloud at the same moment and
  * meet exactly, and a half-built storm is never drawn. A new generation starts once the last is done and at least
- * {@link CloudConfig#rebuildTicks()} after it started.
+ * {@link CloudConfig#rebuildTicks()} after it started, when it is due by its refresh target ({@link RebuildSchedule}:
+ * 2 s near and for clouds being born or dying, up to 30 s for steady clouds far away).
  *
- * <p>Building shares a CPU budget ({@link CloudTuning#rebuildBudget} cores), nearest sections first: a big storm
- * simply changes in slower steps instead of the mesher falling behind. A formation's first generation doesn't wait for
- * the budget. Moving costs nothing: meshes are built around the anchor and drawn wherever it is.
+ * <p>Building shares a CPU budget ({@link CloudTuning#rebuildBudget} cores), charged what each build actually used.
+ * Rebuilds go most overdue for their size first ({@link RebuildSchedule#score}): a big storm simply changes in slower
+ * steps instead of holding up the small clouds. Sections that came out empty are left out for a few generations.
+ * A formation's first generation doesn't wait for the budget. Moving costs nothing: meshes are built around the
+ * anchor and drawn wherever it is.
  */
 public final class CloudMeshes {
+
+    /**
+     * The meshes' vertices: position, the packed light ({@link CloudVoxelizer#pack}) and the surface's direction, for
+     * the shader's live lighting (2026-10-07 evening; 20 bytes a vertex, was 16).
+     */
+    public static final VertexFormat FORMAT = DefaultVertexFormat.POSITION_COLOR_NORMAL;
 
     /**
      * How much estimated work (in ticks of every mesher thread's time) may be queued or running at once. Finished
@@ -148,6 +157,16 @@ public final class CloudMeshes {
         boolean built;
         /** Last build time per section key, to spend the budget by. */
         final Map<Long, Long> costs = new HashMap<>();
+        /** Sections that came out empty, by key, to leave out for a while ({@link RebuildSchedule#skip}). */
+        final Map<Long, RebuildSchedule.Empty> empties = new HashMap<>();
+        /** Generations started (numbers them, for the empty sections' rechecks). */
+        long genCount;
+        /** The refresh target (seconds) and distance to the camera (blocks) last worked out. */
+        double targetSeconds = RebuildSchedule.NEAR_SECONDS;
+        double distance;
+        /** Build time (CPU, seconds) of the last finished generation, and how many sections it left out as empty. */
+        double lastGenCost;
+        int lastSkipped;
 
         // ---- the drawn generation, for the in-cloud probe (CloudInterior)
         /** The formation data, game time and section side the drawn meshes were built from. */
@@ -205,6 +224,17 @@ public final class CloudMeshes {
         final Map<CompletableFuture<Built>, Long> work = new IdentityHashMap<>();
         final List<Section> done = new ArrayList<>();
         long slowestNanos;
+        /** The sun or moon every section of this generation is lit by (fixed for the generation, so they match). */
+        CloudLight light = CloudLight.at(0.9);
+        /** The other clouds' shadows every section is shaded with (fixed for the generation). */
+        CloudShadows shadows = CloudShadows.EMPTY;
+        /** Its number among the formation's generations. */
+        long index;
+        /** Sections left out as remembered empty, and planned sections that came out empty. */
+        int skipped;
+        final List<Planned> emptyBuilt = new ArrayList<>();
+        /** Build time (CPU, seconds) of its finished builds. */
+        double cost;
 
         Generation(CloudFormation from, double time, int sectionSize, boolean first, long startTick,
                    int raw, CompletableFuture<Culled> planning) {
@@ -249,11 +279,24 @@ public final class CloudMeshes {
      * What {@link CloudRenderer} draws: sections' uploaded meshes, and where their local origin (the anchor they were
      * built around, as drawn) is now.
      */
-    record Drawable(double x, double z, List<Section> sections) {
+    record Drawable(double x, double z, List<Section> sections, int depthLayer) {
     }
 
     /** How long an orphaned formation's meshes are kept at most (ticks). */
     static final int ORPHAN_TICKS = 200;
+    /**
+     * Where a section build goes in the order (lower first): first generations ahead of everything, nearest first;
+     * then rebuilds by {@link RebuildSchedule#score} (2026-10-08; replaced "older than 4 rebuild gaps first"). Every
+     * section of one formation gets the same value, so a formation's sections keep their own nearest-first order.
+     */
+    static double priority(Formation fe, Planned p, long gameTime, double remainingSeconds) {
+        if (fe.gen.first || fe.liveStart == Long.MIN_VALUE) {
+            return -1e18 + p.distance();
+        }
+        return -RebuildSchedule.score((gameTime - fe.liveStart) / 20.0, fe.targetSeconds, remainingSeconds);
+    }
+    /** A rebuild running longer than this is taken as stuck (see the watchdog in {@link #tick}). */
+    static final long STUCK_NANOS = 60_000_000_000L;
 
     private static ThreadPoolExecutor mesher() {
         if (mesher == null) {
@@ -305,12 +348,15 @@ public final class CloudMeshes {
                 fe.anchorId = f.anchor().id();
                 fe.shapeRef = null;
                 fe.lastGenStart = Long.MIN_VALUE;
+                // Sections are anchor-local: what was empty around the old anchor says nothing now.
+                fe.empties.clear();
             }
             if (fe.tuning != CloudTuning.version && fe.tuning != -1) {
                 // The settings changed: drop the generation being built with the old ones and start over now,
                 // instead of finishing it first.
                 dropGeneration(fe);
                 fe.lastGenStart = Long.MIN_VALUE;
+                fe.empties.clear();
             }
             if (fe.shapeRef == null || changed(fe.shapeRef, f, voxel) || fe.tuning != CloudTuning.version) {
                 fe.shapeRef = f;
@@ -319,24 +365,76 @@ public final class CloudMeshes {
                 CloudField field = CloudField.of(f);
                 fe.bounds = field == null ? null : field.bounds();
             }
+            if (fe.bounds == null && fe.gen == null && !fe.live.isEmpty()) {
+                // Nothing in it is visible any more (a layer thinned away): take its meshes down instead of leaving
+                // the last ones drawn for good (2026-10-08: a dissolved stratocumulus stayed up, 21 s stale).
+                releaseAll(fe);
+            }
             if (fe.gen != null || fe.bounds == null) {
+                if (fe.gen != null && System.nanoTime() - fe.gen.startNanos > STUCK_NANOS) {
+                    // Watchdog (Bright, 2026-10-06: clouds stopped churning after a while): a generation this old is
+                    // stuck; say why in the log and start over.
+                    Generation g = fe.gen;
+                    EnginesAndEmpiresMod.LOGGER.warn("Clouds: a rebuild of {} has run for {} s ({}; {} of {} sections "
+                                    + "started, {} running, {} done; budget {} ms, mesher queue {}); starting over",
+                            f.regionId(), (System.nanoTime() - g.startNanos) / 1_000_000_000L,
+                            g.planned() ? "planned" : g.planning.isDone() ? "planning done" : "still planning",
+                            g.next, g.todo == null ? -1 : g.todo.size(), g.running.size(), g.done.size(),
+                            Math.round(budget * 1000), mesher == null ? 0 : mesher.getQueue().size());
+                    dropGeneration(fe);
+                    fe.lastGenStart = Long.MIN_VALUE;
+                }
                 continue;
             }
-            if (fe.built && gameTime - fe.lastGenStart < minGap) {
+            double ax = CloudTracker.x(f.anchor(), gameTime);
+            double az = CloudTracker.z(f.anchor(), gameTime);
+            boolean changing = changing(f);
+            fe.distance = RebuildSchedule.boxDistance(fe.bounds, camera.x - ax, camera.y, camera.z - az);
+            fe.targetSeconds = RebuildSchedule.targetSeconds(fe.distance, changing, fe.lastGenCost,
+                    CloudTuning.rebuildBudget, minGap / 20.0);
+            if (fe.built && gameTime < RebuildSchedule.dueTick(fe.liveStart, fe.lastGenStart,
+                    Math.round(fe.targetSeconds * 20), Math.round(fe.lastGenNanos / 5e7), minGap)) {
                 continue;
             }
-            double ax = CloudTracker.x(f.anchor(), gameTime) + f.originX();
-            double az = CloudTracker.z(f.anchor(), gameTime) + f.originZ();
             int sectionSize = CloudTuning.sectionSize;
             List<Planned> plan = plan(fe.bounds, camera.x - ax, camera.y, camera.z - az, sectionSize, voxel,
                     CloudConfig.drawDistance());
+            // A first generation (unbudgeted, ahead of rebuilds) is only for a formation never built, or laid out
+            // around a new anchor. One whose last build came out empty (a cloud still forming, or too thin to show) is
+            // a rebuild like any other: before 2026-10-07 those counted as first builds every time, and with dozens
+            // of forming clouds they filled the work window and starved every rebuild (clouds stopped churning).
+            boolean first = !fe.built || (!fe.live.isEmpty() && !f.anchor().id().equals(fe.liveFrame));
+            long index = ++fe.genCount;
+            int raw = plan.size();
+            int skipped = 0;
+            if (!first && !fe.empties.isEmpty()) {
+                // Leave out sections that came out empty lately (rechecked now and then: RebuildSchedule).
+                List<Planned> kept = new ArrayList<>(plan.size());
+                for (Planned p : plan) {
+                    if (RebuildSchedule.skip(fe.empties.get(key(p.sx(), p.sy(), p.sz())), p.voxel(), index, gameTime,
+                            changing)) {
+                        skipped++;
+                    } else {
+                        kept.add(p);
+                    }
+                }
+                plan = kept;
+            }
+            List<Planned> toCull = plan;
             // Empty sky is culled on the mesher, so the client tick never pays for it.
             CloudFormation from = fe.shapeRef;
             double time = gameTime;
             CompletableFuture<Culled> planning = CompletableFuture.supplyAsync(
-                    () -> cull(from, plan, sectionSize, time), mesher());
-            boolean first = fe.live.isEmpty() || !f.anchor().id().equals(fe.liveFrame);
-            fe.gen = new Generation(from, time, sectionSize, first, gameTime, plan.size(), planning);
+                    () -> cull(from, toCull, sectionSize, time), mesher());
+            fe.gen = new Generation(from, time, sectionSize, first, gameTime, raw, planning);
+            fe.gen.index = index;
+            fe.gen.skipped = skipped;
+            var level = net.minecraft.client.Minecraft.getInstance().level;
+            if (level != null) {
+                // The shadowing through the cloud is baked for the light from above; the lit side is the shader's.
+                fe.gen.light = CloudLight.bakeAt(level.getTimeOfDay(1f));
+            }
+            fe.gen.shadows = CloudShadows.current();
             fe.lastGenStart = gameTime;
         }
 
@@ -350,34 +448,52 @@ public final class CloudMeshes {
         record Next(Formation fe, Planned p) {
         }
         List<Next> next = new ArrayList<>();
+        // The build time (estimated, seconds) each formation still needs to finish its generation.
+        Map<Formation, Double> remaining = new IdentityHashMap<>();
         for (Formation fe : FORMATIONS.values()) {
             if (fe.gen != null) {
                 inFlight += fe.gen.running.size();
+                long left = 0;
                 for (long w : fe.gen.work.values()) {
                     inFlightWork += w;
+                    left += w;
                 }
                 if (!fe.gen.planned()) {
                     continue;
                 }
                 for (int k = fe.gen.next; k < fe.gen.todo.size(); k++) {
-                    next.add(new Next(fe, fe.gen.todo.get(k)));
+                    Planned p = fe.gen.todo.get(k);
+                    next.add(new Next(fe, p));
+                    left += fe.costs.getOrDefault(key(p.sx(), p.sy(), p.sz()), DEFAULT_COST);
                 }
+                remaining.put(fe, left / 1e9);
             }
         }
-        next.sort(Comparator.<Next>comparingInt(n -> n.fe.gen.first ? 0 : 1)
-                .thenComparingDouble(n -> n.p.distance()));
+        // The order (2026-10-08): first generations, then the formations most overdue for their refresh target over
+        // the work they still need (RebuildSchedule). The sort is stable, so each formation's sections stay nearest
+        // first.
+        next.sort(Comparator.comparingDouble(n -> priority(n.fe, n.p, gameTime, remaining.getOrDefault(n.fe, 0.0))));
         Set<Formation> blocked = new HashSet<>();
         boolean outOfBudget = false;
         boolean capped = false;
+        int threads = CloudConfig.mesherThreads();
         for (Next n : next) {
             Generation g = n.fe.gen;
             long est = n.fe.costs.getOrDefault(key(n.p.sx(), n.p.sy(), n.p.sz()), DEFAULT_COST);
-            // (Sorted first builds first, so once a rebuild hits its limit, nothing after it can start. An idle mesher
-            // always takes one build, however big its estimate.)
             double limit = g.first ? window : window * REBUILD_SHARE;
-            if (inFlight >= MAX_IN_FLIGHT || (inFlight > 0 && inFlightWork + est > limit)) {
+            if (inFlight >= MAX_IN_FLIGHT) {
                 capped = true;
                 break;
+            }
+            // Every mesher thread always gets a build, however big its estimate; past that the window decides. A
+            // rebuild that doesn't fit leaves room for first builds after it (their share of the window is bigger).
+            if (inFlight >= threads && inFlightWork + est > limit) {
+                capped = true;
+                if (g.first) {
+                    break;
+                }
+                blocked.add(n.fe);
+                continue;
             }
             if (blocked.contains(n.fe) || g.todo.get(g.next) != n.p) {
                 // Each generation is started in its own order (nearest first); wait for its turn.
@@ -402,10 +518,12 @@ public final class CloudMeshes {
             CloudFormation from = g.from;
             double time = g.time;
             int sectionSize = g.sectionSize;
+            CloudLight light = g.light;
+            CloudShadows shadows = g.shadows;
             long charged = estimate;
             long submitted = System.nanoTime();
             CompletableFuture<Built> fut = CompletableFuture.supplyAsync(
-                    () -> build(from, p, sectionSize, time, charged, submitted), mesher());
+                    () -> build(from, p, sectionSize, time, light, shadows, charged, submitted), mesher());
             g.running.add(fut);
             g.work.put(fut, est);
             inFlight++;
@@ -421,59 +539,11 @@ public final class CloudMeshes {
      */
     static List<Planned> plan(double[] b, double camX, double camY, double camZ, int sectionSize, int voxel,
                               double drawDistance) {
-        Map<Long, Planned> plan = new HashMap<>();
-        int x0 = Math.floorDiv((int) Math.floor(b[0]), sectionSize), x1 = Math.floorDiv((int) Math.ceil(b[1]), sectionSize);
-        int y0 = Math.floorDiv((int) Math.floor(b[2]), sectionSize), y1 = Math.floorDiv((int) Math.ceil(b[3]), sectionSize);
-        int z0 = Math.floorDiv((int) Math.floor(b[4]), sectionSize), z1 = Math.floorDiv((int) Math.ceil(b[5]), sectionSize);
-        for (int sx = x0; sx <= x1; sx++) {
-            for (int sz = z0; sz <= z1; sz++) {
-                double hx = axisGap(camX, sx, sectionSize), hz = axisGap(camZ, sz, sectionSize);
-                double horizontal = Math.sqrt(hx * hx + hz * hz);
-                if (horizontal > drawDistance) {
-                    continue;
-                }
-                for (int sy = y0; sy <= y1; sy++) {
-                    double hy = axisGap(camY, sy, sectionSize);
-                    double dist = Math.sqrt(horizontal * horizontal + hy * hy);
-                    int size = Math.min(CloudTuning.voxelSizeAt(dist, voxel), sectionSize);
-                    plan.put(key(sx, sy, sz), new Planned(sx, sy, sz, size, dist));
-                }
-            }
-        }
-        // 2:1 balance: refine any section more than twice as coarse as a neighbour, until none is.
-        int[][] dirs = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
-        boolean changed = true;
-        for (int pass = 0; changed && pass < 8; pass++) {
-            changed = false;
-            for (Map.Entry<Long, Planned> e : plan.entrySet()) {
-                Planned p = e.getValue();
-                int limit = p.voxel();
-                for (int[] d : dirs) {
-                    Planned n = plan.get(key(p.sx() + d[0], p.sy() + d[1], p.sz() + d[2]));
-                    if (n != null) {
-                        limit = Math.min(limit, n.voxel() * 2);
-                    }
-                }
-                if (limit < p.voxel()) {
-                    e.setValue(new Planned(p.sx(), p.sy(), p.sz(), limit, p.distance()));
-                    changed = true;
-                }
-            }
-        }
-        List<Planned> out = new ArrayList<>(plan.values());
-        out.sort(Comparator.comparingDouble(Planned::distance));
-        return out;
-    }
-
-    /** Blocks from {@code c} to section {@code index}'s span along one axis (0 inside). */
-    private static double axisGap(double c, int index, int size) {
-        double lo = (double) index * size;
-        double hi = lo + size;
-        return c < lo ? lo - c : c > hi ? c - hi : 0;
+        return RebuildSchedule.plan(b, camX, camY, camZ, sectionSize, voxel, drawDistance);
     }
 
     static long key(int sx, int sy, int sz) {
-        return ((long) (sx & 0x1FFFFF) << 42) | ((long) (sy & 0x1FFFFF) << 21) | (sz & 0x1FFFFF);
+        return RebuildSchedule.key(sx, sy, sz);
     }
 
     /**
@@ -536,10 +606,17 @@ public final class CloudMeshes {
             if (!Double.isFinite(x) || !Double.isFinite(z)) {
                 continue;
             }
-            out.add(new Drawable(x, z, fe.live));
+            // Overlapping clouds' faces at the same height would z-fight: each formation gets one of a few depth
+            // layers from its id, so one consistently wins (CloudRenderer, clouds.vsh).
+            int layer = (int) Math.floorMod(fe.liveFrame.getLeastSignificantBits() ^ fe.liveFrame.getMostSignificantBits(),
+                    (long) DEPTH_LAYERS);
+            out.add(new Drawable(x, z, fe.live, layer));
         }
         return out;
     }
+
+    /** How many depth layers overlapping formations are spread over (see {@link Drawable#depthLayer}). */
+    static final int DEPTH_LAYERS = 4;
 
     /** Frees every mesh (leaving a world, turning the renderer off). */
     public static void clear() {
@@ -603,10 +680,11 @@ public final class CloudMeshes {
         }
         List<String> out = new ArrayList<>();
         out.add(String.format("Scheduler, last %d ticks: idle %d%%, free %d%%, held by budget %d%%, work window full %d%%."
-                        + " Budget %.0f ms banked. Rebuild cost charged %.0f ms vs actual %.0f ms (%s). Threads %d.",
+                        + " Budget %.0f ms banked. Rebuild estimates %.0f ms vs %.0f ms used (%s; charged what was"
+                        + " used). Threads %d.",
                 LOAD_WINDOW, pct(states[TICK_IDLE]), pct(states[TICK_FREE]), pct(states[TICK_BUDGET]),
                 pct(states[TICK_CAP]), budget * 1000, est / 1e6, actual / 1e6,
-                actual > 0 ? String.format("%.1fx overcharged", (double) est / actual) : "no rebuilds",
+                actual > 0 ? String.format("estimates %.2fx", (double) est / actual) : "no rebuilds",
                 CloudConfig.mesherThreads()));
         ThreadPoolExecutor pool = mesher;
         out.add(String.format("Builds, last %d ticks: %d finished; average queue wait %.1f ms, wall %.2f ms, CPU %s"
@@ -627,11 +705,15 @@ public final class CloudMeshes {
                     : String.format("%s generation %d/%d started, %d done, %d with mesh",
                     fe.gen.first ? "first" : "rebuild", fe.gen.next, fe.gen.todo.size(),
                     fe.gen.next - fe.gen.running.size(), fe.gen.done.size());
-            out.add(String.format("  %s: last generation %d in box, culled to %d in %.0f ms, %d with mesh (%d%% of"
-                            + " the built ones empty); now %s",
-                    f.anchor().typeId(), fe.lastRaw, fe.lastPlanned, fe.lastCullNanos / 1e6, fe.lastMeshed,
+            String age = fe.liveStart == Long.MIN_VALUE ? "nothing shown yet"
+                    : String.format("shown one from %.1f s ago", (lastSeenTick - fe.liveStart) / 20.0);
+            out.add(String.format("  %s, %.0f blocks away, refresh every %.1f s: last generation %d in box, %d left"
+                            + " out as empty before, culled to %d in %.0f ms, %d with mesh (%d%% of the built ones"
+                            + " empty), %.0f ms CPU, %s; now %s",
+                    f.anchor().typeId(), fe.distance, fe.targetSeconds, fe.lastRaw, fe.lastSkipped, fe.lastPlanned,
+                    fe.lastCullNanos / 1e6, fe.lastMeshed,
                     fe.lastPlanned == 0 ? 0 : Math.round(100.0 * (fe.lastPlanned - fe.lastMeshed) / fe.lastPlanned),
-                    now));
+                    fe.lastGenCost * 1000, age, now));
         }
         return out;
     }
@@ -681,14 +763,21 @@ public final class CloudMeshes {
                 WAIT[loadTick] += b.queued();
                 CPU[loadTick] += Math.max(0, b.cpu());
                 BUILDS[loadTick]++;
+                long spent = spent(b);
                 if (b.estimate() >= 0) {
                     EST[loadTick] += b.estimate();
-                    ACTUAL[loadTick] += b.nanos();
+                    ACTUAL[loadTick] += spent;
+                    // The estimate was only held back; charge what the build really used (2026-10-08: estimates ran
+                    // 1.2x high, wasting a sixth of the budget).
+                    budget = Math.max(-MAX_DEBT, budget + (b.estimate() - spent) / 1e9);
                 }
+                g.cost += spent / 1e9;
                 g.slowestNanos = Math.max(g.slowestNanos, b.nanos());
                 Planned p = b.plan();
-                fe.costs.put(key(p.sx(), p.sy(), p.sz()), b.nanos());
+                // Smoothed, so one slow or quick build doesn't swing the next estimate.
+                fe.costs.merge(key(p.sx(), p.sy(), p.sz()), spent, (old, now) -> (old + now) / 2);
                 if (b.mesh() == null) {
+                    g.emptyBuilt.add(p);
                     b.discard();
                     continue;
                 }
@@ -713,6 +802,11 @@ public final class CloudMeshes {
                 fe.liveTime = g.time;
                 fe.liveSectionSize = g.sectionSize;
                 fe.liveField = g.field;
+                if (g.field != null) {
+                    // Lit and shaded as the meshes were (the wisps read their light from it).
+                    g.field.withLight(g.light.x(), g.light.y(), g.light.z(), g.light.strength());
+                    g.field.withShadows(g.shadows, g.from, g.time);
+                }
                 Map<Long, Integer> voxels = new HashMap<>();
                 for (Planned p : g.todo) {
                     voxels.put(key(p.sx(), p.sy(), p.sz()), p.voxel());
@@ -724,6 +818,9 @@ public final class CloudMeshes {
                 fe.lastMeshed = g.done.size();
                 fe.lastRaw = g.raw;
                 fe.lastCullNanos = g.cullNanos;
+                fe.lastGenCost = g.cost;
+                fe.lastSkipped = g.skipped;
+                rememberEmpties(fe, g);
                 fe.built = true;
                 fe.gen = null;
             }
@@ -731,6 +828,56 @@ public final class CloudMeshes {
     }
 
     private static long lastSeenTick;
+
+    /** The most the budget may be overdrawn by builds that took longer than estimated, seconds. */
+    private static final double MAX_DEBT = 2;
+
+    /** What a build used, nanoseconds: its CPU time where the JVM measures it, else its wall time. */
+    private static long spent(Built b) {
+        return b.cpu() >= 0 ? b.cpu() : b.nanos();
+    }
+
+    /** Whether any visible cloud of the formation is being born or dying. */
+    private static boolean changing(CloudFormation f) {
+        for (CloudShape m : f.members()) {
+            if (m.visible() && (m.growth() < 1 || m.decay() > 0)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * After generation {@code g} is swapped in: remembers the sections that came out empty, forgets the ones with
+     * cloud, and marks which empty ones touch cloud (rechecked sooner: {@link RebuildSchedule}).
+     */
+    private static void rememberEmpties(Formation fe, Generation g) {
+        Set<Long> meshed = new HashSet<>();
+        for (Section s : g.done) {
+            long k = key(s.sx, s.sy, s.sz);
+            meshed.add(k);
+            fe.empties.remove(k);
+        }
+        for (Planned p : g.emptyBuilt) {
+            long k = key(p.sx(), p.sy(), p.sz());
+            fe.empties.put(k, RebuildSchedule.emptied(k, p.voxel(), g.index, g.startTick, false));
+        }
+        Iterator<Map.Entry<Long, RebuildSchedule.Empty>> it = fe.empties.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<Long, RebuildSchedule.Empty> e = it.next();
+            if (g.startTick - e.getValue().checkedTick() > 4 * RebuildSchedule.EMPTY_MAX_TICKS) {
+                // Long out of the plan (left behind as the camera moved): forget it.
+                it.remove();
+                continue;
+            }
+            long k = e.getKey();
+            int sx = RebuildSchedule.keyX(k), sy = RebuildSchedule.keyY(k), sz = RebuildSchedule.keyZ(k);
+            boolean near = meshed.contains(key(sx + 1, sy, sz)) || meshed.contains(key(sx - 1, sy, sz))
+                    || meshed.contains(key(sx, sy + 1, sz)) || meshed.contains(key(sx, sy - 1, sz))
+                    || meshed.contains(key(sx, sy, sz + 1)) || meshed.contains(key(sx, sy, sz - 1));
+            e.setValue(RebuildSchedule.touching(e.getValue(), near, g.index));
+        }
+    }
 
     private static void releaseAll(Formation fe) {
         for (Section s : fe.live) {
@@ -778,15 +925,30 @@ public final class CloudMeshes {
     }
 
     /** Runs on the mesher thread. */
-    private static Built build(CloudFormation f, Planned p, int sectionSize, double time, long estimate,
-                               long submitted) {
+    private static Built build(CloudFormation f, Planned p, int sectionSize, double time, CloudLight light,
+                               CloudShadows shadows, long estimate, long submitted) {
         long start = System.nanoTime();
         long cpuStart = CPU_TIME ? THREADS.getCurrentThreadCpuTime() : -1;
         ByteBufferBuilder memory = new ByteBufferBuilder(1 << 14);
         try {
-            BufferBuilder builder = new BufferBuilder(memory, VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-            CloudVoxelizer.Result result = CloudVoxelizer.buildSection(CloudField.of(f), p.voxel(), time, p.sx(), p.sy(),
-                    p.sz(), sectionSize, (x, y, z, argb) -> builder.addVertex(x, y, z).setColor(argb));
+            BufferBuilder builder = new BufferBuilder(memory, VertexFormat.Mode.QUADS, FORMAT);
+        CloudField field = CloudField.of(f);
+        if (field != null) {
+            field.withLight(light.x(), light.y(), light.z(), light.strength());
+            field.withShadows(shadows, f, time);
+        }
+        CloudVoxelizer.Result result = CloudVoxelizer.buildSection(field, p.voxel(), time, p.sx(), p.sy(),
+                    p.sz(), sectionSize, new CloudVoxelizer.VertexSink() {
+                        @Override
+                        public void vertex(float x, float y, float z, int argb) {
+                            builder.addVertex(x, y, z).setColor(argb).setNormal(0, 1, 0);
+                        }
+
+                        @Override
+                        public void vertex(float x, float y, float z, int argb, float nx, float ny, float nz) {
+                            builder.addVertex(x, y, z).setColor(argb).setNormal(nx, ny, nz);
+                        }
+                    });
             MeshData mesh = builder.build();
             long cpu = CPU_TIME ? THREADS.getCurrentThreadCpuTime() - cpuStart : -1;
             return new Built(p, result, mesh, memory, System.nanoTime() - start, estimate, start - submitted, cpu);
@@ -849,7 +1011,6 @@ public final class CloudMeshes {
     /** Whether one cluster's shape changed noticeably. */
     static boolean shapeChanged(CloudShape was, CloudShape now, int voxelSize) {
         return Math.abs(was.radius() - now.radius()) > Math.max(voxelSize, 0.03f * was.radius())
-                || Math.abs(CloudFormation.spread(was) - CloudFormation.spread(now)) > 0.02 * CloudFormation.spread(was)
                 || Math.abs(was.baseY() - now.baseY()) > voxelSize / 2f
                 || Math.abs(was.topY() - now.topY()) > Math.max(voxelSize / 2f, 0.01f * (was.topY() - was.baseY()))
                 || Math.abs(was.effectiveCoverage() - now.effectiveCoverage()) > 0.03f
