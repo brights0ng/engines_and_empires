@@ -14,6 +14,13 @@ package dev.brights0ng.enginesandempires.weather.rain;
  * </ul>
  * Offsets are kept at nodes every {@link #STEP} blocks across the drawn band and joined by straight lines; below the
  * band the bottom lean carries on, above it the top one. Pure Java, tested.
+ *
+ * <p><b>Shift</b> (2026-10-08, second pass): the whole shape can be moved sideways by a shift that {@link #build}
+ * leaves alone. Each time the renderer rebuilds the shape (the band follows the camera, the lean changes) it
+ * {@link #pin pins} the new shape to where the old one was at eye level, so the streaks there never move sideways.
+ * Moving the band with the camera then changes nothing in the world: the streaks are a fixed set of slanted lines
+ * the camera moves through, however fast it climbs or falls. (The first pass measured offsets from an anchor height
+ * that eased after the camera over ~10 s: after a fast climb or drop the streaks slid sideways while it caught up.)
  */
 public final class StreakShape {
 
@@ -24,7 +31,8 @@ public final class StreakShape {
     /** The height of the ground's top face at a block column (as a heightmap gives it: the first free y). */
     @FunctionalInterface
     public interface Ground {
-        int height(int x, int z);
+        /** The top surface's height at block column (x, z), world y (fractional on a ship's deck). */
+        double height(int x, int z);
     }
 
     private final int down;
@@ -36,6 +44,8 @@ public final class StreakShape {
     private final double[] lean = new double[2];
     private double pivot;
     private boolean straight;
+    private double shiftX;
+    private double shiftZ;
 
     /** For a band from {@code down} below the pivot to {@code up} above it (multiples of {@link #STEP}). */
     public StreakShape(int down, int up) {
@@ -52,11 +62,19 @@ public final class StreakShape {
      * {@code top} (world y; the lean at each height is the one rain had when it passed {@code top}).
      */
     public StreakShape build(RainSlant slant, boolean snow, double strength, double pivot, double top) {
+        return build(slant, snow ? Precip.SNOW : Precip.RAIN, strength, pivot, top);
+    }
+
+    /**
+     * As {@link #build(RainSlant, boolean, double, double, double)} for {@code kind} (sleet, hail, ...). The sideways
+     * offsets are measured from where a streak crosses the pivot height, plus the shift, which is kept as it was.
+     */
+    public StreakShape build(RainSlant slant, Precip kind, double strength, double pivot, double top) {
         this.pivot = pivot;
-        double v = RainColumn.fallPerTick(snow, strength);
+        double v = RainColumn.fallPerTick(kind, strength);
         for (int j = 0; j < nodes; j++) {
             double y = nodeY(j);
-            slant.at(snow, strength, Math.max(0, top - y) / v, lean);
+            slant.at(kind, strength, Math.max(0, top - y) / v, lean);
             sx[j] = lean[0];
             sz[j] = lean[1];
         }
@@ -84,6 +102,29 @@ public final class StreakShape {
         return this;
     }
 
+    /**
+     * Shifts the whole shape sideways so that at world height {@code y} a streak is where it was at
+     * ({@code oldX}, {@code oldZ}) (from {@link #x}/{@link #z} before the last {@link #build}): the streaks there stay
+     * put, and a band that only moved leaves every streak where it was.
+     */
+    public void pin(double y, double oldX, double oldZ) {
+        shiftX += oldX - x(y);
+        shiftZ += oldZ - z(y);
+    }
+
+    public double shiftX() {
+        return shiftX;
+    }
+
+    public double shiftZ() {
+        return shiftZ;
+    }
+
+    public void setShift(double x, double z) {
+        shiftX = x;
+        shiftZ = z;
+    }
+
     public double pivot() {
         return pivot;
     }
@@ -102,13 +143,16 @@ public final class StreakShape {
         return pivot - down + j * STEP;
     }
 
-    /** How far sideways (x) a streak is at world height {@code y} from where it crosses the pivot height. */
+    /**
+     * How far sideways (x) a streak is at world height {@code y} from its spot (where it would cross the pivot height
+     * with no shift).
+     */
     public double x(double y) {
-        return offset(dx, sx, y);
+        return shiftX + offset(dx, sx, y);
     }
 
     public double z(double y) {
-        return offset(dz, sz, y);
+        return shiftZ + offset(dz, sz, y);
     }
 
     private double offset(double[] d, double[] s, double y) {

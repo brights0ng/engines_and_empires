@@ -1,0 +1,22 @@
+{
+  "parent": "minecraft:block/block",
+  "render_type": "minecraft:translucent",
+  "textures": { "particle": "engines_and_empires:block/glaze", "glaze": "engines_and_empires:block/glaze", "snow": "minecraft:block/snow" },
+  "elements": [
+    { "from": [0, 0, 0], "to": [16, 2, 16], "faces": {
+      "down": { "uv": [0, 0, 16, 16], "texture": "#snow", "cullface": "down" },
+      "up": { "uv": [0, 0, 16, 16], "texture": "#snow" },
+      "north": { "uv": [0, 14, 16, 16], "texture": "#snow", "cullface": "north" },
+      "south": { "uv": [0, 14, 16, 16], "texture": "#snow", "cullface": "south" },
+      "west": { "uv": [0, 14, 16, 16], "texture": "#snow", "cullface": "west" },
+      "east": { "uv": [0, 14, 16, 16], "texture": "#snow", "cullface": "east" }
+    } },
+    { "from": [0, 2, 0], "to": [16, 4, 16], "faces": {
+      "up": { "uv": [0, 0, 16, 16], "texture": "#glaze" },
+      "north": { "uv": [0, 12, 16, 14], "texture": "#glaze", "cullface": "north" },
+      "south": { "uv": [0, 12, 16, 14], "texture": "#glaze", "cullface": "south" },
+      "west": { "uv": [0, 12, 16, 14], "texture": "#glaze", "cullface": "west" },
+      "east": { "uv": [0, 12, 16, 14], "texture": "#glaze", "cullface": "east" }
+    } }
+  ]
+}

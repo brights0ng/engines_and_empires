@@ -27,6 +27,14 @@ public final class CloudVoxelizer {
     /** Receives the mesh's vertices, four per quad. */
     public interface VertexSink {
         void vertex(float x, float y, float z, int argb);
+
+        /**
+         * A vertex with its surface direction (unit), for the shader's live lighting (clouds.fsh). Sinks that don't
+         * need it get {@link #vertex(float, float, float, int)}.
+         */
+        default void vertex(float x, float y, float z, int argb, float nx, float ny, float nz) {
+            vertex(x, y, z, argb);
+        }
     }
 
     /** What a build produced. Bounds are local, like the vertices. */
@@ -116,7 +124,11 @@ public final class CloudVoxelizer {
      * {@code sink}.
      */
     public static Result build(CloudFormation f, int s, double time, VertexSink sink) {
-        CloudField field = CloudField.of(f);
+        return build(CloudField.of(f), s, time, sink);
+    }
+
+    /** As {@link #build(CloudFormation, int, double, VertexSink)}, from a field already made (tests: puffs on/off). */
+    static Result build(CloudField field, int s, double time, VertexSink sink) {
         if (field == null) {
             return Result.EMPTY;
         }
@@ -690,6 +702,9 @@ public final class CloudVoxelizer {
         boolean[] ownY = ownRange(g.gy0, ny, own, 2);
         boolean[] ownZ = ownRange(g.gz0, nz, own, 4);
         Emitter e = new Emitter(sink, s, g, field, time);
+        // Heap clouds are shaded per vertex by their surface's direction: long merged faces would smear that into
+        // streaks, so their faces are kept to a few voxels on a side.
+        int maxRun = field.heap ? HEAP_MAX_RUN : field.layered ? LAYER_MAX_RUN : Integer.MAX_VALUE;
         int wx = (nx + 63) >>> 6;
         int wz = (nz + 63) >>> 6;
         boolean apron = own != null;
@@ -756,10 +771,10 @@ public final class CloudVoxelizer {
                     final int level = v;
                     System.arraycopy(plane, 0, full, 0, nz * wx);
                     if (dir > 0) {
-                        greedyBits(plane, nz, wx, (i, j, w, h) -> e.top(i, i + w, j, j + h, level + 1,
+                        greedyBits(plane, nz, wx, maxRun, (i, j, w, h) -> e.top(i, i + w, j, j + h, level + 1,
                                 seams(full, nz, wx, i, j, w, h)));
                     } else {
-                        greedyBits(plane, nz, wx, (i, j, w, h) -> e.bottom(i, i + w, j, j + h, level,
+                        greedyBits(plane, nz, wx, maxRun, (i, j, w, h) -> e.bottom(i, i + w, j, j + h, level,
                                 seams(full, nz, wx, i, j, w, h)));
                     }
                 }
@@ -796,7 +811,7 @@ public final class CloudVoxelizer {
                     final boolean positive = dir > 0;
                     final int at = positive ? j + 1 : j;
                     System.arraycopy(plane, 0, full, 0, ny * wx);
-                    greedyBits(plane, ny, wx, (i, v, w, h) -> e.sideZ(positive, at, i, i + w, v, v + h,
+                    greedyBits(plane, ny, wx, maxRun, (i, v, w, h) -> e.sideZ(positive, at, i, i + w, v, v + h,
                             seams(full, ny, wx, i, v, w, h)));
                 }
             }
@@ -832,7 +847,7 @@ public final class CloudVoxelizer {
                     final boolean positive = dir > 0;
                     final int at = positive ? i + 1 : i;
                     System.arraycopy(plane, 0, full, 0, ny * wz);
-                    greedyBits(plane, ny, wz, (jz, v, w, h) -> e.sideX(positive, at, jz, jz + w, v, v + h,
+                    greedyBits(plane, ny, wz, maxRun, (jz, v, w, h) -> e.sideX(positive, at, jz, jz + w, v, v + h,
                             seams(full, ny, wz, jz, v, w, h)));
                 }
             }
@@ -869,15 +884,20 @@ public final class CloudVoxelizer {
      * run. Reports (bit, row, width, height).
      */
     static void greedyBits(long[] plane, int rows, int words, RectConsumer out) {
+        greedyBits(plane, rows, words, Integer.MAX_VALUE, out);
+    }
+
+    /** As {@link #greedyBits(long[], int, int, RectConsumer)}, with rectangles at most {@code maxRun} on a side. */
+    static void greedyBits(long[] plane, int rows, int words, int maxRun, RectConsumer out) {
         for (int r = 0; r < rows; r++) {
             int base = r * words;
             for (int w = 0; w < words; w++) {
                 while (plane[base + w] != 0) {
                     int start = w * 64 + Long.numberOfTrailingZeros(plane[base + w]);
-                    int end = runEnd(plane, base, words, start);
+                    int end = (int) Math.min(runEnd(plane, base, words, start), (long) start + maxRun);
                     clearRange(plane, base, start, end);
                     int height = 1;
-                    while (r + height < rows && allSet(plane, (r + height) * words, start, end)) {
+                    while (height < maxRun && r + height < rows && allSet(plane, (r + height) * words, start, end)) {
                         clearRange(plane, (r + height) * words, start, end);
                         height++;
                     }
@@ -1003,8 +1023,18 @@ public final class CloudVoxelizer {
         final double shadeSpacing;
         final double shadeStep;
         /** Shading columns already worked out, by column index. */
-        final java.util.Map<Long, CloudField.Profile> profiles = new java.util.HashMap<>();
+        final LongCaches.Objects<CloudField.Profile> profiles = new LongCaches.Objects<>();
         final CloudField.Column column;
+        /**
+         * Heap clouds are shaded by the real surface's direction (Bright, 2026-10-06: flat face shading made every
+         * voxel step a hard contour line, like machined metal): the envelope's gradient at each vertex, from envelope
+         * values on the voxel-corner grid (cached, shared between neighbouring vertices) and columns (a small cache).
+         */
+        final boolean smoothShade;
+        final LongCaches.Floats envelope = new LongCaches.Floats();
+        /** Columns worked out, direct-mapped by column: a miss refills the slot's column in place. */
+        final LongCaches.Slots<CloudField.Column> columns = new LongCaches.Slots<>(COLUMN_CACHE);
+        final double[] range = new double[2];
         /** {@link #seamOverlap} in blocks. */
         final float e;
         int quads;
@@ -1027,6 +1057,8 @@ public final class CloudVoxelizer {
             this.shadeStep = Math.max(16, 2 * s);
             this.column = field.newColumn();
             this.e = seamOverlap * s;
+            // Heap clouds and (2026-10-07, Bright) the layer decks: smooth, lit per vertex.
+            this.smoothShade = field.heap || field.layered;
         }
 
         float x(int i) {
@@ -1097,8 +1129,10 @@ public final class CloudVoxelizer {
             quads++;
         }
 
-        void vertex(float x, float y, float z, int argb) {
-            sink.vertex(x, y, z, argb);
+        /** {@code lit}: the packed colour in the low 32 bits, the packed normal ({@link #packNormal}) above. */
+        void vertex(float x, float y, float z, long lit) {
+            int n = (int) (lit >>> 32);
+            sink.vertex(x, y, z, (int) lit, unpackNormal(n, 16), unpackNormal(n, 8), unpackNormal(n, 0));
             minX = Math.min(minX, x);
             maxX = Math.max(maxX, x);
             minY = Math.min(minY, y);
@@ -1107,13 +1141,216 @@ public final class CloudVoxelizer {
             maxZ = Math.max(maxZ, z);
         }
 
-        /** Grey, a touch blue: {@link #brightness} under the cloud above (x, y, z), times the face shade. */
-        int colour(float x, float y, float z, float shade) {
-            double b = brightness(depthAbove(x, y, z), field.water) * shade;
-            int r = (int) Math.round(b * 0.96 * 255);
-            int gr = (int) Math.round(b * 0.97 * 255);
-            int bl = (int) Math.round(b * 255);
-            return 0xFF000000 | (r << 16) | (gr << 8) | bl;
+        /**
+         * The vertex's light and direction (low 32 bits the packed colour, {@link #pack}; above them the normal,
+         * {@link #packNormal}): heap clouds and layer sheets are lit by {@link #heapColour}; anything else is
+         * {@link #brightness} under the cloud above (x, y, z) times the face shade, facing up.
+         */
+    long colour(float x, float y, float z, float shade) {
+        if (smoothShade) {
+            return heapColour(x, y, z, shade);
+        }
+        double b = brightness(depthAbove(x, y, z), field.water) * shade;
+        double[] shadow = field.shadowAt(x, y, z);
+        return lit(pack(b * shadow[0], b * shadow[1], 1), 0, 1, 0);
+    }
+
+    /**
+     * A vertex colour, for the shader to light ({@link CloudShading}, clouds.fsh; 2026-10-07: the sun's strength and
+     * colour apply live; 2026-10-07 evening: so does which side faces it, from the vertex's normal). Red is the sky's
+     * light on it; green the most of the sun's (or moon's) light it can take (its facing shade, creases and other
+     * clouds' shadows); blue how much of the light gets through the cloud toward the light (worked out for the light
+     * from above, {@link CloudLight#bakeAt}; also the silver lining's). Alpha is unused (opaque).
+     */
+    static int pack(double sky, double sunScale, double through) {
+        int r = (int) Math.round(Math.max(0, Math.min(1, sky)) * 255);
+        int g = (int) Math.round(Math.max(0, Math.min(1, sunScale)) * 255);
+        int bl = (int) Math.round(Math.max(0, Math.min(1, through)) * 255);
+        return (255 << 24) | (r << 16) | (g << 8) | bl;
+    }
+
+    /** A packed colour with its normal (unit) above it, as {@link Emitter#colour} returns them. */
+    static long lit(int argb, double nx, double ny, double nz) {
+        return ((long) packNormal(nx, ny, nz) << 32) | (argb & 0xFFFFFFFFL);
+    }
+
+    /** A unit normal as three signed bytes (x in bits 16-23, y 8-15, z 0-7). */
+    static int packNormal(double nx, double ny, double nz) {
+        int x = (int) Math.round(Math.max(-1, Math.min(1, nx)) * 127) & 255;
+        int y = (int) Math.round(Math.max(-1, Math.min(1, ny)) * 127) & 255;
+        int z = (int) Math.round(Math.max(-1, Math.min(1, nz)) * 127) & 255;
+        return (x << 16) | (y << 8) | z;
+    }
+
+    static float unpackNormal(int packed, int shift) {
+        return (byte) ((packed >> shift) & 255) / 127f;
+    }
+
+        /** Heap clouds' vertex light by voxel corner: every face meeting at a corner gets the same light. */
+        final LongCaches.Longs lit = new LongCaches.Longs();
+
+        /**
+         * A heap cloud's light at (x, y, z) (2026-10-07, Bright: realistic contrast, moonlight at night, colour later):
+         * <ul>
+         *   <li><b>Sky light</b>: {@link #brightness} under the cloud above, times the surface's facing (1 up, 0.875
+         *       sideways, 0.75 down).</li>
+         *   <li><b>Sun (or moon)</b>: how much of its light reaches the point ({@link CloudField#lightDepth}, the
+         *       cloud between it and the sun) times how squarely the surface faces it, with some wrap for scattering.
+         *       The side away from the sun is {@link CloudTuning#shadowSide} as bright as the sunlit side; bases, which face down,
+         *       keep the sky light alone.</li>
+         *   <li><b>Creases</b>: ambient occlusion from the shape itself ({@link #occlusion}): darker where bubbles
+         *       meet.</li>
+         * </ul>
+         */
+        long heapColour(float x, float y, float z, float fallback) {
+            long i = Math.round(x / (double) s), v = Math.round(y / (double) s), j = Math.round(z / (double) s);
+            long key = mix(((i & 0x1FFFFF) << 42) | ((v & 0x1FFFFF) << 21) | (j & 0x1FFFFF));
+            // (Never Long.MIN_VALUE as a real value: a packed normal leaves the top bit clear.)
+            long cached = lit.get(key, Long.MIN_VALUE);
+            if (cached != Long.MIN_VALUE) {
+                return cached;
+            }
+            double gx = env(i + 1, v, j) - env(i - 1, v, j);
+            double gy = env(i, v + 1, j) - env(i, v - 1, j);
+            double gz = env(i, v, j + 1) - env(i, v, j - 1);
+            double l = Math.sqrt(gx * gx + gy * gy + gz * gz);
+            double nx, ny, nz;
+            if (l > 1e-9) {
+                // Outward is down the gradient (the density is positive inside).
+                nx = -gx / l;
+                ny = -gy / l;
+                nz = -gz / l;
+            } else {
+                nx = 0;
+                ny = fallback >= 1 ? 1 : fallback <= SHADE_BOTTOM ? -1 : 0;
+                nz = 0;
+            }
+            double px = i * (double) s, py = v * (double) s, pz = j * (double) s;
+            // Sky light: a cumulus's tops and sides see the open sky; only what faces down sees it through the cloud
+            // above (a thick cloud's base is grey).
+            double down = Math.max(0, Math.min(1, -ny));
+            double facingShade = 0.875 + 0.125 * ny - 0.03 * Math.abs(nz);
+            double sky = (1 - down + down * (debugNoSky ? 1 : brightness(depthAbove(px, py, pz), field.water)))
+                    * facingShade;
+            double through = 1;
+            if (!debugNoSun) {
+                double ox = px + nx * 0.5 * s, oy = py + ny * 0.5 * s, oz = pz + nz * 0.5 * s;
+                // Heap clouds: chords through their bubbles. Layer sheets (2026-10-07 evening, Bright: their shading
+                // was too even, "floating icebergs"): marched through the shading columns, so puffs shade each other
+                // and a thick deck's lower flanks lie in its own shadow.
+                double depth = field.heap
+                        ? field.lightDepth(ox, oy, oz, field.lightX, field.lightY, field.lightZ, time)
+                        : layerLightDepth(ox, oy, oz);
+                through = brightness(depth, field.water * LIGHT_WATER);
+                through = (through - CloudTuning.baseLight) / (1 - CloudTuning.baseLight);
+            }
+            double ao = debugNoAo ? 1 : occlusion(i, v, j, nx, ny, nz);
+            // Which side faces the sun, and the sun's contrast, are the shader's (CloudShading): live, from the normal.
+            // (Sunlight isn't dimmed by the cloud above, as the sky's is: an afterglow lights a thick base too.)
+            // Other clouds above (a deck over this cumulus) dim its sky light and its sunlight (CloudShadows).
+            double[] shadow = field.shadowAt(px, py, pz);
+            long out = lit(pack(sky * ao * shadow[0], debugNoSun ? 0 : facingShade * ao * shadow[1], through),
+                    nx, ny, nz);
+            lit.put(key, out);
+            return out;
+        }
+
+        /**
+         * How much the shape around corner (i, v, j) leaves open, 0.5-1: sampled 1.5, 3 and 6 voxels out along the
+         * surface direction (nx, ny, nz); wherever the cloud is nearer than that (a crease between bubbles, the foot
+         * of a turret), it is darker.
+         */
+        double occlusion(long i, long v, long j, double nx, double ny, double nz) {
+            double occ = 0;
+            double[] steps = AO_STEPS;
+            double[] weights = AO_WEIGHTS;
+            // Measured from the corner's own distance to the surface: voxel corners sit a little in or out of the
+            // smooth surface, and that offset must not read as a crease (it made every voxel step a dark line).
+            double base = -env(i, v, j) * field.rf / s;
+            for (int k = 0; k < steps.length; k++) {
+                double h = steps[k];
+                // Distance to the surface there, voxels (the envelope is about a signed distance in rf units).
+                long si = Math.round(i + nx * h), sv = Math.round(v + ny * h), sj = Math.round(j + nz * h);
+                double dist = -env(si, sv, sj) * field.rf / s - base;
+                // How far out the snapped sample really is: rounding to a corner moves it sideways and in or out, and
+                // comparing against the nominal step made a column-by-column error (vertical streaks on the sides).
+                // As good as interpolating between corners, at a third of the cost.
+                double out = (si - i) * nx + (sv - v) * ny + (sj - j) * nz;
+                occ += weights[k] * Math.max(0, Math.min(1, (out - dist) / h));
+            }
+            // Layer sheets: lighter (their churn's bumps made full-strength creases blotchy).
+            double creases = CloudTuning.creases * (field.layered ? LAYER_CREASES : 1);
+            return Math.max(1 - creases, 1 - creases * occ);
+        }
+
+        /** The envelope at (fi, fv, fj) in voxel-corner units, interpolated between the cached corners around it. */
+        double envAt(double fi, double fv, double fj) {
+            long i0 = (long) Math.floor(fi), v0 = (long) Math.floor(fv), j0 = (long) Math.floor(fj);
+            double tx = fi - i0, ty = fv - v0, tz = fj - j0;
+            double c00 = env(i0, v0, j0) + (env(i0 + 1, v0, j0) - env(i0, v0, j0)) * tx;
+            double c10 = env(i0, v0 + 1, j0) + (env(i0 + 1, v0 + 1, j0) - env(i0, v0 + 1, j0)) * tx;
+            double c01 = env(i0, v0, j0 + 1) + (env(i0 + 1, v0, j0 + 1) - env(i0, v0, j0 + 1)) * tx;
+            double c11 = env(i0, v0 + 1, j0 + 1) + (env(i0 + 1, v0 + 1, j0 + 1) - env(i0, v0 + 1, j0 + 1)) * tx;
+            double c0 = c00 + (c10 - c00) * ty;
+            double c1 = c01 + (c11 - c01) * ty;
+            return c0 + (c1 - c0) * tz;
+        }
+
+        /**
+         * The shade for the surface's own direction at (x, y, z): 1 facing up, 0.875 sideways (a little less facing
+         * z, as the face shades were), 0.75 facing down. {@code fallback} where the direction can't be told.
+         */
+        double surfaceShade(float x, float y, float z, float fallback) {
+            long i = Math.round(x / (double) s), v = Math.round(y / (double) s), j = Math.round(z / (double) s);
+            double gx = env(i + 1, v, j) - env(i - 1, v, j);
+            double gy = env(i, v + 1, j) - env(i, v - 1, j);
+            double gz = env(i, v, j + 1) - env(i, v, j - 1);
+            double l = Math.sqrt(gx * gx + gy * gy + gz * gz);
+            if (!(l > 1e-9)) {
+                return fallback;
+            }
+            // Outward is down the gradient (the density is positive inside).
+            double ny = -gy / l;
+            double nz = -gz / l;
+            return 0.875 + 0.125 * ny - 0.03 * Math.abs(nz);
+        }
+
+        /** The envelope at voxel corner (i, v, j) (blocks / {@link #s}), cached; -1 where the cloud can't be. */
+        double env(long i, long v, long j) {
+            long key = mix(((i & 0x1FFFFF) << 42) | ((v & 0x1FFFFF) << 21) | (j & 0x1FFFFF));
+            float cached = envelope.get(key, Float.NaN);
+            if (!Float.isNaN(cached)) {
+                return cached;
+            }
+            long ck = mix(((i & 0xFFFFFFFFL) << 32) | (j & 0xFFFFFFFFL));
+            int cs = columns.slot(ck);
+            CloudField.Column c = columns.at(cs);
+            if (!columns.has(cs, ck)) {
+                if (debugCount) {
+                    debugColumnFills++;
+                    debugDistinct.add(ck);
+                }
+                if (c == null) {
+                    c = field.newColumn();
+                }
+                // Bubbles up to 8 voxels away count, so the envelope is right a little outside the surface too (the
+                // slope and crease samples there).
+                field.column(i * (double) s, j * (double) s, time, c, 8.0 * s);
+                columns.set(cs, ck, c);
+            }
+            double value = -1;
+            if (field.columnRange(c, range)) {
+                double y = v * (double) s;
+                if (y >= range[0] && y <= range[1]) {
+                    // Layer sheets: with the churn, which moves their surface by a good share of their thickness (their
+                    // shading followed the smooth envelope instead of the shape drawn, 2026-10-07 evening). Heap
+                    // clouds' churn is a nudge: the envelope is enough.
+                    value = field.layered ? field.density(c, i * (double) s, y, j * (double) s, time, false, true)
+                            : field.envelope(c, y);
+                }
+            }
+            envelope.put(key, (float) value);
+            return value;
         }
 
         /** Blocks of cloud above (x, y, z), interpolated between the four shading columns around it. */
@@ -1133,8 +1370,58 @@ public final class CloudVoxelizer {
             return a + (b - a) * tz;
         }
 
+        /**
+         * Blocks of cloud between (x, y, z) and the light (a layer sheet): the ray is marched through the shading
+         * columns in growing steps; over each step, the cloud in the column at its middle between the ray's heights
+         * at its two ends counts, over the share of the path that climbs (or drops) that far. Stops once the ray
+         * leaves the formation's heights, or the light is all but gone. The first stretch (one shading step) is left
+         * to the surface's facing: the columns are too coarse to see a surface's own slope, and a few blocks counted in
+         * error there turned a thick deck's sunlit top grey.
+         */
+        double layerLightDepth(double x, double y, double z) {
+            double lx = field.lightX, ly = field.lightY, lz = field.lightZ;
+            double vy = Math.max(Math.abs(ly), 0.02);
+            double lo = field.baseY - s, hi = field.topY + s;
+            double total = 0;
+            double t = shadeStep;
+            double step = 0.5 * shadeSpacing;
+            for (int n = 0; n < LAYER_LIGHT_STEPS; n++) {
+                double y0 = y + ly * t;
+                if ((ly >= 0 && y0 > hi) || (ly < 0 && y0 < lo) || total > LAYER_LIGHT_MAX) {
+                    break;
+                }
+                double y1 = y + ly * (t + step);
+                double tm = t + 0.5 * step;
+                double mx = x + lx * tm, mz = z + lz * tm;
+                double thick = depthBetween(mx, mz, Math.min(y0, y1), Math.max(y0, y1));
+                total += Math.min(step, thick / vy);
+                t += step;
+                step *= 1.3;
+            }
+            return total;
+        }
+
+        /** Blocks of cloud between heights {@code lo} and {@code hi} at (x, z), between the four shading columns. */
+        double depthBetween(double x, double z, double lo, double hi) {
+            double fx = x / shadeSpacing;
+            double fz = z / shadeSpacing;
+            long ix = (long) Math.floor(fx);
+            long iz = (long) Math.floor(fz);
+            double tx = fx - ix;
+            double tz = fz - iz;
+            CloudField.Profile p00 = profile(ix, iz), p10 = profile(ix + 1, iz);
+            CloudField.Profile p01 = profile(ix, iz + 1), p11 = profile(ix + 1, iz + 1);
+            double d00 = p00.depthAbove(lo) - p00.depthAbove(hi);
+            double d10 = p10.depthAbove(lo) - p10.depthAbove(hi);
+            double d01 = p01.depthAbove(lo) - p01.depthAbove(hi);
+            double d11 = p11.depthAbove(lo) - p11.depthAbove(hi);
+            double a = d00 + (d10 - d00) * tx;
+            double b = d01 + (d11 - d01) * tx;
+            return Math.max(0, a + (b - a) * tz);
+        }
+
         CloudField.Profile profile(long ix, long iz) {
-            long key = (ix << 32) ^ (iz & 0xFFFFFFFFL);
+            long key = mix((ix << 32) ^ (iz & 0xFFFFFFFFL));
             CloudField.Profile p = profiles.get(key);
             if (p == null) {
                 p = field.profile(ix * shadeSpacing, iz * shadeSpacing, time, shadeStep, column);
@@ -1146,4 +1433,45 @@ public final class CloudVoxelizer {
 
     private CloudVoxelizer() {
     }
+
+    /**
+     * The longest side of a merged face on a heap cloud, voxels. A face is coloured only at its corners, so a longer
+     * face beside shorter ones shades differently along their shared edge: at 3 that read as vertical streaks; 2 costs
+     * about a fifth more faces and looks as smooth as 1 (twice the faces). Not final so the pictures test can compare.
+     */
+    static int HEAP_MAX_RUN = 2;
+    /** How many column slots a section build keeps worked out (a power of two; direct-mapped). */
+    static int COLUMN_CACHE = 2048;
+    /** Benchmark counters: column fills and distinct columns while building sections (single-threaded use only). */
+    static boolean debugCount;
+    static long debugColumnFills;
+    static final java.util.Set<Long> debugDistinct = new java.util.HashSet<>();
+
+    /**
+     * Scrambles a packed grid key so Java's hash of it spreads (2026-10-08): a key of two packed indices hashes to
+     * their xor, so a section's corners and columns piled into a few buckets. Reversible, so keys stay distinct.
+     */
+    static long mix(long k) {
+        k *= 0x9E3779B97F4A7C15L;
+        return k ^ (k >>> 32);
+    }
+    /** The same for layer sheets: their tops are broad and gently lit, so longer faces don't streak as much. */
+    static int LAYER_MAX_RUN = 2;
+    /** Layer sheets' crease shading, as a share of {@link CloudTuning#creases}. */
+    static final double LAYER_CREASES = 0.4;
+    /** Tests: switch parts of the heap lighting off, to see each on its own. */
+    static volatile boolean debugNoSky, debugNoSun, debugNoAo;
+    /** Light wraps a little past the terminator (scattering in the cloud's edge). */
+    static final double WRAP = 0.35;
+    /** Where the crease shading looks for nearby cloud (voxels out along the surface direction), and how much each counts. */
+    static final double[] AO_STEPS = {2, 5};
+    static final double[] AO_WEIGHTS = {0.6, 0.4};
+    /**
+     * Direct sunlight through cumulus fades faster than the diffuse sky light the {@link #brightness} model was set up
+     * for: the water content for it is scaled by this.
+     */
+    static final double LIGHT_WATER = 2.5;
+    /** Layer sheets' light march: steps at most, and the depth (blocks) past which the light is gone anyway. */
+    static final int LAYER_LIGHT_STEPS = 16;
+    static final double LAYER_LIGHT_MAX = 250;
 }

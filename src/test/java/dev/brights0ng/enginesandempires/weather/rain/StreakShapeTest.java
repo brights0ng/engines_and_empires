@@ -90,4 +90,55 @@ class StreakShapeTest {
         assertEquals(TOP, shape.land(2.5, 0, TOP, PIVOT - 64, (x, z) -> 200, at), 1e-9,
                 "buried above the band: it lands where it comes into view");
     }
+
+    /** A jump moves the band (pivot); pinned at eye level, a leaning streak stays where it is in the world. */
+    @Test
+    void aPinnedStreakDoesNotSlideWhenThePivotMoves() {
+        RainSlant slant = steady(0.5);
+        StreakShape shape = new StreakShape(24, 24).build(slant, Precip.RAIN, 0.6, PIVOT, TOP);
+        double[] before = new double[41];
+        for (int j = 0; j <= 40; j++) {
+            before[j] = shape.x(PIVOT - 20 + j);
+        }
+        double eye = PIVOT + 1.25;
+        double oldX = shape.x(eye), oldZ = shape.z(eye);
+        shape.build(slant, Precip.RAIN, 0.6, eye, eye + 24).pin(eye, oldX, oldZ);
+        for (int j = 0; j <= 40; j++) {
+            assertEquals(before[j], shape.x(PIVOT - 20 + j), 1e-9, "at " + (PIVOT - 20 + j));
+        }
+    }
+
+    /** An airship climbing 200 blocks a tick at a time, then stopping: the rain never moves sideways. */
+    @Test
+    void aLongFastClimbLeavesTheRainWhereItIs() {
+        RainSlant slant = steady(0.8);
+        StreakShape shape = new StreakShape(24, 24).build(slant, Precip.RAIN, 0.6, PIVOT, TOP);
+        double probe = PIVOT + 150;
+        double start = shape.x(probe);
+        double eye = PIVOT;
+        for (int t = 0; t < 100; t++) {
+            eye += 2;
+            double oldX = shape.x(eye), oldZ = shape.z(eye);
+            shape.build(slant, Precip.RAIN, 0.6, eye, eye + 24).pin(eye, oldX, oldZ);
+            assertEquals(start, shape.x(probe), 1e-6, "tick " + t);
+        }
+        for (int t = 0; t < 200; t++) {
+            double oldX = shape.x(eye), oldZ = shape.z(eye);
+            shape.build(slant, Precip.RAIN, 0.6, eye, eye + 24).pin(eye, oldX, oldZ);
+        }
+        assertEquals(start, shape.x(probe), 1e-6, "nothing catches up after stopping");
+    }
+
+    /** A change of lean swings the streaks about eye level: still there, moved above and below. */
+    @Test
+    void aLeanChangeSwingsAboutEyeLevel() {
+        StreakShape shape = new StreakShape(24, 24).build(steady(0.2), Precip.RAIN, 0.6, PIVOT, TOP);
+        double eye = PIVOT + 2;
+        double atEye = shape.x(eye);
+        double below = shape.x(eye - 10);
+        double oldX = shape.x(eye), oldZ = shape.z(eye);
+        shape.build(steady(0.6), Precip.RAIN, 0.6, PIVOT, TOP).pin(eye, oldX, oldZ);
+        assertEquals(atEye, shape.x(eye), 1e-9, "eye level stays put");
+        assertEquals(below + 4, shape.x(eye - 10), 1e-9, "10 blocks down swings 4 further downwind");
+    }
 }

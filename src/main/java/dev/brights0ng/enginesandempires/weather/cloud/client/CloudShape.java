@@ -2,86 +2,79 @@ package dev.brights0ng.enginesandempires.weather.cloud.client;
 
 import java.util.UUID;
 
+import dev.brights0ng.enginesandempires.weather.cloud.CloudDrift;
+
 /**
- * One cloud as Project Atmosphere last sent it to this client: our own copy of PA's {@code CloudRegionRenderData},
- * holding only what the cloud renderer and its debug view use.
+ * One cloud (one dome of a formation) at a moment: what the renderer, the rain model and the fog read. Built from the
+ * simulation's clouds ({@code weather/cloud/sim/SimCloud#shapes}) on the server, and from the synced copies on the
+ * client, so both sides agree.
  *
- * <p>Positions are world blocks. {@code vx, vy, vz} is PA's velocity in blocks per tick: PA's motion controller adds it
- * to the centre once per game tick. {@code simulationTick} is the server game time the centre was taken at, so the
- * centre at time {@code t} is {@code centre + velocity * (t - simulationTick)}.
+ * <p>Positions are world blocks. {@code vx, vz} is the velocity in blocks per tick at {@code simulationTick}, the game
+ * time the centre was taken at; from there it eases into {@code tvx, tvz} ({@link CloudDrift}), so the centre at time
+ * {@code t} is {@link #xAt}.
+ * Radii, heights and offsets are as drawn (real sizes at x0.2): nothing stretches them further.
  *
- * @param id             PA's cluster id (a region can send several clusters), or the region id if there is none
- * @param regionId       PA's region id. A region's clusters are one formation: PA spawns them together and moves them
- *                       as a rigid group, so the renderer meshes them together.
+ * @param id             this dome's id
+ * @param regionId       its formation's id: a formation's domes are one cloud, spawned, moved and meshed together
  * @param dimension      the dimension id, e.g. {@code minecraft:overworld}
  * @param radius         horizontal radius, blocks
  * @param baseY          cloud base height
- * @param topY           cloud top height
- * @param density        0-1, before PA's type multiplier and lifecycle
- * @param coverage       0-1, before PA's type multiplier and lifecycle
+ * @param topY           cloud top height (as grown so far)
+ * @param density        0-1
+ * @param coverage       0-1, how solid it is (lower: broken, ragged)
  * @param edgeSoftness   0-1, how ragged and soft the edge is
- * @param growth         0-1, how far the cloud has formed ({@code CloudLife}, from PA's age and lifetime)
+ * @param growth         0-1, how far the cloud has formed ({@code CloudLife})
  * @param decay          0-1, how far its body has eroded away ({@code CloudLife})
- * @param typeId         PA's cloud type id
- * @param towerStrength  0-1, how much the middle towers up (cumulus, cumulonimbus)
- * @param anvilStrength  0-1, how far a spreading anvil reaches at the top
- * @param heightSquash   PA's vertical squash for the type (1 = none)
- * @param baseDarkness   0-1, how much darker the base is than the top
- * @param stormTier      PA's storm visual tier name (CLEAR, CLOUDY, RAIN_CORE, THUNDER_CORE, SEVERE_CORE, CYCLONE_CORE)
- * @param stormDarkness  0-1, that tier's darkness
- * @param precipitation  0-1, PA's precipitation core strength (0 = doesn't rain)
- * @param lightning      0-1, PA's lightning influence
- * @param seed           PA's per-cloud seed
  * @param anvilDecay     0-1, how far its anvil has thinned away ({@code CloudLife}; equals {@code decay} for clouds
  *                       without a lingering anvil)
- * @param dispX          how far the cluster is drawn from PA's centre for it, x (blocks): its offset in its original
- *                       group stretched to real width. NaN when unknown (shapes built by hand):
- *                       then it is stretched about its formation's anchor, as before.
- * @param dispZ          the same, z
- * @param spread         how much wider than PA's radius it is drawn ({@code CloudScale.horizontal}, eased when its type
- *                       changes); NaN when unknown (then the type's)
+ * @param typeId         its {@code CloudType} id
+ * @param towerStrength  0-1, how much the middle towers up (cumulus, cumulonimbus)
+ * @param anvilStrength  0-1, how far a spreading anvil reaches at the top
+ * @param baseDarkness   0-1, how much darker the base is than the top
+ * @param stormDarkness  0-1, how dark the whole cloud is (storms)
+ * @param precipitation  0-1, how hard the simulation has it raining (0 = dry)
+ * @param lightning      0-1, how much lightning it makes
+ * @param seed           per-dome seed for its shape
+ * @param rainBottom     world y below which its rain has evaporated (virga); negative infinity when it reaches the
+ *                       ground
+ * @param tvx            the velocity it is easing into, blocks per tick
+ * @param tvz            the velocity it is easing into, blocks per tick
  */
 public record CloudShape(UUID id, UUID regionId, String dimension,
-                         double cx, double cy, double cz, double vx, double vy, double vz, long simulationTick,
+                         double cx, double cz, double vx, double vz, long simulationTick,
                          float radius, float baseY, float topY,
-                         float density, float coverage, float edgeSoftness, float growth, float decay,
-                         float densityMultiplier, float coverageMultiplier,
-                         String typeId, float towerStrength, float anvilStrength, float heightSquash,
-                         float baseDarkness, String stormTier, float stormDarkness,
-                         float precipitation, float lightning, int seed, float anvilDecay,
-                         double dispX, double dispZ, double spread) {
+                         float density, float coverage, float edgeSoftness,
+                         float growth, float decay, float anvilDecay,
+                         String typeId, float towerStrength, float anvilStrength,
+                         float baseDarkness, float stormDarkness,
+                         float precipitation, float lightning, int seed, float rainBottom, double tvx, double tvz) {
 
-    /** Without a layout (as PA sends it, or built by hand). */
+    /** Moving steadily (no change of velocity under way). */
     public CloudShape(UUID id, UUID regionId, String dimension,
-                      double cx, double cy, double cz, double vx, double vy, double vz, long simulationTick,
+                      double cx, double cz, double vx, double vz, long simulationTick,
                       float radius, float baseY, float topY,
-                      float density, float coverage, float edgeSoftness, float growth, float decay,
-                      float densityMultiplier, float coverageMultiplier,
-                      String typeId, float towerStrength, float anvilStrength, float heightSquash,
-                      float baseDarkness, String stormTier, float stormDarkness,
-                      float precipitation, float lightning, int seed, float anvilDecay) {
-        this(id, regionId, dimension, cx, cy, cz, vx, vy, vz, simulationTick, radius, baseY, topY, density, coverage,
-                edgeSoftness, growth, decay, densityMultiplier, coverageMultiplier, typeId, towerStrength, anvilStrength,
-                heightSquash, baseDarkness, stormTier, stormDarkness, precipitation, lightning, seed, anvilDecay,
-                Double.NaN, Double.NaN, Double.NaN);
+                      float density, float coverage, float edgeSoftness,
+                      float growth, float decay, float anvilDecay,
+                      String typeId, float towerStrength, float anvilStrength,
+                      float baseDarkness, float stormDarkness,
+                      float precipitation, float lightning, int seed, float rainBottom) {
+        this(id, regionId, dimension, cx, cz, vx, vz, simulationTick, radius, baseY, topY, density, coverage,
+                edgeSoftness, growth, decay, anvilDecay, typeId, towerStrength, anvilStrength, baseDarkness,
+                stormDarkness, precipitation, lightning, seed, rainBottom, vx, vz);
     }
 
-    /**
-     * Without an anvil decay (tests that build shapes by hand): the anvil fades over the last 40% of the decay, as
-     * storms did before lifespans had a linger.
-     */
+    /** With rain that reaches the ground (no virga). */
     public CloudShape(UUID id, UUID regionId, String dimension,
-                      double cx, double cy, double cz, double vx, double vy, double vz, long simulationTick,
+                      double cx, double cz, double vx, double vz, long simulationTick,
                       float radius, float baseY, float topY,
-                      float density, float coverage, float edgeSoftness, float growth, float decay,
-                      float densityMultiplier, float coverageMultiplier,
-                      String typeId, float towerStrength, float anvilStrength, float heightSquash,
-                      float baseDarkness, String stormTier, float stormDarkness,
+                      float density, float coverage, float edgeSoftness,
+                      float growth, float decay, float anvilDecay,
+                      String typeId, float towerStrength, float anvilStrength,
+                      float baseDarkness, float stormDarkness,
                       float precipitation, float lightning, int seed) {
-        this(id, regionId, dimension, cx, cy, cz, vx, vy, vz, simulationTick, radius, baseY, topY, density, coverage,
-                edgeSoftness, growth, decay, densityMultiplier, coverageMultiplier, typeId, towerStrength, anvilStrength,
-                heightSquash, baseDarkness, stormTier, stormDarkness, precipitation, lightning, seed,
-                clamp01((decay - 0.6f) / 0.4f));
+        this(id, regionId, dimension, cx, cz, vx, vz, simulationTick, radius, baseY, topY, density, coverage,
+                edgeSoftness, growth, decay, anvilDecay, typeId, towerStrength, anvilStrength, baseDarkness,
+                stormDarkness, precipitation, lightning, seed, Float.NEGATIVE_INFINITY);
     }
 
     /** The body's lifecycle factor: formed, and not yet eroded. */
@@ -91,54 +84,38 @@ public record CloudShape(UUID id, UUID regionId, String dimension,
 
     /** Whether anything of the cloud is left to draw (its body, or its lingering anvil). */
     public boolean visible() {
-        return radius > 0 && coverage * coverageMultiplier * growth * (1 - anvilDecay) >= 0.02f;
+        return radius > 0 && coverage * growth * (1 - anvilDecay) >= 0.02f;
     }
 
-    /** Coverage after PA's type multiplier and the body's lifecycle. */
+    /** Coverage after the body's lifecycle. */
     public float effectiveCoverage() {
-        return clamp01(coverage * coverageMultiplier * lifecycle());
+        return clamp01(coverage * lifecycle());
     }
 
-    /** Density after PA's type multiplier and lifecycle. */
+    /** Density after the lifecycle. */
     public float effectiveDensity() {
-        return clamp01(density * densityMultiplier * lifecycle());
+        return clamp01(density * lifecycle());
     }
 
-    /** Centre x at client game time {@code t} (ticks, partial ticks allowed), moved along PA's velocity. */
+    /** Centre x at client game time {@code t} (ticks, partial ticks allowed), moved along its (easing) velocity. */
     public double xAt(double t) {
-        return cx + vx * (t - simulationTick);
-    }
-
-    public double yAt(double t) {
-        return cy + vy * (t - simulationTick);
+        return cx + CloudDrift.offset(vx, tvx, t - simulationTick);
     }
 
     public double zAt(double t) {
-        return cz + vz * (t - simulationTick);
+        return cz + CloudDrift.offset(vz, tvz, t - simulationTick);
+    }
+
+    /** Velocity at game time {@code t}, blocks per tick. */
+    public double vxAt(double t) {
+        return CloudDrift.velocity(vx, tvx, t - simulationTick);
+    }
+
+    public double vzAt(double t) {
+        return CloudDrift.velocity(vz, tvz, t - simulationTick);
     }
 
     private static float clamp01(float v) {
         return v < 0 ? 0 : Math.min(1, v);
-    }
-
-    /** This cluster further along its life: decay and anvil decay at least these (a dissolving ghost). */
-    public CloudShape withLife(float minDecay, float minAnvilDecay) {
-        return new CloudShape(id, regionId, dimension, cx, cy, cz, vx, vy, vz, simulationTick, radius, baseY, topY,
-                density, coverage, edgeSoftness, growth, Math.max(decay, minDecay), densityMultiplier,
-                coverageMultiplier, typeId, towerStrength, anvilStrength, heightSquash, baseDarkness, stormTier,
-                stormDarkness, precipitation, lightning, seed, Math.max(anvilDecay, minAnvilDecay), dispX, dispZ, spread);
-    }
-
-    /** This cluster laid out: drawn offset, width scale, and (eased) radius and heights. */
-    public CloudShape withLayout(double dispX, double dispZ, double spread, float radius, float baseY, float topY) {
-        return new CloudShape(id, regionId, dimension, cx, cy, cz, vx, vy, vz, simulationTick, radius, baseY, topY,
-                density, coverage, edgeSoftness, growth, decay, densityMultiplier, coverageMultiplier, typeId,
-                towerStrength, anvilStrength, heightSquash, baseDarkness, stormTier, stormDarkness, precipitation,
-                lightning, seed, anvilDecay, dispX, dispZ, spread);
-    }
-
-    /** Whether it has a layout ({@link #withLayout}). */
-    public boolean laidOut() {
-        return Double.isFinite(dispX) && Double.isFinite(dispZ);
     }
 }

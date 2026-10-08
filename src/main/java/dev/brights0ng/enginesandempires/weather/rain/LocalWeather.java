@@ -27,9 +27,14 @@ import net.minecraft.world.level.biome.Biome;
  *   <li><b>Wind:</b> the average of surface and aloft ({@link WindSources}), averaged over about the time rain takes to
  *       fall ({@link WindAverage}, 20 s), so the wet patch doesn't chase gusts; the client gets the server's average at
  *       its player ({@link ClientWeather}).</li>
- *   <li><b>Rain or snow:</b> snow below 0 C of the pack's air temperature ({@link Temperature}, height cooling
- *       included); synced on the client. Where the client can't say yet, the biome's own.</li>
- *   <li><b>Biomes without precipitation</b> (deserts, badlands, savannas) stay dry under any cloud.</li>
+ *   <li><b>What falls</b> (phase 5a, 2026-10-07): {@link Precip#decide} from the pack's air temperature at the spot
+ *       ({@link Temperature}, height cooling included) and the warm layer aloft ahead of warm fronts
+ *       ({@code WarmNose}): rain, mixed, snow, sleet or freezing rain; hail in bursts from strong thunderstorm cores
+ *       ({@link RainModel#hailAt}). Synced on the client. Where the client can't say yet, the biome's own rain or
+ *       snow.</li>
+ *   <li><b>Dry country</b> (2026-10-08): rain thins with the region's air humidity ({@link RainModel#wetness}, the
+ *       climate's regional field, smooth over hundreds of blocks; synced to clients), so deserts get only light rain
+ *       and no biome border cuts it off.</li>
  * </ul>
  *
  * <p>Phase 0 of the weather backbone (2026-10-05): there are no clouds yet, so nothing falls anywhere.
@@ -41,19 +46,25 @@ public final class LocalWeather {
      *
      * @param strength how hard, 0-1
      * @param thunder  whether from a thunder cloud
-     * @param snow     whether it is snow
+     * @param precip   what falls (null when nothing does)
      * @param cover    how covered by cloud the spot is, 0-1
      */
-    public record Here(double strength, boolean thunder, boolean snow, double cover, UUID region, String type) {
+    public record Here(double strength, boolean thunder, Precip precip, double cover, UUID region, String type) {
 
-        public static final Here NONE = new Here(0, false, false, 0, null, null);
+        public static final Here NONE = new Here(0, false, null, 0, null, null);
 
         public boolean falling() {
             return strength > RainModel.MIN;
         }
 
+        /** Whether what falls (or would fall here) is snow. */
+        public boolean snow() {
+            return precip == Precip.SNOW;
+        }
+
+        /** Whether something wet falls: anything but snow (sleet and hail come with rain). */
         public boolean raining() {
-            return falling() && !snow;
+            return falling() && !snow();
         }
 
         public boolean thundering() {
@@ -152,23 +163,53 @@ public final class LocalWeather {
         double windX;
         double windZ;
         double temperature;
+        double[] nose;
+        double humidity;
+        double time = level.getGameTime();
         if (level instanceof ServerLevel server) {
             double[] w = driftWind(server, x, z);
             windX = w[0];
             windZ = w[1];
             temperature = Temperature.at(server, pos);
+            var sim = dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim.of(server);
+            // (Only cold enough ground can turn a warm layer aloft into sleet or freezing rain: skip it otherwise.)
+            nose = sim == null || !(temperature < Precip.MIXED_MAX) ? NO_NOSE : sim.warmNose(x, z);
+            humidity = dev.brights0ng.enginesandempires.weather.climate.Climate.field(server).regional(x, z).humidity();
         } else {
             windX = ClientWeather.windX();
             windZ = ClientWeather.windZ();
             temperature = ClientWeather.temperature(x, y, z);
+            nose = ClientWeather.warmNose();
+            humidity = ClientWeather.humidity(x, z);
         }
-        boolean snow = Double.isFinite(temperature) ? temperature < 0 : biome.coldEnoughToSnow(pos);
-        RainModel.Sample s = RainModel.sample(clouds, x, y, z, windX, windZ, snow);
-        if (!biome.hasPrecipitation()) {
-            return s.cover() > 0 ? new Here(0, false, snow, s.cover(), null, null) : Here.NONE;
+        Precip kind = Double.isFinite(temperature) ? Precip.decide(temperature, nose[0], nose[1])
+                : biome.coldEnoughToSnow(pos) ? Precip.SNOW : Precip.RAIN;
+        Precip override = level instanceof ServerLevel ? forced : ClientWeather.forced();
+        if (override != null) {
+            kind = override;
         }
-        return new Here(s.strength(), s.thunder(), snow, s.cover(), s.region(), s.type());
+        RainModel.Sample s = RainModel.sample(clouds, x, y, z, windX, windZ, kind, time);
+        if (s.hail() && override == null) {
+            kind = Precip.HAIL;
+        }
+        // Dry country (2026-10-08, Bright: "dry by air humidity"): rain thins with the region's air humidity, smooth
+        // over hundreds of blocks, rather than stopping at dry biomes' borders (which left rain in rivers through
+        // deserts). Before the client's first sync, the biome's own say.
+        double wet = Double.isFinite(humidity) ? RainModel.wetness(humidity) : biome.hasPrecipitation() ? 1 : 0;
+        double strength = s.strength() * wet;
+        if (strength <= RainModel.MIN) {
+            return s.cover() > 0 ? new Here(0, false, kind, s.cover(), null, null) : Here.NONE;
+        }
+        return new Here(strength, s.thunder(), kind, s.cover(), s.region(), s.type());
     }
+
+    private static final double[] NO_NOSE = {0, 0};
+
+    /**
+     * Debug ({@code /eae weather precip}): on the server, the kind everything falls as (null: the weather's own). Sent
+     * to clients with the weather sync ({@link ClientWeather#forced}). Not saved.
+     */
+    public static volatile Precip forced;
 
     private LocalWeather() {
     }

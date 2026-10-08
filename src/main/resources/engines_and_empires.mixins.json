@@ -23,7 +23,10 @@
     "ServerLevelWeatherMixin",
     "LevelWeatherMixin",
     "WeatherCommandMixin",
-    "SubLevelSilhouetteMixin"
+    "CloudWorksDebugDumpMixin",
+    "SubLevelSilhouetteMixin",
+    "BiomeTemperatureMixin",
+    "EntityGlazeFrictionMixin"
   ],
   "client": [
     "client.EncumberedTooltipMixin",

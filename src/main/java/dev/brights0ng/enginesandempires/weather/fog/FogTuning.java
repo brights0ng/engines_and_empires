@@ -15,13 +15,13 @@ public final class FogTuning {
     public static volatile boolean enabled = true;
 
     // ---- inside clouds: visibility in blocks (0 = no fog in that type)
-    /** Supercells, cumulonimbus and nimbostratus. */
+    /** Cumulonimbus and nimbostratus. */
     public static volatile double stormCloudVisibility = 5;
     /** Cumulus congestus and stratus. */
     public static volatile double congestusVisibility = 8;
     /** Stratocumulus and fair-weather cumulus. */
     public static volatile double fairCloudVisibility = 12;
-    /** Cirrus and vapour (high and thin; 0 = none). */
+    /** Cirrus and cirrostratus (high and thin; 0 = none). */
     public static volatile double highCloudVisibility = 0;
     /** A cloud only just forming, or nearly gone: its visibility eases toward this as it erodes. */
     public static volatile double wispVisibility = 48;
@@ -47,15 +47,16 @@ public final class FogTuning {
 
     /** Visibility inside a cloud of type {@code typeId} when fully formed, blocks; 0 for no fog. */
     public static double cloudVisibility(String typeId) {
-        if (typeId == null) {
+        dev.brights0ng.enginesandempires.weather.cloud.CloudType t =
+                dev.brights0ng.enginesandempires.weather.cloud.CloudType.of(typeId);
+        if (t == null) {
             return fairCloudVisibility;
         }
-        String id = typeId.contains(":") ? typeId.substring(typeId.indexOf(':') + 1) : typeId;
-        return switch (id) {
-            case "supercell", "cumulonimbus_calvus", "cumulonimbus_capillatus", "nimbostratus" -> stormCloudVisibility;
-            case "cumulus_congestus", "stratus_nebulosus" -> congestusVisibility;
-            case "cirrus", "vapor_cluster" -> highCloudVisibility;
-            default -> fairCloudVisibility;
+        return switch (t.fog) {
+            case STORM -> stormCloudVisibility;
+            case THICK -> congestusVisibility;
+            case HIGH -> highCloudVisibility;
+            case FAIR -> fairCloudVisibility;
         };
     }
 

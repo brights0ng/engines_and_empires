@@ -21,7 +21,8 @@ public final class ClientWeather {
     /** What the last sync said; see {@link WeatherSyncPayload} for the fields. */
     public record State(boolean localized, double surfaceX, double surfaceZ, double aloftX, double aloftZ, double driftX,
                         double driftZ, int seaLevel, double coolingScale, double maxCooling, int originX, int originZ,
-                        int spacing, int size, float[] temperatures) {
+                        int spacing, int size, float[] temperatures, float[] humidities, double noseMelt,
+                        double noseCold, int forced) {
     }
 
     private static volatile State last;
@@ -95,13 +96,25 @@ public final class ClientWeather {
     }
 
     static double grid(State p, double x, double z) {
+        return grid(p, p.temperatures(), x, z);
+    }
+
+    /** The region's air humidity at (x, z), 0-1 (the synced grid, bilinear); NaN before the first sync. */
+    public static double humidity(double x, double z) {
+        State p = last;
+        if (p == null || p.size() < 1 || p.humidities() == null) {
+            return Double.NaN;
+        }
+        return grid(p, p.humidities(), x, z);
+    }
+
+    static double grid(State p, float[] t, double x, double z) {
         int n = p.size();
         double gx = Math.max(0, Math.min(n - 1, (x - p.originX()) / (double) p.spacing()));
         double gz = Math.max(0, Math.min(n - 1, (z - p.originZ()) / (double) p.spacing()));
         int i0 = (int) Math.floor(gx), k0 = (int) Math.floor(gz);
         int i1 = Math.min(n - 1, i0 + 1), k1 = Math.min(n - 1, k0 + 1);
         double fx = gx - i0, fz = gz - k0;
-        float[] t = p.temperatures();
         double[] v = {t[k0 * n + i0], t[k0 * n + i1], t[k1 * n + i0], t[k1 * n + i1]};
         double[] w = {(1 - fx) * (1 - fz), fx * (1 - fz), (1 - fx) * fz, fx * fz};
         double sum = 0, weight = 0;
@@ -112,6 +125,18 @@ public final class ClientWeather {
             }
         }
         return weight > 1e-9 ? sum / weight : Double.NaN;
+    }
+
+    /** The warm layer aloft around the player, as the server last sent it: {melt index, cold layer depth}. */
+    public static double[] warmNose() {
+        State p = last;
+        return p == null ? new double[]{0, 0} : new double[]{p.noseMelt(), p.noseCold()};
+    }
+
+    /** The server's debug override of what falls ({@code /eae weather precip}), or null. */
+    public static Precip forced() {
+        State p = last;
+        return p == null || p.forced() < 0 || p.forced() >= Precip.values().length ? null : Precip.values()[p.forced()];
     }
 
     private ClientWeather() {

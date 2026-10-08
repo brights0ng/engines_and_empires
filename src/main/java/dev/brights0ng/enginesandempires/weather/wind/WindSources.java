@@ -1,13 +1,12 @@
 package dev.brights0ng.enginesandempires.weather.wind;
 
+import dev.brights0ng.enginesandempires.weather.sim.world.Atmosphere;
 import net.minecraft.server.level.ServerLevel;
 
 /**
  * Where the wind comes from: a debug/test override if one is set ({@code /eae wind set}, game tests), otherwise the
- * weather simulation, otherwise none (then nothing is pushed).
- *
- * <p>Phase 0 of the weather backbone (2026-10-05): Project Atmosphere is gone and the simulation's wind arrives in
- * phase 4, so only the override blows for now.
+ * weather simulation's atmosphere ({@link Atmosphere}: the jet and the pressure systems, Overworld only), otherwise
+ * none (then nothing is pushed).
  */
 public final class WindSources {
 
@@ -19,7 +18,7 @@ public final class WindSources {
         if (forced != null) {
             return forced;
         }
-        return null;
+        return Atmosphere.wind(level, x, z);
     }
 
     /** What the wind comes from now, for the debug command. */
@@ -27,7 +26,7 @@ public final class WindSources {
         if (override != null) {
             return "override";
         }
-        return "none (the weather simulation's wind arrives in a later phase)";
+        return "the weather simulation (jet and pressure systems; Overworld only)";
     }
 
     /** Forces the same wind everywhere, at every height, or clears it with null. */

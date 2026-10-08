@@ -22,11 +22,17 @@ import net.minecraft.resources.ResourceLocation;
  * @param spacing     blocks between grid points
  * @param size        points along each side
  * @param temperatures the air temperature at sea level at each grid point (row by row along x), C
+ * @param humidities  the region's air humidity at each grid point, 0-1 (how much rain reaches the ground)
+ * @param noseMelt    the warm layer aloft at the player (phase 5a): its melt index ({@code WarmNose})
+ * @param noseCold    and the depth of the cold layer under it, 0-1
+ * @param forced      the debug override of what falls ({@code /eae weather precip}): a {@link Precip} ordinal, -1 none
  */
 public record WeatherSyncPayload(boolean localized, float surfaceX, float surfaceZ, float aloftX, float aloftZ,
                                  float driftX, float driftZ,
                                  int seaLevel, float coolingScale, float maxCooling, int originX, int originZ,
-                                 int spacing, int size, float[] temperatures) implements CustomPacketPayload {
+                                 int spacing, int size, float[] temperatures, float[] humidities, float noseMelt,
+                                 float noseCold, int forced)
+        implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<WeatherSyncPayload> TYPE = new CustomPacketPayload.Type<>(
             ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "weather_sync"));
@@ -50,6 +56,12 @@ public record WeatherSyncPayload(boolean localized, float surfaceX, float surfac
                 for (int i = 0; i < p.size * p.size; i++) {
                     buf.writeFloat(p.temperatures[i]);
                 }
+                for (int i = 0; i < p.size * p.size; i++) {
+                    buf.writeFloat(p.humidities[i]);
+                }
+                buf.writeFloat(p.noseMelt);
+                buf.writeFloat(p.noseCold);
+                buf.writeByte(p.forced);
             },
             buf -> {
                 boolean localized = buf.readBoolean();
@@ -63,8 +75,14 @@ public record WeatherSyncPayload(boolean localized, float surfaceX, float surfac
                 for (int i = 0; i < t.length; i++) {
                     t[i] = buf.readFloat();
                 }
+                float[] h = new float[size * size];
+                for (int i = 0; i < h.length; i++) {
+                    h[i] = buf.readFloat();
+                }
+                float melt = buf.readFloat(), cold = buf.readFloat();
+                int forced = buf.readByte();
                 return new WeatherSyncPayload(localized, sx, sz, ax, az, dx, dz, sea, scale, max, ox, oz, spacing, size,
-                        t);
+                        t, h, melt, cold, forced);
             });
 
     @Override
@@ -75,6 +93,7 @@ public record WeatherSyncPayload(boolean localized, float surfaceX, float surfac
     /** As the client keeps it. */
     public ClientWeather.State toState() {
         return new ClientWeather.State(localized, surfaceX, surfaceZ, aloftX, aloftZ, driftX, driftZ, seaLevel,
-                coolingScale, maxCooling, originX, originZ, spacing, size, temperatures);
+                coolingScale, maxCooling, originX, originZ, spacing, size, temperatures, humidities, noseMelt,
+                noseCold, forced);
     }
 }

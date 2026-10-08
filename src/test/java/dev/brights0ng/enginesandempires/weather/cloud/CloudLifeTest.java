@@ -21,18 +21,22 @@ class CloudLifeTest {
     @Test
     void lifespansAreRealOnesAtFifthScale() {
         for (int i = 0; i < 300; i++) {
-            CloudLife.Span humilis = CloudLife.span("cumulus_humilis", region(i));
+            CloudLife.Span humilis = CloudLife.span(CloudType.CUMULUS_HUMILIS, region(i));
             assertTrue(humilis.storm() >= 2 * MIN && humilis.storm() <= 8 * MIN, "humilis " + humilis);
             assertEquals(0, humilis.linger());
-            CloudLife.Span supercell = CloudLife.span("supercell", region(i));
-            assertTrue(supercell.storm() >= 12 * MIN && supercell.storm() <= 48 * MIN, "supercell " + supercell);
-            assertTrue(supercell.linger() >= 12 * MIN && supercell.linger() <= 36 * MIN, "linger " + supercell);
-            assertTrue(supercell.birth() >= Math.min(6 * MIN, 0.4 * supercell.storm()) - 1,
-                    "a supercell takes 6 minutes to form (short ones 40% of their life)");
-            assertTrue(supercell.birth() + supercell.death() < supercell.storm(), "with a mature stretch between");
-            CloudLife.Span nimbostratus = CloudLife.span("projectatmosphere:nimbostratus", region(i));
-            assertTrue(nimbostratus.storm() >= 72 * MIN, "layer clouds last hours");
+            CloudLife.Span storm = CloudLife.span(CloudType.CUMULONIMBUS_CAPILLATUS, region(i));
+            assertTrue(storm.storm() >= 9 * MIN && storm.storm() <= 18 * MIN, "capillatus " + storm);
+            assertTrue(storm.linger() >= 12 * MIN && storm.linger() <= 36 * MIN, "linger " + storm);
+            assertTrue(storm.birth() + storm.death() < storm.storm(), "with a mature stretch between");
         }
+    }
+
+    @Test
+    void layerCloudsFormAndFadeAtTheirOwnPace() {
+        CloudLife.Span s = CloudLife.span(CloudType.NIMBOSTRATUS, region(4));
+        assertEquals(4 * MIN, s.birth());
+        assertEquals(4 * MIN, s.death());
+        assertTrue(s.storm() >= s.birth() + s.death());
     }
 
     @Test
@@ -40,24 +44,24 @@ class CloudLifeTest {
         int n = 2000;
         double[] lives = new double[n];
         for (int i = 0; i < n; i++) {
-            lives[i] = CloudLife.span("supercell", region(i)).storm();
+            lives[i] = CloudLife.span(CloudType.CUMULONIMBUS_CAPILLATUS, region(i)).storm();
         }
         Arrays.sort(lives);
         double median = lives[n / 2];
-        // Skewed toward the short end: the median well below the middle of 12-48 minutes.
-        assertTrue(median < 26 * MIN, "median " + median / MIN + " min");
-        assertTrue(lives[n - 1] > 44 * MIN, "but long-lived storms happen");
+        // Skewed toward the short end: the median well below the middle of 9-18 minutes.
+        assertTrue(median < 12.5 * MIN, "median " + median / MIN + " min");
+        assertTrue(lives[n - 1] > 17 * MIN, "but long-lived storms happen");
     }
 
     @Test
-    void oneFormationSharesItsSpan() {
+    void oneCloudSharesItsSpan() {
         UUID r = UUID.randomUUID();
         assertEquals(CloudLife.span("cumulonimbus_capillatus", r), CloudLife.span("cumulonimbus_capillatus", r));
     }
 
     @Test
     void aCloudFormsMaturesDiesAndItsAnvilLingers() {
-        CloudLife.Span s = CloudLife.span("supercell", region(3));
+        CloudLife.Span s = CloudLife.span(CloudType.CUMULONIMBUS_CAPILLATUS, region(3));
         int life = s.total();
         CloudLife.Phase born = CloudLife.phase(s, 0, life);
         assertEquals(0, born.growth(), 1e-9);
@@ -96,25 +100,6 @@ class CloudLifeTest {
         // Still mature where the old lifetime would already have been dying.
         CloudLife.Phase p = CloudLife.phase(s, s.total() - s.death() / 2.0, longer);
         assertEquals(0, p.decay(), 1e-9);
-    }
-
-    @Test
-    void serverLifetimesAreMarked() {
-        assertFalse(CloudLife.marked(12000), "PA's default isn't marked");
-        for (long l : new long[]{0, 1, 19, 20, 2407, 12000, 345_678}) {
-            int m = CloudLife.mark(l);
-            assertTrue(CloudLife.marked(m));
-            assertTrue(Math.abs(m - Math.max(20, l)) < 20, l + " -> " + m);
-            assertEquals(m, CloudLife.mark(m), "marking is stable");
-        }
-    }
-
-    @Test
-    void oldCloudsGetTimeToDie() {
-        CloudLife.Span s = CloudLife.span("cumulus_humilis", region(1));
-        assertEquals(s.total(), CloudLife.firstLifetime(s, 0));
-        long old = 11_000;
-        assertTrue(CloudLife.firstLifetime(s, old) >= old + s.death(), "an old cloud dies gradually");
     }
 
     @Test

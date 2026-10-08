@@ -22,7 +22,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 @EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
 public final class WeatherNetwork {
 
-    private static final String VERSION = "3";
+    private static final String VERSION = "5";
     private static final int INTERVAL = 20;
     /** The temperature grid: points per side and blocks between them (about 200 blocks across). */
     static final int GRID = 5;
@@ -58,15 +58,21 @@ public final class WeatherNetwork {
         int ox = Math.floorDiv((int) Math.floor(x), SPACING) * SPACING - (GRID / 2) * SPACING;
         int oz = Math.floorDiv((int) Math.floor(z), SPACING) * SPACING - (GRID / 2) * SPACING;
         float[] t = new float[GRID * GRID];
+        float[] h = new float[GRID * GRID];
+        var field = dev.brights0ng.enginesandempires.weather.climate.Climate.field(level);
         for (int k = 0; k < GRID; k++) {
             for (int i = 0; i < GRID; i++) {
                 t[k * GRID + i] = (float) Temperature.atSeaLevel(level, ox + i * SPACING, oz + k * SPACING);
+                h[k * GRID + i] = (float) field.regional(ox + i * SPACING, oz + k * SPACING).humidity();
             }
         }
+        var sim = dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim.of(level);
+        double[] nose = sim == null ? new double[]{0, 0} : sim.warmNose(x, z);
         return new WeatherSyncPayload(WeatherConfig.localized(), (float) w.surfaceX(), (float) w.surfaceZ(),
                 (float) w.aloftX(), (float) w.aloftZ(), (float) drift[0], (float) drift[1], sea,
                 (float) WeatherConfig.heightCoolingScale(),
-                (float) WeatherConfig.maxHeightCooling(), ox, oz, SPACING, GRID, t);
+                (float) WeatherConfig.maxHeightCooling(), ox, oz, SPACING, GRID, t, h, (float) nose[0], (float) nose[1],
+                LocalWeather.forced == null ? -1 : LocalWeather.forced.ordinal());
     }
 
     private WeatherNetwork() {

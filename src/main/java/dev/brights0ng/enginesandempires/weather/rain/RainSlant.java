@@ -91,6 +91,15 @@ public final class RainSlant {
      * back than the history gives the oldest kept), into {@code out} {x, z}.
      */
     public void at(boolean snowy, double strength, double ticksAgo, double[] out) {
+        at(snowy ? Precip.SNOW : Precip.RAIN, strength, ticksAgo, out);
+    }
+
+    /**
+     * As {@link #at(boolean, double, double, double[])} for {@code kind}: snow keeps its own lean; everything else
+     * leans as rain does, scaled by how fast it falls (sleet and hail, falling fast, lean little).
+     */
+    public void at(Precip kind, double strength, double ticksAgo, double[] out) {
+        boolean snowy = kind == Precip.SNOW;
         if (count == 0) {
             out[0] = out[1] = 0;
             return;
@@ -108,7 +117,7 @@ public final class RainSlant {
         double x = xs[i0] + (xs[i1] - xs[i0]) * f;
         double z = zs[i0] + (zs[i1] - zs[i0]) * f;
         if (!snowy) {
-            double scale = fallMps(false, REF_STRENGTH) / fallMps(false, strength);
+            double scale = fallMps(false, REF_STRENGTH) / kind.fallMps(strength);
             x *= scale;
             z *= scale;
             double len = Math.hypot(x, z);

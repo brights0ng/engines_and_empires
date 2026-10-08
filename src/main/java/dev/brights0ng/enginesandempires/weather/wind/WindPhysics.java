@@ -35,8 +35,7 @@ public final class WindPhysics {
             return;
         }
         WindParams params = WindConfig.params();
-        // Until the weather simulation's wind exists (phase 4), only the debug/test override blows.
-        if (!params.enabled() || WindSources.override() == null) {
+        if (!params.enabled()) {
             return;
         }
         ServerSubLevelContainer container = SubLevelContainer.getContainer(level);
