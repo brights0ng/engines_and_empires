@@ -38,7 +38,11 @@ public final class FrontierDarkness {
         if (sky > random.nextInt(32)) {
             return false;
         }
-        int darkened = sky - (level.isThundering() ? 10 : level.getSkyDarken());
+        // Thunder darkens the sky only under a thunderstorm (weather phase 6a), as in MonsterThunderMixin.
+        boolean thunder = dev.brights0ng.enginesandempires.weather.WeatherOwnership.owns(level)
+                ? dev.brights0ng.enginesandempires.weather.rain.WeatherQueries.thunderOver(level, pos)
+                : level.isThundering();
+        int darkened = sky - (thunder ? 10 : level.getSkyDarken());
         DimensionType type = level.dimensionType();
         return Math.max(0, darkened) <= type.monsterSpawnLightTest().sample(random);
     }

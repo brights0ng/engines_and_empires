@@ -29,7 +29,7 @@ class MixinConfigTest {
         List<String> mixins = mixinNames(config);
         assertFalse(mixins.isEmpty(), "the config should list at least the ore vein mixin");
         for (String name : mixins) {
-            String resource = "/" + pkg.replace('.', '/') + "/" + name + ".class";
+            String resource = "/" + pkg.replace('.', '/') + "/" + name.replace('.', '/') + ".class";
             assertNotNull(MixinConfigTest.class.getResource(resource), "config lists " + name + " but " + resource + " does not exist");
         }
     }
