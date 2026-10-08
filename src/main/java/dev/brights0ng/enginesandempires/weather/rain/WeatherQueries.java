@@ -15,6 +15,9 @@ import net.minecraft.world.phys.Vec3;
  *       not snow), used for {@code Level.isRainingAt} (wet entities, fires going out, tridents).</li>
  *   <li>{@link #overhead}: what is falling on the open air above a spot (the top of its column), so a roof doesn't stop
  *       the sky darkening or the rain fog, as in vanilla.</li>
+ *   <li>{@link #precipitationOver} / {@link #thunderOver}: vanilla's position-less {@code isRaining()} /
+ *       {@code isThundering()} asked at a spot (phase 6a): bees, foxes, pandas, fire, monster darkness, sleep,
+ *       colonists, loot's {@code weather_check} and Channeling.</li>
  * </ul>
  *
  * Ships (phase 5d): a ship overhead is a roof like any other; a ship's own block (in Sable's plot grid) is asked where
@@ -45,6 +48,37 @@ public final class WeatherQueries {
     public static LocalWeather.Here overhead(Level level, double x, double y, double z) {
         int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(x), (int) Math.floor(z));
         return LocalWeather.at(level, x, Math.max(y, top) + 0.5, z);
+    }
+
+    /**
+     * Vanilla's position-less {@code isRaining()} asked at {@code pos}: whether anything (rain, snow, sleet, hail) falls
+     * on the open air above it. Vanilla's own flag is true in snowy biomes too, and doesn't care about roofs.
+     */
+    public static boolean precipitationOver(Level level, BlockPos pos) {
+        if (LocalWeather.clouds(level).isEmpty()) {
+            return false;
+        }
+        Vec3 at = inWorld(level, pos);
+        return at != null && overhead(level, at.x, at.y, at.z).falling();
+    }
+
+    /** Vanilla's position-less {@code isThundering()} asked at {@code pos}: a thunder cloud's precipitation above it. */
+    public static boolean thunderOver(Level level, BlockPos pos) {
+        if (LocalWeather.clouds(level).isEmpty()) {
+            return false;
+        }
+        Vec3 at = inWorld(level, pos);
+        return at != null && overhead(level, at.x, at.y, at.z).thundering();
+    }
+
+    /** Whether any cloud is in the level's sky at all (the cheap gate before a positional check). */
+    public static boolean anyClouds(Level level) {
+        return !LocalWeather.clouds(level).isEmpty();
+    }
+
+    /** Where {@code pos} really is: its centre, or for a ship's block, where the ship is (null if unknown). */
+    private static Vec3 inWorld(Level level, BlockPos pos) {
+        return ShipCover.inPlot(level, pos) ? ShipCover.worldCentre(level, pos) : Vec3.atCenterOf(pos);
     }
 
     /**
