@@ -50,11 +50,6 @@ public final class FogEffects {
     /** How open the camera is to the sky (its sky light / 15), eased. */
     private static double exposure;
 
-    /** The storm fog set on the terrain this frame (start, end), for the clouds to follow; off when none. */
-    private static boolean cloudFogOn;
-    private static float cloudFogStart;
-    private static float cloudFogEnd;
-
     /** The cloud around the camera this frame, or null; and what the frame was. */
     private static CloudInterior.Inside inside;
     private static long frameTick = Long.MIN_VALUE;
@@ -82,14 +77,27 @@ public final class FogEffects {
     /**
      * The storm fog the clouds should be hidden by this frame, as {start, end, height weight}, or null when there is
      * none (Bright, 2026-10-09: the fog obscures clouds too, as a column, so the cloud straight overhead stays in
-     * view). Distance is measured mostly across the ground; height counts {@link FogTuning#cloudFogHeightWeight}.
-     * Inside a cloud the in-cloud fog does this already.
+     * view; then: only the storm's fog, not rain or snow or the game's own). It is the storm haze alone
+     * ({@link FogTuning#extinction} with nothing falling), against the clouds' draw distance, outdoors or not.
+     * Distance is measured mostly across the ground; height counts {@link FogTuning#cloudFogHeightWeight}. Inside a
+     * cloud the in-cloud fog does this already.
      */
     public static float[] cloudFog() {
-        if (!FogTuning.enabled || !cloudFogOn || inside != null) {
+        if (!FogTuning.enabled || inside != null) {
             return null;
         }
-        return new float[] {cloudFogStart, cloudFogEnd, (float) FogTuning.cloudFogHeightWeight};
+        float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+        double ext = FogTuning.extinction(0, 0, ClientStorm.darkness(partial));
+        double far = dev.brights0ng.enginesandempires.weather.cloud.client.CloudConfig.drawDistance();
+        if (ext * far < 1e-3) {
+            return null;
+        }
+        double end = Math.min(far, FogTuning.visibility(ext, far));
+        double w = FogTuning.tint(ext);
+        // The start slides from where the clouds' own distance fog starts (0.45 of the way) toward the storm fog's.
+        double clearStart = 0.45 * end;
+        double start = clearStart + (end * FogTuning.rainFogStart - clearStart) * w;
+        return new float[] {(float) start, (float) end, (float) FogTuning.cloudFogHeightWeight};
     }
 
     /** The air's extinction at the camera, as if out in the open (rain, snow and the storm's haze). */
@@ -229,10 +237,6 @@ public final class FogEffects {
         if (event.getType() != FogType.NONE || !FogTuning.enabled) {
             return;
         }
-        boolean terrain = event.getMode() == net.minecraft.client.renderer.FogRenderer.FogMode.FOG_TERRAIN;
-        if (terrain) {
-            cloudFogOn = false;
-        }
         updateFrame(event.getCamera());
         float far = event.getFarPlaneDistance();
         float near = event.getNearPlaneDistance();
@@ -260,11 +264,6 @@ public final class FogEffects {
         event.setFarPlaneDistance((float) end);
         event.setNearPlaneDistance((float) Math.min(near, gameStart + (stormStart - gameStart) * w));
         event.setCanceled(true);
-        if (terrain) {
-            cloudFogOn = true;
-            cloudFogStart = event.getNearPlaneDistance();
-            cloudFogEnd = event.getFarPlaneDistance();
-        }
     }
 
     private static double clamp(double v) {
