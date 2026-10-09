@@ -210,13 +210,24 @@ public final class CloudConfig {
             .comment("The rain grey's brightness at night, as a share of its daylight value (0.05 = a twentieth).",
                     "Dusk and dawn blend between the two.")
             .defineInRange("rain.nightBrightness", 0.05, 0.0, 1.0);
-    public static final ModConfigSpec.DoubleValue FOG_RAIN_FULL_GREY = BUILDER
-            .comment("Rain strength at which the fog is fully grey instead of the sky's colour; lighter rain blends",
-                    "between the two.")
-            .defineInRange("rain.fullGreyStrength", 0.35, 0.01, 1.0);
     public static final ModConfigSpec.DoubleValue FOG_RAIN_EASE = BUILDER
             .comment("Seconds rain fog takes to follow changes, so the edge of a shower doesn't pop. 0 = instant.")
             .defineInRange("rain.easeSeconds", 1.0, 0.0, 30.0);
+    public static final ModConfigSpec.DoubleValue FOG_STORM_HAZE = BUILDER
+            .comment("Visibility in the darkest storm's air when nothing is falling, blocks: the gloom under and near",
+                    "a storm thickens the air gradually with the storm's darkness (added to any rain fog).")
+            .defineInRange("storm.hazeVisibility", 400.0, 16.0, 8192.0);
+    public static final ModConfigSpec.DoubleValue FOG_STORM_GREY = BUILDER
+            .comment("How much fog turns the fog and sky to the storm's colour, as a visibility in blocks: at this",
+                    "visibility about two-thirds of the way, at a third of it fully. Larger turns them grey sooner.")
+            .defineInRange("storm.greyVisibility", 300.0, 8.0, 8192.0);
+    public static final ModConfigSpec.DoubleValue FOG_STORM_DARKENING = BUILDER
+            .comment("How much darker the storm colour gets under the darkest storm (0.5 = half the rain grey's",
+                    "brightness). Light rain stays at the rain grey.")
+            .defineInRange("storm.darkening", 0.5, 0.0, 0.95);
+    public static final ModConfigSpec.DoubleValue FOG_STORM_BLUE = BUILDER
+            .comment("How blue the storm colour is under the darkest storm (0 = neutral grey).")
+            .defineInRange("storm.blue", 0.08, 0.0, 0.5);
 
     static {
         BUILDER.pop().comment("Debug views.").push("debug");
@@ -327,8 +338,11 @@ public final class CloudConfig {
         dev.brights0ng.enginesandempires.weather.fog.FogTuning.rainFogStart = FOG_RAIN_START.get();
         dev.brights0ng.enginesandempires.weather.fog.FogTuning.rainFogBrightness = FOG_RAIN_BRIGHTNESS.get();
         dev.brights0ng.enginesandempires.weather.fog.FogTuning.rainNightBrightness = FOG_RAIN_NIGHT.get();
-        dev.brights0ng.enginesandempires.weather.fog.FogTuning.rainFullGrey = FOG_RAIN_FULL_GREY.get();
         dev.brights0ng.enginesandempires.weather.fog.FogTuning.rainEaseSeconds = FOG_RAIN_EASE.get();
+        dev.brights0ng.enginesandempires.weather.fog.FogTuning.stormHazeVisibility = FOG_STORM_HAZE.get();
+        dev.brights0ng.enginesandempires.weather.fog.FogTuning.stormGreyVisibility = FOG_STORM_GREY.get();
+        dev.brights0ng.enginesandempires.weather.fog.FogTuning.stormDarkening = FOG_STORM_DARKENING.get();
+        dev.brights0ng.enginesandempires.weather.fog.FogTuning.stormBlue = FOG_STORM_BLUE.get();
     }
 
     private static String snapshot() {

@@ -38,6 +38,8 @@
     "MonsterThunderMixin",
     "LightningRodWeatherMixin",
     "ServerLevelLightningInvoker",
+    "LevelStormLightMixin",
+    "DaylightDetectorStormMixin",
     "compat.minecolonies.CitizenAIWeatherMixin",
     "compat.minecolonies.CitizenWanderWeatherMixin",
     "compat.minecolonies.AISkeletonAccessor",
@@ -56,7 +58,10 @@
     "client.LevelRainLevelMixin",
     "client.LevelRendererSkyMixin",
     "client.ClientLevelSkyColourMixin",
-    "client.LightningBoltSoundMixin"
+    "client.LightningBoltSoundMixin",
+    "client.ClientLevelSkyDarkenMixin",
+    "client.FogRendererStormMixin",
+    "client.LevelRendererSunMixin"
   ],
   "injectors": {
     "defaultRequire": 1

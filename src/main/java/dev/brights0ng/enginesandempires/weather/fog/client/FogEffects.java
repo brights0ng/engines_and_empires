@@ -6,10 +6,12 @@ import dev.brights0ng.enginesandempires.weather.cloud.client.CloudInterior;
 import dev.brights0ng.enginesandempires.weather.cloud.client.CloudRenderer;
 import dev.brights0ng.enginesandempires.weather.fog.FogTuning;
 import dev.brights0ng.enginesandempires.weather.rain.LocalWeather;
+import dev.brights0ng.enginesandempires.weather.sky.client.ClientStorm;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.material.FogType;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.EventPriority;
@@ -18,20 +20,22 @@ import net.neoforged.neoforge.client.event.ViewportEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
 /**
- * The pack's fog (Bright, 2026-10-04; visual only). Two effects, the thicker one winning:
+ * The pack's fog (Bright, 2026-10-04; storm rework 2026-10-09, phase 6d; visual only). Two effects, the thicker one
+ * winning:
  *
  * <ul>
  *   <li><b>Inside a cloud</b> ({@link CloudInterior}): on the moment the camera enters a drawn cloud voxel, off the
  *       moment it leaves. Visibility by cloud type ({@link FogTuning#cloudVisibility}), as a sphere (up and down too),
  *       in the cloud's own grey lit by the sky. The sky (sun, moon, stars) is hidden ({@code LevelRendererSkyMixin}),
  *       and the cloud renderer fades the cloud's own faces into the fog ({@link CloudRenderer}).</li>
- *   <li><b>Rain and snow</b> falling on the camera ({@link LocalWeather}): visibility {@link FogTuning#rainVisibility},
- *       more rain thicker, snow twice as thick; the fog turns a light grey (dimming with the sky at dusk and night)
- *       instead of the sky's blue (Bright, 2026-10-04). Rain strength, rain-or-snow and being under a roof all ease over
- *       {@link FogTuning#rainEaseSeconds}, so nothing steps: a house in a storm isn't full of fog, and crossing the
- *       rain-snow line doesn't halve the visibility at once. Where the fog starts eases from the game's own start to the
- *       rain fog's as the rain thickens, so the fog doesn't jump closer the moment it becomes thicker than the game's.
- *       The cloud renderer doesn't follow this one: the storm overhead stays visible.</li>
+ *   <li><b>Storm and rain fog</b> outdoors: one extinction ({@link FogTuning#extinction}) from the rain or snow
+ *       falling on the camera and the storm's darkness overhead and around ({@link ClientStorm}). The fog's distance,
+ *       where it starts, and how far the fog and sky turn to the storm's colour all follow that one number, so the fog
+ *       thickens smoothly as a storm darkens and its rain arrives, with no steps. Its colour is the rain's neutral
+ *       grey, darker and slightly blue-grey as the storm darkens (Bright, 2026-10-09). How open the camera is to the
+ *       sky (its sky light, eased) scales the fog, so a house in a storm isn't full of it; the sky's tint doesn't, so
+ *       the storm outside a window still looks stormy. The cloud renderer doesn't follow this fog: the storm overhead
+ *       stays visible.</li>
  * </ul>
  *
  * <p>Both listeners run last ({@link EventPriority#LOWEST}, even for events already cancelled) and only ever tighten
@@ -39,9 +43,11 @@ import net.neoforged.neoforge.common.NeoForge;
  */
 public final class FogEffects {
 
+    /** The rain or snow falling on the camera (strength 0-1), eased. */
     private static double rain;
     /** How far from rain to snow (0-1), eased. */
     private static double snow;
+    /** How open the camera is to the sky (its sky light / 15), eased. */
     private static double exposure;
 
     /** The cloud around the camera this frame, or null; and what the frame was. */
@@ -58,7 +64,7 @@ public final class FogEffects {
         NeoForge.EVENT_BUS.addListener(FogEffects::onClientTick);
     }
 
-    /** Whether the pack's fog is in charge (and Project Atmosphere's off). */
+    /** Whether the pack's fog is in charge. */
     public static boolean enabled() {
         return FogTuning.enabled;
     }
@@ -68,44 +74,45 @@ public final class FogEffects {
         return FogTuning.enabled ? inside : null;
     }
 
-    /** The rain fog's strength now (rain strength, eased, times how open to the sky the camera is). */
-    public static double rainShown() {
-        return rain * exposure;
+    /** The air's extinction at the camera, as if out in the open (rain, snow and the storm's haze). */
+    public static double extinction(float partial) {
+        return FogTuning.extinction(rain, snow, ClientStorm.darkness(partial));
     }
 
     /**
-     * How far the fog and the sky are turned to the rain's grey (0-1): fully once the rain reaches
-     * {@link FogTuning#rainFullGrey}. The sky and the fog use the same amount and the same grey, so the horizon has
-     * no seam (Bright, 2026-10-04: the sky should change with the fog, as in vanilla rain).
+     * How far the sky and the fog are turned to the storm's colour (0-1). The sky and the fog use the same amount and
+     * the same colour, so the horizon has no seam.
      */
-    public static double rainTint() {
+    public static double skyTint(float partial) {
         if (!FogTuning.enabled) {
             return 0;
         }
-        return Math.min(1, Math.min(1, rainShown()) / Math.max(0.01, FogTuning.rainFullGrey));
+        return FogTuning.tint(extinction(partial));
     }
 
     /**
-     * The rain's grey: a neutral grey of brightness {@link FogTuning#rainFogBrightness} (0 black to 1 white), lit by
-     * the day-night light: full in daylight, {@link FogTuning#rainNightBrightness} of it at night (darker than the
-     * clouds' own sky light, Bright 2026-10-04: night rain fog was brighter than the clouds), blended at dusk and dawn
-     * on vanilla's day-night curve.
+     * The storm's colour: the rain's neutral grey ({@link FogTuning#rainFogBrightness}, lit by the day-night light:
+     * {@link FogTuning#rainNightBrightness} of it at night), darker ({@link FogTuning#stormDarkening}) and slightly
+     * blue-grey ({@link FogTuning#stormBlue}) as the storm darkens.
      */
-    public static Vec3 rainColour(ClientLevel level, float partial) {
+    public static Vec3 stormColour(ClientLevel level, float partial) {
         double day = Math.max(0, Math.min(1, Math.cos(level.getTimeOfDay(partial) * Math.PI * 2) * 2 + 0.5));
         double night = FogTuning.rainNightBrightness;
         double grey = FogTuning.rainFogBrightness * (night + (1 - night) * day);
-        return new Vec3(grey, grey, grey);
+        double d = ClientStorm.darkness(partial);
+        double b = grey * (1 - FogTuning.stormDarkening * d);
+        double blue = FogTuning.stormBlue * d;
+        return new Vec3(clamp(b * (1 - 0.6 * blue)), clamp(b * (1 - 0.15 * blue)), clamp(b * (1 + blue)));
     }
 
-    /** {@code colour} turned toward the rain's grey by {@link #rainTint}. */
-    public static Vec3 rainTinted(ClientLevel level, float partial, Vec3 colour) {
-        double k = rainTint();
+    /** {@code colour} turned toward the storm's colour by {@link #skyTint}. */
+    public static Vec3 stormTinted(ClientLevel level, float partial, Vec3 colour) {
+        double k = skyTint(partial);
         if (k <= 1e-4) {
             return colour;
         }
-        Vec3 grey = rainColour(level, partial);
-        return colour.add(grey.subtract(colour).scale(k));
+        Vec3 c = stormColour(level, partial);
+        return colour.add(c.subtract(colour).scale(k));
     }
 
     // ---- per tick: the rain at the camera ------------------------------------------------------------------------
@@ -118,6 +125,7 @@ public final class FogEffects {
             return;
         }
         Vec3 cam = mc.gameRenderer.getMainCamera().getPosition();
+        BlockPos at = BlockPos.containing(cam);
         double target;
         boolean snowing;
         if (LocalWeather.enabled(level)) {
@@ -127,9 +135,10 @@ public final class FogEffects {
         } else {
             // The pack's rain model is off: follow the game's own rain.
             target = level.isRaining() ? level.getRainLevel(1f) : 0;
-            snowing = level.getBiome(BlockPos.containing(cam)).value().coldEnoughToSnow(BlockPos.containing(cam));
+            snowing = level.getBiome(at).value().coldEnoughToSnow(at);
         }
-        double open = level.canSeeSky(BlockPos.containing(cam)) ? 1 : 0;
+        // Sky light rather than a yes/no "can see the sky": under an overhang or in a doorway the fog is partial.
+        double open = level.getBrightness(LightLayer.SKY, at) / 15.0;
         double seconds = FogTuning.rainEaseSeconds;
         double a = seconds <= 0 ? 1 : 1 - Math.exp(-1 / (seconds * 20));
         rain += (target - rain) * a;
@@ -178,19 +187,19 @@ public final class FogEffects {
         CloudInterior.Inside in = inside;
         if (in != null) {
             Vec3 tint = CloudRenderer.tint(level, (float) event.getPartialTick());
-            event.setRed(clamp((float) (in.red() * tint.x)));
-            event.setGreen(clamp((float) (in.green() * tint.y)));
-            event.setBlue(clamp((float) (in.blue() * tint.z)));
+            event.setRed((float) clamp(in.red() * tint.x));
+            event.setGreen((float) clamp(in.green() * tint.y));
+            event.setBlue((float) clamp(in.blue() * tint.z));
             return;
         }
-        if (rainTint() <= 1e-4) {
+        float partial = (float) event.getPartialTick();
+        if (skyTint(partial) <= 1e-4) {
             return;
         }
-        Vec3 c = rainTinted(level, (float) event.getPartialTick(),
-                new Vec3(event.getRed(), event.getGreen(), event.getBlue()));
-        event.setRed(clamp((float) c.x));
-        event.setGreen(clamp((float) c.y));
-        event.setBlue(clamp((float) c.z));
+        Vec3 c = stormTinted(level, partial, new Vec3(event.getRed(), event.getGreen(), event.getBlue()));
+        event.setRed((float) clamp(c.x));
+        event.setGreen((float) clamp(c.y));
+        event.setBlue((float) clamp(c.z));
     }
 
     private static void onRenderFog(ViewportEvent.RenderFog event) {
@@ -209,24 +218,24 @@ public final class FogEffects {
             event.setCanceled(true);
             return;
         }
-        double visibility = FogTuning.rainVisibility(rainShown(), snow);
-        // Continuous in the rain's strength, with no point where the fog switches from the game's to the rain's: the
-        // fog's end comes in as visibility drops below the game's, and its start slides from the game's start (most of
-        // the way out) to the rain fog's (right at you, by default) as the rain thickens, by the same amount the
-        // colour turns grey. So the fog thickens from the camera outward rather than standing as a wall.
-        double w = rainTint();
-        if (w <= 1e-4 && visibility >= far) {
+        // One continuous extinction, scaled by how open the camera is: the fog's end comes in smoothly from the game's
+        // own as it rises, and its start slides from the game's start (most of the way out) toward the storm fog's
+        // (right at you, by default) by the same amount the colour turns, so the fog thickens from the camera outward
+        // rather than standing as a wall.
+        double ext = extinction((float) event.getPartialTick()) * exposure;
+        if (ext * far < 1e-3) {
             return;
         }
-        double end = Math.min(far, visibility);
+        double end = Math.min(far, FogTuning.visibility(ext, far));
+        double w = FogTuning.tint(ext);
         double gameStart = Math.min(near, far) / far * end;
-        double rainStart = end * FogTuning.rainFogStart;
+        double stormStart = end * FogTuning.rainFogStart;
         event.setFarPlaneDistance((float) end);
-        event.setNearPlaneDistance((float) Math.min(near, gameStart + (rainStart - gameStart) * w));
+        event.setNearPlaneDistance((float) Math.min(near, gameStart + (stormStart - gameStart) * w));
         event.setCanceled(true);
     }
 
-    private static float clamp(float v) {
+    private static double clamp(double v) {
         return v < 0 ? 0 : Math.min(1, v);
     }
 
