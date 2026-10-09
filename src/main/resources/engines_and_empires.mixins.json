@@ -37,6 +37,7 @@
     "PandaWeatherMixin",
     "MonsterThunderMixin",
     "LightningRodWeatherMixin",
+    "ServerLevelLightningInvoker",
     "compat.minecolonies.CitizenAIWeatherMixin",
     "compat.minecolonies.CitizenWanderWeatherMixin",
     "compat.minecolonies.AISkeletonAccessor",
