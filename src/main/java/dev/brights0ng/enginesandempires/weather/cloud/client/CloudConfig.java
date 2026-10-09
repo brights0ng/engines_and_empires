@@ -201,13 +201,16 @@ public final class CloudConfig {
             .comment("Where rain fog starts in full rain, as a share of its visibility: 0 is right at you, so the fog",
                     "thickens continuously from you outward. Lighter rain moves the start out toward the game's own.")
             .defineInRange("rain.fogStart", 0.0, 0.0, 0.95);
-    public static final ModConfigSpec.DoubleValue FOG_RAIN_BRIGHTNESS = BUILDER
-            .comment("The rain colour, as a grey from 0 (black) to 1 (white): the rain fog and the sky under rain both",
-                    "turn to this grey. This is its value in full daylight; it dims with the sky at dusk and night.",
-                    "Applies live when the file is saved.")
-            .defineInRange("rain.fogBrightness", 0.62, 0.0, 1.0);
+    public static final ModConfigSpec.ConfigValue<String> FOG_RAIN_COLOUR = BUILDER
+            .comment("The rain and storm fog colour as hex RRGGBB: the fog and the sky under rain or a storm both turn",
+                    "to it. This is its value in full daylight; it dims with the sky at dusk and night.")
+            .define("rain.fogColour", "5C6880");
+    public static final ModConfigSpec.ConfigValue<String> FOG_SNOW_COLOUR = BUILDER
+            .comment("The snow fog colour as hex RRGGBB (full daylight). The fog eases between this and the rain colour",
+                    "as what falls turns from rain to snow.")
+            .define("snow.fogColour", "D1D6E0");
     public static final ModConfigSpec.DoubleValue FOG_RAIN_NIGHT = BUILDER
-            .comment("The rain grey's brightness at night, as a share of its daylight value (0.05 = a twentieth).",
+            .comment("The fog colours' brightness at night, as a share of their daylight value (0.05 = a twentieth).",
                     "Dusk and dawn blend between the two.")
             .defineInRange("rain.nightBrightness", 0.05, 0.0, 1.0);
     public static final ModConfigSpec.DoubleValue FOG_RAIN_EASE = BUILDER
@@ -222,12 +225,13 @@ public final class CloudConfig {
                     "visibility about two-thirds of the way, at a third of it fully. Larger turns them grey sooner.")
             .defineInRange("storm.greyVisibility", 300.0, 8.0, 8192.0);
     public static final ModConfigSpec.DoubleValue FOG_STORM_DARKENING = BUILDER
-            .comment("How much darker the storm colour gets under the darkest storm (0.5 = half the rain grey's",
-                    "brightness). Light rain stays at the rain grey.")
+            .comment("How much darker the fog colour gets under the darkest storm (0.5 = half as bright). Snow darkens",
+                    "less. Light rain stays at the rain colour.")
             .defineInRange("storm.darkening", 0.5, 0.0, 0.95);
-    public static final ModConfigSpec.DoubleValue FOG_STORM_BLUE = BUILDER
-            .comment("How blue the storm colour is under the darkest storm (0 = neutral grey).")
-            .defineInRange("storm.blue", 0.08, 0.0, 0.5);
+    public static final ModConfigSpec.DoubleValue FOG_CLOUD_HEIGHT = BUILDER
+            .comment("The storm fog hides clouds too, by their distance across the ground; this is how much their",
+                    "height counts as well (0 = a column: the cloud straight overhead never fogs; 1 = full distance).")
+            .defineInRange("storm.cloudHeightWeight", 0.05, 0.0, 1.0);
 
     static {
         BUILDER.pop().comment("Debug views.").push("debug");
@@ -336,13 +340,16 @@ public final class CloudConfig {
         dev.brights0ng.enginesandempires.weather.fog.FogTuning.heavyRainVisibility = FOG_HEAVY_RAIN.get();
         dev.brights0ng.enginesandempires.weather.fog.FogTuning.snowVisibility = FOG_SNOW.get();
         dev.brights0ng.enginesandempires.weather.fog.FogTuning.rainFogStart = FOG_RAIN_START.get();
-        dev.brights0ng.enginesandempires.weather.fog.FogTuning.rainFogBrightness = FOG_RAIN_BRIGHTNESS.get();
+        dev.brights0ng.enginesandempires.weather.fog.FogTuning.rainFogColour = dev.brights0ng.enginesandempires
+                .weather.fog.FogTuning.parseColour(FOG_RAIN_COLOUR.get(), new double[] {0.36, 0.41, 0.50});
+        dev.brights0ng.enginesandempires.weather.fog.FogTuning.snowFogColour = dev.brights0ng.enginesandempires
+                .weather.fog.FogTuning.parseColour(FOG_SNOW_COLOUR.get(), new double[] {0.82, 0.84, 0.88});
         dev.brights0ng.enginesandempires.weather.fog.FogTuning.rainNightBrightness = FOG_RAIN_NIGHT.get();
         dev.brights0ng.enginesandempires.weather.fog.FogTuning.rainEaseSeconds = FOG_RAIN_EASE.get();
         dev.brights0ng.enginesandempires.weather.fog.FogTuning.stormHazeVisibility = FOG_STORM_HAZE.get();
         dev.brights0ng.enginesandempires.weather.fog.FogTuning.stormGreyVisibility = FOG_STORM_GREY.get();
         dev.brights0ng.enginesandempires.weather.fog.FogTuning.stormDarkening = FOG_STORM_DARKENING.get();
-        dev.brights0ng.enginesandempires.weather.fog.FogTuning.stormBlue = FOG_STORM_BLUE.get();
+        dev.brights0ng.enginesandempires.weather.fog.FogTuning.cloudFogHeightWeight = FOG_CLOUD_HEIGHT.get();
     }
 
     private static String snapshot() {

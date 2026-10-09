@@ -130,6 +130,8 @@ public final class CloudWispRenderer {
         float fogStart = inside ? RenderSystem.getShaderFogStart() : CloudConfig.drawDistance() * 0.45f;
         float fogEnd = inside ? Math.max(RenderSystem.getShaderFogEnd(), 0.5f) : CloudConfig.drawDistance();
         float[] fog = RenderSystem.getShaderFogColor();
+        // The storm fog thins them out too, as a column (2026-10-09; FogEffects.cloudFog).
+        float[] storm = dev.brights0ng.enginesandempires.weather.fog.client.FogEffects.cloudFog();
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
         for (Drawn d : drawn) {
             CloudWisps.Wisp w = d.w;
@@ -137,6 +139,10 @@ public final class CloudWispRenderer {
             double dist = inside ? Math.sqrt(d.d2) : Math.hypot(d.x, d.z);
             double fogged = Math.max(0, Math.min(1, (dist - fogStart) / Math.max(1e-3, fogEnd - fogStart)));
             alpha *= 1 - fogged;
+            if (storm != null) {
+                double ds = Math.hypot(Math.hypot(d.x, d.z), d.y * storm[2]);
+                alpha *= 1 - Math.max(0, Math.min(1, (ds - storm[0]) / Math.max(1, storm[1] - storm[0])));
+            }
             if (alpha <= 0.004) {
                 continue;
             }

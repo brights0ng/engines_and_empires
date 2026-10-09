@@ -76,11 +76,30 @@ import net.minecraft.world.phys.Vec3;
  *
  * <h2>Texture</h2>
  * Pinned to world height (2026-10-08): the drops' speed doesn't change when the camera moves up or down.
+ *
+ * <h2>No visible pattern (2026-10-09, Bright)</h2>
+ * Each streak is set off the block grid by a small random amount and leans by its own slight random angle (about its
+ * landing height, so it still lands where the weather says), so the streaks don't line up in rows, seen across or
+ * along the wind. Each snow streak falls at its own speed around snow's real fall speed (1.2 m/s, from 0.75x to
+ * 1.25x), from its own phase, with a gentle sideways sway, so the flakes don't line up in bands either.
+ *
+ * <h2>Rain colour (2026-10-09, Bright)</h2>
+ * Rain uses its own texture (made in code, {@link #paleRain}): thin pale blue-grey drops, more see-through than
+ * vanilla's bright blue.
  */
 public final class LocalRainRenderer {
 
     private static final ResourceLocation RAIN = ResourceLocation.withDefaultNamespace("textures/environment/rain.png");
     private static final ResourceLocation SNOW = ResourceLocation.withDefaultNamespace("textures/environment/snow.png");
+    private static final ResourceLocation PALE_RAIN = ResourceLocation.fromNamespaceAndPath(
+            dev.brights0ng.enginesandempires.EnginesAndEmpiresMod.MODID, "dynamic/pale_rain");
+    private static boolean paleRainReady;
+    /** The most a streak is set off its block's centre, blocks. */
+    static final double JITTER = 0.35;
+    /** The most a streak leans by its own, blocks sideways per block down (about 2 degrees). */
+    static final double TILT = 0.035;
+    /** How see-through rain is, against vanilla's (1 = as opaque). */
+    static final float RAIN_ALPHA = 0.7f;
 
     static final int RADIUS = 24;
     static final int RADIUS_FAST = 12;
@@ -486,19 +505,22 @@ public final class LocalRainRenderer {
             }
             int x = (int) (e.getLongKey() >> 32);
             int z = (int) e.getLongKey();
+            long seed = (long) x * x * 3121 + x * 45238971L ^ (long) z * z * 418711 + z * 13761L;
+            double h = ((seed * 0x9E3779B97F4A7C15L) >>> 40) / (double) (1L << 24);
+            // Its own small offset off the grid and its own slight lean (pivoting where it lands), so streaks don't
+            // line up in rows.
+            Jitter jit = Jitter.of(seed, c.ground);
             // The streak's spot, and how far it is from the camera at eye level.
             double px = x + 0.5;
             double pz = z + 0.5;
             StreakShape shape = FRAME_SHAPES[kind(c.look, c.strength)];
-            double mx = px + shape.x(camY) - camX;
-            double mz = pz + shape.z(camY) - camZ;
+            double mx = px + shape.x(camY) + jit.x(camY) - camX;
+            double mz = pz + shape.z(camY) + jit.z(camY) - camZ;
             double distance = Math.sqrt(mx * mx + mz * mz);
             if (distance > r) {
                 continue;
             }
             double s = c.strength;
-            long seed = (long) x * x * 3121 + x * 45238971L ^ (long) z * z * 418711 + z * 13761L;
-            double h = ((seed * 0x9E3779B97F4A7C15L) >>> 40) / (double) (1L << 24);
             double keep = 0.3 + 0.7 * Math.min(1, s * 1.5);
             if (distance > NEAR) {
                 keep *= 0.5;
@@ -512,7 +534,7 @@ public final class LocalRainRenderer {
             }
             Precip look = c.look;
             if (buffer == null) {
-                RenderSystem.setShaderTexture(0, snowPass ? SNOW : RAIN);
+                RenderSystem.setShaderTexture(0, snowPass ? SNOW : paleRain());
                 buffer = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.PARTICLE);
             }
             // Sleet a little narrower than snow (small pellets), hail as wide (bigger stones on a coarser texture).
@@ -523,7 +545,11 @@ public final class LocalRainRenderer {
             double edge = distance / r;
             float fade = (float) ((1 - edge * edge) * (snowPass ? 0.3 : 0.5) + 0.5) * (float) (1 - edge * edge * edge);
             float alpha = Mth.clamp(fade * (0.35f + 0.65f * (float) Math.min(1, s)), 0, 1) * (snowPass ? 0.86f : 1f);
-            pos.set(Mth.floor(px + shape.x(lower)), Mth.floor(lower), Mth.floor(pz + shape.z(lower)));
+            if (!snowPass) {
+                alpha *= RAIN_ALPHA;
+            }
+            pos.set(Mth.floor(px + shape.x(lower) + jit.x(lower)), Mth.floor(lower),
+                    Mth.floor(pz + shape.z(lower) + jit.z(lower)));
             int light = LevelRenderer.getLightColor(level, pos);
             // The scroll: how far the texture has fallen, in texture units. Worked out in double from the tick
             // count wrapped to a whole number of texture repeats (a float game time loses the partial tick), so it
@@ -546,8 +572,15 @@ public final class LocalRainRenderer {
                 vScale = 0.5f;
                 uSpan = 0.5f;
             } else if (snowPass) {
-                vOffset = -((gameTime % 512) + partialTick) / 512.0;
-                uOffset = (float) (h * 7.3 % 1);
+                // Snow's real fall speed, varied per streak, from its own phase (2026-10-09: it crawled at about a
+                // sixth of a block a second, and every streak's flakes lined up in bands). Texture units per tick:
+                // blocks a second / 20 / 4 blocks per unit.
+                double speed = dev.brights0ng.enginesandempires.weather.rain.RainModel.SNOW_FALL * (0.75 + 0.5 * jit.u());
+                long phase = (gameTime + (seed & 0xFFFFL)) & 131071;
+                vOffset = -(phase + partialTick) * speed / 80.0;
+                // A gentle sideways sway, each streak its own.
+                uOffset = (float) (h * 7.3 % 1 + 0.04 * Math.sin((gameTime + partialTick) * (0.02 + 0.03 * jit.v())
+                        + h * 40));
             } else {
                 // Each streak at its own speed (3-4 repeats a second and a half): wrapped only every ~2 hours.
                 long offset = (gameTime + (long) x * x * 3121L + x * 45238971L + (long) z * z * 418711L
@@ -566,7 +599,7 @@ public final class LocalRainRenderer {
             double vBase = vOffset - Math.floor(vOffset) + Math.floor((lower + upper) * 0.125 * vScale) * 2;
             Tint tint = new Tint(red, green, blue, alpha, uSpan, vScale);
             if (shape.straight()) {
-                segment(buffer, shape, px, pz, lower, upper, camX, camY, camZ, quadX, quadZ, vBase, uOffset, tint,
+                segment(buffer, shape, jit, px, pz, lower, upper, camX, camY, camZ, quadX, quadZ, vBase, uOffset, tint,
                         light);
             } else {
                 double from = lower;
@@ -576,13 +609,13 @@ public final class LocalRainRenderer {
                         continue;
                     }
                     double to = Math.min(y, upper);
-                    segment(buffer, shape, px, pz, from, to, camX, camY, camZ, quadX, quadZ, vBase, uOffset, tint,
+                    segment(buffer, shape, jit, px, pz, from, to, camX, camY, camZ, quadX, quadZ, vBase, uOffset, tint,
                             light);
                     from = to;
                 }
                 if (from < upper) {
-                    segment(buffer, shape, px, pz, from, upper, camX, camY, camZ, quadX, quadZ, vBase, uOffset, tint,
-                            light);
+                    segment(buffer, shape, jit, px, pz, from, upper, camX, camY, camZ, quadX, quadZ, vBase, uOffset,
+                            tint, light);
                 }
             }
         }
@@ -601,14 +634,71 @@ public final class LocalRainRenderer {
     private record Tint(float r, float g, float b, float a, float uSpan, float vScale) {
     }
 
+    /**
+     * A streak's own offset off its block's centre ({@code jx, jz}) and lean ({@code tx, tz}, blocks sideways per
+     * block, pivoting at {@code pivotY}, where it lands), and two more random numbers for snow, all from its seed.
+     */
+    record Jitter(double jx, double jz, double tx, double tz, double pivotY, double u, double v) {
+
+        static Jitter of(long seed, double pivotY) {
+            long m = seed * 0xD1B54A32D192ED03L + 0x9E3779B97F4A7C15L;
+            double[] r = new double[6];
+            for (int i = 0; i < r.length; i++) {
+                m ^= m >>> 31;
+                m *= 0x94D049BB133111EBL;
+                m ^= m >>> 29;
+                r[i] = (m >>> 11) / (double) (1L << 53);
+            }
+            double pivot = Double.isFinite(pivotY) ? pivotY : 0;
+            return new Jitter((r[0] - 0.5) * 2 * JITTER, (r[1] - 0.5) * 2 * JITTER, (r[2] - 0.5) * 2 * TILT,
+                    (r[3] - 0.5) * 2 * TILT, pivot, r[4], r[5]);
+        }
+
+        double x(double y) {
+            return jx + tx * (y - pivotY);
+        }
+
+        double z(double y) {
+            return jz + tz * (y - pivotY);
+        }
+    }
+
+    /**
+     * The rain texture (2026-10-09, Bright: vanilla's is an unrealistic bright blue): thin, pale blue-grey drops, more
+     * see-through, brightest at their lower end, made once in code (64 x 256, the size of vanilla's).
+     */
+    private static ResourceLocation paleRain() {
+        if (!paleRainReady) {
+            com.mojang.blaze3d.platform.NativeImage img = new com.mojang.blaze3d.platform.NativeImage(64, 256, true);
+            img.fillRect(0, 0, 64, 256, 0);
+            RandomSource r = RandomSource.create(0x5EEDL);
+            int red = 196, green = 207, blue = 222;
+            for (int d = 0; d < 80; d++) {
+                int x = r.nextInt(64);
+                int y0 = r.nextInt(256);
+                int len = 8 + r.nextInt(14);
+                double peak = 0.45 + 0.25 * r.nextDouble();
+                for (int i = 0; i < len; i++) {
+                    double t = (i + 1) / (double) len;
+                    int a = (int) Math.round(255 * peak * (0.25 + 0.75 * t * t));
+                    img.setPixelRGBA(x, (y0 + i) & 255, (a << 24) | (blue << 16) | (green << 8) | red);
+                }
+            }
+            Minecraft.getInstance().getTextureManager().register(PALE_RAIN,
+                    new net.minecraft.client.renderer.texture.DynamicTexture(img));
+            paleRainReady = true;
+        }
+        return PALE_RAIN;
+    }
+
     /** One straight piece of a streak, from world height {@code y0} up to {@code y1}. */
-    private static void segment(BufferBuilder buffer, StreakShape shape, double px, double pz, double y0, double y1,
-                                double camX, double camY, double camZ, double quadX, double quadZ, double vBase,
-                                float uOffset, Tint tint, int light) {
-        double bx = px + shape.x(y0) - camX;
-        double bz = pz + shape.z(y0) - camZ;
-        double tx = px + shape.x(y1) - camX;
-        double tz = pz + shape.z(y1) - camZ;
+    private static void segment(BufferBuilder buffer, StreakShape shape, Jitter jit, double px, double pz, double y0,
+                                double y1, double camX, double camY, double camZ, double quadX, double quadZ,
+                                double vBase, float uOffset, Tint tint, int light) {
+        double bx = px + shape.x(y0) + jit.x(y0) - camX;
+        double bz = pz + shape.z(y0) + jit.z(y0) - camZ;
+        double tx = px + shape.x(y1) + jit.x(y1) - camX;
+        double tz = pz + shape.z(y1) + jit.z(y1) - camZ;
         quad(buffer, bx, bz, y0 - camY, tx, tz, y1 - camY, quadX, quadZ, (float) (vBase - y1 * 0.25 * tint.vScale()),
                 (float) (vBase - y0 * 0.25 * tint.vScale()), uOffset, tint, light);
     }

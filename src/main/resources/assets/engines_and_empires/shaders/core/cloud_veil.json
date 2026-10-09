@@ -14,6 +14,7 @@
     { "name": "WindDir", "type": "float", "count": 2, "values": [ 1.0, 0.0 ] },
     { "name": "FogStart", "type": "float", "count": 1, "values": [ 1500.0 ] },
     { "name": "FogEnd", "type": "float", "count": 1, "values": [ 3072.0 ] },
-    { "name": "Opacity", "type": "float", "count": 1, "values": [ 1.0 ] }
+    { "name": "Opacity", "type": "float", "count": 1, "values": [ 1.0 ] },
+    { "name": "StormFog", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] }
   ]
 }

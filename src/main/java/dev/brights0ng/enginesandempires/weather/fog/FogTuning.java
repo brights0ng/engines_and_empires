@@ -42,9 +42,14 @@ public final class FogTuning {
      * thickens continuously from you outward instead of standing as a wall at some distance.
      */
     public static volatile double rainFogStart = 0.0;
-    /** The rain colour, a grey from 0 (black) to 1 (white), in full daylight (fog and sky). */
-    public static volatile double rainFogBrightness = 0.62;
-    /** The rain grey's brightness at night, as a share of its daylight value. */
+    /**
+     * The rain and storm fog colour in full daylight (fog and sky), red, green, blue 0-1: a dark blue-grey (Bright,
+     * 2026-10-09).
+     */
+    public static volatile double[] rainFogColour = {0.36, 0.41, 0.50};
+    /** The snow fog colour in full daylight: a pale whitish grey with only a slight blue (Bright, 2026-10-09). */
+    public static volatile double[] snowFogColour = {0.82, 0.84, 0.88};
+    /** The fog colours' brightness at night, as a share of their daylight value. */
     public static volatile double rainNightBrightness = 0.05;
     /** Seconds the rain fog takes to follow changes (so the edge of a rain core doesn't pop). */
     public static volatile double rainEaseSeconds = 1.0;
@@ -57,10 +62,33 @@ public final class FogTuning {
      * about two-thirds of the way there, at a third of it all the way.
      */
     public static volatile double stormGreyVisibility = 300;
-    /** How much darker the storm colour is under the darkest storm (0.5 = half as bright as light rain's grey). */
+    /** How much darker the storm colour is under the darkest storm (0.5 = half as bright as light rain's colour). */
     public static volatile double stormDarkening = 0.5;
-    /** How blue the storm colour is under the darkest storm (0 = neutral grey; light rain stays neutral). */
-    public static volatile double stormBlue = 0.08;
+    /**
+     * How much height counts toward the storm fog on the clouds, against horizontal distance (0 = a column: the cloud
+     * straight overhead never fogs; 1 = as for anything else).
+     */
+    public static volatile double cloudFogHeightWeight = 0.05;
+
+    /** A hex colour ({@code RRGGBB}, with or without {@code #}) as red, green, blue 0-1, or {@code fallback}. */
+    public static double[] parseColour(String hex, double[] fallback) {
+        if (hex == null) {
+            return fallback;
+        }
+        String s = hex.trim();
+        if (s.startsWith("#")) {
+            s = s.substring(1);
+        }
+        if (s.length() != 6) {
+            return fallback;
+        }
+        try {
+            int v = Integer.parseInt(s, 16);
+            return new double[] {((v >> 16) & 0xFF) / 255.0, ((v >> 8) & 0xFF) / 255.0, (v & 0xFF) / 255.0};
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
 
     /**
      * The air's extinction, per block: rain or snow of {@code strength} ({@code snowShare} of the way to snow) plus the

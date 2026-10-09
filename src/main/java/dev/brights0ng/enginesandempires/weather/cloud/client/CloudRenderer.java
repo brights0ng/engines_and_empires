@@ -126,6 +126,15 @@ public final class CloudRenderer {
             shader.safeGetUniform("CloudFogSphere").set(0f);
         }
         shader.safeGetUniform("Flash").set(0f);
+        // The storm fog hides the clouds too, as a column (2026-10-09).
+        float[] storm = dev.brights0ng.enginesandempires.weather.fog.client.FogEffects.cloudFog();
+        if (storm != null) {
+            float[] c = RenderSystem.getShaderFogColor();
+            shader.safeGetUniform("StormFog").set(storm[0], storm[1], storm[2]);
+            shader.safeGetUniform("StormFogColor").set(c[0], c[1], c[2]);
+        } else {
+            shader.safeGetUniform("StormFog").set(0f, 0f, 0f);
+        }
         // Lightning's local glow (weather phase 6c).
         dev.brights0ng.enginesandempires.weather.lightning.client.ClientLightning.upload(shader, camera);
         CloudLight light = CloudLight.at(level.getTimeOfDay(partial));

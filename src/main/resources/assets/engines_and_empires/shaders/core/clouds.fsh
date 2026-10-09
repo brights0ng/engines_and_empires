@@ -20,6 +20,10 @@
 // relative to the camera (xyz) and brightness now (w, flickering, set by ClientLightning every frame), its glow radius
 // in FlashRadii. A flash lights the cloud around it: brightly within its radius, a faint halo over twice that. The
 // glow is added after the distance fog and only partly fogged, so a storm on the horizon still flickers at night.
+//
+// Storm fog (2026-10-09, Bright: the fog obscures clouds too, as a column so the cloud straight overhead stays in
+// view): StormFog = (start, end, height weight), StormFogColor the fog's colour, from the terrain's storm fog this
+// frame (FogEffects.cloudFog); end 0 = none. Distance is across the ground, with height counting only by its weight.
 
 uniform vec4 ColorModulator;
 uniform vec4 FogColor;
@@ -37,6 +41,8 @@ uniform vec4 FlashB;
 uniform vec4 FlashC;
 uniform vec4 FlashD;
 uniform vec4 FlashRadii;
+uniform vec3 StormFog;
+uniform vec3 StormFogColor;
 
 in vec4 vertexColor;
 in vec3 vertexNormal;
@@ -85,11 +91,19 @@ void main() {
     color.rgb = min(color.rgb, vec3(1.0));
     color.rgb = mix(color.rgb, vec3(1.0, 1.0, 1.05), clamp(Flash, 0.0, 1.0) * 0.8);
     fragColor = linear_fog(color, vertexDistance, CloudFogStart, CloudFogEnd, vec4(FogColor.rgb, 1.0));
+    float storm = 0.0;
+    if (StormFog.y > 0.0) {
+        float d = length(vec2(length(viewVector.xz), viewVector.y * StormFog.z));
+        storm = clamp((d - StormFog.x) / max(StormFog.y - StormFog.x, 1.0), 0.0, 1.0);
+        fragColor.rgb = mix(fragColor.rgb, StormFogColor, storm);
+    }
     float glow = glowOf(FlashA, FlashRadii.x) + glowOf(FlashB, FlashRadii.y) + glowOf(FlashC, FlashRadii.z)
             + glowOf(FlashD, FlashRadii.w);
     if (glow > 0.0) {
         float fogT = clamp((vertexDistance - CloudFogStart) / max(CloudFogEnd - CloudFogStart, 1.0), 0.0, 1.0);
-        fragColor.rgb = min(fragColor.rgb + FLASH_COLOR * clamp(glow, 0.0, 1.5) * (1.0 - 0.6 * fogT), vec3(1.0));
+        // Lightning still lights the murk, softened.
+        fragColor.rgb = min(fragColor.rgb + FLASH_COLOR * clamp(glow, 0.0, 1.5) * (1.0 - 0.6 * fogT)
+                * (1.0 - 0.6 * storm), vec3(1.0));
     }
     fragColor.a = 1.0;
 }
