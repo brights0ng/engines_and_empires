@@ -41,8 +41,12 @@ public final class WeatherSystem {
     /** Its largest radius, blocks. */
     public final double maxRadius;
     public final boolean blocking;
-    /** The live simulation's slow random wander of its strength (1 = none). */
+    /** Its depth factor from drift (1 = none): {@link Drift#depthFactor} of {@link #driftDepth}, set each step. */
     public double nudge = 1;
+    /** Drift states ({@link Drift}), in units of their standard deviation: speed along its track, across it, depth. */
+    public double driftSpeed;
+    public double driftCross;
+    public double driftDepth;
 
     public WeatherSystem(long id, Kind kind, double x, double z, int track, int hemisphere, long age, long lifetime,
                          double peak, double maxRadius, boolean blocking) {
@@ -62,6 +66,9 @@ public final class WeatherSystem {
     public WeatherSystem copy() {
         WeatherSystem c = new WeatherSystem(id, kind, x, z, track, hemisphere, age, lifetime, peak, maxRadius, blocking);
         c.nudge = nudge;
+        c.driftSpeed = driftSpeed;
+        c.driftCross = driftCross;
+        c.driftDepth = driftDepth;
         return c;
     }
 

@@ -359,13 +359,18 @@ public final class WeatherCommand {
         all.sort(java.util.Comparator.comparingDouble(s -> Math.hypot(s.x - at.x, s.z - at.z)));
         source.sendSuccess(() -> Component.literal(all.size() + " weather systems are being simulated. Nearest:"),
                 false);
+        dev.brights0ng.enginesandempires.weather.sim.Drift.Settings drift =
+                dev.brights0ng.enginesandempires.weather.rain.WeatherConfig.drift();
         for (WeatherSystem s : all.subList(0, Math.min(8, all.size()))) {
             double dx = s.x - at.x;
             double dz = s.z - at.z;
-            line(source, String.format(Locale.ROOT, "%s%s %.0f hPa, %s, day %.1f of %.1f, %.0f blocks %s%s",
+            line(source, String.format(Locale.ROOT, "%s%s %.0f hPa, %s, day %.1f of %.1f, %.0f blocks %s%s; drift: "
+                            + "speed %+.0f%%, across %+.0f%%, depth %+.0f%%",
                     s.kind == WeatherSystem.Kind.LOW ? "Low" : "High", s.blocking ? " (blocking)" : "",
                     1013 + s.signedStrength(), s.stage().label(), s.age / 24000.0, s.lifetime / 24000.0,
-                    Math.hypot(dx, dz), compass(dx, dz), s.hemisphere < 0 ? ", mirrored zone" : ""));
+                    Math.hypot(dx, dz), compass(dx, dz), s.hemisphere < 0 ? ", mirrored zone" : "",
+                    100 * (dev.brights0ng.enginesandempires.weather.sim.Drift.speedFactor(s.driftSpeed, drift.speed())
+                            - 1), 100 * drift.cross() * s.driftCross, 100 * (s.nudge - 1)));
         }
         return 1;
     }
