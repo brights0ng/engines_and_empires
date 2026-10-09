@@ -17,6 +17,9 @@ uniform vec2 WindDir;
 uniform float FogStart;
 uniform float FogEnd;
 uniform float Opacity;
+// The storm fog (start, end, height weight; end 0 = none), as on the voxel clouds: fades the veil out except straight
+// overhead (2026-10-09).
+uniform vec3 StormFog;
 
 in vec4 cover;
 in vec2 pattern;
@@ -92,6 +95,10 @@ void main() {
 
     float alpha = 1.0 - (1.0 - aCs * cs) * (1.0 - aCi * ci);
     alpha = min(1.0, alpha * (1.0 - smoothstep(FogStart, FogEnd, horizontal)) * Opacity);
+    if (StormFog.y > 0.0) {
+        float d = length(vec2(horizontal, viewVector.y * StormFog.z));
+        alpha *= 1.0 - clamp((d - StormFog.x) / max(StormFog.y - StormFog.x, 1.0), 0.0, 1.0);
+    }
     if (alpha <= 0.003) {
         discard;
     }

@@ -144,6 +144,12 @@ public final class CloudVeilRenderer {
         shader.safeGetUniform("FogStart").set(far * 0.45f);
         shader.safeGetUniform("FogEnd").set(far);
         shader.safeGetUniform("Opacity").set((float) CloudTuning.veilOpacity);
+        float[] storm = dev.brights0ng.enginesandempires.weather.fog.client.FogEffects.cloudFog();
+        if (storm != null) {
+            shader.safeGetUniform("StormFog").set(storm[0], storm[1], storm[2]);
+        } else {
+            shader.safeGetUniform("StormFog").set(0f, 0f, 0f);
+        }
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.enableDepthTest();

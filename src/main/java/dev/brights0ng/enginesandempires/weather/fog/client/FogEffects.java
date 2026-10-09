@@ -50,6 +50,11 @@ public final class FogEffects {
     /** How open the camera is to the sky (its sky light / 15), eased. */
     private static double exposure;
 
+    /** The storm fog set on the terrain this frame (start, end), for the clouds to follow; off when none. */
+    private static boolean cloudFogOn;
+    private static float cloudFogStart;
+    private static float cloudFogEnd;
+
     /** The cloud around the camera this frame, or null; and what the frame was. */
     private static CloudInterior.Inside inside;
     private static long frameTick = Long.MIN_VALUE;
@@ -74,6 +79,19 @@ public final class FogEffects {
         return FogTuning.enabled ? inside : null;
     }
 
+    /**
+     * The storm fog the clouds should be hidden by this frame, as {start, end, height weight}, or null when there is
+     * none (Bright, 2026-10-09: the fog obscures clouds too, as a column, so the cloud straight overhead stays in
+     * view). Distance is measured mostly across the ground; height counts {@link FogTuning#cloudFogHeightWeight}.
+     * Inside a cloud the in-cloud fog does this already.
+     */
+    public static float[] cloudFog() {
+        if (!FogTuning.enabled || !cloudFogOn || inside != null) {
+            return null;
+        }
+        return new float[] {cloudFogStart, cloudFogEnd, (float) FogTuning.cloudFogHeightWeight};
+    }
+
     /** The air's extinction at the camera, as if out in the open (rain, snow and the storm's haze). */
     public static double extinction(float partial) {
         return FogTuning.extinction(rain, snow, ClientStorm.darkness(partial));
@@ -91,18 +109,23 @@ public final class FogEffects {
     }
 
     /**
-     * The storm's colour: the rain's neutral grey ({@link FogTuning#rainFogBrightness}, lit by the day-night light:
-     * {@link FogTuning#rainNightBrightness} of it at night), darker ({@link FogTuning#stormDarkening}) and slightly
-     * blue-grey ({@link FogTuning#stormBlue}) as the storm darkens.
+     * The storm's colour (Bright, 2026-10-09): a dark blue-grey in rain and storms ({@link FogTuning#rainFogColour}),
+     * a pale whitish grey in snow ({@link FogTuning#snowFogColour}), eased between them as what falls turns from rain
+     * to snow; lit by the day-night light ({@link FogTuning#rainNightBrightness} of it at night), and darker as the
+     * storm darkens ({@link FogTuning#stormDarkening}; snow less so).
      */
     public static Vec3 stormColour(ClientLevel level, float partial) {
         double day = Math.max(0, Math.min(1, Math.cos(level.getTimeOfDay(partial) * Math.PI * 2) * 2 + 0.5));
         double night = FogTuning.rainNightBrightness;
-        double grey = FogTuning.rainFogBrightness * (night + (1 - night) * day);
+        double light = night + (1 - night) * day;
+        double[] rainC = FogTuning.rainFogColour;
+        double[] snowC = FogTuning.snowFogColour;
+        double s = Math.max(0, Math.min(1, snow));
         double d = ClientStorm.darkness(partial);
-        double b = grey * (1 - FogTuning.stormDarkening * d);
-        double blue = FogTuning.stormBlue * d;
-        return new Vec3(clamp(b * (1 - 0.6 * blue)), clamp(b * (1 - 0.15 * blue)), clamp(b * (1 + blue)));
+        double b = light * (1 - FogTuning.stormDarkening * d * (1 - 0.7 * s));
+        return new Vec3(clamp((rainC[0] + (snowC[0] - rainC[0]) * s) * b),
+                clamp((rainC[1] + (snowC[1] - rainC[1]) * s) * b),
+                clamp((rainC[2] + (snowC[2] - rainC[2]) * s) * b));
     }
 
     /** {@code colour} turned toward the storm's colour by {@link #skyTint}. */
@@ -206,6 +229,10 @@ public final class FogEffects {
         if (event.getType() != FogType.NONE || !FogTuning.enabled) {
             return;
         }
+        boolean terrain = event.getMode() == net.minecraft.client.renderer.FogRenderer.FogMode.FOG_TERRAIN;
+        if (terrain) {
+            cloudFogOn = false;
+        }
         updateFrame(event.getCamera());
         float far = event.getFarPlaneDistance();
         float near = event.getNearPlaneDistance();
@@ -233,6 +260,11 @@ public final class FogEffects {
         event.setFarPlaneDistance((float) end);
         event.setNearPlaneDistance((float) Math.min(near, gameStart + (stormStart - gameStart) * w));
         event.setCanceled(true);
+        if (terrain) {
+            cloudFogOn = true;
+            cloudFogStart = event.getNearPlaneDistance();
+            cloudFogEnd = event.getFarPlaneDistance();
+        }
     }
 
     private static double clamp(double v) {
