@@ -202,6 +202,7 @@ public final class WeatherSim {
     private void stepNow(long time, long dt, boolean live) {
         long started = System.nanoTime();
         rebuild();
+        sim.setDrift(WeatherConfig.drift());
         List<SystemsSim.Anchor> anchors = anchors();
         for (SystemsSim.Anchor a : anchors) {
             markCovered(a, time);

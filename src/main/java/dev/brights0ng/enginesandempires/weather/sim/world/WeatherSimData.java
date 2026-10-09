@@ -60,6 +60,15 @@ public final class WeatherSimData extends SavedData {
                     s.getDouble("x"), s.getDouble("z"), s.getInt("track"), s.getInt("hem"), s.getLong("age"),
                     s.getLong("lifetime"), s.getDouble("peak"), s.getDouble("radius"), s.getBoolean("blocking"));
             w.nudge = s.contains("nudge") ? s.getDouble("nudge") : 1;
+            if (s.contains("driftDepth")) {
+                w.driftSpeed = s.getDouble("driftSpeed");
+                w.driftCross = s.getDouble("driftCross");
+                w.driftDepth = s.getDouble("driftDepth");
+            } else {
+                // Saved before drift (phase 7a): keep its strength where it was.
+                w.driftDepth = dev.brights0ng.enginesandempires.weather.sim.Drift.depthStateFor(w.nudge,
+                        dev.brights0ng.enginesandempires.weather.rain.WeatherConfig.drift().depth());
+            }
             d.systems.add(w);
         }
         long[] keys = tag.getLongArray("cellKeys");
@@ -193,6 +202,9 @@ public final class WeatherSimData extends SavedData {
             s.putDouble("radius", w.maxRadius);
             s.putBoolean("blocking", w.blocking);
             s.putDouble("nudge", w.nudge);
+            s.putDouble("driftSpeed", w.driftSpeed);
+            s.putDouble("driftCross", w.driftCross);
+            s.putDouble("driftDepth", w.driftDepth);
             list.add(s);
         }
         tag.put("systems", list);

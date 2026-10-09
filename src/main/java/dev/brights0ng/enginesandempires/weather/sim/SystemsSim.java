@@ -23,9 +23,16 @@ import java.util.random.RandomGenerator;
  *       in fresh ground (a player arriving somewhere new) it starts part way through its life, so weather is already
  *       there.</li>
  * </ol>
- * Genesis and each system's make-up are deterministic (hashed from the world seed, the track, the place and the
- * in-game day), so a forecast run (phase 7) agrees with the live one about them; only the small random
- * {@code nudges} (live runs only) differ.
+ * Genesis is deterministic (hashed from the world seed, the track, the place and the in-game day), so a forecast run
+ * agrees with the live one about where and when systems form. What differs (phase 7a, the sources of forecast error):
+ * <ul>
+ *   <li><b>Drift</b> ({@link Drift}): every system's speed, cross-track drift and depth wander slowly. Live runs step
+ *       the drift with random numbers ({@code nudges}); forecast runs ({@code nudges} null) let it relax toward zero,
+ *       its expected value.</li>
+ *   <li><b>Make-up of systems not yet born</b>: a forecast copy ({@link #forForecast}) rolls the depth, size, life,
+ *       track offset and blocking of the systems it sees forming from its own hash, so a storm it expects in a few days
+ *       may turn out differently.</li>
+ * </ul>
  */
 public final class SystemsSim {
 
@@ -51,6 +58,9 @@ public final class SystemsSim {
     private final long seed;
     private final List<WeatherSystem> systems;
     private long nextId;
+    private Drift.Settings drift = Drift.Settings.DEFAULT;
+    /** 0 for the live run; otherwise the salt a forecast rolls new systems' make-up with. */
+    private long traitSalt;
 
     public SystemsSim(JetStream jet, long seed, List<WeatherSystem> systems, long nextId) {
         this.jet = jet;
@@ -71,13 +81,36 @@ public final class SystemsSim {
         return jet;
     }
 
-    /** A copy to run forward without touching this one (the forecast, phase 7). */
+    /** How much systems drift (the server sets it from its config before each step). */
+    public void setDrift(Drift.Settings drift) {
+        this.drift = drift;
+    }
+
+    public Drift.Settings drift() {
+        return drift;
+    }
+
+    /** A copy to run forward without touching this one. */
     public SystemsSim copy() {
         List<WeatherSystem> c = new ArrayList<>(systems.size());
         for (WeatherSystem s : systems) {
             c.add(s.copy());
         }
-        return new SystemsSim(jet, seed, c, nextId);
+        SystemsSim copy = new SystemsSim(jet, seed, c, nextId);
+        copy.drift = drift;
+        copy.traitSalt = traitSalt;
+        return copy;
+    }
+
+    /**
+     * A copy for a forecast: systems already on the map are copied as they are; systems that form during the
+     * forecast get their make-up from {@code salt} instead of the live hash (any non-zero value; the forecast service
+     * hashes it from the time the forecast is made, so successive forecasts can disagree about far-off storms).
+     */
+    public SystemsSim forForecast(long salt) {
+        SystemsSim copy = copy();
+        copy.traitSalt = salt == 0 ? 1 : salt;
+        return copy;
     }
 
     /**
@@ -104,6 +137,7 @@ public final class SystemsSim {
     }
 
     private void move(double seconds, long dt, double season, RandomGenerator nudges) {
+        double driftKeep = Drift.keep(dt, drift.correlationTicks());
         List<WeatherSystem> highs = new ArrayList<>();
         for (WeatherSystem s : systems) {
             if (s.kind == WeatherSystem.Kind.HIGH) {
@@ -135,11 +169,18 @@ public final class SystemsSim {
                 }
             }
             if (nudges != null) {
-                double n = 1 + 0.04 * nudges.nextGaussian();
-                vx *= n;
-                vz = vz * n + 0.02 * speed * nudges.nextGaussian();
-                s.nudge = Math.max(0.8, Math.min(1.2, s.nudge * Math.exp(0.01 * nudges.nextGaussian())));
+                s.driftSpeed = Drift.step(s.driftSpeed, driftKeep, nudges.nextGaussian());
+                s.driftCross = Drift.step(s.driftCross, driftKeep, nudges.nextGaussian());
+                s.driftDepth = Drift.step(s.driftDepth, driftKeep, nudges.nextGaussian());
+            } else {
+                s.driftSpeed *= driftKeep;
+                s.driftCross *= driftKeep;
+                s.driftDepth *= driftKeep;
             }
+            double n = Drift.speedFactor(s.driftSpeed, drift.speed());
+            vx *= n;
+            vz = vz * n + drift.cross() * speed * s.driftCross;
+            s.nudge = Drift.depthFactor(s.driftDepth, drift.depth());
             s.x += vx * dt;
             s.z += vz * dt;
             s.age += dt;
@@ -197,7 +238,9 @@ public final class SystemsSim {
 
     private long dayHash(int track, double x, long time, long salt) {
         double cell = jet.params().spacing() / 4;
-        return SimMath.hash(seed, salt, track, (long) Math.floor(x / cell), Math.floorDiv(time, 24000L));
+        long h = SimMath.hash(seed, salt, track, (long) Math.floor(x / cell), Math.floorDiv(time, 24000L));
+        // A forecast rolls new systems' make-up its own way (where they form is decided outside this hash).
+        return traitSalt == 0 ? h : SimMath.mix(h ^ traitSalt);
     }
 
     private void spawnLow(int track, double x, long time, double seconds, double season, SimParams.Seasonal seasonal,

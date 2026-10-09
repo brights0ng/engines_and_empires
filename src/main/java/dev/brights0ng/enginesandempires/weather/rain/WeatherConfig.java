@@ -178,6 +178,28 @@ public final class WeatherConfig {
             .defineInRange("range", 3072.0, 256.0, 16384.0);
 
     static {
+        BUILDER.pop().comment("Forecasting (weather phase 7). Drift: each weather system's slow random wander, which is",
+                "what makes the live weather drift away from a forecast the further ahead it looks.").push("forecast");
+    }
+
+    public static final ModConfigSpec.DoubleValue DRIFT_SPEED = BUILDER
+            .comment("How much a system's speed along its track wanders (standard deviation, share of its speed).")
+            .defineInRange("driftSpeed", 0.10, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue DRIFT_CROSS = BUILDER
+            .comment("How much a system wanders across its track (standard deviation, share of its speed).")
+            .defineInRange("driftCross", 0.05, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue DRIFT_DEPTH = BUILDER
+            .comment("How much a system's strength wanders (standard deviation, share of it; kept within 0.6x-1.4x).")
+            .defineInRange("driftDepth", 0.15, 0.0, 0.4);
+
+    public static final ModConfigSpec.IntValue DRIFT_CORRELATION = BUILDER
+            .comment("How long a drift lasts before it has mostly relaxed away, ticks (24000 = one in-game day).",
+                    "Longer means bigger forecast errors at long range.")
+            .defineInRange("driftCorrelationTicks", 24000, 1000, 240000);
+
+    static {
         BUILDER.pop();
     }
 
@@ -240,6 +262,15 @@ public final class WeatherConfig {
         return new dev.brights0ng.enginesandempires.weather.sim.SimParams(
                 AIR_MASS_SOURCE.get() == AirMassSource.BANDS, BAND_PERIOD.get(), SYSTEM_SPEED.get(),
                 SYSTEM_SPACING.get(), ZONE_RADIUS.get(), JET_CORE.get(), BLOCK_CHANCE.get());
+    }
+
+    /** How much weather systems drift (phase 7a). */
+    public static dev.brights0ng.enginesandempires.weather.sim.Drift.Settings drift() {
+        if (!SPEC.isLoaded()) {
+            return dev.brights0ng.enginesandempires.weather.sim.Drift.Settings.DEFAULT;
+        }
+        return new dev.brights0ng.enginesandempires.weather.sim.Drift.Settings(DRIFT_SPEED.get(), DRIFT_CROSS.get(),
+                DRIFT_DEPTH.get(), DRIFT_CORRELATION.get());
     }
 
     /** The cloud spawner's settings. */
