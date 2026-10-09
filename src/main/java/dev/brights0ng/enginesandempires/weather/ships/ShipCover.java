@@ -94,6 +94,53 @@ public final class ShipCover {
         return top(level, x, z, y) > y;
     }
 
+    /**
+     * The plot block (in a ship's own grid) at world point (x, y, z), or null if no ship's bounds hold it. Used to put
+     * a lightning strike's fire on the deck it hit (weather phase 6b).
+     */
+    public static BlockPos plotAt(Level level, double x, double y, double z) {
+        BoundingBox3dc point = new BoundingBox3d(x - 0.01, y - 0.01, z - 0.01, x + 0.01, y + 0.01, z + 0.01);
+        for (SubLevel ship : Sable.HELPER.getAllIntersecting(level, point)) {
+            if (ship.isRemoved()) {
+                continue;
+            }
+            Vector3d p = ship.logicalPose().transformPositionInverse(new Vector3d(x, y, z));
+            return BlockPos.containing(p.x, p.y, p.z);
+        }
+        return null;
+    }
+
+    /** The ships whose bounds meet a world box. */
+    public static List<SubLevel> shipsIn(Level level, double minX, double minY, double minZ, double maxX, double maxY,
+                                         double maxZ) {
+        List<SubLevel> out = new ArrayList<>();
+        for (SubLevel ship : Sable.HELPER.getAllIntersecting(level,
+                new BoundingBox3d(minX, minY, minZ, maxX, maxY, maxZ))) {
+            if (!ship.isRemoved()) {
+                out.add(ship);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Where a strike from (x, z) lands on {@code ship}: the top of its blocks over the point of its bounds nearest
+     * (x, z), or over its middle if that column misses its blocks; null if neither meets a block.
+     */
+    public static Vec3 strikePoint(Level level, SubLevel ship, double x, double z) {
+        BoundingBox3dc b = ship.boundingBox();
+        LevelAccelerator acc = new LevelAccelerator(level);
+        double px = Math.max(b.minX() + 0.25, Math.min(b.maxX() - 0.25, x));
+        double pz = Math.max(b.minZ() + 0.25, Math.min(b.maxZ() - 0.25, z));
+        double top = topIn(ship, acc, px, pz, b.minY() - 1);
+        if (top == NONE) {
+            px = (b.minX() + b.maxX()) / 2;
+            pz = (b.minZ() + b.maxZ()) / 2;
+            top = topIn(ship, acc, px, pz, b.minY() - 1);
+        }
+        return top == NONE ? null : new Vec3(px, top, pz);
+    }
+
     /** The ships over a rectangle of world columns, for many lookups (each column's top cached). */
     public static Area area(Level level, double minX, double minZ, double maxX, double maxZ) {
         BoundingBox3dc box = new BoundingBox3d(minX, level.getMinBuildHeight(), minZ, maxX, level.getMaxBuildHeight(),
@@ -122,6 +169,11 @@ public final class ShipCover {
 
         public boolean isEmpty() {
             return ships.isEmpty();
+        }
+
+        /** The ships over the patch. */
+        public List<SubLevel> ships() {
+            return ships;
         }
 
         /** The highest ship top over block column (x, z), at any height, or {@link #NONE}. Cached. */

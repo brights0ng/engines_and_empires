@@ -45,6 +45,8 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *       debug-spawned ones) or lets them form again. Not saved: a restart turns them back on.</li>
  *   <li>{@code /eae weather precip <kind>|auto}: makes whatever falls anywhere fall as that kind (rain, mixed, snow,
  *       sleet, freezing_rain, hail), for looking at it; {@code auto} goes back to the weather's own. Not saved.</li>
+ *   <li>{@code /eae weather lightning [ground|cloud]}: makes the nearest thunder cloud flash now (ground: a ground
+ *       strike, cloud: an in-cloud flash, which hits a ship or flier inside the cloud if one is in reach).</li>
  * </ul>
  * The weather lives in the Overworld, so these always read the Overworld (at your x and z if you are elsewhere).
  */
@@ -72,6 +74,12 @@ public final class WeatherCommand {
                                 .executes(context -> step(context.getSource(),
                                         IntegerArgumentType.getInteger(context, "hours")))))
                 .then(Commands.literal("clear").executes(context -> clear(context.getSource())))
+                .then(Commands.literal("lightning")
+                        .executes(context -> lightning(context.getSource(), null))
+                        .then(Commands.literal("ground").executes(context -> lightning(context.getSource(),
+                                dev.brights0ng.enginesandempires.weather.lightning.LightningModel.Kind.GROUND)))
+                        .then(Commands.literal("cloud").executes(context -> lightning(context.getSource(),
+                                dev.brights0ng.enginesandempires.weather.lightning.LightningModel.Kind.CLOUD))))
                 .then(Commands.literal("precip")
                         .then(Commands.argument("kind", com.mojang.brigadier.arguments.StringArgumentType.word())
                                 .suggests((context, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
@@ -386,6 +394,45 @@ public final class WeatherCommand {
                 true);
         return 1;
     }
+
+    private static int lightning(CommandSourceStack source,
+                                 dev.brights0ng.enginesandempires.weather.lightning.LightningModel.Kind kind) {
+        ServerLevel level = source.getServer().overworld();
+        Vec3 at = source.getPosition();
+        long now = level.getGameTime();
+        dev.brights0ng.enginesandempires.weather.cloud.sim.SimCloud nearest = null;
+        double best = Double.POSITIVE_INFINITY;
+        for (var c : new java.util.ArrayList<>(WeatherSim.of(level).cloudSim().clouds())) {
+            double d = Math.hypot(c.xAt(now) - at.x, c.zAt(now) - at.z);
+            if (c.type.thunder && d < best && c.phase(now).visible()) {
+                best = d;
+                nearest = c;
+            }
+        }
+        if (nearest == null) {
+            source.sendFailure(Component.literal(
+                    "No thunder cloud showing (try /eae weather clouds spawn cumulonimbus_capillatus)."));
+            return 0;
+        }
+        var s = dev.brights0ng.enginesandempires.weather.rain.WeatherConfig.lightning();
+        var rng = new java.util.SplittableRandom(level.random.nextLong());
+        var want = kind != null ? kind
+                : dev.brights0ng.enginesandempires.weather.lightning.LightningModel.kind(rng.nextDouble(),
+                        s.groundShare());
+        var flash = dev.brights0ng.enginesandempires.weather.lightning.Lightning.flash(level, nearest, now, want, s, rng);
+        if (flash == null) {
+            source.sendFailure(Component.literal("That cloud can't flash right now."));
+            return 0;
+        }
+        double dist = best;
+        String type = nearest.type.id;
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "%s flash in a %s %.0f blocks away, at y %.0f%s", flash.kind().name().toLowerCase(Locale.ROOT),
+                type, dist, flash.y(), flash.struck() ? String.format(Locale.ROOT,
+                        "; struck %.1f %.1f %.1f", flash.targetX(), flash.targetY(), flash.targetZ()) : "")), true);
+        return 1;
+    }
+
 
     /** The compass direction a vector points toward. */
     private static String compass(double x, double z) {

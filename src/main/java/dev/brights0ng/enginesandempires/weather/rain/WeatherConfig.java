@@ -148,6 +148,36 @@ public final class WeatherConfig {
             .defineInRange("hailInterval", 60, 20, 1200);
 
     static {
+        BUILDER.pop().comment("Lightning (weather phase 6b). A storm's strength is its cloud's lightning value, 0-1.")
+                .push("lightning");
+    }
+
+    public static final ModConfigSpec.BooleanValue LIGHTNING = BUILDER
+            .comment("Whether thunderstorms make lightning at all.")
+            .define("enabled", true);
+
+    public static final ModConfigSpec.DoubleValue FLASHES_PER_MINUTE = BUILDER
+            .comment("Flashes a minute from a full-strength storm (weaker storms proportionally fewer).")
+            .defineInRange("flashesPerMinute", 1.0, 0.0, 60.0);
+
+    public static final ModConfigSpec.DoubleValue GROUND_SHARE = BUILDER
+            .comment("The share of flashes that strike the ground; the rest stay in the cloud (but can hit ships and",
+                    "flying things inside it).")
+            .defineInRange("groundShare", 0.25, 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue ATTACH_RADIUS = BUILDER
+            .comment("How far (blocks) a ground strike looks around the spot under the flash for the tallest thing.")
+            .defineInRange("attachRadius", 16.0, 0.0, 64.0);
+
+    public static final ModConfigSpec.DoubleValue SKY_REACH = BUILDER
+            .comment("How far (blocks) an in-cloud flash reaches to a ship or flying entity inside the cloud.")
+            .defineInRange("skyReach", 24.0, 0.0, 128.0);
+
+    public static final ModConfigSpec.DoubleValue FLASH_RANGE = BUILDER
+            .comment("Storms flash only within this many blocks of a player, who are told of flashes this far.")
+            .defineInRange("range", 3072.0, 256.0, 16384.0);
+
+    static {
         BUILDER.pop();
     }
 
@@ -171,6 +201,15 @@ public final class WeatherConfig {
 
     public static int hailInterval() {
         return SPEC.isLoaded() ? HAIL_INTERVAL.get() : 60;
+    }
+
+    /** The lightning settings now (defaults before the config loads). */
+    public static dev.brights0ng.enginesandempires.weather.lightning.LightningModel.Settings lightning() {
+        if (!SPEC.isLoaded()) {
+            return dev.brights0ng.enginesandempires.weather.lightning.LightningModel.Settings.DEFAULT;
+        }
+        return new dev.brights0ng.enginesandempires.weather.lightning.LightningModel.Settings(LIGHTNING.get(),
+                FLASHES_PER_MINUTE.get(), GROUND_SHARE.get(), ATTACH_RADIUS.get(), SKY_REACH.get(), FLASH_RANGE.get());
     }
 
     public static AirMassSource airMassSource() {

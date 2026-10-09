@@ -102,7 +102,7 @@ public final class ShipWeatherGameTests {
     }
 
     /** Opens the test framework's barrier roof over the whole test area. */
-    private static void openSky(GameTestHelper helper) {
+    static void openSky(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         for (int x = -1; x <= 9; x++) {
             for (int z = -1; z <= 9; z++) {
@@ -118,7 +118,7 @@ public final class ShipWeatherGameTests {
     }
 
     /** A one-block ship at (x, y, z) relative to the test (as WindGameTests spawns them). */
-    private static ServerSubLevel spawnBlock(GameTestHelper helper, double x, double y, double z, BlockState state) {
+    static ServerSubLevel spawnBlock(GameTestHelper helper, double x, double y, double z, BlockState state) {
         ServerLevel level = helper.getLevel();
         ServerSubLevelContainer container = SubLevelContainer.getContainer(level);
         BlockPos origin = helper.absolutePos(BlockPos.ZERO);
@@ -132,7 +132,7 @@ public final class ShipWeatherGameTests {
         return (ServerSubLevel) subLevel;
     }
 
-    private static void remove(ServerLevel level, ServerSubLevel ship) {
+    static void remove(ServerLevel level, ServerSubLevel ship) {
         ServerSubLevelContainer container = SubLevelContainer.getContainer(level);
         LevelPlot plot = ship.getPlot();
         Vector2i origin = container.getOrigin();
