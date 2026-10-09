@@ -15,6 +15,11 @@
 // Silver lining (2026-10-07): looking toward the sun (LightDir, the way to the sun or moon), light scattered forward
 // through thin edges (blue ~1) makes them glow: nearly white with a hint of the sun's hue by day, warmer as the sun
 // gets low (2026-10-07 evening, Bright: it was a sickly yellow).
+//
+// Lightning (weather phase 6c, 2026-10-08, Bright: a local glow): up to four flashes, each FlashX = its position
+// relative to the camera (xyz) and brightness now (w, flickering, set by ClientLightning every frame), its glow radius
+// in FlashRadii. A flash lights the cloud around it: brightly within its radius, a faint halo over twice that. The
+// glow is added after the distance fog and only partly fogged, so a storm on the horizon still flickers at night.
 
 uniform vec4 ColorModulator;
 uniform vec4 FogColor;
@@ -27,6 +32,11 @@ uniform vec3 LightDir;
 uniform float LightStrength;
 uniform float SilverStrength;
 uniform float ShadowSide;
+uniform vec4 FlashA;
+uniform vec4 FlashB;
+uniform vec4 FlashC;
+uniform vec4 FlashD;
+uniform vec4 FlashRadii;
 
 in vec4 vertexColor;
 in vec3 vertexNormal;
@@ -37,6 +47,15 @@ out vec4 fragColor;
 
 const float WRAP = 0.35;
 const float BELOW = 0.2;
+const vec3 FLASH_COLOR = vec3(0.88, 0.92, 1.0);
+
+float glowOf(vec4 flash, float radius) {
+    if (flash.w <= 0.0) {
+        return 0.0;
+    }
+    float d = length(viewVector - flash.xyz) / max(radius, 1.0);
+    return flash.w * (exp(-2.0 * d * d) + 0.2 * exp(-0.5 * d * d));
+}
 
 void main() {
     float nl = length(vertexNormal);
@@ -66,5 +85,11 @@ void main() {
     color.rgb = min(color.rgb, vec3(1.0));
     color.rgb = mix(color.rgb, vec3(1.0, 1.0, 1.05), clamp(Flash, 0.0, 1.0) * 0.8);
     fragColor = linear_fog(color, vertexDistance, CloudFogStart, CloudFogEnd, vec4(FogColor.rgb, 1.0));
+    float glow = glowOf(FlashA, FlashRadii.x) + glowOf(FlashB, FlashRadii.y) + glowOf(FlashC, FlashRadii.z)
+            + glowOf(FlashD, FlashRadii.w);
+    if (glow > 0.0) {
+        float fogT = clamp((vertexDistance - CloudFogStart) / max(CloudFogEnd - CloudFogStart, 1.0), 0.0, 1.0);
+        fragColor.rgb = min(fragColor.rgb + FLASH_COLOR * clamp(glow, 0.0, 1.5) * (1.0 - 0.6 * fogT), vec3(1.0));
+    }
     fragColor.a = 1.0;
 }

@@ -79,7 +79,7 @@ public final class Lightning {
     static void onRegisterPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(NET_VERSION).optional();
         registrar.playToClient(LightningPayload.TYPE, LightningPayload.STREAM_CODEC,
-                (payload, context) -> LightningFlashes.accept(payload, context.player().level().getGameTime()));
+                (payload, context) -> LightningFlashes.accept(payload));
     }
 
     @SubscribeEvent

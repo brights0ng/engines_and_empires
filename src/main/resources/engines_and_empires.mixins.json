@@ -55,7 +55,8 @@
     "client.LevelRendererRainMixin",
     "client.LevelRainLevelMixin",
     "client.LevelRendererSkyMixin",
-    "client.ClientLevelSkyColourMixin"
+    "client.ClientLevelSkyColourMixin",
+    "client.LightningBoltSoundMixin"
   ],
   "injectors": {
     "defaultRequire": 1
