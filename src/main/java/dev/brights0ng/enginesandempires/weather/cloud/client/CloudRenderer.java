@@ -126,6 +126,8 @@ public final class CloudRenderer {
             shader.safeGetUniform("CloudFogSphere").set(0f);
         }
         shader.safeGetUniform("Flash").set(0f);
+        // Lightning's local glow (weather phase 6c).
+        dev.brights0ng.enginesandempires.weather.lightning.client.ClientLightning.upload(shader, camera);
         CloudLight light = CloudLight.at(level.getTimeOfDay(partial));
         shader.safeGetUniform("LightDir").set((float) light.x(), (float) light.y(), (float) light.z());
         shader.safeGetUniform("LightStrength").set((float) light.strength());
