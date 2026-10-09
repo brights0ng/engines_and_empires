@@ -50,6 +50,18 @@ public final class SeasonSource {
         }
     }
 
+    /** How long the year is, ticks, or 0 without seasons (forecasts project the season forward with it). */
+    public static long yearTicks(Level level) {
+        if (!available()) {
+            return 0;
+        }
+        try {
+            return SereneSeasonsCompat.cycleTicks(level);
+        } catch (RuntimeException | LinkageError e) {
+            return 0;
+        }
+    }
+
     private SeasonSource() {
     }
 }

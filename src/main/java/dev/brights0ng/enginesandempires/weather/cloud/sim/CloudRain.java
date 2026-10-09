@@ -39,7 +39,15 @@ public final class CloudRain {
      * its type covers there (layer types; 1 for heap clouds).
      */
     public static double precipitation(SimCloud c, CloudDiagnostics.Need need) {
-        CloudType t = c.type;
+        return precipitation(c.type, need, c.type != CloudType.CUMULUS_CONGESTUS || showers(c));
+    }
+
+    /**
+     * How hard a cloud of type {@code t} rains (0-1 of its type's peak) in air {@code need}, without a particular
+     * cloud: {@code showers} says whether a cumulus congestus is one of the showering ones (the forecast asks for the
+     * showering kind and counts their share itself).
+     */
+    public static double precipitation(CloudType t, CloudDiagnostics.Need need, boolean showers) {
         if (!t.rain.rains()) {
             return 0;
         }
@@ -47,7 +55,7 @@ public final class CloudRain {
         double rhNow = 1 - need.lclMetres() / 2500;
         return switch (t) {
             case CUMULONIMBUS_CALVUS, CUMULONIMBUS_CAPILLATUS -> 0.6 + 0.4 * SimMath.smooth((rh - 0.4) / 0.35);
-            case CUMULUS_CONGESTUS -> showers(c) ? SimMath.smooth((rh - 0.45) / 0.25) : 0;
+            case CUMULUS_CONGESTUS -> showers ? SimMath.smooth((rh - 0.45) / 0.25) : 0;
             case NIMBOSTRATUS -> SimMath.smooth((rh - 0.55) / 0.2) * (0.6 + 0.4 * SimMath.clamp01(need.cover(t)));
             case ALTOSTRATUS -> SimMath.smooth((need.cover(t) - 0.5) / 0.3) * SimMath.smooth((rh - 0.65) / 0.15);
             // Drizzle; under a high's sinking air only a light one ("anticyclonic gloom").
@@ -64,7 +72,12 @@ public final class CloudRain {
 
     /** How much lightning it makes, 0-1: cumulonimbus only, the fibrous-topped ones most. */
     public static double lightning(SimCloud c, double precipitation) {
-        return switch (c.type) {
+        return lightning(c.type, precipitation);
+    }
+
+    /** How much lightning a cloud of type {@code t} raining {@code precipitation} makes, 0-1. */
+    public static double lightning(CloudType t, double precipitation) {
+        return switch (t) {
             case CUMULONIMBUS_CAPILLATUS -> precipitation;
             case CUMULONIMBUS_CALVUS -> 0.5 * precipitation;
             default -> 0;
