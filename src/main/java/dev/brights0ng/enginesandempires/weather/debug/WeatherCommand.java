@@ -47,6 +47,8 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *       sleet, freezing_rain, hail), for looking at it; {@code auto} goes back to the weather's own. Not saved.</li>
  *   <li>{@code /eae weather lightning [ground|cloud]}: makes the nearest thunder cloud flash now (ground: a ground
  *       strike, cloud: an in-cloud flash, which hits a ship or flier inside the cloud if one is in reach).</li>
+ *   <li>{@code /eae weather sky}: the storm's shade where you stand (cover, gloom overhead and around, darkness) and
+ *       the gameplay light it makes there.</li>
  * </ul>
  * The weather lives in the Overworld, so these always read the Overworld (at your x and z if you are elsewhere).
  */
@@ -80,6 +82,7 @@ public final class WeatherCommand {
                                 dev.brights0ng.enginesandempires.weather.lightning.LightningModel.Kind.GROUND)))
                         .then(Commands.literal("cloud").executes(context -> lightning(context.getSource(),
                                 dev.brights0ng.enginesandempires.weather.lightning.LightningModel.Kind.CLOUD))))
+                .then(Commands.literal("sky").executes(context -> sky(context.getSource())))
                 .then(Commands.literal("precip")
                         .then(Commands.argument("kind", com.mojang.brigadier.arguments.StringArgumentType.word())
                                 .suggests((context, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
@@ -397,6 +400,32 @@ public final class WeatherCommand {
 
     private static int lightning(CommandSourceStack source,
                                  dev.brights0ng.enginesandempires.weather.lightning.LightningModel.Kind kind) {
+        return lightningNow(source, kind);
+    }
+
+    private static int sky(CommandSourceStack source) {
+        ServerLevel level = source.getServer().overworld();
+        Vec3 at = source.getPosition();
+        long now = level.getGameTime();
+        var index = new dev.brights0ng.enginesandempires.weather.sky.StormShade.Index(
+                dev.brights0ng.enginesandempires.weather.cloud.CloudSources.server(level), now);
+        var s = dev.brights0ng.enginesandempires.weather.sky.StormShade.sample(index, at.x, at.z);
+        net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.containing(at);
+        dev.brights0ng.enginesandempires.weather.sky.StormLight.invalidate(level);
+        int stormDarken = dev.brights0ng.enginesandempires.weather.sky.StormLight.skyDarken(level, pos);
+        int clearDarken = level.getSkyDarken();
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "Storm shade here: cover %.2f, gloom overhead %.2f, gloom around %.2f, darkness %.2f (light x%.2f).%n"
+                        + "Sky darkening %d (clear sky: %d); light here %d (clear sky: %d).",
+                s.cover(), s.overhead(), s.around(), s.darkness(),
+                dev.brights0ng.enginesandempires.weather.sky.StormShade.lightFactor(s.darkness()), stormDarken,
+                clearDarken, level.getMaxLocalRawBrightness(pos), level.getMaxLocalRawBrightness(pos, clearDarken))),
+                false);
+        return 1;
+    }
+
+    private static int lightningNow(CommandSourceStack source,
+                                    dev.brights0ng.enginesandempires.weather.lightning.LightningModel.Kind kind) {
         ServerLevel level = source.getServer().overworld();
         Vec3 at = source.getPosition();
         long now = level.getGameTime();

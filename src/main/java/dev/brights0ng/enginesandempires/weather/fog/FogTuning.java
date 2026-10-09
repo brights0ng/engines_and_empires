@@ -8,6 +8,12 @@ package dev.brights0ng.enginesandempires.weather.fog;
  * <p>Decided 2026-10-04 (Bright): visual only; inside a cloud the fog snaps on and off with the camera, at a visibility
  * by cloud type (storm clouds thickest, 5 blocks), fading out as a cloud forms or dies; storm fog follows the rain
  * falling on the camera (more rain, thicker), with snow halving visibility.
+ *
+ * <p>Reworked 2026-10-09 (phase 6d, Bright: continuous, driven by the cloud's darkness, not steps): the outdoor fog is
+ * an extinction, how much each block of air dims what is behind it, summed from the rain or snow falling
+ * ({@link #heavyRainVisibility}) and the storm's darkness overhead and around ({@link #stormHazeVisibility}). The
+ * visibility, where the fog starts, and how far the fog and sky turn to the storm's colour ({@link #tint}) all follow
+ * that one number smoothly, so there are no thresholds anywhere.
  */
 public final class FogTuning {
 
@@ -40,10 +46,48 @@ public final class FogTuning {
     public static volatile double rainFogBrightness = 0.62;
     /** The rain grey's brightness at night, as a share of its daylight value. */
     public static volatile double rainNightBrightness = 0.05;
-    /** Rain strength at which the fog is fully that grey instead of the sky's colour (lighter rain blends). */
-    public static volatile double rainFullGrey = 0.35;
     /** Seconds the rain fog takes to follow changes (so the edge of a rain core doesn't pop). */
     public static volatile double rainEaseSeconds = 1.0;
+
+    // ---- storms (phase 6d)
+    /** Visibility in the darkest storm's air with nothing falling, blocks (gloom and haze under the storm). */
+    public static volatile double stormHazeVisibility = 400;
+    /**
+     * How much fog turns the fog and sky to the storm's colour, as a visibility in blocks: at this visibility they are
+     * about two-thirds of the way there, at a third of it all the way.
+     */
+    public static volatile double stormGreyVisibility = 300;
+    /** How much darker the storm colour is under the darkest storm (0.5 = half as bright as light rain's grey). */
+    public static volatile double stormDarkening = 0.5;
+    /** How blue the storm colour is under the darkest storm (0 = neutral grey; light rain stays neutral). */
+    public static volatile double stormBlue = 0.08;
+
+    /**
+     * The air's extinction, per block: rain or snow of {@code strength} ({@code snowShare} of the way to snow) plus the
+     * storm's haze at {@code darkness} (0-1). Visibility is about its inverse.
+     */
+    public static double extinction(double strength, double snowShare, double darkness) {
+        double ext = 0;
+        if (strength > 0) {
+            double share = Math.max(0, Math.min(1, snowShare));
+            ext += Math.min(1, strength) / (heavyRainVisibility * (1 + (snowVisibility - 1) * share));
+        }
+        double d = Math.max(0, Math.min(1, darkness));
+        if (d > 0 && stormHazeVisibility > 0) {
+            ext += d * Math.sqrt(d) / stormHazeVisibility;
+        }
+        return ext;
+    }
+
+    /** The fog's distance for extinction {@code ext} on top of the game's own fog ending at {@code far}. */
+    public static double visibility(double ext, double far) {
+        return 1 / (1 / Math.max(1e-3, far) + Math.max(0, ext));
+    }
+
+    /** How far (0-1) the fog and sky turn to the storm's colour at extinction {@code ext}. */
+    public static double tint(double ext) {
+        return 1 - Math.exp(-Math.max(0, ext) * Math.max(1, stormGreyVisibility));
+    }
 
     /** Visibility inside a cloud of type {@code typeId} when fully formed, blocks; 0 for no fog. */
     public static double cloudVisibility(String typeId) {
