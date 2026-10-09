@@ -199,6 +199,35 @@ public final class WeatherConfig {
                     "Longer means bigger forecast errors at long range.")
             .defineInRange("driftCorrelationTicks", 24000, 1000, 240000);
 
+    public static final ModConfigSpec.IntValue FORECAST_DELAY = BUILDER
+            .comment("Real seconds every forecast takes to arrive (the forecaster's thinking time; cached forecasts too).")
+            .defineInRange("delaySeconds", 30, 0, 600);
+
+    public static final ModConfigSpec.IntValue FORECAST_DAYS = BUILDER
+            .comment("How many days the longer forecast covers (day 1 is tomorrow).")
+            .defineInRange("days", 4, 1, 7);
+
+    public static final ModConfigSpec.IntValue FORECAST_DAY_STEP = BUILDER
+            .comment("Ticks per step of the day forecast's simulation (smaller is finer and slower).")
+            .defineInRange("dayStepTicks", 250, 50, 2000);
+
+    public static final ModConfigSpec.IntValue FORECAST_WEEK_STEP = BUILDER
+            .comment("Ticks per step of the longer forecast's simulation.")
+            .defineInRange("weekStepTicks", 1000, 100, 4000);
+
+    public static final ModConfigSpec.IntValue FORECAST_DAY_CACHE = BUILDER
+            .comment("In-game hours a day forecast is kept and reused for its area before a fresh one is made.")
+            .defineInRange("dayCacheHours", 1, 1, 24);
+
+    public static final ModConfigSpec.IntValue FORECAST_WEEK_CACHE = BUILDER
+            .comment("In-game hours a longer forecast is kept and reused for its area.")
+            .defineInRange("weekCacheHours", 6, 1, 48);
+
+    public static final ModConfigSpec.IntValue FORECAST_QUEUE = BUILDER
+            .comment("The most forecasts waiting to be worked out at once; more requests are turned away until there",
+                    "is room.")
+            .defineInRange("queue", 8, 1, 64);
+
     static {
         BUILDER.pop();
     }
@@ -271,6 +300,16 @@ public final class WeatherConfig {
         }
         return new dev.brights0ng.enginesandempires.weather.sim.Drift.Settings(DRIFT_SPEED.get(), DRIFT_CROSS.get(),
                 DRIFT_DEPTH.get(), DRIFT_CORRELATION.get());
+    }
+
+    /** The forecaster's settings (phase 7b). */
+    public static dev.brights0ng.enginesandempires.weather.forecast.ForecastSettings forecast() {
+        if (!SPEC.isLoaded()) {
+            return dev.brights0ng.enginesandempires.weather.forecast.ForecastSettings.DEFAULT;
+        }
+        return new dev.brights0ng.enginesandempires.weather.forecast.ForecastSettings(FORECAST_DELAY.get(),
+                FORECAST_DAYS.get(), FORECAST_DAY_STEP.get(), FORECAST_WEEK_STEP.get(), FORECAST_DAY_CACHE.get(),
+                FORECAST_WEEK_CACHE.get(), FORECAST_QUEUE.get());
     }
 
     /** The cloud spawner's settings. */

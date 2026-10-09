@@ -431,6 +431,8 @@ public final class WeatherSim {
         }
         // The sky starts afresh from the new weather (warm, at the next cloud pass).
         CloudWorld.clear(level);
+        // Forecasts made before the jump describe weather that has now happened.
+        dev.brights0ng.enginesandempires.weather.forecast.ForecastService.invalidate(level);
     }
 
     /** Players' positions in the Overworld; the world spawn if there are none during spin-up. */
@@ -520,6 +522,16 @@ public final class WeatherSim {
     /** The atmosphere field. */
     public AtmosphereField field() {
         return data.field;
+    }
+
+    /**
+     * A forecast copy of the weather systems (phase 7b): as they are now, with the current drift settings, rolling
+     * the make-up of systems that form during the forecast from {@code salt}.
+     */
+    public SystemsSim forecastSystems(long salt) {
+        rebuild();
+        sim.setDrift(WeatherConfig.drift());
+        return sim.forForecast(salt);
     }
 
     /** The clouds (phase 4a). */
@@ -631,6 +643,7 @@ public final class WeatherSim {
         sim = new SystemsSim(jet, level.getSeed(), data.systems, data.nextId);
         snapshot = PressureField.Snapshot.of(data.systems);
         data.setDirty();
+        dev.brights0ng.enginesandempires.weather.forecast.ForecastService.invalidate(level);
         return s;
     }
 
@@ -639,5 +652,6 @@ public final class WeatherSim {
         data.systems.clear();
         snapshot = PressureField.Snapshot.of(data.systems);
         data.setDirty();
+        dev.brights0ng.enginesandempires.weather.forecast.ForecastService.invalidate(level);
     }
 }

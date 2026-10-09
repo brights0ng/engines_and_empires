@@ -65,4 +65,21 @@ public final class FieldTile {
         float e = elevation[idx];
         return Float.isNaN(e) ? 0 : e;
     }
+
+    /** A deep copy (the forecast runs on copies). */
+    public FieldTile copy() {
+        FieldTile c = new FieldTile(tx, tz);
+        c.t = t.clone();
+        c.a = a.clone();
+        c.q = q.clone();
+        c.p = p.clone();
+        c.r = r.clone();
+        c.base = base.clone();
+        System.arraycopy(humidity, 0, c.humidity, 0, humidity.length);
+        System.arraycopy(surface, 0, c.surface, 0, surface.length);
+        System.arraycopy(elevation, 0, c.elevation, 0, elevation.length);
+        c.lastActive = lastActive;
+        c.lastStepped = lastStepped;
+        return c;
+    }
 }

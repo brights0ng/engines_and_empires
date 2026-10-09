@@ -190,6 +190,79 @@ public final class AtmosphereField {
     }
 
     /**
+     * A copy of the tiles overlapping the rectangle [minX, maxX] x [minZ, maxZ], for a forecast to run on (phase 7b).
+     * Cells within two of the copy but outside it (where carry and mixing read) get their climate normal, from the
+     * tiles left out or this field's edge cache, so the copy never has to ask the climate (which reads biomes, and
+     * the copy runs off the server thread). Air beyond the copy is normal air: one of the forecast's sources of error.
+     */
+    public AtmosphereField copyDomain(double minX, double minZ, double maxX, double maxZ) {
+        AtmosphereField out = new AtmosphereField();
+        int t0x = Math.floorDiv((int) Math.floor(minX), TILE);
+        int t1x = Math.floorDiv((int) Math.floor(maxX), TILE);
+        int t0z = Math.floorDiv((int) Math.floor(minZ), TILE);
+        int t1z = Math.floorDiv((int) Math.floor(maxZ), TILE);
+        for (int tz = t0z; tz <= t1z; tz++) {
+            for (int tx = t0x; tx <= t1x; tx++) {
+                FieldTile tile = tiles.get(key(tx, tz));
+                if (tile != null) {
+                    out.put(tile.copy());
+                }
+            }
+        }
+        for (FieldTile tile : out.tiles.values()) {
+            int gi0 = tile.tx * SIZE;
+            int gk0 = tile.tz * SIZE;
+            for (int gk = gk0 - 2; gk < gk0 + SIZE + 2; gk++) {
+                for (int gi = gi0 - 2; gi < gi0 + SIZE + 2; gi++) {
+                    long tileKey = key(Math.floorDiv(gi, SIZE), Math.floorDiv(gk, SIZE));
+                    long cellKey = key(gi, gk);
+                    if (out.tiles.containsKey(tileKey) || out.edge.containsKey(cellKey)) {
+                        continue;
+                    }
+                    FieldTile left = tiles.get(tileKey);
+                    if (left != null) {
+                        int idx = Math.floorMod(gk, SIZE) * SIZE + Math.floorMod(gi, SIZE);
+                        double base = left.base[idx];
+                        out.edge.put(cellKey, new double[]{base, base + ALOFT_OFFSET,
+                                Moisture.capacity(base) * Moisture.targetHumidity(left.surface[idx], left.humidity[idx])});
+                    } else {
+                        double[] e = edge.get(cellKey);
+                        if (e != null) {
+                            out.edge.put(cellKey, e.clone());
+                        }
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * The climate normal of the tile cell nearest (x, z): {T, humidity, surface} (a forecast's fallback for cells it
+     * has no normal for); a mild, middling normal if there are no tiles.
+     */
+    public double[] normalNear(double x, double z) {
+        FieldTile best = null;
+        double bestD = Double.POSITIVE_INFINITY;
+        for (FieldTile tile : tiles.values()) {
+            double cx = (tile.tx + 0.5) * TILE;
+            double cz = (tile.tz + 0.5) * TILE;
+            double d = (cx - x) * (cx - x) + (cz - z) * (cz - z);
+            if (d < bestD) {
+                bestD = d;
+                best = tile;
+            }
+        }
+        if (best == null) {
+            return new double[]{10, 0.5, 0};
+        }
+        int i = (int) Math.max(0, Math.min(SIZE - 1, Math.floor(x / CELL) - (double) best.tx * SIZE));
+        int k = (int) Math.max(0, Math.min(SIZE - 1, Math.floor(z / CELL) - (double) best.tz * SIZE));
+        int idx = k * SIZE + i;
+        return new double[]{best.base[idx], best.humidity[idx], best.surface[idx]};
+    }
+
+    /**
      * Fills the edge cache for the cells bordering the tiles (two cells deep, where carry and mixing read outside),
      * until {@code deadline} (System.nanoTime). Returns whether every such cell is cached, so stepping can wait for
      * it rather than stall on cold climate lookups (perf report 2026-10-05: the first steps after logging in).
