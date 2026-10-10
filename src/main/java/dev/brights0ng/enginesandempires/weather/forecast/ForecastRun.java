@@ -81,6 +81,14 @@ public final class ForecastRun {
     }
 
     /**
+     * The sky over a forecast's region at one moment: its nine spots, the surface wind at the centre (m/s) and the
+     * pressure there (hPa). The same reading a forecast makes every step, so the scoring tool (7c) can read the live
+     * weather through exactly the same lens.
+     */
+    public record Observation(long time, ForecastChance.Point[] points, double wx, double wz, double pressure) {
+    }
+
+    /**
      * The parts of a forecast starting at the snapshot's moment: four 6-hour periods from the current one (day
      * forecast), or {@code days} whole days from the next midnight (4-day forecast).
      */
@@ -140,6 +148,12 @@ public final class ForecastRun {
         if (part < 0) {
             return;
         }
+        Observation o = observe(s, t);
+        buckets[part].add(o.points(), o.wx(), o.wz(), o.pressure(), step / 1000.0);
+    }
+
+    /** Reads the sky over the snapshot's region from its systems and field as they stand, at simulation time {@code t}. */
+    public static Observation observe(ForecastSnapshot s, long t) {
         List<WeatherSystem> list = s.systems().systems();
         double season = season(s, t);
         long dayTime = dayTime(s, t);
@@ -158,8 +172,7 @@ public final class ForecastRun {
             }
         }
         double[] w = PressureField.wind(pressure, s.systems().jet(), s.x(), s.z(), seconds, season, s.seed());
-        double hours = step / 1000.0;
-        buckets[part].add(points, w[0], w[1], pressure.pressure(s.x(), s.z()), hours);
+        return new Observation(t, points, w[0], w[1], pressure.pressure(s.x(), s.z()));
     }
 
     /** The weather at one spot. */

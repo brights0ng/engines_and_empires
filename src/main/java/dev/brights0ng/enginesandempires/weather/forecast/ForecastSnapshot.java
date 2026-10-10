@@ -33,4 +33,10 @@ public record ForecastSnapshot(Forecast.Product product, double x, double z, lon
         return product == Forecast.Product.TODAY ? new double[]{12_000, 4_000, 6_000}
                 : new double[]{24_000, 8_000, 12_000};
     }
+
+    /** The field the scoring tool's truth readings need (7c): the region itself and a tile's margin. */
+    public static double[] truthDomain(Forecast.Product product) {
+        double r = product.region / 2.0 + 1024;
+        return new double[]{r, r, r};
+    }
 }

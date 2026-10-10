@@ -34,7 +34,63 @@ public final class ForecastCommand {
                                 .then(Commands.literal("today")
                                         .executes(context -> forecast(context.getSource(), Forecast.Product.TODAY)))
                                 .then(Commands.literal("week")
-                                        .executes(context -> forecast(context.getSource(), Forecast.Product.WEEK))))));
+                                        .executes(context -> forecast(context.getSource(), Forecast.Product.WEEK)))
+                                .then(Commands.literal("track").executes(context -> track(context.getSource())))
+                                .then(Commands.literal("untrack").executes(context -> untrack(context.getSource())))
+                                .then(Commands.literal("clear").executes(context -> clearScores(context.getSource())))
+                                .then(Commands.literal("score")
+                                        .executes(context -> score(context.getSource()))
+                                        .then(Commands.literal("csv")
+                                                .executes(context -> csv(context.getSource())))))));
+    }
+
+    private static int track(CommandSourceStack source) {
+        Vec3 at = source.getPosition();
+        ForecastScore.track(source.getServer().overworld(), at.x, at.z);
+        source.sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT,
+                "Tracking forecasts around %.0f, %.0f (%d spot(s) tracked). Forecasts are made here automatically and "
+                        + "checked against the weather hour by hour; run time on with /eae weather step (whole days, "
+                        + "e.g. 24 or 48) and see /eae weather forecast score.", at.x, at.z, ForecastScore.tracked())),
+                false);
+        return 1;
+    }
+
+    private static int untrack(CommandSourceStack source) {
+        Vec3 at = source.getPosition();
+        if (!ForecastScore.untrack(at.x, at.z)) {
+            source.sendFailure(Component.literal("Nothing is being tracked."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Stopped tracking the nearest spot (" + ForecastScore.tracked()
+                + " left). Its scores are kept until /eae weather forecast clear."), false);
+        return 1;
+    }
+
+    private static int clearScores(CommandSourceStack source) {
+        ForecastScore.clear();
+        source.sendSuccess(() -> Component.literal("Forecast scores and records cleared (tracking carries on)."),
+                false);
+        return 1;
+    }
+
+    private static int score(CommandSourceStack source) {
+        java.util.List<String> lines = ForecastScore.report();
+        source.sendSuccess(() -> Component.literal(lines.get(0)).withStyle(ChatFormatting.AQUA), false);
+        for (String line : lines.subList(1, lines.size())) {
+            source.sendSuccess(() -> Component.literal("  " + line).withStyle(ChatFormatting.GRAY), false);
+        }
+        return 1;
+    }
+
+    private static int csv(CommandSourceStack source) {
+        try {
+            java.nio.file.Path file = ForecastScore.writeCsv(source.getServer().overworld());
+            source.sendSuccess(() -> Component.literal("Wrote " + file.toAbsolutePath()), false);
+            return 1;
+        } catch (java.io.IOException e) {
+            source.sendFailure(Component.literal("Couldn't write the CSV: " + e.getMessage()));
+            return 0;
+        }
     }
 
     private static int forecast(CommandSourceStack source, Forecast.Product product) {

@@ -24,6 +24,11 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class ForecastGameTests {
 
     private static final String SCRATCH = GameTestStructures.EMPTY;
+    /**
+     * These tests wait on real time (the forecaster's delay and its background thread), but the game-test server runs
+     * ticks unthrottled (the whole suite takes about 10 s), so a tick budget means little: give them plenty.
+     */
+    private static final int REAL_TIME_TIMEOUT = 72_000;
 
     private static ForecastService.Callback into(AtomicReference<Forecast> out, GameTestHelper helper) {
         return new ForecastService.Callback() {
@@ -39,7 +44,7 @@ public final class ForecastGameTests {
         };
     }
 
-    @GameTest(template = SCRATCH, batch = "weather_forecast", timeoutTicks = 1200)
+    @GameTest(template = SCRATCH, batch = "weather_forecast", timeoutTicks = REAL_TIME_TIMEOUT)
     public static void forecastsAreCachedAndThrownAwayAfterAJump(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos at = helper.absolutePos(BlockPos.ZERO);
@@ -74,7 +79,7 @@ public final class ForecastGameTests {
                 .thenSucceed();
     }
 
-    @GameTest(template = SCRATCH, batch = "weather_forecast_delay", timeoutTicks = 1200)
+    @GameTest(template = SCRATCH, batch = "weather_forecast_delay", timeoutTicks = REAL_TIME_TIMEOUT)
     public static void aForecastArrivesOnlyAfterTheDelay(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos at = helper.absolutePos(BlockPos.ZERO);
@@ -92,6 +97,24 @@ public final class ForecastGameTests {
                     ForecastService.setDelayForTests(-1);
                 })
                 .thenSucceed();
+    }
+
+    @GameTest(template = SCRATCH, batch = "weather_forecast_score", timeoutTicks = 400)
+    public static void trackingScoresForecastsAcrossAStep(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos at = helper.absolutePos(BlockPos.ZERO);
+        dev.brights0ng.enginesandempires.weather.forecast.ForecastScore.clear();
+        dev.brights0ng.enginesandempires.weather.forecast.ForecastScore.track(level, at.getX(), at.getZ());
+        // Two days: the first day forecast's periods and the first longer forecast's day 1 all end inside it.
+        WeatherSim.of(level).advance(2 * 24_000);
+        java.util.List<String> report = dev.brights0ng.enginesandempires.weather.forecast.ForecastScore.report();
+        dev.brights0ng.enginesandempires.weather.forecast.ForecastScore.untrack(at.getX(), at.getZ());
+        String all = String.join("\n", report);
+        helper.assertTrue(all.contains("Day forecast, period 1: ") && !all.contains("period 1: nothing"),
+                "day forecasts were checked:\n" + all);
+        helper.assertTrue(all.contains("Longer forecast, day 1: "), "the longer forecast's day 1 was checked:\n" + all);
+        EnginesAndEmpiresMod.LOGGER.info("Forecast score after a 2-day step:\n{}", all);
+        helper.succeed();
     }
 
     private ForecastGameTests() {
