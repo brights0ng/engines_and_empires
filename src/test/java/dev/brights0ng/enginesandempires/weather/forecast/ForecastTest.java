@@ -179,7 +179,7 @@ class ForecastTest {
     @Test
     void theDayForecastHasFourPeriodsFromNow() {
         long started = System.nanoTime();
-        Forecast f = ForecastRun.run(snapshot(Forecast.Product.TODAY, 5));
+        Forecast f = ForecastRun.run(snapshot(Forecast.Product.TODAY, 5)).at(0, 0, 0);
         long ms = (System.nanoTime() - started) / 1_000_000;
         assertNotNull(f);
         assertEquals(4, f.parts().size());
@@ -202,7 +202,7 @@ class ForecastTest {
     @Test
     void theLongerForecastCoversWholeDaysFromTomorrow() {
         long started = System.nanoTime();
-        Forecast f = ForecastRun.run(snapshot(Forecast.Product.WEEK, 5));
+        Forecast f = ForecastRun.run(snapshot(Forecast.Product.WEEK, 5)).at(0, 0, 0);
         long ms = (System.nanoTime() - started) / 1_000_000;
         assertNotNull(f);
         assertEquals(4, f.parts().size());
@@ -217,9 +217,53 @@ class ForecastTest {
 
     @Test
     void theSameSnapshotGivesTheSameForecast() {
-        Forecast a = ForecastRun.run(snapshot(Forecast.Product.TODAY, 9));
-        Forecast b = ForecastRun.run(snapshot(Forecast.Product.TODAY, 9));
+        Forecast a = ForecastRun.run(snapshot(Forecast.Product.TODAY, 9)).at(0, 0, 0);
+        Forecast b = ForecastRun.run(snapshot(Forecast.Product.TODAY, 9)).at(0, 0, 0);
         assertEquals(ForecastText.lines(a), ForecastText.lines(b));
+    }
+
+    // ---- point forecasts (7d) --------------------------------------------------------------------------------------
+
+    @Test
+    void aSpotsOffsetShiftsItsTemperatures() {
+        ForecastGrid grid = ForecastRun.run(snapshot(Forecast.Product.TODAY, 5));
+        Forecast plain = grid.at(0, 0, 0);
+        Forecast warmer = grid.at(0, 0, 4);
+        for (int i = 0; i < plain.parts().size(); i++) {
+            assertEquals(plain.parts().get(i).tMax() + 4, warmer.parts().get(i).tMax(), 1e-9);
+            assertEquals(plain.parts().get(i).tMin() + 4, warmer.parts().get(i).tMin(), 1e-9);
+            assertEquals(plain.parts().get(i).chance(), warmer.parts().get(i).chance(), 1e-9, "rain doesn't move");
+        }
+    }
+
+    @Test
+    void aColdSpotSnowsUnderTheSameCloudThatRainsBelow() {
+        ForecastChance.Point rain = ForecastChance.point(need(1, null, 0, 0.9), 6, 0, 0, 0.8);
+        assertEquals(Precip.RAIN, rain.kind());
+        ForecastChance.Point top = rain.shifted(-8);
+        assertEquals(Precip.SNOW, top.kind(), "8 C colder (a mountain top): snow");
+        assertEquals(rain.wet(), top.wet(), 1e-12, "as much falls");
+        assertEquals(-2, top.groundT(), 1e-12);
+    }
+
+    @Test
+    void aSpotReadsTheReadingsAroundIt() {
+        Forecast.Product p = Forecast.Product.TODAY;
+        int n = ForecastGrid.side(p);
+        assertEquals(7, n, "512 blocks at 128 apart, and a margin");
+        int[] centre = ForecastGrid.neighbourhood(p, 0, 0, 0, 0);
+        assertEquals(n * n / 2, centre[4], "the centre spot reads around the middle reading");
+        double[] mid = ForecastGrid.spot(p, 0, 0, centre[4]);
+        assertEquals(0, mid[0], 1e-9);
+        assertEquals(0, mid[1], 1e-9);
+        int[] corner = ForecastGrid.neighbourhood(p, 0, 0, 255, -255);
+        double[] near = ForecastGrid.spot(p, 0, 0, corner[4]);
+        assertEquals(256, near[0], 1e-9, "a corner spot reads around the reading nearest it");
+        assertEquals(-256, near[1], 1e-9);
+        int[] beyond = ForecastGrid.neighbourhood(p, 0, 0, 5000, 5000);
+        for (int idx : beyond) {
+            assertTrue(idx >= 0 && idx < n * n, "kept inside the grid");
+        }
     }
 
     @Test

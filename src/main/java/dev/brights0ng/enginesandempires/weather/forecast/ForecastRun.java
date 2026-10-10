@@ -6,6 +6,7 @@ import java.util.Locale;
 
 import dev.brights0ng.enginesandempires.weather.climate.ClimateCurves;
 import dev.brights0ng.enginesandempires.weather.climate.Temperature;
+import dev.brights0ng.enginesandempires.weather.cloud.CloudType;
 import dev.brights0ng.enginesandempires.weather.cloud.sim.CloudDiagnostics;
 import dev.brights0ng.enginesandempires.weather.field.AirMassContact;
 import dev.brights0ng.enginesandempires.weather.field.AtmosphereField;
@@ -18,49 +19,50 @@ import dev.brights0ng.enginesandempires.weather.sim.SystemsSim;
 import dev.brights0ng.enginesandempires.weather.sim.WeatherSystem;
 
 /**
- * Runs a forecast (phase 7b of {@code claude/weather-backbone-phase7.md}): steps a {@link ForecastSnapshot}'s copies of
- * the weather systems and the atmosphere field forward, and reads the sky every step at nine spots across the region
- * into the product's periods or days ({@link ForecastChance}). Runs off the server thread: it touches nothing but the
- * snapshot.
+ * Runs a forecast (phases 7b and 7d of {@code claude/weather-backbone-phase7.md}): steps a {@link ForecastSnapshot}'s
+ * copies of the weather systems and the atmosphere field forward, and reads the sky every step on a grid across the
+ * region ({@link ForecastGrid}), so a forecast can then be read for any spot in it. Runs off the server thread: it
+ * touches nothing but the snapshot.
  *
  * <ul>
- *   <li><b>Systems</b> step with no live drift (each system's drift relaxes toward zero, its expected value) and
- *       new-born systems get the forecast's own make-up ({@link SystemsSim#forForecast}).</li>
- *   <li><b>Field</b> steps the copied tiles; air coming in from beyond them is normal air.</li>
+ *   <li><b>Systems</b> step with no live drift (each system's drift relaxes toward zero, its expected value);
+ *       new-born systems' make-up blends toward the forecast's own roll the later they form
+ *       ({@link SystemsSim#forForecast(long, long)}).</li>
+ *   <li><b>Field</b> steps the copied tiles; the air just outside the copy is held as it was at the start.</li>
  *   <li><b>Season</b> is projected from the snapshot's year fraction; <b>time of day</b> from its day time.</li>
  * </ul>
  */
 public final class ForecastRun {
 
-    /** Sample spots across the region: a 3 x 3 grid at the centre and a third of the way to each edge. */
-    static final int GRID = 3;
     /** Ticks in a 6-hour period. */
     static final long PERIOD = 6000;
     static final long DAY = 24000;
     static final String[] PERIOD_NAMES = {"Night (12am-6am)", "Morning (6am-12pm)", "Afternoon (12pm-6pm)",
             "Evening (6pm-12am)"};
+    /**
+     * The warm layer aloft is worked out wherever the ground is below this, C: a little above where it matters live
+     * ({@code Precip.MIXED_MAX}), so a spot whose corrected temperature is colder than the run's still gets it (7d).
+     */
+    static final double NOSE_BELOW = Precip.MIXED_MAX + 10;
 
     /** Runs the forecast. Stops early (returning null) if the thread is interrupted. */
-    public static Forecast run(ForecastSnapshot s) {
+    public static ForecastGrid run(ForecastSnapshot s) {
         return run(s, null);
     }
 
     /** As {@link #run(ForecastSnapshot)}, handing every reading it makes to {@code trace} (debug; may be null). */
-    public static Forecast run(ForecastSnapshot s, java.util.function.Consumer<Observation> trace) {
-        List<Part> parts = parts(s);
-        long end = parts.get(parts.size() - 1).end;
+    public static ForecastGrid run(ForecastSnapshot s, java.util.function.Consumer<Observation> trace) {
+        List<ForecastGrid.Part> parts = parts(s);
+        long end = parts.get(parts.size() - 1).end();
+        long first = parts.get(0).start();
         SystemsSim systems = s.systems();
         AtmosphereField field = s.field();
         JetStream jet = systems.jet();
         List<SystemsSim.Anchor> anchors = List.of(new SystemsSim.Anchor(s.x(), s.z()));
-        int spots = GRID * GRID;
-        ForecastChance.Bucket[] buckets = new ForecastChance.Bucket[parts.size()];
-        for (int i = 0; i < buckets.length; i++) {
-            buckets[i] = new ForecastChance.Bucket(spots);
-        }
+        List<ForecastGrid.Step> steps = new ArrayList<>();
         long dt = Math.max(50, s.stepTicks());
         long t = s.time();
-        sample(s, t, dt, parts, buckets, trace);
+        sample(s, t, dt, first, steps, trace);
         while (t < end) {
             if (Thread.currentThread().isInterrupted()) {
                 return null;
@@ -71,24 +73,16 @@ public final class ForecastRun {
             systems.step(next, step, season, anchors, (x, z) -> true, null);
             field.step(step, env(s, systems.systems(), jet, next, season));
             t = next;
-            sample(s, t, step, parts, buckets, trace);
+            sample(s, t, step, first, steps, trace);
         }
-        List<Forecast.Outlook> out = new ArrayList<>(parts.size());
-        for (int i = 0; i < parts.size(); i++) {
-            Part p = parts.get(i);
-            out.add(buckets[i].finish(p.label, p.start, p.end));
-        }
-        return new Forecast(s.product(), s.x(), s.z(), s.time(), s.dayTime(), List.copyOf(out));
-    }
-
-    /** One period or day to fill. */
-    record Part(String label, long start, long end) {
+        return new ForecastGrid(s.product(), s.x(), s.z(), s.time(), s.dayTime(), List.copyOf(parts),
+                List.copyOf(steps));
     }
 
     /**
-     * The sky over a forecast's region at one moment: its nine spots, the surface wind at the centre (m/s) and the
-     * pressure there (hPa). The same reading a forecast makes every step, so the scoring tool (7c) can read the live
-     * weather through exactly the same lens.
+     * The sky over a region at one moment: its readings (the whole grid for a forecast run, 9 for a spot's truth), the
+     * surface wind at the region's centre (m/s) and the pressure there (hPa), and the debug probe at the centre. The
+     * scoring tool reads the live weather through exactly the same lens.
      */
     public record Observation(long time, ForecastChance.Point[] points, double wx, double wz, double pressure,
                               Probe probe) {
@@ -111,9 +105,9 @@ public final class ForecastRun {
      * The parts of a forecast starting at the snapshot's moment: four 6-hour periods from the current one (day
      * forecast), or {@code days} whole days from the next midnight (4-day forecast).
      */
-    static List<Part> parts(ForecastSnapshot s) {
+    static List<ForecastGrid.Part> parts(ForecastSnapshot s) {
         long clock = clock(s.dayTime());
-        List<Part> out = new ArrayList<>();
+        List<ForecastGrid.Part> out = new ArrayList<>();
         if (s.product() == Forecast.Product.TODAY) {
             long periodStart = s.time() - clock % PERIOD;
             int period = (int) (clock / PERIOD);
@@ -121,7 +115,8 @@ public final class ForecastRun {
                 int idx = (period + k) % 4;
                 boolean tomorrow = period + k >= 4;
                 String label = PERIOD_NAMES[idx] + (tomorrow ? " tomorrow" : "");
-                out.add(new Part(label, Math.max(s.time(), periodStart + k * PERIOD), periodStart + (k + 1) * PERIOD));
+                out.add(new ForecastGrid.Part(label, Math.max(s.time(), periodStart + k * PERIOD),
+                        periodStart + (k + 1) * PERIOD));
             }
         } else {
             long midnight = s.time() + (DAY - clock);
@@ -129,7 +124,7 @@ public final class ForecastRun {
             for (int k = 0; k < Math.max(1, s.days()); k++) {
                 String label = k == 0 ? String.format(Locale.ROOT, "Tomorrow (day %d)", dayNumber)
                         : String.format(Locale.ROOT, "Day %d", dayNumber + k);
-                out.add(new Part(label, midnight + k * DAY, midnight + (k + 1) * DAY));
+                out.add(new ForecastGrid.Part(label, midnight + k * DAY, midnight + (k + 1) * DAY));
             }
         }
         return out;
@@ -154,29 +149,38 @@ public final class ForecastRun {
         return s.dayTime() + (t - s.time());
     }
 
-    /** Reads the sky at simulation time {@code t} into whichever part it falls in; {@code step} ticks stand behind it. */
-    private static void sample(ForecastSnapshot s, long t, long step, List<Part> parts, ForecastChance.Bucket[] buckets,
+    /** Reads the grid at simulation time {@code t} (from the first part's start on); {@code step} ticks stand behind it. */
+    private static void sample(ForecastSnapshot s, long t, long step, long first, List<ForecastGrid.Step> steps,
                                java.util.function.Consumer<Observation> trace) {
-        int part = -1;
-        for (int i = 0; i < parts.size(); i++) {
-            Part p = parts.get(i);
-            if (t >= p.start && (t < p.end || (i == parts.size() - 1 && t == p.end))) {
-                part = i;
-                break;
-            }
-        }
-        if (part < 0) {
+        if (t < first) {
             return;
         }
         Observation o = observe(s, t);
-        buckets[part].add(o.points(), o.wx(), o.wz(), o.pressure(), step / 1000.0);
+        steps.add(new ForecastGrid.Step(t, step / 1000.0, o.points(), o.wx(), o.wz(), o.pressure()));
         if (trace != null) {
             trace.accept(o);
         }
     }
 
-    /** Reads the sky over the snapshot's region from its systems and field as they stand, at simulation time {@code t}. */
+    /** Reads the whole grid over the snapshot's region from its systems and field as they stand, at time {@code t}. */
     public static Observation observe(ForecastSnapshot s, long t) {
+        int n = ForecastGrid.side(s.product());
+        int[] all = new int[n * n];
+        for (int i = 0; i < all.length; i++) {
+            all[i] = i;
+        }
+        return read(s, t, all, true);
+    }
+
+    /**
+     * Reads the 9 grid spots around (px, pz) (the ones a point forecast for that spot reads, {@link ForecastGrid#at}),
+     * at time {@code t}: the scoring tool's truth.
+     */
+    public static Observation observeSpot(ForecastSnapshot s, long t, double px, double pz) {
+        return read(s, t, ForecastGrid.neighbourhood(s.product(), s.x(), s.z(), px, pz), false);
+    }
+
+    private static Observation read(ForecastSnapshot s, long t, int[] spots, boolean probe) {
         List<WeatherSystem> list = s.systems().systems();
         double season = season(s, t);
         long dayTime = dayTime(s, t);
@@ -184,19 +188,26 @@ public final class ForecastRun {
         PressureField.Snapshot pressure = PressureField.Snapshot.of(list);
         CloudDiagnostics.Systems diag = CloudDiagnostics.Systems.of(list);
         FieldEnv env = env(s, list, s.systems().jet(), t, season);
-        double half = s.product().region / 2.0;
-        ForecastChance.Point[] points = new ForecastChance.Point[GRID * GRID];
-        int n = 0;
-        for (int k = 0; k < GRID; k++) {
-            for (int i = 0; i < GRID; i++) {
-                double px = s.x() + (i - 1) * half * 2 / 3;
-                double pz = s.z() + (k - 1) * half * 2 / 3;
-                points[n++] = point(s, env, list, diag, px, pz, dayTime, season);
-            }
+        ForecastChance.Point[] points = new ForecastChance.Point[spots.length];
+        for (int j = 0; j < spots.length; j++) {
+            double[] p = ForecastGrid.spot(s.product(), s.x(), s.z(), spots[j]);
+            points[j] = point(s, env, list, diag, p[0], p[1], dayTime, season);
         }
         double[] w = PressureField.wind(pressure, s.systems().jet(), s.x(), s.z(), seconds, season, s.seed());
         return new Observation(t, points, w[0], w[1], pressure.pressure(s.x(), s.z()),
-                probe(s, env, diag, dayTime, season, points[GRID * GRID / 2]));
+                probe ? probe(s, env, diag, dayTime, season, points[points.length / 2]) : null);
+    }
+
+    /**
+     * The run's ground temperature at (x, z) at Minecraft day time {@code dayTime}, C (7d: the point forecast's
+     * temperature offset is how much warmer the spot feels than this).
+     */
+    public static double lensGroundT(ForecastSnapshot s, double x, double z, long dayTime) {
+        List<WeatherSystem> list = s.systems().systems();
+        double season = season(s, s.time());
+        FieldEnv env = env(s, list, s.systems().jet(), s.time(), season);
+        CloudDiagnostics.Air air = air(s, env, x, z);
+        return air.t() + heating(air, dayTime, season) + air.heightCorrection();
     }
 
     /** The trace's detail at the region's centre. */
@@ -205,13 +216,10 @@ public final class ForecastRun {
         CloudDiagnostics.Air air = air(s, env, s.x(), s.z());
         CloudDiagnostics.Need need = CloudDiagnostics.diagnose(s.x(), s.z(), air, diag, dayTime, season);
         double groundT = air.t() + heating(air, dayTime, season) + air.heightCorrection();
-        String sources = need.sourceOf(dev.brights0ng.enginesandempires.weather.cloud.CloudType.STRATUS) + "/"
-                + need.sourceOf(dev.brights0ng.enginesandempires.weather.cloud.CloudType.STRATOCUMULUS) + "/"
-                + need.sourceOf(dev.brights0ng.enginesandempires.weather.cloud.CloudType.NIMBOSTRATUS);
-        return new Probe(air.t(), groundT, air.q(), 1 - need.lclMetres() / 2500,
-                need.cover(dev.brights0ng.enginesandempires.weather.cloud.CloudType.STRATUS),
-                need.cover(dev.brights0ng.enginesandempires.weather.cloud.CloudType.STRATOCUMULUS),
-                need.cover(dev.brights0ng.enginesandempires.weather.cloud.CloudType.NIMBOSTRATUS),
+        String sources = need.sourceOf(CloudType.STRATUS) + "/" + need.sourceOf(CloudType.STRATOCUMULUS) + "/"
+                + need.sourceOf(CloudType.NIMBOSTRATUS);
+        return new Probe(air.t(), groundT, air.q(), 1 - need.lclMetres() / 2500, need.cover(CloudType.STRATUS),
+                need.cover(CloudType.STRATOCUMULUS), need.cover(CloudType.NIMBOSTRATUS),
                 need.heapType() == null ? "" : need.heapType().id, centre.wet(), sources);
     }
 
@@ -226,8 +234,9 @@ public final class ForecastRun {
         double groundT = air.t() + heating + air.heightCorrection();
         double melt = 0;
         double cold = 0;
-        // As live: only ground cold enough can turn a warm layer aloft into sleet or freezing rain.
-        if (groundT < Precip.MIXED_MAX) {
+        // As live, only cold ground turns a warm layer aloft into sleet or freezing rain (a spot's corrected
+        // temperature may be colder than the run's, so this reaches a little warmer than live).
+        if (groundT < NOSE_BELOW) {
             double[] nose = WarmNose.at(systems, x, z,
                     (px, pz) -> field.sample(AtmosphereField.Var.T, px, pz, env) + heating);
             melt = nose[0];

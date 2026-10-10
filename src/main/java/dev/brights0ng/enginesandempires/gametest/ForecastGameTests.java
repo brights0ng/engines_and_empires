@@ -72,8 +72,15 @@ public final class ForecastGameTests {
                 .thenWaitUntil(() -> helper.assertTrue(second.get() != null, "the second arrives"))
                 .thenExecute(() -> {
                     if (sameWindow[0]) {
-                        helper.assertTrue(ForecastText.lines(first.get()).equals(ForecastText.lines(second.get())),
-                                "the same forecast for everyone in the area");
+                        // Point forecasts (7d): the same shared run (same rain), read with each request's own
+                        // temperature correction, measured a moment apart.
+                        for (int i = 0; i < first.get().parts().size(); i++) {
+                            Forecast.Outlook a = first.get().parts().get(i);
+                            Forecast.Outlook b = second.get().parts().get(i);
+                            helper.assertTrue(Math.abs(a.chance() - b.chance()) < 1e-9,
+                                    "the same shared run: the same chance of rain");
+                            helper.assertTrue(Math.abs(a.tMax() - b.tMax()) < 1, "temperatures within a degree");
+                        }
                     }
                     ForecastService.request(level, at.getX(), at.getZ(), Forecast.Product.TODAY, into(third, helper));
                     WeatherSim.of(level).advance(1000);
