@@ -52,19 +52,29 @@ public final class ForecastGameTests {
         AtomicReference<Forecast> second = new AtomicReference<>();
         AtomicReference<Forecast> third = new AtomicReference<>();
         ForecastService.setDelayForTests(0);
+        // The cache window the first request falls in (unthrottled ticks can carry the clock past an in-game hour
+        // while the first forecast is worked out; then the second rightly gets a fresh forecast, not the cached one).
+        long window = Math.floorDiv(WeatherSim.of(level).time(), 1000L);
         helper.assertTrue(ForecastService.request(level, at.getX(), at.getZ(), Forecast.Product.TODAY,
                 into(first, helper)), "the request is taken");
+        boolean[] sameWindow = new boolean[1];
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(first.get() != null, "the first forecast arrives"))
                 .thenExecute(() -> {
                     helper.assertTrue(first.get().parts().size() == 4, "four periods");
+                    sameWindow[0] = Math.floorDiv(WeatherSim.of(level).time(), 1000L) == window;
                     ForecastService.request(level, at.getX(), at.getZ(), Forecast.Product.TODAY, into(second, helper));
-                    helper.assertTrue(ForecastService.load()[1] == 0, "the second is served from the cache: no work");
+                    if (sameWindow[0]) {
+                        helper.assertTrue(ForecastService.load()[1] == 0,
+                                "the second is served from the cache: no work");
+                    }
                 })
                 .thenWaitUntil(() -> helper.assertTrue(second.get() != null, "the second arrives"))
                 .thenExecute(() -> {
-                    helper.assertTrue(ForecastText.lines(first.get()).equals(ForecastText.lines(second.get())),
-                            "the same forecast for everyone in the area");
+                    if (sameWindow[0]) {
+                        helper.assertTrue(ForecastText.lines(first.get()).equals(ForecastText.lines(second.get())),
+                                "the same forecast for everyone in the area");
+                    }
                     ForecastService.request(level, at.getX(), at.getZ(), Forecast.Product.TODAY, into(third, helper));
                     WeatherSim.of(level).advance(1000);
                     helper.assertTrue(ForecastService.load()[1] >= 1, "after the jump it is worked out again");

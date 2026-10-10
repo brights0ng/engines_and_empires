@@ -71,6 +71,10 @@ public final class ForecastScore {
     private static final Map<ForecastService.Key, Long> FIRST_ISSUE = new HashMap<>();
     private static final Map<String, ForecastVerify.Tally> TALLIES = new HashMap<>();
     private static final List<ForecastVerify.Check> CHECKS = new ArrayList<>();
+    /** Hour-by-hour readings of recent day forecasts, for the trace CSV (debug). */
+    private static final List<List<ForecastRun.Observation>> TRACES = new ArrayList<>();
+    private static final List<Long> TRACE_ISSUED = new ArrayList<>();
+    static final int MAX_TRACES = 120;
     private static long lastHour = Long.MIN_VALUE;
     private static boolean anchored;
     private static long anchorSim;
@@ -109,6 +113,8 @@ public final class ForecastScore {
         FIRST_ISSUE.clear();
         TALLIES.clear();
         CHECKS.clear();
+        TRACES.clear();
+        TRACE_ISSUED.clear();
         made = 0;
         skipped = 0;
         lastHour = Long.MIN_VALUE;
@@ -157,7 +163,51 @@ public final class ForecastScore {
             lines.add(c.csv());
         }
         Files.write(file, lines, StandardCharsets.UTF_8);
+        writeTrace(dir, file.getFileName().toString().replace("forecast-score-", "forecast-trace-"));
         return file;
+    }
+
+    /**
+     * The trace: every reading recent day forecasts made at their region's centre (every 15 in-game minutes) next to
+     * the hourly truth there, to see where a forecast drifts away from the weather.
+     */
+    private static void writeTrace(Path dir, String name) throws IOException {
+        List<String> lines = new ArrayList<>();
+        lines.add("source,issued,time,lead_h,clock,field_T_C,ground_T_C,q_mm,rh_now,stratus,stratocumulus,"
+                + "nimbostratus,heap,centre_wet,region_wet,low_sources");
+        for (int i = 0; i < TRACES.size(); i++) {
+            long issued = TRACE_ISSUED.get(i);
+            for (ForecastRun.Observation o : TRACES.get(i)) {
+                lines.add(traceLine("forecast", issued, o));
+            }
+        }
+        for (Map.Entry<ForecastService.Key, List<ForecastRun.Observation>> e : TRUTH.entrySet()) {
+            if (e.getKey().product() != Forecast.Product.TODAY) {
+                continue;
+            }
+            for (ForecastRun.Observation o : e.getValue()) {
+                lines.add(traceLine("truth", o.time(), o));
+            }
+        }
+        Files.write(dir.resolve(name), lines, StandardCharsets.UTF_8);
+    }
+
+    private static String traceLine(String source, long issued, ForecastRun.Observation o) {
+        ForecastRun.Probe p = o.probe();
+        double regionWet = 0;
+        for (ForecastChance.Point pt : o.points()) {
+            regionWet += pt.wet();
+        }
+        regionWet /= o.points().length;
+        long clock = ForecastRun.clock(anchorDay + (o.time() - anchorSim));
+        String hhmm = String.format(java.util.Locale.ROOT, "%02d:%02d", clock / 1000, clock % 1000 * 60 / 1000);
+        if (p == null) {
+            return String.format(java.util.Locale.ROOT, "%s,%d,%d,%.2f,%s,,,,,,,,,,%.3f,", source, issued, o.time(),
+                    (o.time() - issued) / 1000.0, hhmm, regionWet);
+        }
+        return String.format(java.util.Locale.ROOT, "%s,%d,%d,%.2f,%s,%.2f,%.2f,%.3f,%.4f,%.3f,%.3f,%.3f,%s,%.3f,%.3f,%s",
+                source, issued, o.time(), (o.time() - issued) / 1000.0, hhmm, p.fieldT(), p.groundT(), p.q(), p.rhNow(),
+                p.stratus(), p.stratocumulus(), p.nimbostratus(), p.heap(), p.wet(), regionWet, p.lowSources());
     }
 
     /** A tally (tests). */
@@ -290,10 +340,19 @@ public final class ForecastScore {
         long salt = SimMath.hash(level.getSeed(), 0xF0CA57L, key.product().ordinal(), key.rx(), key.rz(), h);
         ForecastSnapshot s = ForecastService.snapshot(level, sim, key, ForecastSnapshot.domain(key.product()), salt,
                 dayTime, st);
-        Forecast f = ForecastRun.run(s);
+        List<ForecastRun.Observation> trace = key.product() == Forecast.Product.TODAY ? new ArrayList<>() : null;
+        Forecast f = ForecastRun.run(s, trace == null ? null : trace::add);
         if (f != null) {
             ISSUED.computeIfAbsent(key, k -> new ArrayList<>()).add(new Issued(f));
             made++;
+            if (trace != null) {
+                TRACES.add(trace);
+                TRACE_ISSUED.add(f.issued());
+                if (TRACES.size() > MAX_TRACES) {
+                    TRACES.remove(0);
+                    TRACE_ISSUED.remove(0);
+                }
+            }
         }
     }
 

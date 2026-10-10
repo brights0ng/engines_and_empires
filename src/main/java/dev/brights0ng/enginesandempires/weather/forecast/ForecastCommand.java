@@ -85,7 +85,8 @@ public final class ForecastCommand {
     private static int csv(CommandSourceStack source) {
         try {
             java.nio.file.Path file = ForecastScore.writeCsv(source.getServer().overworld());
-            source.sendSuccess(() -> Component.literal("Wrote " + file.toAbsolutePath()), false);
+            source.sendSuccess(() -> Component.literal("Wrote " + file.toAbsolutePath() + " and the hour-by-hour "
+                    + "trace beside it (forecast-trace-…)."), false);
             return 1;
         } catch (java.io.IOException e) {
             source.sendFailure(Component.literal("Couldn't write the CSV: " + e.getMessage()));
