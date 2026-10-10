@@ -428,6 +428,8 @@ public final class WeatherSim {
             data.offset += dt;
             step(time(), dt, true);
             done += dt;
+            // The forecast scorer (phase 7c) reads the truth at every hour of the jump.
+            dev.brights0ng.enginesandempires.weather.forecast.ForecastScore.hour(level);
         }
         // The sky starts afresh from the new weather (warm, at the next cloud pass).
         CloudWorld.clear(level);

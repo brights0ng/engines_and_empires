@@ -232,6 +232,12 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Weather phase 7c: the forecast skill harness runs longer offline with -Peae.harnessDays=30 (and harnessSeeds).
+    ['eae.harnessDays', 'eae.harnessSeeds'].each { key ->
+        if (project.hasProperty(key)) {
+            systemProperty key, project.property(key)
+        }
+    }
 }
 
 // Hooked to both the Gradle run tasks and the prepare tasks the IDE run configurations call before launching.

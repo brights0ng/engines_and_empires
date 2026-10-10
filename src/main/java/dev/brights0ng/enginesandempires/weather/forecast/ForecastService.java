@@ -332,15 +332,26 @@ public final class ForecastService {
     /** Copies what the forecast for {@code key} needs from the world (server thread). */
     static ForecastSnapshot snapshot(ServerLevel level, WeatherSim sim, Key key, long window, ForecastSettings st) {
         Forecast.Product product = key.product;
+        long salt = SimMath.hash(level.getSeed(), 0xF0CA57L, product.ordinal(), key.rx, key.rz, window);
+        return snapshot(level, sim, key, ForecastSnapshot.domain(product), salt, level.getDayTime(), st);
+    }
+
+    /**
+     * As {@link #snapshot(ServerLevel, WeatherSim, Key, long, ForecastSettings)} over field domain {@code domain}
+     * ({west, east, north/south} of the region's centre), with re-roll salt {@code salt} and Minecraft day time
+     * {@code dayTime} for the simulation's present (the scoring tool reads truth through small snapshots, and keeps
+     * its own day time while {@code /eae weather step} runs the weather ahead of the clock).
+     */
+    static ForecastSnapshot snapshot(ServerLevel level, WeatherSim sim, Key key, double[] domain, long salt,
+                                     long dayTime, ForecastSettings st) {
+        Forecast.Product product = key.product;
         double cx = key.centreX();
         double cz = key.centreZ();
-        double[] d = ForecastSnapshot.domain(product);
-        long salt = SimMath.hash(level.getSeed(), 0xF0CA57L, product.ordinal(), key.rx, key.rz, window);
         SystemsSim systems = sim.forecastSystems(salt);
-        AtmosphereField field = sim.field().copyDomain(cx - d[0], cz - d[2], cx + d[1], cz + d[2]);
+        AtmosphereField field = sim.field().copyDomain(cx - domain[0], cz - domain[2], cx + domain[1], cz + domain[2]);
         return new ForecastSnapshot(product, cx, cz, level.getSeed(), level.getSeaLevel(), systems, field, sim.time(),
-                level.getDayTime(), SeasonSource.yearFraction(level), SeasonSource.yearTicks(level),
-                st.stepTicks(product), st.days(), WeatherConfig.heightCoolingScale(), WeatherConfig.maxHeightCooling());
+                dayTime, SeasonSource.yearFraction(level), SeasonSource.yearTicks(level), st.stepTicks(product),
+                st.days(), WeatherConfig.heightCoolingScale(), WeatherConfig.maxHeightCooling());
     }
 
     private static ExecutorService worker() {
