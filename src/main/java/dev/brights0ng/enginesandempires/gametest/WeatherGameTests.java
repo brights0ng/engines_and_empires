@@ -59,25 +59,40 @@ public final class WeatherGameTests {
     public static void biomeClimatesComeFromTheDataMap(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         var biomes = level.registryAccess().registryOrThrow(Registries.BIOME);
-        BiomeClimate plains = Climate.climateOf(biomes.getHolderOrThrow(Biomes.PLAINS));
-        BiomeClimate peaks = Climate.climateOf(biomes.getHolderOrThrow(Biomes.FROZEN_PEAKS));
-        BiomeClimate desert = Climate.climateOf(biomes.getHolderOrThrow(Biomes.DESERT));
-        helper.assertTrue(plains.mean() == 11 && !plains.frozen(), "plains from the data map: " + plains);
-        helper.assertTrue(peaks.frozen(), "frozen peaks never thaw: " + peaks);
-        helper.assertTrue(desert.humidity() < 0.2 && desert.mean() > 20, "desert is hot and dry: " + desert);
+        var plains = Climate.climateOf(biomes.getHolderOrThrow(Biomes.PLAINS));
+        var peaks = Climate.climateOf(biomes.getHolderOrThrow(Biomes.FROZEN_PEAKS));
+        var grove = Climate.climateOf(biomes.getHolderOrThrow(Biomes.GROVE));
+        var desert = Climate.climateOf(biomes.getHolderOrThrow(Biomes.DESERT));
+        var jungle = Climate.climateOf(biomes.getHolderOrThrow(Biomes.JUNGLE));
+        helper.assertTrue(plains.temperatureOffset() == 0 && !plains.frozen()
+                && plains.surface() == BiomeClimate.Surface.LAND, "plains: no adjustment, from the data map: " + plains);
+        helper.assertTrue(peaks.frozen() && grove.frozen(), "frozen peaks and groves never thaw: " + peaks + grove);
+        helper.assertTrue(desert.overridesHumidity() && desert.humidity() < 0.2, "desert is dry: " + desert);
+        helper.assertTrue(jungle.surface() == BiomeClimate.Surface.FOREST && jungle.temperatureOffset() > 0,
+                "jungle: forest, a little hotter: " + jungle);
+        // The climate itself comes from the world's noise.
+        double[] n = Climate.noise(level, 0, 0);
+        helper.assertTrue(n[0] >= -1.5 && n[0] <= 1.5 && n[1] >= -1.5 && n[1] <= 1.5, "noise in range: "
+                + n[0] + ", " + n[1]);
         helper.succeed();
     }
 
     @GameTest(template = SCRATCH)
     public static void anAlwaysFrozenBiomeStaysBelowFreezing(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        Holder<Biome> iceSpikes = level.registryAccess().registryOrThrow(Registries.BIOME)
-                .getHolderOrThrow(Biomes.ICE_SPIKES);
+        var biomes = level.registryAccess().registryOrThrow(Registries.BIOME);
         BlockPos at = helper.absolutePos(new BlockPos(3, 2, 3));
-        // Far down the warm side of the climate bands, at the bottom of the world: as warm as it gets.
-        Baseline.Sample s = Climate.sample(level, at.getX(), level.getMinBuildHeight(), 16000,
-                Climate.climateOf(iceSpikes));
-        helper.assertTrue(s.temperature() <= BiomeClimate.FROZEN_MAX, "held below freezing: " + s.temperature());
+        // Every biome with ice or powder snow that can't regrow, far down the warm side of the climate bands, at the
+        // bottom of the world, with the world's noise as hot as it gets (+1): as warm as it gets.
+        for (var key : java.util.List.of(Biomes.ICE_SPIKES, Biomes.FROZEN_PEAKS, Biomes.JAGGED_PEAKS,
+                Biomes.SNOWY_SLOPES, Biomes.GROVE, Biomes.FROZEN_OCEAN, Biomes.DEEP_FROZEN_OCEAN)) {
+            Holder<Biome> biome = biomes.getHolderOrThrow(key);
+            BiomeClimate hot = dev.brights0ng.enginesandempires.weather.climate.NoiseClimate.resolve(1, 1,
+                    Climate.climateOf(biome));
+            Baseline.Sample s = Climate.sample(level, at.getX(), level.getMinBuildHeight(), 16000, hot);
+            helper.assertTrue(s.temperature() <= BiomeClimate.FROZEN_MAX, key.location() + " held below freezing: "
+                    + s.temperature());
+        }
         helper.succeed();
     }
 

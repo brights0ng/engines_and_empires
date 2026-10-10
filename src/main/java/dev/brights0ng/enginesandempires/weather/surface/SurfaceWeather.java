@@ -8,6 +8,7 @@ import java.util.WeakHashMap;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.WeatherOwnership;
+import dev.brights0ng.enginesandempires.weather.climate.BiomeAdjust;
 import dev.brights0ng.enginesandempires.weather.climate.BiomeClimate;
 import dev.brights0ng.enginesandempires.weather.climate.Climate;
 import dev.brights0ng.enginesandempires.weather.climate.Temperature;
@@ -87,7 +88,7 @@ public final class SurfaceWeather {
 
     /** Ticks between visits to a chunk. */
     public static final int PERIOD = 20;
-    /** Columns visited per chunk per visit (256 columns / 5 per second ≈ once per in-game hour each). */
+    /** Columns visited per chunk per visit (256 columns / 5 per second â‰ˆ once per in-game hour each). */
     public static final int COLUMNS = 5;
     /** How long a chunk's sea-level temperature is kept, ticks. */
     public static final int CACHE_TICKS = 100;
@@ -181,7 +182,7 @@ public final class SurfaceWeather {
     }
 
     /** The air temperature at height {@code y} over a column whose chunk is {@code tSea} at sea level, C. */
-    public static double columnTemperature(double tSea, int seaLevel, int y, BiomeClimate climate) {
+    public static double columnTemperature(double tSea, int seaLevel, int y, BiomeAdjust climate) {
         double t = tSea + Temperature.heightCorrection(seaLevel, y);
         return climate.frozen() ? Math.min(t, BiomeClimate.FROZEN_MAX) : t;
     }
@@ -502,7 +503,7 @@ public final class SurfaceWeather {
     // ---- Vanilla's biome temperature ----
 
     private static WeakReference<MinecraftServer> biomesFor = new WeakReference<>(null);
-    private static Map<Biome, BiomeClimate> overworldBiomes = new IdentityHashMap<>();
+    private static Map<Biome, BiomeAdjust> overworldBiomes = new IdentityHashMap<>();
     private static boolean answering;
 
     /**
@@ -522,7 +523,7 @@ public final class SurfaceWeather {
             return null;
         }
         if (biomesFor.get() != server) {
-            Map<Biome, BiomeClimate> map = new IdentityHashMap<>();
+            Map<Biome, BiomeAdjust> map = new IdentityHashMap<>();
             for (Holder<Biome> h : level.getChunkSource().getGenerator().getBiomeSource().possibleBiomes()) {
                 map.put(h.value(), Climate.climateOf(h));
             }
@@ -532,7 +533,7 @@ public final class SurfaceWeather {
         answering = true;
         try {
             BlockPos at = pos;
-            BiomeClimate climate;
+            BiomeAdjust climate;
             if (ShipCover.inPlot(level, pos)) {
                 // A ship's block: the air where the ship really is (phase 5d).
                 net.minecraft.world.phys.Vec3 w = ShipCover.worldCentre(level, pos);

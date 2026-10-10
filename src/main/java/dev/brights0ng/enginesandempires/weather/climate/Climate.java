@@ -28,6 +28,12 @@ import net.neoforged.neoforge.registries.datamaps.DataMapsUpdatedEvent;
  * source is asked at sea level, and if that lands in a cave biome (under a mountain) it asks higher up. Unloaded
  * columns are cached per chunk column. The lattice nodes of the regional field ({@link ClimateField}) are sampled the
  * same way.
+ *
+ * <h2>Where the climate comes from (2026-10-10)</h2>
+ * The world's own temperature and humidity noise at the spot ({@link #noise}, the fields the world places biomes
+ * with), turned into a climate by {@link NoiseClimate} and adjusted by the biome there ({@link #climateOf},
+ * {@link BiomeAdjust}). Both the regional field's nodes and the biome underfoot are worked out this way, so the climate
+ * changes smoothly across biome borders and always agrees with where the biomes are.
  */
 @EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
 public final class Climate {
@@ -38,6 +44,7 @@ public final class Climate {
 
     private static final Map<ServerLevel, ClimateField> FIELDS = new WeakHashMap<>();
     private static final Map<ServerLevel, Map<Long, BiomeClimate>> COLUMNS = new WeakHashMap<>();
+    private static final Map<ServerLevel, Map<Long, double[]>> NOISE = new WeakHashMap<>();
 
     /** The full baseline sample at (x, y, z). */
     public static Baseline.Sample sample(ServerLevel level, double x, double y, double z) {
@@ -92,21 +99,25 @@ public final class Climate {
     public static ClimateField field(ServerLevel level) {
         ClimateField f = FIELDS.get(level);
         if (f == null) {
-            f = new ClimateField((ix, iz) ->
-                    climateOf(probeSurfaceBiome(level, ix * ClimateField.SPACING, iz * ClimateField.SPACING)));
+            f = new ClimateField((ix, iz) -> {
+                int x = ix * ClimateField.SPACING;
+                int z = iz * ClimateField.SPACING;
+                return climateAt(level, x, z, probeSurfaceBiome(level, x, z));
+            });
             FIELDS.put(level, f);
         }
         return f;
     }
 
-    /** The climate of the surface biome over (x, z). */
+    /** The climate of the surface biome over (x, z): the world's noise there, adjusted by that biome. */
     public static BiomeClimate localClimate(ServerLevel level, double x, double z) {
         int bx = (int) Math.floor(x);
         int bz = (int) Math.floor(z);
         BlockPos column = new BlockPos(bx, level.getSeaLevel(), bz);
         if (level.hasChunkAt(column)) {
             int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, bx, bz) - 1;
-            return climateOf(level.getBiome(new BlockPos(bx, Math.max(top, level.getMinBuildHeight()), bz)));
+            return climateAt(level, x, z,
+                    level.getBiome(new BlockPos(bx, Math.max(top, level.getMinBuildHeight()), bz)));
         }
         return columnClimate(level, bx >> 4, bz >> 4);
     }
@@ -121,20 +132,54 @@ public final class Climate {
         long key = ((long) cx << 32) | (cz & 0xFFFFFFFFL);
         BiomeClimate c = cache.get(key);
         if (c == null) {
-            c = climateOf(probeSurfaceBiome(level, (cx << 4) + 8, (cz << 4) + 8));
+            int x = (cx << 4) + 8;
+            int z = (cz << 4) + 8;
+            c = climateAt(level, x, z, probeSurfaceBiome(level, x, z));
             cache.put(key, c);
         }
         return c;
     }
 
-    /** A biome's climate: its data map entry, or a fallback from its vanilla values. */
-    public static BiomeClimate climateOf(Holder<Biome> biome) {
-        BiomeClimate c = biome.getData(ClimateDataMaps.BIOME_CLIMATE);
-        if (c != null) {
-            return c;
+    /** The climate at (x, z) for biome {@code biome} standing there: the world's noise, adjusted by the biome. */
+    public static BiomeClimate climateAt(ServerLevel level, double x, double z, Holder<Biome> biome) {
+        double[] n = noise(level, x, z);
+        return NoiseClimate.resolve(n[0], n[1], climateOf(biome));
+    }
+
+    /**
+     * The world's temperature and humidity noise at (x, z), {temperature, humidity}, each -1 to 1: the fields the world
+     * places biomes with (vanilla's multi-noise climate; Tectonic keeps them). Cached per 16 blocks.
+     */
+    public static double[] noise(ServerLevel level, double x, double z) {
+        int qx = net.minecraft.core.QuartPos.fromBlock((int) Math.floor(x));
+        int qz = net.minecraft.core.QuartPos.fromBlock((int) Math.floor(z));
+        Map<Long, double[]> cache = NOISE.get(level);
+        if (cache == null) {
+            cache = lru();
+            NOISE.put(level, cache);
         }
-        Biome b = biome.value();
-        return BiomeClimate.fallback(b.getBaseTemperature(), b.getModifiedClimateSettings().downfall(), surfaceOf(biome));
+        long key = ((long) (qx >> 2) << 32) | ((qz >> 2) & 0xFFFFFFFFL);
+        double[] n = cache.get(key);
+        if (n == null) {
+            net.minecraft.world.level.biome.Climate.TargetPoint p = level.getChunkSource().randomState().sampler()
+                    .sample(qx, net.minecraft.core.QuartPos.fromBlock(level.getSeaLevel()), qz);
+            n = new double[]{net.minecraft.world.level.biome.Climate.unquantizeCoord(p.temperature()),
+                    net.minecraft.world.level.biome.Climate.unquantizeCoord(p.humidity())};
+            cache.put(key, n);
+        }
+        return n;
+    }
+
+    /**
+     * How a biome adjusts the climate: its data map entry, or (for biomes it leaves out, such as modded ones) no
+     * adjustment, the ground from its tags, and never thawing if it is tagged icy. The ground is always filled in.
+     */
+    public static BiomeAdjust climateOf(Holder<Biome> biome) {
+        BiomeAdjust a = biome.getData(ClimateDataMaps.BIOME_CLIMATE);
+        if (a == null) {
+            a = biome.is(Tags.Biomes.IS_ICY) ? BiomeAdjust.NONE.asFrozen() : BiomeAdjust.NONE;
+        }
+        return a.withSurface(surfaceOf(biome));
     }
 
     /** The surface biome over (x, z) from the biome source, stepping up out of cave biomes. */
@@ -171,10 +216,10 @@ public final class Climate {
         COLUMNS.values().forEach(Map::clear);
     }
 
-    private static Map<Long, BiomeClimate> lru() {
+    private static <V> Map<Long, V> lru() {
         return new LinkedHashMap<>(1024, 0.75f, true) {
             @Override
-            protected boolean removeEldestEntry(Map.Entry<Long, BiomeClimate> eldest) {
+            protected boolean removeEldestEntry(Map.Entry<Long, V> eldest) {
                 return size() > COLUMN_CACHE;
             }
         };
