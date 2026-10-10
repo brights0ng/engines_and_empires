@@ -218,7 +218,7 @@ public final class WeatherSim {
         for (SystemsSim.Anchor a : anchors) {
             if (live) {
                 // Live: new tiles are built a few milliseconds per tick (asking for many biomes at once stalls).
-                pendingTiles.addAll(data.field.touch(a.x(), a.z(), params.zoneRadius(), time));
+                pendingTiles.addAll(data.field.touch(a.x(), a.z(), params.zoneRadius(), time, dt));
             } else {
                 data.field.ensure(a.x(), a.z(), params.zoneRadius(), env, time);
             }
