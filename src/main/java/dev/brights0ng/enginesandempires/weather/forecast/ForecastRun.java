@@ -42,6 +42,11 @@ public final class ForecastRun {
 
     /** Runs the forecast. Stops early (returning null) if the thread is interrupted. */
     public static Forecast run(ForecastSnapshot s) {
+        return run(s, null);
+    }
+
+    /** As {@link #run(ForecastSnapshot)}, handing every reading it makes to {@code trace} (debug; may be null). */
+    public static Forecast run(ForecastSnapshot s, java.util.function.Consumer<Observation> trace) {
         List<Part> parts = parts(s);
         long end = parts.get(parts.size() - 1).end;
         SystemsSim systems = s.systems();
@@ -55,7 +60,7 @@ public final class ForecastRun {
         }
         long dt = Math.max(50, s.stepTicks());
         long t = s.time();
-        sample(s, t, dt, parts, buckets);
+        sample(s, t, dt, parts, buckets, trace);
         while (t < end) {
             if (Thread.currentThread().isInterrupted()) {
                 return null;
@@ -66,7 +71,7 @@ public final class ForecastRun {
             systems.step(next, step, season, anchors, (x, z) -> true, null);
             field.step(step, env(s, systems.systems(), jet, next, season));
             t = next;
-            sample(s, t, step, parts, buckets);
+            sample(s, t, step, parts, buckets, trace);
         }
         List<Forecast.Outlook> out = new ArrayList<>(parts.size());
         for (int i = 0; i < parts.size(); i++) {
@@ -85,7 +90,21 @@ public final class ForecastRun {
      * pressure there (hPa). The same reading a forecast makes every step, so the scoring tool (7c) can read the live
      * weather through exactly the same lens.
      */
-    public record Observation(long time, ForecastChance.Point[] points, double wx, double wz, double pressure) {
+    public record Observation(long time, ForecastChance.Point[] points, double wx, double wz, double pressure,
+                              Probe probe) {
+
+        public Observation(long time, ForecastChance.Point[] points, double wx, double wz, double pressure) {
+            this(time, points, wx, wz, pressure, null);
+        }
+    }
+
+    /**
+     * Debug detail at the region's centre (7c trace): the field's sea-level temperature, the ground temperature, the
+     * air's water, its humidity now (from the condensation level), the low decks' cover and why, the heap type, and
+     * how much of the spot is under rain.
+     */
+    public record Probe(double fieldT, double groundT, double q, double rhNow, double stratus, double stratocumulus,
+                        double nimbostratus, String heap, double wet, String lowSources) {
     }
 
     /**
@@ -136,7 +155,8 @@ public final class ForecastRun {
     }
 
     /** Reads the sky at simulation time {@code t} into whichever part it falls in; {@code step} ticks stand behind it. */
-    private static void sample(ForecastSnapshot s, long t, long step, List<Part> parts, ForecastChance.Bucket[] buckets) {
+    private static void sample(ForecastSnapshot s, long t, long step, List<Part> parts, ForecastChance.Bucket[] buckets,
+                               java.util.function.Consumer<Observation> trace) {
         int part = -1;
         for (int i = 0; i < parts.size(); i++) {
             Part p = parts.get(i);
@@ -150,6 +170,9 @@ public final class ForecastRun {
         }
         Observation o = observe(s, t);
         buckets[part].add(o.points(), o.wx(), o.wz(), o.pressure(), step / 1000.0);
+        if (trace != null) {
+            trace.accept(o);
+        }
     }
 
     /** Reads the sky over the snapshot's region from its systems and field as they stand, at simulation time {@code t}. */
@@ -172,7 +195,24 @@ public final class ForecastRun {
             }
         }
         double[] w = PressureField.wind(pressure, s.systems().jet(), s.x(), s.z(), seconds, season, s.seed());
-        return new Observation(t, points, w[0], w[1], pressure.pressure(s.x(), s.z()));
+        return new Observation(t, points, w[0], w[1], pressure.pressure(s.x(), s.z()),
+                probe(s, env, diag, dayTime, season, points[GRID * GRID / 2]));
+    }
+
+    /** The trace's detail at the region's centre. */
+    private static Probe probe(ForecastSnapshot s, FieldEnv env, CloudDiagnostics.Systems diag, long dayTime,
+                               double season, ForecastChance.Point centre) {
+        CloudDiagnostics.Air air = air(s, env, s.x(), s.z());
+        CloudDiagnostics.Need need = CloudDiagnostics.diagnose(s.x(), s.z(), air, diag, dayTime, season);
+        double groundT = air.t() + heating(air, dayTime, season) + air.heightCorrection();
+        String sources = need.sourceOf(dev.brights0ng.enginesandempires.weather.cloud.CloudType.STRATUS) + "/"
+                + need.sourceOf(dev.brights0ng.enginesandempires.weather.cloud.CloudType.STRATOCUMULUS) + "/"
+                + need.sourceOf(dev.brights0ng.enginesandempires.weather.cloud.CloudType.NIMBOSTRATUS);
+        return new Probe(air.t(), groundT, air.q(), 1 - need.lclMetres() / 2500,
+                need.cover(dev.brights0ng.enginesandempires.weather.cloud.CloudType.STRATUS),
+                need.cover(dev.brights0ng.enginesandempires.weather.cloud.CloudType.STRATOCUMULUS),
+                need.cover(dev.brights0ng.enginesandempires.weather.cloud.CloudType.NIMBOSTRATUS),
+                need.heapType() == null ? "" : need.heapType().id, centre.wet(), sources);
     }
 
     /** The weather at one spot. */
