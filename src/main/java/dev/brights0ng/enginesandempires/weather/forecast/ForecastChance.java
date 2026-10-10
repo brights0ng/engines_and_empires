@@ -60,9 +60,27 @@ public final class ForecastChance {
      * @param hail          whether the thunderstorms are strong enough for hail
      * @param kind          what falls, from the temperature on the way down
      * @param groundT       the air temperature at the ground, C
+     * @param melt          the warm layer aloft's melt index ({@code WarmNose}; 7d re-decides the kind at a spot's
+     *                      corrected temperature with it)
+     * @param coldDepth     the cold layer's depth under it, 0-1
      */
     public record Point(double cover, double layerWet, double layerStrength, double heapWet, double heapStrength,
-                        boolean thunder, boolean hail, Precip kind, double groundT) {
+                        boolean thunder, boolean hail, Precip kind, double groundT, double melt, double coldDepth) {
+
+        public Point(double cover, double layerWet, double layerStrength, double heapWet, double heapStrength,
+                     boolean thunder, boolean hail, Precip kind, double groundT) {
+            this(cover, layerWet, layerStrength, heapWet, heapStrength, thunder, hail, kind, groundT, 0, 0);
+        }
+
+        /** This reading at a ground temperature {@code offset} C warmer (colder if negative), its kind decided anew. */
+        public Point shifted(double offset) {
+            if (offset == 0) {
+                return this;
+            }
+            double t = groundT + offset;
+            return new Point(cover, layerWet, layerStrength, heapWet, heapStrength, thunder, hail,
+                    Precip.decide(t, melt, coldDepth), t, melt, coldDepth);
+        }
 
         public double wet() {
             return 1 - (1 - layerWet) * (1 - heapWet);
@@ -130,7 +148,7 @@ public final class ForecastChance {
         double cover = 1 - (1 - low) * (1 - mid) * (1 - 0.6 * high) * (1 - heapCover);
         Precip kind = Precip.decide(groundT, melt, coldDepth);
         return new Point(clamp01(cover), 1 - layerDry, layerStrength, heapWet, heapStrength, thunder, hail, kind,
-                groundT);
+                groundT, melt, coldDepth);
     }
 
     /** Everything seen over one period or day, gathered step by step. */

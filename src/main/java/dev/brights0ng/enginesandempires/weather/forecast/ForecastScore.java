@@ -33,6 +33,9 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  *       tool, a small hitch every few minutes of live play.</li>
  *   <li><b>The truth is read once an in-game hour</b> ({@link ForecastRun#observe} on a small snapshot of the live
  *       weather), during live play and at every hour of {@code /eae weather step} and the night skip.</li>
+ *   <li><b>Point forecasts (7d):</b> each tracked spot is scored on its own point forecast, and its truth is read
+ *       through the same lens: the 9 readings around it ({@link ForecastRun#observeSpot}), their temperature
+ *       corrected by the spot's offset measured that hour (the forecast keeps the offset it was made with).</li>
  *   <li>Each part of each forecast is <b>checked once it has ended</b> ({@link ForecastVerify}); scores add up per
  *       product and lead, and every check is kept for the CSV.</li>
  * </ul>
@@ -66,9 +69,17 @@ public final class ForecastScore {
     }
 
     private static final List<Spot> TRACKED = new ArrayList<>();
-    private static final Map<ForecastService.Key, List<ForecastRun.Observation>> TRUTH = new HashMap<>();
-    private static final Map<ForecastService.Key, List<Issued>> ISSUED = new HashMap<>();
-    private static final Map<ForecastService.Key, Long> FIRST_ISSUE = new HashMap<>();
+    /** A tracked spot and a product: what is scored (7d: point forecasts). */
+    private record SpotKey(Spot spot, Forecast.Product product) {
+
+        ForecastService.Key region() {
+            return ForecastService.Key.of(product, spot.x, spot.z);
+        }
+    }
+
+    private static final Map<SpotKey, List<ForecastRun.Observation>> TRUTH = new HashMap<>();
+    private static final Map<SpotKey, List<Issued>> ISSUED = new HashMap<>();
+    private static final Map<SpotKey, Long> FIRST_ISSUE = new HashMap<>();
     private static final Map<String, ForecastVerify.Tally> TALLIES = new HashMap<>();
     private static final List<ForecastVerify.Check> CHECKS = new ArrayList<>();
     /** Hour-by-hour readings of recent day forecasts, for the trace CSV (debug). */
@@ -181,7 +192,7 @@ public final class ForecastScore {
                 lines.add(traceLine("forecast", issued, o));
             }
         }
-        for (Map.Entry<ForecastService.Key, List<ForecastRun.Observation>> e : TRUTH.entrySet()) {
+        for (Map.Entry<SpotKey, List<ForecastRun.Observation>> e : TRUTH.entrySet()) {
             if (e.getKey().product() != Forecast.Product.TODAY) {
                 continue;
             }
@@ -266,11 +277,12 @@ public final class ForecastScore {
         ForecastSettings st = WeatherConfig.forecast();
         try {
             for (Spot spot : new ArrayList<>(TRACKED)) {
+                double offset = ForecastService.offset(level, sim, spot.x, spot.z, st);
                 for (Forecast.Product product : Forecast.Product.values()) {
-                    ForecastService.Key key = ForecastService.Key.of(product, spot.x, spot.z);
-                    observe(level, sim, key, dayTime, st, now);
+                    SpotKey key = new SpotKey(spot, product);
+                    observe(level, sim, key, dayTime, st, now, offset);
                     check(key, now);
-                    issue(level, sim, key, dayTime, st, h);
+                    issue(level, sim, key, dayTime, st, h, offset);
                 }
             }
         } catch (RuntimeException e) {
@@ -278,19 +290,26 @@ public final class ForecastScore {
         }
     }
 
-    private static void observe(ServerLevel level, WeatherSim sim, ForecastService.Key key, long dayTime,
-                                ForecastSettings st, long now) {
+    private static void observe(ServerLevel level, WeatherSim sim, SpotKey key, long dayTime, ForecastSettings st,
+                                long now, double offset) {
         List<ForecastRun.Observation> list = TRUTH.computeIfAbsent(key, k -> new ArrayList<>());
         if (!list.isEmpty() && list.get(list.size() - 1).time() >= now) {
             return;
         }
-        ForecastSnapshot s = ForecastService.snapshot(level, sim, key, ForecastSnapshot.truthDomain(key.product()), 0,
-                dayTime, st);
-        list.add(ForecastRun.observe(s, now));
-        list.removeIf(o -> o.time() < now - KEEP_TRUTH);
+        ForecastSnapshot s = ForecastService.snapshot(level, sim, key.region(),
+                ForecastSnapshot.truthDomain(key.product()), 0, dayTime, st);
+        ForecastRun.Observation o = ForecastRun.observeSpot(s, now, key.spot().x, key.spot().z);
+        ForecastChance.Point[] shifted = new ForecastChance.Point[o.points().length];
+        for (int i = 0; i < shifted.length; i++) {
+            shifted[i] = o.points()[i].shifted(offset);
+        }
+        // The trace's centre detail (day product only).
+        ForecastRun.Probe probe = key.product() == Forecast.Product.TODAY ? ForecastRun.observe(s, now).probe() : null;
+        list.add(new ForecastRun.Observation(now, shifted, o.wx(), o.wz(), o.pressure(), probe));
+        list.removeIf(old -> old.time() < now - KEEP_TRUTH);
     }
 
-    private static void check(ForecastService.Key key, long now) {
+    private static void check(SpotKey key, long now) {
         List<Issued> list = ISSUED.get(key);
         if (list == null) {
             return;
@@ -328,8 +347,8 @@ public final class ForecastScore {
         }
     }
 
-    private static void issue(ServerLevel level, WeatherSim sim, ForecastService.Key key, long dayTime,
-                              ForecastSettings st, long h) {
+    private static void issue(ServerLevel level, WeatherSim sim, SpotKey key, long dayTime, ForecastSettings st,
+                              long h, double offset) {
         long clock = ForecastRun.clock(dayTime);
         boolean first = !FIRST_ISSUE.containsKey(key);
         boolean due = key.product() == Forecast.Product.TODAY ? clock % ForecastRun.PERIOD < 1000 : clock < 1000;
@@ -337,12 +356,14 @@ public final class ForecastScore {
             return;
         }
         FIRST_ISSUE.putIfAbsent(key, h);
-        long salt = SimMath.hash(level.getSeed(), 0xF0CA57L, key.product().ordinal(), key.rx(), key.rz(), h);
-        ForecastSnapshot s = ForecastService.snapshot(level, sim, key, ForecastSnapshot.domain(key.product()), salt,
+        ForecastService.Key region = key.region();
+        long salt = SimMath.hash(level.getSeed(), 0xF0CA57L, key.product().ordinal(), region.rx(), region.rz(), h);
+        ForecastSnapshot s = ForecastService.snapshot(level, sim, region, ForecastSnapshot.domain(key.product()), salt,
                 dayTime, st);
         List<ForecastRun.Observation> trace = key.product() == Forecast.Product.TODAY ? new ArrayList<>() : null;
-        Forecast f = ForecastRun.run(s, trace == null ? null : trace::add);
-        if (f != null) {
+        ForecastGrid grid = ForecastRun.run(s, trace == null ? null : trace::add);
+        if (grid != null) {
+            Forecast f = grid.at(key.spot().x, key.spot().z, offset);
             ISSUED.computeIfAbsent(key, k -> new ArrayList<>()).add(new Issued(f));
             made++;
             if (trace != null) {

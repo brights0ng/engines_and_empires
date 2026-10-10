@@ -139,7 +139,7 @@ class ForecastVerifyTest {
         /** A snapshot of the live world as it stands (copies, so forecasts never touch it). */
         ForecastSnapshot snapshot(Forecast.Product product, double[] domain, long salt) {
             AtmosphereField copy = field.copyDomain(-domain[0], CZ - domain[2], domain[1], CZ + domain[2]);
-            return new ForecastSnapshot(product, 0, CZ, seed, 63, systems.forForecast(salt), copy, time, time, 0.9,
+            return new ForecastSnapshot(product, 0, CZ, seed, 63, systems.forForecast(salt, time), copy, time, time, 0.9,
                     0, ForecastSettings.DEFAULT.stepTicks(product), 4, 5, 30);
         }
 
@@ -179,16 +179,17 @@ class ForecastVerifyTest {
                 long salt = SimMath.hash(seed, live.time);
                 if (h < (days - 4) * 24 && clock % ForecastRun.PERIOD == 0) {
                     issued.add(ForecastRun.run(live.snapshot(Forecast.Product.TODAY,
-                            ForecastSnapshot.domain(Forecast.Product.TODAY), salt)));
+                            ForecastSnapshot.domain(Forecast.Product.TODAY), salt)).at(0, Live.CZ, 0));
                 }
                 if (h < (days - 5) * 24 && clock == 0) {
                     issued.add(ForecastRun.run(live.snapshot(Forecast.Product.WEEK,
-                            ForecastSnapshot.domain(Forecast.Product.WEEK), salt)));
+                            ForecastSnapshot.domain(Forecast.Product.WEEK), salt)).at(0, Live.CZ, 0));
                 }
-                truth.add(ForecastRun.observe(live.snapshot(Forecast.Product.TODAY,
-                        ForecastSnapshot.truthDomain(Forecast.Product.TODAY), 1), live.time));
-                truthWide.add(ForecastRun.observe(live.snapshot(Forecast.Product.WEEK,
-                        ForecastSnapshot.truthDomain(Forecast.Product.WEEK), 1), live.time));
+                // The truth through the point forecast's own lens: the readings around the spot.
+                truth.add(ForecastRun.observeSpot(live.snapshot(Forecast.Product.TODAY,
+                        ForecastSnapshot.truthDomain(Forecast.Product.TODAY), 1), live.time, 0, Live.CZ));
+                truthWide.add(ForecastRun.observeSpot(live.snapshot(Forecast.Product.WEEK,
+                        ForecastSnapshot.truthDomain(Forecast.Product.WEEK), 1), live.time, 0, Live.CZ));
                 live.hour();
             }
             for (Forecast f : issued) {

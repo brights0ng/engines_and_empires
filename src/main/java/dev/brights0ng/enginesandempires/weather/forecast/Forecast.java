@@ -7,13 +7,14 @@ import java.util.Set;
 import dev.brights0ng.enginesandempires.weather.rain.Precip;
 
 /**
- * A finished forecast (phase 7b of {@code claude/weather-backbone-phase7.md}): the parts of one product for one
- * region. Values are kept in the simulation's units (C, m/s, hPa); {@link ForecastText} turns them into what players
- * read (F, m/s with a word). Immutable once made.
+ * A finished forecast for one spot (phase 7b; a point forecast since 7d of {@code claude/weather-backbone-phase7.md}):
+ * the parts of one product, read from a region's shared run ({@link ForecastGrid#at}). Values are kept in the
+ * simulation's units (C, m/s, hPa); {@link ForecastText} turns them into what players read (F, m/s with a word).
+ * Immutable once made.
  *
  * @param product the kind of forecast
- * @param x       the region's centre, x
- * @param z       the region's centre, z
+ * @param x       the spot it is for, x
+ * @param z       the spot it is for, z
  * @param issued  the simulation time it was made from, ticks
  * @param dayTime Minecraft day time it was made at
  * @param parts   the 6-hour periods (day forecast) or days (4-day forecast), in order
@@ -23,17 +24,23 @@ public record Forecast(Product product, double x, double z, long issued, long da
     /** The two forecasts ("LODs"). */
     public enum Product {
         /** The next day in four 6-hour periods, fine steps over a smaller area: quite accurate. */
-        TODAY("today", 512),
+        TODAY("today", 512, 128),
         /** Days 1-4 (day 1 = tomorrow) as daily summaries, coarse steps over a wide area: less sure further out. */
-        WEEK("week", 2048);
+        WEEK("week", 2048, 256);
 
         public final String id;
-        /** The region size it is made for, blocks (everyone inside one region shares a forecast). */
+        /** The region a shared run is made for, blocks (everyone inside one region shares the run, not the answer). */
         public final int region;
+        /**
+         * Blocks between the run's readings; a spot's forecast reads the 3 x 3 readings around it, so its rain and
+         * kind come from within about this far (7d).
+         */
+        public final int spacing;
 
-        Product(String id, int region) {
+        Product(String id, int region, int spacing) {
             this.id = id;
             this.region = region;
+            this.spacing = spacing;
         }
     }
 

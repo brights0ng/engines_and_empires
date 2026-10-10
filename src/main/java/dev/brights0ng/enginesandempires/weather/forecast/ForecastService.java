@@ -76,7 +76,7 @@ public final class ForecastService {
         final List<Pending> waiters = new ArrayList<>();
         int generation;
         /** Set on the worker; read on the server thread only once {@link #finished}. */
-        volatile Forecast result;
+        volatile ForecastGrid result;
         volatile boolean failed;
         volatile long nanos;
         boolean finished;
@@ -92,18 +92,25 @@ public final class ForecastService {
         final Key key;
         final long due;
         final Callback callback;
+        /** The spot the forecast is for, and how much warmer it felt than the run read it when asked (7d). */
+        final double x;
+        final double z;
+        final double offset;
         Job job;
-        Forecast ready;
+        ForecastGrid ready;
         boolean warned;
 
-        Pending(Key key, long due, Callback callback) {
+        Pending(Key key, long due, Callback callback, double x, double z, double offset) {
             this.key = key;
             this.due = due;
             this.callback = callback;
+            this.x = x;
+            this.z = z;
+            this.offset = offset;
         }
     }
 
-    private record Cached(Forecast forecast, long window, int generation) {
+    private record Cached(ForecastGrid grid, long window, int generation) {
     }
 
     private static final Map<Key, Cached> CACHE = new HashMap<>();
@@ -126,7 +133,8 @@ public final class ForecastService {
     }
 
     /**
-     * Asks for a {@code product} forecast for the region around (x, z). The answer comes to {@code callback} on the
+     * Asks for a {@code product} forecast for the spot (x, z) (a point forecast, 7d: the region's shared run read at
+     * the spot, its temperature corrected to how the spot feels now). The answer comes to {@code callback} on the
      * server thread after the delay. Returns false (and calls nothing) if the Overworld's weather isn't running or
      * the queue is full.
      */
@@ -140,10 +148,11 @@ public final class ForecastService {
         Key key = Key.of(product, x, z);
         long window = Math.floorDiv(sim.time(), now.cacheTicks(product));
         int delay = testDelaySeconds >= 0 ? testDelaySeconds : now.delaySeconds();
-        Pending pending = new Pending(key, System.currentTimeMillis() + 1000L * delay, callback);
+        Pending pending = new Pending(key, System.currentTimeMillis() + 1000L * delay, callback, x, z,
+                offset(overworld, sim, x, z, now));
         Cached cached = CACHE.get(key);
         if (cached != null && cached.window == window && cached.generation == generation) {
-            pending.ready = cached.forecast;
+            pending.ready = cached.grid;
         } else {
             Job job = JOBS.get(key);
             if (job == null || job.stale) {
@@ -183,6 +192,28 @@ public final class ForecastService {
                 QUEUE.add(job);
             }
             attach(p, job);
+        }
+    }
+
+    /**
+     * How much warmer the spot (x, z) feels now than a forecast run reads it now, C (7d): the felt temperature at the
+     * surface there (the pack's temperature service, with the biome underfoot and the spot's height) less the run's
+     * ground temperature (its 512-block field cell, at the cell's height). 0 if it can't be worked out.
+     */
+    static double offset(ServerLevel level, WeatherSim sim, double x, double z, ForecastSettings st) {
+        try {
+            int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    (int) Math.floor(x), (int) Math.floor(z));
+            double felt = dev.brights0ng.enginesandempires.weather.climate.Climate.sample(level, x, y + 1, z)
+                    .temperature();
+            Key key = Key.of(Forecast.Product.TODAY, x, z);
+            ForecastSnapshot s = snapshot(level, sim, key, ForecastSnapshot.truthDomain(Forecast.Product.TODAY), 0,
+                    level.getDayTime(), st);
+            double off = felt - ForecastRun.lensGroundT(s, x, z, level.getDayTime());
+            return Double.isFinite(off) ? Math.max(-25, Math.min(25, off)) : 0;
+        } catch (RuntimeException e) {
+            EnginesAndEmpiresMod.LOGGER.debug("Weather: couldn't work out a forecast's temperature offset", e);
+            return 0;
         }
     }
 
@@ -307,7 +338,7 @@ public final class ForecastService {
             if (now < p.due) {
                 continue;
             }
-            Forecast f = p.ready;
+            ForecastGrid f = p.ready;
             if (f == null && p.job != null && p.job.finished && !p.job.stale) {
                 f = p.job.result;
                 if (f == null) {
@@ -325,7 +356,7 @@ public final class ForecastService {
                 continue;
             }
             it.remove();
-            p.callback.ready(f);
+            p.callback.ready(f.at(p.x, p.z, p.offset));
         }
     }
 

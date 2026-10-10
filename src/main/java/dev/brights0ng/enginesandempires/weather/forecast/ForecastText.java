@@ -121,7 +121,7 @@ public final class ForecastText {
 
     /** The heading line. */
     public static String heading(Forecast f) {
-        return String.format(Locale.ROOT, "%s forecast for the area around %.0f, %.0f:",
+        return String.format(Locale.ROOT, "%s forecast for %.0f, %.0f:",
                 f.product() == Forecast.Product.TODAY ? "Today's" : f.parts().size() + "-day", f.x(), f.z());
     }
 
