@@ -191,8 +191,8 @@ public final class AtmosphereField {
 
     /**
      * A copy of the tiles overlapping the rectangle [minX, maxX] x [minZ, maxZ], for a forecast to run on (phase 7b).
-     * Cells within two of the copy but outside it (where carry and mixing read) get their climate normal, from the
-     * tiles left out or this field's edge cache, so the copy never has to ask the climate (which reads biomes, and
+     * Cells within two of the copy but outside it (where carry and mixing read) get the air of the tiles left out as
+     * it is now, or this field's edge cache's normals, so the copy never has to ask the climate (which reads biomes, and
      * the copy runs off the server thread). Air beyond the copy is normal air: one of the forecast's sources of error.
      */
     public AtmosphereField copyDomain(double minX, double minZ, double maxX, double maxZ) {
@@ -221,10 +221,9 @@ public final class AtmosphereField {
                     }
                     FieldTile left = tiles.get(tileKey);
                     if (left != null) {
+                        // The air there as it is now (it won't change during the forecast, but it starts right).
                         int idx = Math.floorMod(gk, SIZE) * SIZE + Math.floorMod(gi, SIZE);
-                        double base = left.base[idx];
-                        out.edge.put(cellKey, new double[]{base, base + ALOFT_OFFSET,
-                                Moisture.capacity(base) * Moisture.targetHumidity(left.surface[idx], left.humidity[idx])});
+                        out.edge.put(cellKey, new double[]{left.t[idx], left.a[idx], left.q[idx]});
                     } else {
                         double[] e = edge.get(cellKey);
                         if (e != null) {
