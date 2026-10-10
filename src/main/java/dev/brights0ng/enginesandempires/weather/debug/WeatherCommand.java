@@ -126,7 +126,11 @@ public final class WeatherCommand {
                 100 * s.humidity())), false);
         line(source, String.format(Locale.ROOT, "Regional climate: mean %.1f C, seasonal swing +/-%.1f, humidity %.0f%%.",
                 s.regional().mean(), s.regional().swing(), 100 * s.regional().humidity()));
-        line(source, String.format(Locale.ROOT, "Biome underfoot: mean %.1f C, swing +/-%.1f, humidity %.0f%%, %s%s.",
+        double[] noise = Climate.noise(level, at.x, at.z);
+        line(source, String.format(Locale.ROOT, "World climate noise: temperature %+.2f (%s), humidity %+.2f.",
+                noise[0], noise[0] < -0.45 ? "frozen band" : noise[0] < -0.15 ? "cold band" : noise[0] < 0.2
+                        ? "temperate band" : noise[0] < 0.55 ? "warm band" : "hot band", noise[1]));
+        line(source, String.format(Locale.ROOT, "Here (noise and biome): mean %.1f C, swing +/-%.1f, humidity %.0f%%, %s%s.",
                 local.mean(), local.swing(), 100 * local.humidity(), local.surface().getSerializedName(),
                 local.frozen() ? ", always frozen" : ""));
         line(source, String.format(Locale.ROOT, "Season %+.1f C, band %+.1f C, time of day %+.1f C, height %+.1f C%s.",

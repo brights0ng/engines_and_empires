@@ -13,9 +13,13 @@ import net.neoforged.neoforge.registries.datamaps.RegisterDataMapTypesEvent;
 
 /**
  * The biome climate data map, {@code data/engines_and_empires/data_maps/worldgen/biome/biome_climate.json}: each
- * biome's {@link BiomeClimate}. Entries can name single biomes or biome tags (a datapack can add modded biomes either
- * way); biomes left out get {@link BiomeClimate#fallback}. Server side only (clients get temperatures from the weather
- * sync), so it isn't synced.
+ * biome's {@link BiomeAdjust}: how it adjusts the climate the world's noise gives ({@link NoiseClimate}; since
+ * 2026-10-10 the climate itself no longer comes from a per-biome table). All fields are optional:
+ * {@code temperature_offset} (C), {@code humidity_offset}, {@code humidity} (0-1, replaces the noise's),
+ * {@code surface} (land, forest, water, ice; worked out from the biome's tags if left out) and {@code frozen}.
+ * Entries can name single biomes or biome tags (a datapack can add modded biomes either way); biomes left out get no
+ * adjustment, their surface from their tags, and never thaw if tagged icy ({@code c:is_icy}). Server side only (clients
+ * get temperatures from the weather sync), so it isn't synced.
  */
 public final class ClimateDataMaps {
 
@@ -24,15 +28,18 @@ public final class ClimateDataMaps {
         return s == null ? DataResult.error(() -> "Unknown surface: " + name) : DataResult.success(s);
     }, BiomeClimate.Surface::getSerializedName);
 
-    public static final Codec<BiomeClimate> CODEC = RecordCodecBuilder.create(i -> i.group(
-            Codec.doubleRange(-60, 60).fieldOf("mean").forGetter(BiomeClimate::mean),
-            Codec.doubleRange(0, 40).fieldOf("seasonal_swing").forGetter(BiomeClimate::swing),
-            Codec.doubleRange(0, 1).fieldOf("humidity").forGetter(BiomeClimate::humidity),
-            SURFACE_CODEC.optionalFieldOf("surface", BiomeClimate.Surface.LAND).forGetter(BiomeClimate::surface),
-            Codec.BOOL.optionalFieldOf("frozen", false).forGetter(BiomeClimate::frozen)
-    ).apply(i, BiomeClimate::new));
+    public static final Codec<BiomeAdjust> CODEC = RecordCodecBuilder.create(i -> i.group(
+            Codec.doubleRange(-40, 40).optionalFieldOf("temperature_offset", 0.0)
+                    .forGetter(BiomeAdjust::temperatureOffset),
+            Codec.doubleRange(-1, 1).optionalFieldOf("humidity_offset", 0.0).forGetter(BiomeAdjust::humidityOffset),
+            Codec.doubleRange(0, 1).optionalFieldOf("humidity")
+                    .forGetter(a -> a.overridesHumidity() ? java.util.Optional.of(a.humidity()) : java.util.Optional.empty()),
+            SURFACE_CODEC.optionalFieldOf("surface").forGetter(a -> java.util.Optional.ofNullable(a.surface())),
+            Codec.BOOL.optionalFieldOf("frozen", false).forGetter(BiomeAdjust::frozen)
+    ).apply(i, (t, dh, h, surface, frozen) -> new BiomeAdjust(t, dh, h.orElse(Double.NaN), surface.orElse(null),
+            frozen)));
 
-    public static final DataMapType<Biome, BiomeClimate> BIOME_CLIMATE = DataMapType.builder(
+    public static final DataMapType<Biome, BiomeAdjust> BIOME_CLIMATE = DataMapType.builder(
                     ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "biome_climate"),
                     Registries.BIOME, CODEC)
             .build();
