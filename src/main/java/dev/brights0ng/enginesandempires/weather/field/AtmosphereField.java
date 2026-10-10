@@ -50,6 +50,12 @@ public final class AtmosphereField {
     static final double TAU_CONTACT = 12_000;
     static final double TAU_PRECIP = 12_000;
     static final double MIX = 0.05;
+    /**
+     * The step {@link #MIX} is the share for: live play's 100 ticks. Other step lengths mix the same amount per unit of
+     * time (weather phase 7c, 2026-10-09: a fixed share per step mixed ten times less per hour during hour-long
+     * {@code /eae weather step}s and night skips than in live play, and forecasts in between).
+     */
+    static final double MIX_STEP = 100;
     /** How long a tile is kept after the last player leaves, ticks (3 in-game days). */
     public static final long MEMORY = 72_000;
     /** A tile unused for longer than this catches up before its next use, ticks. */
@@ -337,6 +343,7 @@ public final class AtmosphereField {
         float[] p = new float[n];
         float[] r = new float[n];
         double s = ADVECTION * seconds;
+        double mix = 1 - Math.pow(1 - MIX, dt / MIX_STEP);
         for (int k = 0; k < SIZE; k++) {
             for (int i = 0; i < SIZE; i++) {
                 int idx = k * SIZE + i;
@@ -349,8 +356,8 @@ public final class AtmosphereField {
                 double tDep = sample(Var.T, cx - w[0] * s, cz - w[1] * s, env);
                 double aDep = sample(Var.A, cx - w[2] * s, cz - w[3] * s, env);
                 double qDep = sample(Var.Q, cx - (w[0] + w[2]) / 2 * s, cz - (w[1] + w[3]) / 2 * s, env);
-                tDep = tDep * (1 - MIX) + MIX * neighbours(Var.T, cx, cz, env);
-                qDep = qDep * (1 - MIX) + MIX * neighbours(Var.Q, cx, cz, env);
+                tDep = tDep * (1 - mix) + mix * neighbours(Var.T, cx, cz, env);
+                qDep = qDep * (1 - mix) + mix * neighbours(Var.Q, cx, cz, env);
 
                 double[] contact = env.contact(cx, cz);
                 double push = Math.min(1, contact[1] * dt / TAU_CONTACT);

@@ -61,6 +61,8 @@ public final class SystemsSim {
     private Drift.Settings drift = Drift.Settings.DEFAULT;
     /** 0 for the live run; otherwise the salt a forecast rolls new systems' make-up with. */
     private long traitSalt;
+    /** A forecast's start (newborn systems' make-up blends toward the forecast's roll from it), or MIN_VALUE: fully. */
+    private long forecastStart = Long.MIN_VALUE;
 
     public SystemsSim(JetStream jet, long seed, List<WeatherSystem> systems, long nextId) {
         this.jet = jet;
@@ -99,6 +101,7 @@ public final class SystemsSim {
         SystemsSim copy = new SystemsSim(jet, seed, c, nextId);
         copy.drift = drift;
         copy.traitSalt = traitSalt;
+        copy.forecastStart = forecastStart;
         return copy;
     }
 
@@ -110,6 +113,17 @@ public final class SystemsSim {
     public SystemsSim forForecast(long salt) {
         SystemsSim copy = copy();
         copy.traitSalt = salt == 0 ? 1 : salt;
+        copy.forecastStart = Long.MIN_VALUE;
+        return copy;
+    }
+
+    /**
+     * A copy for a forecast starting at simulation time {@code start}: newborn systems' make-up blends from the live
+     * roll (born at the start) to the forecast's own roll (born {@link #REROLL_TICKS} or more after it).
+     */
+    public SystemsSim forForecast(long salt, long start) {
+        SystemsSim copy = forForecast(salt);
+        copy.forecastStart = start;
         return copy;
     }
 
@@ -238,23 +252,43 @@ public final class SystemsSim {
 
     private long dayHash(int track, double x, long time, long salt) {
         double cell = jet.params().spacing() / 4;
-        long h = SimMath.hash(seed, salt, track, (long) Math.floor(x / cell), Math.floorDiv(time, 24000L));
-        // A forecast rolls new systems' make-up its own way (where they form is decided outside this hash).
-        return traitSalt == 0 ? h : SimMath.mix(h ^ traitSalt);
+        return SimMath.hash(seed, salt, track, (long) Math.floor(x / cell), Math.floorDiv(time, 24000L));
+    }
+
+    /** How long after a forecast's start a newborn system's make-up is rolled fully independently, ticks (3 days). */
+    static final long REROLL_TICKS = 72_000;
+
+    /**
+     * Trait number {@code k} of a system born at {@code time} with live hash {@code h}, 0-1. The live run uses the
+     * live roll. A forecast blends toward its own independent roll by how long after the forecast's start the system
+     * forms (Claude's call, Bright 2026-10-09: storms forming within hours are mostly right, ones forming three days
+     * out are a fresh guess), so it is fairly sure of storms forming soon and unsure of far-off ones.
+     */
+    private double trait(long h, int k, long time) {
+        double live = SimMath.unit(h, k);
+        if (traitSalt == 0) {
+            return live;
+        }
+        double w = forecastStart == Long.MIN_VALUE ? 1
+                : SimMath.smooth((double) (time - forecastStart) / REROLL_TICKS);
+        if (w <= 0) {
+            return live;
+        }
+        return live + w * (SimMath.unit(SimMath.mix(h ^ traitSalt), k) - live);
     }
 
     private void spawnLow(int track, double x, long time, double seconds, double season, SimParams.Seasonal seasonal,
                           Coverage coverage) {
         long h = dayHash(track, x, time, 0x10EL);
         double ts = jet.params().trackSpacing();
-        double z = jet.trackZ(track, x, seconds, season) + (SimMath.unit(h, 1) - 0.5) * 0.16 * ts;
-        long lifetime = (long) ((3 + 4 * Math.pow(SimMath.unit(h, 2), 1.3)) * 24000);
-        double peak = (14 + 20 * SimMath.unit(h, 3)) * seasonal.depth();
-        double radius = 3000 + 3000 * SimMath.unit(h, 4);
+        double z = jet.trackZ(track, x, seconds, season) + (trait(h, 1, time) - 0.5) * 0.16 * ts;
+        long lifetime = (long) ((3 + 4 * Math.pow(trait(h, 2, time), 1.3)) * 24000);
+        double peak = (14 + 20 * trait(h, 3, time)) * seasonal.depth();
+        double radius = 3000 + 3000 * trait(h, 4, time);
         if (crowded(WeatherSystem.Kind.HIGH, x, z, radius) || sameKindNear(WeatherSystem.Kind.LOW, x, z, radius)) {
             return;
         }
-        long age = coverage.covered(x, z) ? 0 : (long) ((0.1 + 0.5 * SimMath.unit(h, 5)) * lifetime);
+        long age = coverage.covered(x, z) ? 0 : (long) ((0.1 + 0.5 * trait(h, 5, time)) * lifetime);
         systems.add(new WeatherSystem(nextId++, WeatherSystem.Kind.LOW, x, z, track, jet.hemisphere(track), age,
                 lifetime, peak, radius, false));
     }
@@ -265,8 +299,8 @@ public final class SystemsSim {
         int hem = jet.hemisphere(track);
         double ts = jet.params().trackSpacing();
         // Usually on the warm side of the track (+z for northern-style); in winter sometimes a cold, polar high.
-        boolean cold = season < 0 && SimMath.unit(h, 1) < 0.3 * -season;
-        double z = jet.trackZ(track, x, seconds, season) + (cold ? -hem : hem) * (0.08 + 0.06 * SimMath.unit(h, 2)) * ts;
+        boolean cold = season < 0 && trait(h, 1, time) < 0.3 * -season;
+        double z = jet.trackZ(track, x, seconds, season) + (cold ? -hem : hem) * (0.08 + 0.06 * trait(h, 2, time)) * ts;
         for (WeatherSystem s : systems) {
             if (s.kind == WeatherSystem.Kind.HIGH && Math.hypot(s.x - x, s.z - z) < 0.45 * spacing) {
                 return;
@@ -275,14 +309,14 @@ public final class SystemsSim {
         if (crowded(WeatherSystem.Kind.LOW, x, z, 0)) {
             return;
         }
-        boolean blocking = SimMath.unit(h, 3) < seasonal.blockChance();
-        long lifetime = (long) ((3 + 5 * SimMath.unit(h, 4)) * 24000 * (blocking ? 1.8 : 1));
-        double peak = (6 + 12 * SimMath.unit(h, 5)) * (1 + 0.2 * Math.abs(season)) * (blocking ? 1.4 : 1);
-        double radius = (5000 + 4000 * SimMath.unit(h, 6)) * (blocking ? 1.2 : 1);
+        boolean blocking = trait(h, 3, time) < seasonal.blockChance();
+        long lifetime = (long) ((3 + 5 * trait(h, 4, time)) * 24000 * (blocking ? 1.8 : 1));
+        double peak = (6 + 12 * trait(h, 5, time)) * (1 + 0.2 * Math.abs(season)) * (blocking ? 1.4 : 1);
+        double radius = (5000 + 4000 * trait(h, 6, time)) * (blocking ? 1.2 : 1);
         if (sameKindNear(WeatherSystem.Kind.HIGH, x, z, radius)) {
             return;
         }
-        long age = coverage.covered(x, z) ? 0 : (long) ((0.2 + 0.4 * SimMath.unit(h, 7)) * lifetime);
+        long age = coverage.covered(x, z) ? 0 : (long) ((0.2 + 0.4 * trait(h, 7, time)) * lifetime);
         systems.add(new WeatherSystem(nextId++, WeatherSystem.Kind.HIGH, x, z, track, hem, age, lifetime, peak, radius,
                 blocking));
     }

@@ -203,4 +203,30 @@ class AtmosphereFieldTest {
         assertTrue(Math.abs(after - 10) < Math.abs(before - 10) - 0.5, "it relaxed toward normal: " + before + " -> "
                 + after);
     }
+
+    /** Weather phase 7c (2026-10-09): the air mixes with its neighbours at the same rate whatever the step length. */
+    @Test
+    void mixingDoesNotDependOnTheStepLength() {
+        World w = new World();
+        AtmosphereField base = new AtmosphereField();
+        base.ensure(0, 0, 4000, w, 0);
+        // A sharp warm spike in still air: only mixing spreads it.
+        for (FieldTile tile : base.tiles().values()) {
+            for (int i = 0; i < tile.t.length; i++) {
+                if (Math.abs(tile.cellX(i % AtmosphereField.SIZE)) < 300 && Math.abs(tile.cellZ(i / AtmosphereField.SIZE)) < 300) {
+                    tile.t[i] = 30f;
+                }
+            }
+        }
+        AtmosphereField fine = base.copyDomain(-8000, -8000, 8000, 8000);
+        AtmosphereField coarse = base.copyDomain(-8000, -8000, 8000, 8000);
+        run(fine, w, 60, 100);
+        run(coarse, w, 6, 1000);
+        double a = fine.sample(AtmosphereField.Var.T, 256, 256, w);
+        double b = coarse.sample(AtmosphereField.Var.T, 256, 256, w);
+        double spreadFine = fine.sample(AtmosphereField.Var.T, 1280, 256, w);
+        double spreadCoarse = coarse.sample(AtmosphereField.Var.T, 1280, 256, w);
+        assertEquals(a, b, 1.0, "the spike decays alike: " + a + " vs " + b);
+        assertEquals(spreadFine, spreadCoarse, 0.6, "and spreads alike: " + spreadFine + " vs " + spreadCoarse);
+    }
 }
