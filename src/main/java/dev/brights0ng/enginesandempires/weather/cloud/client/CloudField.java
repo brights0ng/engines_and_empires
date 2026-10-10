@@ -103,6 +103,22 @@ final class CloudField {
     static final double FORMING_WATER = 0.25;
 
     /**
+     * Nothing of any cloud is ever below this, world y (Bright, 2026-10-10: no part of a cloud, not only its base).
+     * The vertical warp (up to 4% of the cloud's radius, ~50 blocks on a big storm), a layer sheet's relief (a
+     * nimbostratus base undulates by 3% of its ~1,000-block thickness), the churn and the voxel lattice could each carry
+     * a cloud well below its base: {@link #density} is cut off here, and the voxelizer drops every voxel whose bottom is
+     * lower (CloudVoxelizer.sample, grid).
+     */
+    static final double FLOOR_Y = CloudScale.MIN_BASE_Y;
+    /** How fast the density falls below {@link #FLOOR_Y}, density units per block: a hard cut. */
+    static final double FLOOR_SHARPNESS = 1.0;
+
+    /** {@code d} at world height {@code y}, cut off below {@link #FLOOR_Y}. */
+    static double floored(double y, double d) {
+        return Math.min(d, (y - FLOOR_Y) * FLOOR_SHARPNESS);
+    }
+
+    /**
      * How much the billows and detail can raise a point's density, at most. The warp and the fibres are already in a
      * point's envelope value, so a point whose envelope is below minus this can't be inside: its noise is skipped.
      */
@@ -649,7 +665,7 @@ final class CloudField {
                 maxZ = Math.max(maxZ, z);
             }
         }
-        return new double[]{minX, maxX, baseY - rf * 0.06, topY + rf * 0.08, minZ, maxZ};
+        return new double[]{minX, maxX, Math.max(FLOOR_Y, baseY - rf * 0.06), topY + rf * 0.08, minZ, maxZ};
     }
 
     // ---- per column ----------------------------------------------------------------------------------------------
@@ -841,9 +857,10 @@ final class CloudField {
             return false;
         }
         // The bounds above are in warped height; a point at y is evaluated at y + wy.
-        out[0] = lo - c.wy;
+        // Never below the floor: nothing of a cloud is there (FLOOR_Y).
+        out[0] = Math.max(lo - c.wy, FLOOR_Y);
         out[1] = hi - c.wy;
-        return true;
+        return out[1] >= out[0];
     }
 
     // ---- density -------------------------------------------------------------------------------------------------
@@ -927,7 +944,7 @@ final class CloudField {
         double base = Math.max(dm, da);
         if (!smooth && (base < -noiseReach || base > noiseReach + 0.07)) {
             // Too far outside or inside for the billows to change which side it is on.
-            return base;
+            return floored(y, base);
         }
         double edge = 0.8 + 0.5 * maxEdge;
         double ms = billowScale;
@@ -945,7 +962,7 @@ final class CloudField {
             double flat = floor + (1 - floor) * smooth(rise);
             n *= flat;
         }
-        return smoothMax(dm + n, da + 0.45 * n, 0.25);
+        return floored(y, smoothMax(dm + n, da + 0.45 * n, 0.25));
     }
 
     /** The members' smoothly blended envelope at warped height {@code yw}. */
