@@ -533,7 +533,7 @@ public final class WeatherSim {
     public SystemsSim forecastSystems(long salt) {
         rebuild();
         sim.setDrift(WeatherConfig.drift());
-        return sim.forForecast(salt);
+        return sim.forForecast(salt, time());
     }
 
     /** The clouds (phase 4a). */

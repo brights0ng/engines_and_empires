@@ -167,6 +167,30 @@ class DriftTest {
 
     // ---- helpers ---------------------------------------------------------------------------------------------------
 
+    @Test
+    void stormsFormingSoonKeepTheirMakeUpAndFarOnesAreRerolled() {
+        SystemsSim live = new SystemsSim(new JetStream(P, 42), 7, new ArrayList<>(), 0);
+        SystemsSim soon = live.forForecast(99, 0);
+        SystemsSim far = live.forForecast(99, -SystemsSim.REROLL_TICKS);
+        live.step(0, 100, 0, HERE, (x, z) -> true, null);
+        soon.step(0, 100, 0, HERE, (x, z) -> true, null);
+        far.step(0, 100, 0, HERE, (x, z) -> true, null);
+        List<WeatherSystem> a = lows(live, 0);
+        List<WeatherSystem> b = lows(soon, 0);
+        List<WeatherSystem> c = lows(far, 0);
+        assertEquals(a.size(), b.size());
+        for (int i = 0; i < a.size(); i++) {
+            assertEquals(a.get(i).peak, b.get(i).peak, 1e-9, "born at the forecast's start: the live make-up");
+        }
+        int differ = 0;
+        for (int i = 0; i < Math.min(a.size(), c.size()); i++) {
+            if (Math.abs(a.get(i).peak - c.get(i).peak) > 1e-6) {
+                differ++;
+            }
+        }
+        assertTrue(differ >= a.size() - 1, "born three days after it: rolled afresh");
+    }
+
     private static List<WeatherSystem> lows(SystemsSim sim, int track) {
         return sim.systems().stream().filter(s -> s.kind == WeatherSystem.Kind.LOW && s.track == track)
                 .sorted((p, q) -> Double.compare(p.x, q.x)).toList();
