@@ -38,6 +38,7 @@ public final class ForecastCommand {
                                 .then(Commands.literal("track").executes(context -> track(context.getSource())))
                                 .then(Commands.literal("untrack").executes(context -> untrack(context.getSource())))
                                 .then(Commands.literal("clear").executes(context -> clearScores(context.getSource())))
+                                .then(Commands.literal("probe").executes(context -> probe(context.getSource())))
                                 .then(Commands.literal("score")
                                         .executes(context -> score(context.getSource()))
                                         .then(Commands.literal("csv")
@@ -70,6 +71,26 @@ public final class ForecastCommand {
         ForecastScore.clear();
         source.sendSuccess(() -> Component.literal("Forecast scores and records cleared (tracking carries on)."),
                 false);
+        return 1;
+    }
+
+    /** Debug: a day forecast's air against the live air over the next 24 hours (runs the weather 24 hours ahead). */
+    private static int probe(CommandSourceStack source) {
+        Vec3 at = source.getPosition();
+        java.util.List<String> lines = ForecastProbe.compare(source.getServer().overworld(), at.x, at.z, 24);
+        for (String line : lines) {
+            EnginesAndEmpiresMod.LOGGER.info("Forecast probe: {}", line);
+        }
+        try {
+            java.nio.file.Path dir = source.getServer().getServerDirectory().resolve("logs");
+            java.nio.file.Files.createDirectories(dir);
+            java.nio.file.Path file = dir.resolve("forecast-probe-" + System.currentTimeMillis() + ".txt");
+            java.nio.file.Files.write(file, lines, java.nio.charset.StandardCharsets.UTF_8);
+            source.sendSuccess(() -> Component.literal("Probe done (the weather ran 24 hours ahead); wrote "
+                    + file.toAbsolutePath()), false);
+        } catch (java.io.IOException e) {
+            source.sendFailure(Component.literal("Probe done, but the file couldn't be written: " + e.getMessage()));
+        }
         return 1;
     }
 
