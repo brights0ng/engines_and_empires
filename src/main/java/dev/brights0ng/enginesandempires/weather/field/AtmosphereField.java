@@ -127,6 +127,16 @@ public final class AtmosphereField {
      * and returns the keys of the missing ones, nearest first (for building them a little at a time).
      */
     public List<Long> touch(double x, double z, double radius, long time) {
+        return touch(x, z, radius, time, 0);
+    }
+
+    /**
+     * As {@link #touch(double, double, double, long)} before a step of {@code dt} ticks: a tile counts as having sat
+     * unused only for the time beyond that step, which the step itself will cover. (Weather phase 7c, 2026-10-09: with
+     * hour-long steps, {@code /eae weather step} and the night skip used to catch every tile up by the whole hour and
+     * then step it by the same hour, settling the air toward normal twice as fast as in live play.)
+     */
+    public List<Long> touch(double x, double z, double radius, long time, long dt) {
         int t0x = Math.floorDiv((int) Math.floor(x - radius), TILE);
         int t1x = Math.floorDiv((int) Math.floor(x + radius), TILE);
         int t0z = Math.floorDiv((int) Math.floor(z - radius), TILE);
@@ -136,8 +146,9 @@ public final class AtmosphereField {
             for (int tx = t0x; tx <= t1x; tx++) {
                 FieldTile tile = tiles.get(key(tx, tz));
                 if (tile != null) {
-                    if (tile.lastActive > 0 && time - tile.lastActive > STALE) {
-                        catchUp(tile, time - tile.lastActive);
+                    long missed = time - tile.lastActive - Math.max(0, dt);
+                    if (tile.lastActive > 0 && missed > STALE) {
+                        catchUp(tile, missed);
                     }
                     tile.lastActive = time;
                 } else {

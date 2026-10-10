@@ -164,4 +164,43 @@ class AtmosphereFieldTest {
         assertTrue(AirMassContact.prepare(List.of(block), 1).at(0, 0)[0] > 3, "summer heat wave");
         assertTrue(AirMassContact.prepare(List.of(block), -1).at(0, 0)[0] < -3, "winter cold snap");
     }
+
+    /**
+     * Weather phase 7c (2026-10-09): stepping in hour-long chunks ({@code /eae weather step}, the night skip) must not
+     * also "catch up" every tile by the same hour, or the air settles toward normal twice as fast as in live play.
+     */
+    @Test
+    void hourLongStepsDoNotCatchUpTheHourTheyStep() {
+        World w = new World();
+        AtmosphereField stepped = new AtmosphereField();
+        stepped.ensure(0, 0, 4000, w, 0);
+        for (FieldTile tile : stepped.tiles().values()) {
+            java.util.Arrays.fill(tile.t, 18f);
+            java.util.Arrays.fill(tile.q, 3f);
+            tile.lastActive = 1;
+        }
+        AtmosphereField plain = stepped.copyDomain(-8000, -8000, 8000, 8000);
+        for (long time = 1001; time <= 12_001; time += 1000) {
+            stepped.touch(0, 0, 4000, time, 1000);
+            for (FieldTile tile : stepped.active(time)) {
+                stepped.stepTile(tile, 1000, w);
+            }
+            plain.step(1000, w);
+        }
+        double a = stepped.sample(AtmosphereField.Var.T, 0, 0, w);
+        double b = plain.sample(AtmosphereField.Var.T, 0, 0, w);
+        assertEquals(b, a, 0.05, "touched-and-stepped hourly matches plain hourly steps");
+        assertEquals(plain.sample(AtmosphereField.Var.Q, 0, 0, w), stepped.sample(AtmosphereField.Var.Q, 0, 0, w), 0.05);
+
+        // A tile left alone for half a day still catches up when it comes back.
+        AtmosphereField away = plain.copyDomain(-8000, -8000, 8000, 8000);
+        for (FieldTile tile : away.tiles().values()) {
+            tile.lastActive = 12_001;
+        }
+        double before = away.sample(AtmosphereField.Var.T, 0, 0, w);
+        away.touch(0, 0, 4000, 24_001, 100);
+        double after = away.sample(AtmosphereField.Var.T, 0, 0, w);
+        assertTrue(Math.abs(after - 10) < Math.abs(before - 10) - 0.5, "it relaxed toward normal: " + before + " -> "
+                + after);
+    }
 }
