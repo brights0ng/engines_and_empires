@@ -85,7 +85,8 @@ public final class CloudVoxelizer {
     static Grid grid(CloudField field, int s) {
         double[] b = field.bounds();
         int gx0 = (int) Math.floor(b[0] / s);
-        int gy0 = (int) Math.floor(b[2] / s);
+        // The grid starts at the first voxel boundary at or above the floor, so no voxel reaches below it.
+        int gy0 = Math.max((int) Math.floor(b[2] / s), (int) Math.ceil(CloudField.FLOOR_Y / s));
         int gz0 = (int) Math.floor(b[4] / s);
         int nx = Math.max(1, (int) Math.ceil(b[1] / s) - gx0);
         int ny = Math.max(1, (int) Math.ceil(b[3] / s) - gy0);
@@ -512,6 +513,14 @@ public final class CloudVoxelizer {
                     }
                 }
             }
+        }
+        // ---- nothing below the floor (CloudField.FLOOR_Y): the lattice interpolates across it and the coarse pass
+        // fills whole cells, so a voxel is kept only if its bottom is at or above it. (Sections round their grids
+        // down to the lattice, so theirs can start below the formation's.)
+        int vFloor = (int) Math.ceil(CloudField.FLOOR_Y / s) - g.gy0;
+        for (int v = v0; v <= Math.min(v1, vFloor - 1); v++) {
+            int layer = (v - v0) * snz * snx;
+            java.util.Arrays.fill(solid, layer, layer + snz * snx, (byte) 0);
         }
         long t3 = System.nanoTime();
         tCoarse = t1 - t0;

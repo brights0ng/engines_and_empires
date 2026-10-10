@@ -14,6 +14,8 @@ import java.util.UUID;
  * Heights are above {@link #GROUND_Y}, a fixed reference for the ground: a cloud spans too much terrain to follow it.
  * No base is ever below {@link #MIN_BASE_Y} (Bright, 2026-10-08: low stratus and nimbostratus at sea level are
  * unpleasant to play in, realistic or not); a cloud that would sit lower sits there instead, its thickness unchanged.
+ * Raised to 120 on 2026-10-10, and made a floor for the whole cloud, not just its base: the renderer cuts every part of
+ * every cloud off there ({@code CloudField.FLOOR_Y}).
  *
  * <p>Convective clouds grow: their tops rise from {@link #FORMING_THICKNESS} of their full thickness to all of it over
  * their birth ({@link CloudLife}).
@@ -29,8 +31,11 @@ public final class CloudScale {
     /** The ground the heights are measured from (just above sea level). */
     public static final double GROUND_Y = 64;
 
-    /** The lowest any cloud's base can be, world y (Bright, 2026-10-08). */
-    public static final double MIN_BASE_Y = 100;
+    /**
+     * The lowest any cloud's base can be, world y, and the lowest any part of a cloud is drawn (Bright, 2026-10-08 at
+     * 100; 2026-10-10 raised to 120 and applied to the whole cloud).
+     */
+    public static final double MIN_BASE_Y = 120;
 
     /** The highest any cloud's top can be (the tallest cumulonimbus, with room to spare). */
     public static final double MAX_TOP_Y = GROUND_Y + 16_000 * SCALE;
@@ -58,7 +63,7 @@ public final class CloudScale {
 
     /**
      * The drawn base and top of a cloud with base {@code baseY} and full thickness {@code thickness} (blocks), at
-     * growth {@code growth} (0-1, {@link CloudLife.Phase#growth}): a growing type starts as a thin layer at its base.
+     * growth {@code growth} (0-1, {}): a growing type starts as a thin layer at its base.
      */
     public static Heights heights(CloudType t, double baseY, double thickness, double growth) {
         double h = thickness;

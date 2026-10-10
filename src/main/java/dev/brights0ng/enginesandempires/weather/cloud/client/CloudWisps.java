@@ -15,6 +15,8 @@ import java.util.SplittableRandom;
  *       the hard outline softens. It drifts slowly outward and up.</li>
  *   <li><b>Shreds</b> hang just under the flat base: torn, stretched tatters that drift outward and a little down.</li>
  * </ul>
+ * No wisp ever reaches below {@link CloudField#FLOOR_Y} over its life (Bright, 2026-10-10: no part of a cloud below
+ * it): one that would is not made ({@link #lowest}), so clouds sitting on the floor get no shreds.
  * Each is lit once, when it appears, the way the cloud is at that spot ({@link #light}): a sky part and a sun part, coloured
  * with the time of day like the cloud ({@link CloudColours}).
  *
@@ -139,10 +141,23 @@ final class CloudWisps {
             }
             w.life = LIFE_MIN + (LIFE_MAX - LIFE_MIN) * rng.nextDouble();
             w.born = filled ? time : time - w.life * 0.8 * rng.nextDouble();
+            if (lowest(w) < CloudField.FLOOR_Y) {
+                continue;
+            }
             wisps.add(w);
             k++;
         }
         filled = true;
+    }
+
+    /**
+     * The lowest any part of wisp {@code w} gets over its life, world y: its centre's lowest point, less how far its
+     * sprite can reach down (haze turned any way; shreds stretched, and tipped when seen from below).
+     */
+    static double lowest(Wisp w) {
+        double drop = Math.min(0, w.vy * w.life);
+        double reach = w.kind == HAZE ? w.size * Math.sqrt(2) : w.size * (w.stretch + 1);
+        return w.y + drop - reach;
     }
 
     /** A haze wisp on the surface of a random bubble's upper or outer side, or null if that spot is buried. */

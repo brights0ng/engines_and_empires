@@ -77,9 +77,9 @@ class CloudScaleTest {
         assertTrue(CloudType.CUMULUS_HUMILIS.radiusBlocks() < CloudType.CUMULONIMBUS_CALVUS.radiusBlocks());
     }
 
-    /** No cloud base below y 100, whatever the type or air (Bright, 2026-10-08); thickness kept. */
+    /** No cloud base below the floor (y 120), whatever the type or air (Bright, 2026-10-08, raised 2026-10-10). */
     @Test
-    void noCloudBaseBelowY100() {
+    void noCloudBaseBelowTheFloor() {
         assertEquals(CloudScale.MIN_BASE_Y, CloudScale.baseY(0), 1e-9);
         assertEquals(CloudScale.MIN_BASE_Y, CloudScale.baseY(-500), 1e-9);
         assertEquals(CloudScale.GROUND_Y + 1000 * CloudScale.SCALE, CloudScale.baseY(1000), 1e-9);
