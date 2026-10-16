@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import dev.brights0ng.enginesandempires.frontier.deep.Deep;
-import dev.brights0ng.enginesandempires.frontier.deep.ShotSource;
+import dev.brights0ng.frontier.deep.Deep;
+import dev.brights0ng.frontier.deep.ShotSource;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import dev.brights0ng.sparseores.Realm;
 import net.minecraft.core.BlockPos;

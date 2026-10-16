@@ -10,9 +10,9 @@ import org.joml.Quaternionf;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
-import dev.brights0ng.enginesandempires.frontier.map.TierGrid;
-import dev.brights0ng.enginesandempires.frontier.map.TierMapPayloads;
 import dev.brights0ng.enginesandempires.geophone.client.TierOverlay;
+import dev.brights0ng.frontier.map.TierGrid;
+import dev.brights0ng.frontier.map.TierMapPayloads;
 import dev.brights0ng.seismicsurveyance.Logbook;
 import dev.brights0ng.seismicsurveyance.LogbookEntry;
 import dev.brights0ng.seismicsurveyance.LoggerDisplay;
