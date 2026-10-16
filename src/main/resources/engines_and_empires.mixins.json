@@ -16,7 +16,8 @@
     "compat.minecolonies.ColonySoundWeatherMixin",
     "compat.coldsweat.HearthFuelAccessor",
     "compat.coldsweat.HearthReplacedMixin",
-    "compat.coldsweat.HearthKinSmartMixin"
+    "compat.coldsweat.HearthKinSmartMixin",
+    "compat.cloudworks.CloudWorksDebugDumpMixin"
   ],
   "client": [
     "client.EncumberedTooltipMixin",

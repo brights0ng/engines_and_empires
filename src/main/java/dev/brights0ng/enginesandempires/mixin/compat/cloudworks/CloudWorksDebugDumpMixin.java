@@ -1,4 +1,4 @@
-package dev.brights0ng.meteodyne.mixin;
+package dev.brights0ng.enginesandempires.mixin.compat.cloudworks;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -15,7 +15,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * frequent GC hitches (P99 23 ms) the whole time. The output is debug-only; CloudWorks' recipe indexes, which Diet uses,
  * are built separately and are untouched.
  *
- * <p>{@link Pseudo} and {@code require = 0}: without CloudWorks (or if a later version renames these) this does nothing.
+ * <p>{@link Pseudo} and {@code require = 0}: without CloudWorks (or if a later version renames these) this does nothing,
+ * so the core's mixin plugin applies it whether or not CloudWorks is loaded. It is the pack's fix for another mod, so it
+ * lives in the core (moved from Meteodyne in split step 1c-A).
  */
 @Pseudo
 @Mixin(targets = "com.cloudworks.api.recipeparser.DebugOutputWriter", remap = false)
