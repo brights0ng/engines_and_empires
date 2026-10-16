@@ -18,6 +18,7 @@ import com.google.common.hash.Hashing;
 import com.google.gson.JsonObject;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
+import dev.brights0ng.sparseores.refining.ChipTextures;
 import net.minecraft.Util;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.data.CachedOutput;

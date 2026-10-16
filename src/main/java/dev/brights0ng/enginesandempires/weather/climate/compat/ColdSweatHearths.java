@@ -2,7 +2,7 @@ package dev.brights0ng.enginesandempires.weather.climate.compat;
 
 import com.momosoftworks.coldsweat.common.blockentity.HearthBlockEntity;
 import dev.brights0ng.enginesandempires.mixin.compat.coldsweat.HearthFuelAccessor;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatDrivers;
+import dev.brights0ng.meteodyne.heat.world.HeatDrivers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;

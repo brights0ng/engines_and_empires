@@ -8,7 +8,7 @@ import com.momosoftworks.coldsweat.api.util.placement.Matcher;
 import com.momosoftworks.coldsweat.api.util.placement.Placement;
 import com.momosoftworks.coldsweat.config.ConfigSettings;
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
-import dev.brights0ng.enginesandempires.weather.rain.ClientWeather;
+import dev.brights0ng.meteodyne.rain.ClientWeather;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -77,7 +77,7 @@ public final class ColdSweatCompat {
      */
     public static double airTemperature(Level level, BlockPos pos) {
         if (level instanceof ServerLevel server) {
-            return dev.brights0ng.enginesandempires.weather.climate.Temperature.at(server, pos);
+            return dev.brights0ng.meteodyne.climate.Temperature.at(server, pos);
         }
         return ClientWeather.temperature(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
     }

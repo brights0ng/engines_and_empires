@@ -4,18 +4,19 @@ import java.util.HashSet;
 import java.util.Set;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
-import dev.brights0ng.enginesandempires.frontier.FrontierContent;
-import dev.brights0ng.enginesandempires.frontier.deep.DeepRoster;
-import dev.brights0ng.enginesandempires.frontier.incursion.Incursion;
-import dev.brights0ng.enginesandempires.frontier.incursion.Incursions;
-import dev.brights0ng.enginesandempires.frontier.incursion.LoudMachines;
-import dev.brights0ng.enginesandempires.frontier.incursion.Settlement;
-import dev.brights0ng.enginesandempires.frontier.incursion.SettlementClusters;
-import dev.brights0ng.enginesandempires.frontier.tier.SectionKey;
-import dev.brights0ng.enginesandempires.geophone.ChokedThumperBlock;
-import dev.brights0ng.enginesandempires.geophone.ChokedThumpers;
-import dev.brights0ng.enginesandempires.geophone.CombustiveThumperBlock;
-import dev.brights0ng.enginesandempires.geophone.SeismicContent;
+import dev.brights0ng.frontier.FrontierContent;
+import dev.brights0ng.frontier.deep.DeepRoster;
+import dev.brights0ng.frontier.incursion.Incursion;
+import dev.brights0ng.frontier.incursion.Incursions;
+import dev.brights0ng.frontier.incursion.LoudMachines;
+import dev.brights0ng.frontier.incursion.Settlement;
+import dev.brights0ng.frontier.incursion.SettlementClusters;
+import dev.brights0ng.frontier.tier.SectionKey;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
+import dev.brights0ng.seismicsurveyance.ChokedThumperBlock;
+import dev.brights0ng.seismicsurveyance.ChokedThumpers;
+import dev.brights0ng.seismicsurveyance.CombustiveThumperBlock;
+import dev.brights0ng.seismicsurveyance.SeismicContent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -134,18 +135,18 @@ public final class FrontierIncursionGameTests {
         helper.setBlock(THUMPER, SeismicContent.MECHANICAL_THUMPER.get());
         Incursions incursions = Incursions.of(helper.getLevel());
         incursions.stopAll();
-        int minDistance = dev.brights0ng.enginesandempires.frontier.FrontierConfig.THUMPER_WAVE_MIN_DISTANCE.get();
-        int maxDistance = dev.brights0ng.enginesandempires.frontier.FrontierConfig.THUMPER_WAVE_MAX_DISTANCE.get();
+        int minDistance = dev.brights0ng.frontier.FrontierConfig.THUMPER_WAVE_MIN_DISTANCE.get();
+        int maxDistance = dev.brights0ng.frontier.FrontierConfig.THUMPER_WAVE_MAX_DISTANCE.get();
         // Inside the test's own walled space, where there is always room.
-        dev.brights0ng.enginesandempires.frontier.FrontierConfig.THUMPER_WAVE_MIN_DISTANCE.set(1);
-        dev.brights0ng.enginesandempires.frontier.FrontierConfig.THUMPER_WAVE_MAX_DISTANCE.set(2);
+        dev.brights0ng.frontier.FrontierConfig.THUMPER_WAVE_MIN_DISTANCE.set(1);
+        dev.brights0ng.frontier.FrontierConfig.THUMPER_WAVE_MAX_DISTANCE.set(2);
         Incursion incursion = incursions.startThumper(helper.absolutePos(THUMPER));
         helper.assertTrue(incursion != null, "it starts");
         helper.assertTrue(incursion.thumpers().contains(helper.absolutePos(THUMPER)), "it goes after the thumper that called it");
         helper.succeedWhen(() -> {
             helper.assertTrue(incursion.wave() >= 1 || incursion.isOver(), "waiting for the first wave");
-            dev.brights0ng.enginesandempires.frontier.FrontierConfig.THUMPER_WAVE_MIN_DISTANCE.set(minDistance);
-            dev.brights0ng.enginesandempires.frontier.FrontierConfig.THUMPER_WAVE_MAX_DISTANCE.set(maxDistance);
+            dev.brights0ng.frontier.FrontierConfig.THUMPER_WAVE_MIN_DISTANCE.set(minDistance);
+            dev.brights0ng.frontier.FrontierConfig.THUMPER_WAVE_MAX_DISTANCE.set(maxDistance);
             helper.assertTrue(incursion.wave() >= 1, "the first wave came up (" + incursion.describe(helper.getLevel()) + ")");
             int tagged = helper.getLevel().getEntitiesOfClass(Mob.class, new AABB(helper.absolutePos(THUMPER)).inflate(64),
                     mob -> mob.getTags().contains(Incursion.TAG)).size();
@@ -166,16 +167,16 @@ public final class FrontierIncursionGameTests {
 
     @GameTest(template = SCRATCH, batch = "incursion_heart")
     public static void aWardenDropsASquelchingHeartThatOnlyWorksAtNight(GameTestHelper helper) {
-        helper.assertTrue(dev.brights0ng.enginesandempires.frontier.incursion.NightHold.isNight(14000), "14000 is night");
-        helper.assertTrue(dev.brights0ng.enginesandempires.frontier.incursion.NightHold.isNight(24000 * 3 + 22999), "just before dawn");
-        helper.assertFalse(dev.brights0ng.enginesandempires.frontier.incursion.NightHold.isNight(24000 * 3 + 23000), "dawn is not");
-        helper.assertFalse(dev.brights0ng.enginesandempires.frontier.incursion.NightHold.isNight(6000), "noon is not");
+        helper.assertTrue(dev.brights0ng.frontier.incursion.NightHold.isNight(14000), "14000 is night");
+        helper.assertTrue(dev.brights0ng.frontier.incursion.NightHold.isNight(24000 * 3 + 22999), "just before dawn");
+        helper.assertFalse(dev.brights0ng.frontier.incursion.NightHold.isNight(24000 * 3 + 23000), "dawn is not");
+        helper.assertFalse(dev.brights0ng.frontier.incursion.NightHold.isNight(6000), "noon is not");
         floor(helper);
         net.minecraft.world.entity.monster.warden.Warden warden = helper.spawn(net.minecraft.world.entity.EntityType.WARDEN,
                 new BlockPos(3, 1, 3));
         warden.hurt(helper.getLevel().damageSources().genericKill(), Float.MAX_VALUE);
         helper.succeedWhen(() -> helper.assertItemEntityPresent(
-                dev.brights0ng.enginesandempires.frontier.FrontierContent.SQUELCHING_HEART.get(), new BlockPos(3, 1, 3), 4.0));
+                dev.brights0ng.frontier.FrontierContent.SQUELCHING_HEART.get(), new BlockPos(3, 1, 3), 4.0));
     }
 
     private static net.minecraft.world.level.block.state.BlockState block(String id) {
@@ -184,19 +185,19 @@ public final class FrontierIncursionGameTests {
 
     @GameTest(template = SCRATCH, batch = "tier_map")
     public static void theMapsAnswerCarriesEveryColumnAndRemembersUnloadedOnes(GameTestHelper helper) {
-        var frontier = dev.brights0ng.enginesandempires.frontier.tier.FrontierLevels.of(helper.getLevel());
+        var frontier = dev.brights0ng.frontier.tier.FrontierLevels.of(helper.getLevel());
         BlockPos at = helper.absolutePos(new BlockPos(3, 1, 3));
-        var answer = dev.brights0ng.enginesandempires.frontier.map.TierMapNetwork.build(frontier, at.getX() >> 4, at.getZ() >> 4, 2);
+        var answer = dev.brights0ng.frontier.map.TierMapNetwork.build(frontier, at.getX() >> 4, at.getZ() >> 4, 2);
         helper.assertTrue(answer.size() == 5, "a radius of 2 is 5 across");
-        helper.assertTrue(dev.brights0ng.enginesandempires.frontier.map.TierGrid.unpack(answer.packed(), 25).length == 25, "25 columns");
+        helper.assertTrue(dev.brights0ng.frontier.map.TierGrid.unpack(answer.packed(), 25).length == 25, "25 columns");
         // A column far off, never loaded here: whatever was last remembered for it comes back.
-        var memory = dev.brights0ng.enginesandempires.frontier.map.TierMemory.of(helper.getLevel());
+        var memory = dev.brights0ng.frontier.map.TierMemory.of(helper.getLevel());
         int far = 1_000_000 >> 4;
-        memory.remember(far, far, dev.brights0ng.enginesandempires.frontier.Tier.SETTLED);
-        helper.assertTrue(memory.groundTier(frontier, far, far) == dev.brights0ng.enginesandempires.frontier.Tier.SETTLED,
+        memory.remember(far, far, dev.brights0ng.frontier.Tier.SETTLED);
+        helper.assertTrue(memory.groundTier(frontier, far, far) == dev.brights0ng.frontier.Tier.SETTLED,
                 "remembered as Settled");
-        memory.remember(far, far, dev.brights0ng.enginesandempires.frontier.Tier.FRONTIER);
-        helper.assertTrue(memory.groundTier(frontier, far, far) == dev.brights0ng.enginesandempires.frontier.Tier.FRONTIER,
+        memory.remember(far, far, dev.brights0ng.frontier.Tier.FRONTIER);
+        helper.assertTrue(memory.groundTier(frontier, far, far) == dev.brights0ng.frontier.Tier.FRONTIER,
                 "and forgotten once Frontier");
         helper.succeed();
     }
