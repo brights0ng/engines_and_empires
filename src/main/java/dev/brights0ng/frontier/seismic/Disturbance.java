@@ -1,9 +1,11 @@
-package dev.brights0ng.frontier.deep;
+package dev.brights0ng.frontier.seismic;
 
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+
+import dev.brights0ng.seismicsurveyance.ShotSource;
 
 /**
  * The disturbance thumping makes: too many shots too close together call up an incursion from below.

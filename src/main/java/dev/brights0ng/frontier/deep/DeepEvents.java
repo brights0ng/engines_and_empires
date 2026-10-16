@@ -7,10 +7,12 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
-import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.registries.DataPackRegistryEvent;
 
-/** Keeps the Deep's state going: sculk listeners as chunks come and go, pending triggers and stirred deposits as time passes. */
+/**
+ * Keeps track of the sculk listeners the Deep wakes, as chunks come and go. The Deep's own ticking (pending triggers,
+ * stirred deposits) is hooked up with Seismic Surveyance's shots, in {@code frontier.seismic.FrontierSeismic}.
+ */
 @EventBusSubscriber(modid = Frontier.MODID)
 public final class DeepEvents {
 
@@ -39,16 +41,8 @@ public final class DeepEvents {
     }
 
     @SubscribeEvent
-    static void onLevelTick(LevelTickEvent.Post event) {
-        if (event.getLevel() instanceof ServerLevel level) {
-            Deep.of(level).tick();
-        }
-    }
-
-    @SubscribeEvent
     static void onLevelUnload(LevelEvent.Unload event) {
         if (event.getLevel() instanceof ServerLevel level) {
-            Deep.forget(level);
             SculkListeners.forget(level);
         }
     }

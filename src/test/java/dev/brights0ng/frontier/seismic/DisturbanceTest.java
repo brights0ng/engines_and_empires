@@ -1,4 +1,4 @@
-package dev.brights0ng.frontier.deep;
+package dev.brights0ng.frontier.seismic;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -6,7 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import dev.brights0ng.frontier.deep.Disturbance.Outcome;
+import dev.brights0ng.frontier.seismic.Disturbance.Outcome;
+import dev.brights0ng.seismicsurveyance.ShotSource;
 
 class DisturbanceTest {
 

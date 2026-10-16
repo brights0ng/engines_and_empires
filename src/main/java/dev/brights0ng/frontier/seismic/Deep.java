@@ -1,4 +1,4 @@
-package dev.brights0ng.frontier.deep;
+package dev.brights0ng.frontier.seismic;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,12 +10,18 @@ import java.util.WeakHashMap;
 
 import dev.brights0ng.frontier.Frontier;
 import dev.brights0ng.frontier.FrontierConfig;
+import dev.brights0ng.frontier.deep.DeepRoster;
+import dev.brights0ng.frontier.deep.DeepSpawns;
+import dev.brights0ng.frontier.deep.SculkListeners;
+import dev.brights0ng.frontier.deep.StirredDeposits;
+import dev.brights0ng.frontier.deep.ThumperIncursions;
 import dev.brights0ng.frontier.incursion.IncursionData;
 import dev.brights0ng.frontier.incursion.IncursionOdds;
 import dev.brights0ng.seismicsurveyance.DepositEchoes;
 import dev.brights0ng.seismicsurveyance.DepositFinder;
 import dev.brights0ng.seismicsurveyance.DepositScanner;
 import dev.brights0ng.seismicsurveyance.SeismicWave;
+import dev.brights0ng.seismicsurveyance.ShotSource;
 import dev.brights0ng.seismicsurveyance.WaveModel;
 import dev.brights0ng.sparseores.Realm;
 import net.minecraft.core.BlockPos;
@@ -46,6 +52,9 @@ import net.minecraft.world.phys.AABB;
  *       roster comes up around them while players are near ({@link StirredDeposits}).</li>
  * </ul>
  * Dry fires set off sculk, but nothing else. Hammer and plate blows set off nothing here.
+ *
+ * <p>Seismic Surveyance announces each shot and its echoes ({@code ThumpEvent}, {@code EchoesEvent}); the Deep hears them
+ * through {@link FrontierSeismic}, and only when Seismic Surveyance is installed (split seams S5, S7).
  */
 public final class Deep {
 

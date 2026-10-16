@@ -3,6 +3,7 @@ package dev.brights0ng.frontier.spawn;
 import dev.brights0ng.frontier.Tier;
 import dev.brights0ng.frontier.tier.FrontierLevel;
 import dev.brights0ng.frontier.tier.FrontierLevels;
+import dev.brights0ng.paradynelib.services.StormProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
@@ -38,13 +39,13 @@ public final class FrontierDarkness {
         if (sky > random.nextInt(32)) {
             return false;
         }
-        // Thunder darkens the sky only under a thunderstorm (weather phase 6a), as in MonsterThunderMixin.
-        boolean thunder = dev.brights0ng.meteodyne.WeatherOwnership.owns(level)
-                ? dev.brights0ng.meteodyne.rain.WeatherQueries.thunderOver(level, pos)
-                : level.isThundering();
-        // A dark storm overhead dims the sky there too (weather phase 6d).
-        int darkened = sky - (thunder ? 10
-                : dev.brights0ng.meteodyne.sky.StormLight.skyDarken(level, pos));
+        // Where a storm provider owns the weather (Meteodyne, split seam S3), thunder darkens the sky only under a
+        // thunderstorm (weather phase 6a), as in MonsterThunderMixin, and a dark storm overhead dims the sky there too
+        // (weather phase 6d). Elsewhere, vanilla's weather.
+        StormProvider storms = StormProvider.get();
+        boolean owned = storms.owns(level);
+        boolean thunder = owned ? storms.thunderOver(level, pos) : level.isThundering();
+        int darkened = sky - (thunder ? 10 : owned ? storms.skyDarken(level, pos) : level.getSkyDarken());
         DimensionType type = level.dimensionType();
         return Math.max(0, darkened) <= type.monsterSpawnLightTest().sample(random);
     }
