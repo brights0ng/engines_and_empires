@@ -3,9 +3,11 @@
 NeoForge 1.21.1, Java 21, ModDevGradle 2.0.147, Gradle 9.2.1. Bright (brights0ng) owns design decisions; do not make them. If the plan is silent or wrong, stop at a green commit and say so in the PR.
 
 ## Split in progress
-The single mod is being split into a family. Read `docs/split/mod-split-plan.md` first, then `docs/split/mod-split-manifest.csv` (every Java file -> target mod) and `docs/split/mod-split-seams.csv`.
+The single mod is being split into a family. Read `docs/split/mod-split-plan.md` first, then `docs/split/mod-split-steps.md` (your step), `docs/split/mod-split-manifest.csv` (every Java file -> target mod) and `docs/split/mod-split-seams.csv`.
 
 Mods (id -> package): paradyne_lib -> dev.brights0ng.paradynelib; sable_fixes -> ...sablefixes; sparse_ores -> ...sparseores; seismic_surveyance -> ...seismicsurveyance; meteodyne -> ...meteodyne; frontier -> ...frontier; simple_spoilage -> ...simplespoilage; engines_and_empires (core) -> dev.brights0ng.enginesandempires.
+
+Background on behaviour that must not change: `docs/design/` (eight reference notes; see its README).
 
 ## Import rules (compile-time graph; must stay acyclic)
 lib <- sparse_ores <- seismic_surveyance <- (gated package frontier.seismic only) frontier
