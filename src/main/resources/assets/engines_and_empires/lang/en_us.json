@@ -26,10 +26,6 @@
   "item.engines_and_empires.diamond_chip": "Diamond Chip",
   "item.engines_and_empires.quartz_chip": "Quartz Chip",
 
-  "engines_and_empires.configuration.title": "Example Mod Configs",
-  "engines_and_empires.configuration.section.engines_and_empires.common.toml": "Example Mod Configs",
-  "engines_and_empires.configuration.section.engines_and_empires.common.toml.title": "Example Mod Configs",
-  "engines_and_empires.configuration.magicNumberIntroduction": "Magic Number Text",
   "item.engines_and_empires.sledgehammer": "Sledgehammer",
   "block.engines_and_empires.strike_plate": "Strike Plate",
   "item.engines_and_empires.andesite_geophone": "Andesite Geophone",
