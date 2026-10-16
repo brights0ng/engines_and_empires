@@ -5,8 +5,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import dev.brights0ng.enginesandempires.weather.WeatherOwnership;
-import dev.brights0ng.enginesandempires.weather.rain.client.ClientSky;
+import dev.brights0ng.meteodyne.WeatherOwnership;
+import dev.brights0ng.meteodyne.rain.client.ClientSky;
 import net.minecraft.world.level.Level;
 
 /**

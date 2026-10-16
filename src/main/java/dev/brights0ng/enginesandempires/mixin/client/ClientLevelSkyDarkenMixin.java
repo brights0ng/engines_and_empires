@@ -8,8 +8,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
-import dev.brights0ng.enginesandempires.weather.sky.StormShade;
-import dev.brights0ng.enginesandempires.weather.sky.client.ClientStorm;
+import dev.brights0ng.meteodyne.sky.StormShade;
+import dev.brights0ng.meteodyne.sky.client.ClientStorm;
 import net.minecraft.client.multiplayer.ClientLevel;
 
 /**

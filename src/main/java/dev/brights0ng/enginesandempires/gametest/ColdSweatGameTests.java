@@ -7,12 +7,12 @@ import com.mojang.authlib.GameProfile;
 import com.momosoftworks.coldsweat.api.event.core.init.DefaultTempModifiersEvent;
 import com.momosoftworks.coldsweat.api.temperature.modifier.TempModifier;
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
-import dev.brights0ng.enginesandempires.weather.climate.Temperature;
 import dev.brights0ng.enginesandempires.weather.climate.compat.ClimateTempModifier;
 import dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatCompat;
 import dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatWater;
-import dev.brights0ng.enginesandempires.weather.rain.LocalWeather;
-import dev.brights0ng.enginesandempires.weather.rain.Precip;
+import dev.brights0ng.meteodyne.climate.Temperature;
+import dev.brights0ng.meteodyne.rain.LocalWeather;
+import dev.brights0ng.meteodyne.rain.Precip;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -101,8 +101,8 @@ public final class ColdSweatGameTests {
         ClimateTempModifier modifier = new ClimateTempModifier();
         // A real player also feels the wind, the humidity and the sun on top of the air (8e-2); a dummy asking what a block is like gets the air alone
         double air = Temperature.at(level, pos);
-        expected += dev.brights0ng.enginesandempires.weather.climate.PersonClimate.offsetC(
-                dev.brights0ng.enginesandempires.weather.climate.PersonClimate.sample(level, player), air) / 25.0;
+        expected += dev.brights0ng.meteodyne.climate.PersonClimate.offsetC(
+                dev.brights0ng.meteodyne.climate.PersonClimate.sample(level, player), air) / 25.0;
         double out = modifier.update(0.0, player, WORLD);
         helper.assertTrue(Math.abs(out - expected) < 1e-9, "the modifier adds the pack's air temperature: " + out + " vs " + expected);
         // It adds to what is already there, as Cold Sweat's own biome term does
@@ -224,7 +224,7 @@ public final class ColdSweatGameTests {
     @GameTest(template = SCRATCH)
     public static void lightDoesNotMeltIceWherePackOwnsTheWeather(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        helper.assertTrue(dev.brights0ng.enginesandempires.weather.WeatherOwnership.owns(level), "the test level is the pack's weather");
+        helper.assertTrue(dev.brights0ng.meteodyne.WeatherOwnership.owns(level), "the test level is the pack's weather");
         BlockPos ice = new BlockPos(2, 2, 2);
         helper.setBlock(ice, net.minecraft.world.level.block.Blocks.ICE);
         helper.setBlock(ice.east(), net.minecraft.world.level.block.Blocks.GLOWSTONE);

@@ -1,12 +1,12 @@
 package dev.brights0ng.enginesandempires.food;
 
-import dev.brights0ng.enginesandempires.weather.WeatherOwnership;
-import dev.brights0ng.enginesandempires.weather.climate.Baseline;
-import dev.brights0ng.enginesandempires.weather.climate.Climate;
-import dev.brights0ng.enginesandempires.weather.climate.Temperature;
-import dev.brights0ng.enginesandempires.weather.climate.UndergroundProbe;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatWorld;
-import dev.brights0ng.enginesandempires.weather.rain.WeatherConfig;
+import dev.brights0ng.meteodyne.WeatherOwnership;
+import dev.brights0ng.meteodyne.climate.Baseline;
+import dev.brights0ng.meteodyne.climate.Climate;
+import dev.brights0ng.meteodyne.climate.Temperature;
+import dev.brights0ng.meteodyne.climate.UndergroundProbe;
+import dev.brights0ng.meteodyne.heat.world.HeatWorld;
+import dev.brights0ng.meteodyne.rain.WeatherConfig;
 import dev.brights0ng.paradynelib.ships.ShipCover;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;

@@ -3,12 +3,12 @@ package dev.brights0ng.enginesandempires.gametest;
 import java.util.List;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatDrivers;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatPowerData;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatRadiant;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatRegion;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatTables;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatWorld;
+import dev.brights0ng.meteodyne.heat.world.HeatDrivers;
+import dev.brights0ng.meteodyne.heat.world.HeatPowerData;
+import dev.brights0ng.meteodyne.heat.world.HeatRadiant;
+import dev.brights0ng.meteodyne.heat.world.HeatRegion;
+import dev.brights0ng.meteodyne.heat.world.HeatTables;
+import dev.brights0ng.meteodyne.heat.world.HeatWorld;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;

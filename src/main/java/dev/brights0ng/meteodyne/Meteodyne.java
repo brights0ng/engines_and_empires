@@ -4,11 +4,11 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
-import dev.brights0ng.enginesandempires.weather.climate.ClimateDataMaps;
-import dev.brights0ng.enginesandempires.weather.heat.HeatField;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatContent;
-import dev.brights0ng.enginesandempires.weather.rain.WeatherConfig;
-import dev.brights0ng.enginesandempires.weather.surface.SurfaceContent;
+import dev.brights0ng.meteodyne.climate.ClimateDataMaps;
+import dev.brights0ng.meteodyne.heat.HeatField;
+import dev.brights0ng.meteodyne.heat.world.HeatContent;
+import dev.brights0ng.meteodyne.rain.WeatherConfig;
+import dev.brights0ng.meteodyne.surface.SurfaceContent;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;

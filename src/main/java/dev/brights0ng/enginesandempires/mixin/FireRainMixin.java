@@ -6,8 +6,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
-import dev.brights0ng.enginesandempires.weather.WeatherOwnership;
-import dev.brights0ng.enginesandempires.weather.rain.WeatherQueries;
+import dev.brights0ng.meteodyne.WeatherOwnership;
+import dev.brights0ng.meteodyne.rain.WeatherQueries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.FireBlock;
 

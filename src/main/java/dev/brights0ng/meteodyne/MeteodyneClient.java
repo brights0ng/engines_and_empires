@@ -1,7 +1,7 @@
 package dev.brights0ng.meteodyne;
 
-import dev.brights0ng.enginesandempires.weather.cloud.client.CloudClient;
-import dev.brights0ng.enginesandempires.weather.heat.world.client.HeatViewClient;
+import dev.brights0ng.meteodyne.cloud.client.CloudClient;
+import dev.brights0ng.meteodyne.heat.world.client.HeatViewClient;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.neoforge.common.NeoForge;

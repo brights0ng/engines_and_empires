@@ -7,7 +7,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
-import dev.brights0ng.enginesandempires.weather.checks.ColonyWeather;
+import dev.brights0ng.meteodyne.checks.ColonyWeather;
 import net.minecraft.world.level.Level;
 
 /** A crafter picks an indoor or outdoor idle spot by the rain where the worker is (weather phase 6a). */
