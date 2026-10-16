@@ -22,6 +22,8 @@ group = mod_group_id
 
 // The mods of the family the core compiles against and loads in every run (and the mods those require).
 requireMod(':paradyne-lib')
+// Mods the dev runs load although the core does not require them (plan section 9: the dev runs load every mod).
+loadMod(':sable-fixes')
 
 neoForge {
     // This line is optional. Access Transformers are automatically detected

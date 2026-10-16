@@ -21,7 +21,7 @@ public abstract class SubLevelSilhouetteMixin {
 
     @Inject(method = "updateMassDataFromBlockChange", at = @At("TAIL"))
     private void paradyne_lib$windOutline(SubLevel subLevel, BlockPos globalBlockPos, BlockState oldState,
-                                                 BlockState newState, boolean notifyPipeline, CallbackInfo ci) {
+                                          BlockState newState, boolean notifyPipeline, CallbackInfo ci) {
         WindShips.onBlockChange(subLevel, globalBlockPos, oldState, newState);
     }
 }

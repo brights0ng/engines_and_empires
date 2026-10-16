@@ -96,10 +96,14 @@ class MixinConfigTest {
         assertTrue(mixinNames(config).containsAll(GATED.keySet()), "a gated mixin is not in the config");
     }
 
-    /** "required" makes any mixin failure fatal; only a config whose mixins never depend on another mod keeps it. */
+    /**
+     * "required" makes any mixin failure fatal. The plugin skips a mixin whose mod is absent before Mixin tries it, so
+     * a skipped mixin is not a failure, but a broken injection is (split step 2b: Sable Fixes requires Sable, and its
+     * bare game test run checks both fixes are woven in).
+     */
     @Test
-    void theConfigIsRequiredOnlyWithoutOptionalTargets() throws IOException {
-        assertEquals(String.valueOf(GATED.isEmpty()), match(read(CONFIG), "\"required\"\\s*:\\s*(true|false)"));
+    void theConfigIsRequired() throws IOException {
+        assertEquals("true", match(read(CONFIG), "\"required\"\\s*:\\s*(true|false)"));
     }
 
     private static String classResource(String name) {

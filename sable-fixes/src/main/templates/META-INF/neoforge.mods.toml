@@ -1,0 +1,38 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="brights0ng"
+description='''
+${mod_description}
+'''
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Sable (required). Every fix here is a mixin on Sable's behaviour.
+[[dependencies.${mod_id}]]
+    modId="sable"
+    type="required"
+    versionRange="${sable_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Mixins: both on Sable's behaviour; the config's plugin applies them only when Sable is loaded.
+[[mixins]]
+    config="sable_fixes.mixins.json"
