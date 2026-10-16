@@ -11,19 +11,16 @@ import net.minecraft.world.entity.Entity;
  *
  * <p>Only ever touched through {@link MineColoniesGuardSource}, which Frontier's guard counting asks, and only when
  * MineColonies is loaded, so the pack runs without it.
- *
- * <p>Public since split step 1b only because Frontier's {@code GuardTypes} called it from another package; seam S12
- * replaced that call with Frontier's guard-source registry.
  */
-public final class MineColoniesGuards {
+final class MineColoniesGuards {
 
     /** Whether the entity is a colonist at all (so worth keeping an eye on: it may be given a guard job later). */
-    public static boolean isColonist(Entity entity) {
+    static boolean isColonist(Entity entity) {
         return entity instanceof AbstractEntityCitizen;
     }
 
     /** Whether the entity is a colonist working as a guard right now. */
-    public static boolean isGuard(Entity entity) {
+    static boolean isGuard(Entity entity) {
         if (!(entity instanceof AbstractEntityCitizen citizen) || citizen.getCitizenJobHandler() == null) {
             return false;
         }
