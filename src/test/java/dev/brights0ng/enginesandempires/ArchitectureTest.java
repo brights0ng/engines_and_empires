@@ -35,12 +35,22 @@ import org.junit.jupiter.api.Test;
  * outside mod a file's mod does not require may be mentioned only from a {@code compat} package, or, for Sable, a
  * {@code sable} package, unless {@code arch-allowlist.txt} says why not; feature mods never mention
  * {@code EnginesAndEmpiresMod}; and the per-mod file counts of {@code docs/split/mod-split-manifest.csv} hold.
- * Paths are relative to the project directory, which is the working directory Gradle runs the tests in.
+ *
+ * <p>Since step 2b the mods are being sliced into Gradle projects of their own. The test scans the {@code src/main/java}
+ * and {@code src/test/java} of every project in {@code settings.gradle} (the root, which is the core and still holds
+ * every mod not yet sliced, and one project per sliced mod), and checks that every file of a sliced mod sits in that
+ * mod's project and nowhere else. Gradle and javac now enforce the graph between projects; the rules above still catch
+ * what they cannot see (a mention in a comment or string, the core-only edges inside the root, {@code frontier.seismic}).
+ * Paths are relative to the root project directory, which is the working directory Gradle runs the core's tests in.
  */
 class ArchitectureTest {
 
     private static final Path MAIN = Path.of("src", "main", "java");
     private static final Path TEST = Path.of("src", "test", "java");
+    private static final Path SETTINGS = Path.of("settings.gradle");
+    private static final Pattern INCLUDE = Pattern.compile("^\\s*include\\s+(.+)$", Pattern.MULTILINE);
+    private static final Pattern PROJECT_PATH = Pattern.compile("['\"]:?([\\w:-]+)['\"]");
+    private static final Pattern MOD_ID = Pattern.compile("^mod_id\\s*=\\s*(\\w+)\\s*$", Pattern.MULTILINE);
     private static final Path MANIFEST = Path.of("docs", "split", "mod-split-manifest.csv");
     private static final String ALLOWLIST = "/arch-allowlist.txt";
     private static final String OURS = "dev.brights0ng.";
@@ -119,8 +129,16 @@ class ArchitectureTest {
     private static final Pattern OUR_MENTION = Pattern.compile("(?<![\\w.])dev\\.brights0ng\\.(\\w+)");
     private static final Pattern CORE_ENTRY = Pattern.compile("\\bEnginesAndEmpiresMod\\b");
 
-    /** A Java source file, its package and the mod that package belongs to (null when the root is not one of ours). */
-    private record Source(String path, String pkg, String mod, String text) {
+    /**
+     * A Java source file: the Gradle project folder it is in ({@code "."} for the root), its path under that project's
+     * source root, its package, the mod that package belongs to (null when the root is not one of ours) and its text.
+     */
+    private record Source(String module, String path, String pkg, String mod, String text) {
+
+        /** Where it is, from the root project directory, for reports. */
+        String where(Path root) {
+            return (module.equals(".") ? "" : module + "/") + root + "/" + path;
+        }
     }
 
     // (a) ------------------------------------------------------------------------------------------------------------
@@ -132,15 +150,45 @@ class ArchitectureTest {
             for (Source s : sources(root)) {
                 String expected = s.path.substring(0, s.path.lastIndexOf('/')).replace('/', '.');
                 if (s.pkg == null) {
-                    problems.add(root + "/" + s.path + ": no package declaration");
+                    problems.add(s.where(root) + ": no package declaration");
                 } else if (!s.pkg.equals(expected)) {
-                    problems.add(root + "/" + s.path + ": package " + s.pkg + " does not match its folder");
+                    problems.add(s.where(root) + ": package " + s.pkg + " does not match its folder");
                 } else if (s.mod == null) {
-                    problems.add(root + "/" + s.path + ": package " + s.pkg + " is not under any mod's root");
+                    problems.add(s.where(root) + ": package " + s.pkg + " is not under any mod's root");
                 }
             }
         }
         assertTrue(problems.isEmpty(), report("files outside the mod family's packages", problems));
+    }
+
+    /**
+     * Every file of a mod that has a Gradle project of its own (split step 2) sits in that project, and a mod project
+     * holds only its own mod's files; the root (the core) holds the mods not yet sliced out.
+     */
+    @Test
+    void everyFileSitsInItsModsProject() throws IOException {
+        Map<String, String> moduleOfMod = new TreeMap<>();
+        for (Map.Entry<String, String> e : modules().entrySet()) {
+            if (!e.getKey().equals(".")) {
+                assertTrue(ROOTS.containsValue(e.getValue()), e.getKey() + "/gradle.properties: mod_id " + e.getValue()
+                        + " is not a mod of the family");
+                assertTrue(moduleOfMod.put(e.getValue(), e.getKey()) == null, "two projects build " + e.getValue());
+            }
+        }
+        List<String> problems = new ArrayList<>();
+        for (Path root : List.of(MAIN, TEST)) {
+            for (Source s : sources(root)) {
+                if (s.mod == null) {
+                    continue;
+                }
+                String expected = moduleOfMod.getOrDefault(s.mod, ".");
+                if (!s.module.equals(expected)) {
+                    problems.add(s.mod + ": " + s.where(root) + " belongs in "
+                            + (expected.equals(".") ? "the root project" : expected + "/"));
+                }
+            }
+        }
+        assertTrue(problems.isEmpty(), report("files in another mod's Gradle project", problems));
     }
 
     // (b) ------------------------------------------------------------------------------------------------------------
@@ -163,7 +211,7 @@ class ArchitectureTest {
                         seen.add(target + " (" + OURS + m.group(1) + ")");
                     }
                 }
-                seen.forEach(t -> problems.add(s.mod + ": " + root + "/" + s.path + " -> " + t));
+                seen.forEach(t -> problems.add(s.mod + ": " + s.where(root) + " -> " + t));
             }
         }
         assertTrue(problems.isEmpty(), report("references across forbidden edges of the mod graph (plan section 2)", problems));
@@ -183,7 +231,7 @@ class ArchitectureTest {
         for (Path root : List.of(MAIN, TEST)) {
             for (Source s : sources(root)) {
                 if (s.mod != null && !s.mod.equals("engines_and_empires") && CORE_ENTRY.matcher(s.text).find()) {
-                    problems.add(s.mod + ": " + root + "/" + s.path);
+                    problems.add(s.mod + ": " + s.where(root));
                 }
             }
         }
@@ -236,7 +284,10 @@ class ArchitectureTest {
         return segments.contains("compat") || (key.equals("sable") && segments.contains("sable"));
     }
 
-    /** {@code path | outside mod | reason} per line, path under {@code src/main/java}; blank lines and {@code #} skipped. */
+    /**
+     * {@code path | outside mod | reason} per line, path under a project's {@code src/main/java}; blank lines and
+     * {@code #} skipped.
+     */
     private static Map<String, String> allowlist() throws IOException {
         Map<String, String> entries = new TreeMap<>();
         try (InputStream in = ArchitectureTest.class.getResourceAsStream(ALLOWLIST)) {
@@ -254,7 +305,11 @@ class ArchitectureTest {
                 String key = parts[1].strip();
                 assertTrue(OUTSIDE.containsKey(key), ALLOWLIST + " line " + n + ": unknown outside mod '" + key + "'");
                 assertFalse(parts[2].isBlank(), ALLOWLIST + " line " + n + ": every exception needs a reason");
-                assertTrue(Files.isRegularFile(MAIN.resolve(path)), ALLOWLIST + " line " + n + ": no such file " + path);
+                boolean exists = false;
+                for (String module : modules().keySet()) {
+                    exists |= Files.isRegularFile(Path.of(module).resolve(MAIN).resolve(path));
+                }
+                assertTrue(exists, ALLOWLIST + " line " + n + ": no such file " + path);
                 assertTrue(entries.put(path + " | " + key, parts[2].strip()) == null, ALLOWLIST + " line " + n + ": duplicate");
             }
         }
@@ -324,25 +379,66 @@ class ArchitectureTest {
         if (cached != null) {
             return cached;
         }
-        assertTrue(Files.isDirectory(root), root + " not found; the tests must run from the project directory");
+        assertTrue(Files.isDirectory(root), root + " not found; the tests must run from the root project directory");
         List<Source> list = new ArrayList<>();
-        try (Stream<Path> files = Files.walk(root)) {
-            for (Path p : files.filter(f -> f.toString().endsWith(".java")).sorted().toList()) {
-                String text = Files.readString(p, StandardCharsets.UTF_8);
-                String path = root.relativize(p).toString().replace('\\', '/');
-                Matcher m = PACKAGE.matcher(text);
-                String pkg = m.find() ? m.group(1) : null;
-                String mod = null;
-                if (pkg != null && pkg.startsWith(OURS)) {
-                    String rest = pkg.substring(OURS.length());
-                    mod = ROOTS.get(rest.contains(".") ? rest.substring(0, rest.indexOf('.')) : rest);
+        for (String module : modules().keySet()) {
+            Path dir = Path.of(module).resolve(root).normalize();
+            if (!Files.isDirectory(dir)) {
+                continue;
+            }
+            try (Stream<Path> files = Files.walk(dir)) {
+                for (Path p : files.filter(f -> f.toString().endsWith(".java")).sorted().toList()) {
+                    String text = Files.readString(p, StandardCharsets.UTF_8);
+                    String path = dir.relativize(p).toString().replace('\\', '/');
+                    Matcher m = PACKAGE.matcher(text);
+                    String pkg = m.find() ? m.group(1) : null;
+                    String mod = null;
+                    if (pkg != null && pkg.startsWith(OURS)) {
+                        String rest = pkg.substring(OURS.length());
+                        mod = ROOTS.get(rest.contains(".") ? rest.substring(0, rest.indexOf('.')) : rest);
+                    }
+                    list.add(new Source(module, path, pkg, mod, text));
                 }
-                list.add(new Source(path, pkg, mod, text));
             }
         }
         assertFalse(list.isEmpty(), "no Java files under " + root);
         CACHE.put(root, list);
         return list;
+    }
+
+    private static Map<String, String> moduleCache;
+
+    /**
+     * The Gradle projects of the build, from {@code settings.gradle}: project folder ({@code "."} for the root) to the
+     * id of the mod it builds (its {@code gradle.properties} {@code mod_id}).
+     */
+    private static synchronized Map<String, String> modules() throws IOException {
+        if (moduleCache != null) {
+            return moduleCache;
+        }
+        Map<String, String> found = new LinkedHashMap<>();
+        found.put(".", modId(Path.of(".")));
+        assertTrue(Files.isRegularFile(SETTINGS), SETTINGS + " not found; the tests must run from the root project directory");
+        Matcher include = INCLUDE.matcher(Files.readString(SETTINGS, StandardCharsets.UTF_8));
+        while (include.find()) {
+            Matcher project = PROJECT_PATH.matcher(include.group(1));
+            while (project.find()) {
+                String dir = project.group(1).replace(':', '/');
+                assertTrue(Files.isDirectory(Path.of(dir)), "settings.gradle includes " + dir + ", which has no folder");
+                found.put(dir, modId(Path.of(dir)));
+            }
+        }
+        assertEquals("engines_and_empires", found.get("."), "the root project should build the core");
+        moduleCache = found;
+        return moduleCache;
+    }
+
+    private static String modId(Path dir) throws IOException {
+        Path properties = dir.resolve("gradle.properties");
+        assertTrue(Files.isRegularFile(properties), properties + " not found");
+        Matcher m = MOD_ID.matcher(Files.readString(properties, StandardCharsets.UTF_8));
+        assertTrue(m.find(), properties + " has no mod_id");
+        return m.group(1);
     }
 
     private static String report(String what, List<String> problems) {

@@ -1,0 +1,13 @@
+// Builds the convention plugin (src/main/groovy/eae.mod-conventions.gradle) that every mod project applies.
+plugins {
+    id 'groovy-gradle-plugin'
+}
+
+repositories {
+    gradlePluginPortal()
+}
+
+dependencies {
+    // The same ModDevGradle the real build uses; a precompiled script plugin can only apply plugins on its classpath.
+    implementation 'net.neoforged:moddev-gradle:2.0.147'
+}

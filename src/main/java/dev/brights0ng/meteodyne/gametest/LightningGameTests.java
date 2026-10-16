@@ -11,7 +11,7 @@ import dev.brights0ng.meteodyne.lightning.LightningPayload;
 import dev.brights0ng.meteodyne.sim.world.CloudWorld;
 import dev.brights0ng.meteodyne.sim.world.WeatherSim;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
-import dev.brights0ng.paradynelib.ships.ShipCover;
+import dev.brights0ng.paradynelib.sable.ships.ShipCover;
 import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
 import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import net.minecraft.core.BlockPos;
