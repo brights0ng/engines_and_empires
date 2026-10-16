@@ -1,8 +1,10 @@
 package dev.brights0ng.enginesandempires;
 
 import net.minecraft.client.Minecraft;
+import dev.brights0ng.enginesandempires.geophone.client.TierOverlay;
 import dev.brights0ng.meteodyne.MeteodyneClient;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyanceClient;
+import dev.brights0ng.seismicsurveyance.client.MapLayers;
 import dev.brights0ng.simplespoilage.SimpleSpoilageClient;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -28,6 +30,9 @@ public class EnginesAndEmpiresModClient {
         SeismicSurveyanceClient.init(modEventBus, container);
         SimpleSpoilageClient.init(modEventBus, container);
         MeteodyneClient.init(modEventBus, container);
+
+        // Frontier's tiers and incursions on the survey's maps (the smart logger and the portable record display)
+        MapLayers.register(TierOverlay.INSTANCE);
     }
 
     @SubscribeEvent

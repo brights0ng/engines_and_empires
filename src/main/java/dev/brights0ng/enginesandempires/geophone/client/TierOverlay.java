@@ -1,11 +1,13 @@
 package dev.brights0ng.enginesandempires.geophone.client;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.frontier.map.TierGrid;
 import dev.brights0ng.frontier.map.TierMapCache;
 import dev.brights0ng.frontier.map.TierMapPayloads;
+import dev.brights0ng.seismicsurveyance.client.MapLayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
 import net.neoforged.api.distmarker.Dist;
@@ -19,10 +21,13 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * chunk column better than Frontier gets a very faint fill in its tier's colour, and an outline where it meets a lower
  * tier. Frontier itself is left clear. Incursions under way show as a diamond. A small legend explains the colours.
  *
- * <p>This holds what both maps share: the colours, walking the visible columns, and asking the server for them.
+ * <p>A layer on Seismic Surveyance's maps (split seam S8), registered by the pack's client setup: this holds what both
+ * maps draw of it (the colours, the visible columns, the markers and legend) and asks the server for the columns.
  */
 @EventBusSubscriber(modid = EnginesAndEmpires.MODID, value = Dist.CLIENT)
-public final class TierOverlay {
+public final class TierOverlay implements MapLayer {
+
+    public static final TierOverlay INSTANCE = new TierOverlay();
 
     /** The tiers' colours, as {@code /eae frontier map} shows them: yellow Uninhabited, green Settled, blue Civilized. */
     private static final int[] COLOURS = {0x000000, 0xF2D91A, 0x33D933, 0x3399FF};
@@ -55,17 +60,14 @@ public final class TierOverlay {
     }
 
     /** Only the Overworld has tiers. */
-    public static boolean shows(Level level) {
+    @Override
+    public boolean shows(Level level) {
         return level != null && level.dimension() == Level.OVERWORLD;
     }
 
-    /** Something to draw each tinted column with: its chunk, tier and which sides get an outline ({@link TierGrid} bits). */
-    public interface Column {
-        void draw(int cx, int cz, int tier, int edges);
-    }
-
     /** Calls {@code column} for every tinted column from chunk (minX, minZ) to (maxX, maxZ), at most 256 across. */
-    public static void visit(int minX, int minZ, int maxX, int maxZ, Column column) {
+    @Override
+    public void columns(int minX, int minZ, int maxX, int maxZ, Column column) {
         maxX = Math.min(maxX, minX + 256);
         maxZ = Math.min(maxZ, minZ + 256);
         for (int cz = minZ; cz <= maxZ; cz++) {
@@ -76,20 +78,43 @@ public final class TierOverlay {
                 }
                 int edges = TierGrid.edges(tier, TierMapCache.tier(cx, cz - 1), TierMapCache.tier(cx, cz + 1),
                         TierMapCache.tier(cx - 1, cz), TierMapCache.tier(cx + 1, cz));
-                column.draw(cx, cz, tier, edges);
+                column.draw(cx, cz, fill(tier), edge(tier), sides(edges));
             }
         }
     }
 
-    public static List<TierMapPayloads.Marker> markers() {
-        return TierMapCache.markers();
+    /** {@link TierGrid}'s outline bits as the map's. */
+    static int sides(int edges) {
+        return ((edges & TierGrid.NORTH) != 0 ? NORTH : 0) | ((edges & TierGrid.SOUTH) != 0 ? SOUTH : 0)
+                | ((edges & TierGrid.WEST) != 0 ? WEST : 0) | ((edges & TierGrid.EAST) != 0 ? EAST : 0);
+    }
+
+    /** Incursions under way: kind 1 (greater) a size bigger. */
+    @Override
+    public List<Marker> markers() {
+        List<TierMapPayloads.Marker> found = TierMapCache.markers();
+        List<Marker> markers = new ArrayList<>(found.size());
+        for (TierMapPayloads.Marker marker : found) {
+            markers.add(new Marker(marker.x(), marker.z(), marker.kind() == 1, MARKER, MARKER_OUTLINE));
+        }
+        return markers;
+    }
+
+    @Override
+    public List<LegendRow> legend() {
+        List<LegendRow> rows = new ArrayList<>(LEGEND_KEYS.length);
+        for (int i = 0; i < LEGEND_KEYS.length; i++) {
+            rows.add(new LegendRow(legendName(i), legendColour(i), i == LEGEND_KEYS.length - 1));
+        }
+        return rows;
     }
 
     /**
      * Asks the server for the columns around a map's middle, if it is due (see
      * {@link dev.brights0ng.frontier.map.TierRequests}). {@code key} tells maps apart.
      */
-    public static void want(Object key, double centreX, double centreZ, double reachBlocks) {
+    @Override
+    public void want(Object key, double centreX, double centreZ, double reachBlocks) {
         int cx = (int) Math.floor(centreX) >> 4;
         int cz = (int) Math.floor(centreZ) >> 4;
         int radius = Math.min(TierMapPayloads.MAX_RADIUS, (int) Math.ceil(reachBlocks / 16) + 1);
