@@ -11,7 +11,6 @@ import dev.brights0ng.frontier.Frontier;
 import dev.brights0ng.frontier.FrontierConfig;
 import dev.brights0ng.frontier.tier.FrontierLevel;
 import dev.brights0ng.frontier.tier.FrontierLevels;
-import dev.brights0ng.seismicsurveyance.ChokedThumpers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -215,8 +214,8 @@ public final class Incursions {
         int r = Incursion.THUMPER_SEARCH;
         for (BlockPos at : BlockPos.betweenClosed(pos.offset(-r, -4, -r), pos.offset(r, 4, r))) {
             var state = level.getBlockState(at);
-            if (ChokedThumpers.isThumper(state)) {
-                BlockPos base = ChokedThumpers.basePos(at, state).immutable();
+            if (ThumperAccess.get().isThumper(state)) {
+                BlockPos base = ThumperAccess.get().basePos(at, state).immutable();
                 if (!thumpers.contains(base)) {
                     thumpers.add(base);
                 }

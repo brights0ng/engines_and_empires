@@ -16,7 +16,6 @@ import dev.brights0ng.frontier.FrontierTags;
 import dev.brights0ng.frontier.deep.DeepRoster;
 import dev.brights0ng.frontier.deep.DeepSpawns;
 import dev.brights0ng.frontier.upkeep.DryTorches;
-import dev.brights0ng.seismicsurveyance.ChokedThumpers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
@@ -213,7 +212,7 @@ public final class Incursion {
         if (kind == Kind.THUMPER) {
             BlockPos nearest = null;
             for (BlockPos thumper : thumpers) {
-                if (ChokedThumpers.isThumper(level.getBlockState(thumper))
+                if (ThumperAccess.get().isThumper(level.getBlockState(thumper))
                         && (nearest == null || mob.distanceToSqr(Vec3.atCenterOf(thumper)) < mob.distanceToSqr(Vec3.atCenterOf(nearest)))) {
                     nearest = thumper;
                 }
@@ -307,7 +306,7 @@ public final class Incursion {
         }
         boolean anyLeft = false;
         for (BlockPos thumper : thumpers) {
-            if (!level.isLoaded(thumper) || ChokedThumpers.isThumper(level.getBlockState(thumper))) {
+            if (!level.isLoaded(thumper) || ThumperAccess.get().isThumper(level.getBlockState(thumper))) {
                 anyLeft = true;
                 break;
             }
@@ -384,7 +383,7 @@ public final class Incursion {
     private void chokeThumpers(ServerLevel level, List<Mob> loaded, int ticks) {
         int needed = FrontierConfig.incursions().chokeTicks();
         for (BlockPos thumper : thumpers) {
-            if (!level.isLoaded(thumper) || !ChokedThumpers.isThumper(level.getBlockState(thumper))) {
+            if (!level.isLoaded(thumper) || !ThumperAccess.get().isThumper(level.getBlockState(thumper))) {
                 choking.remove(thumper.asLong());
                 continue;
             }
@@ -405,7 +404,7 @@ public final class Incursion {
                     2, 0.4, 0.3, 0.4, 0.01);
             if (progress >= needed) {
                 choking.remove(thumper.asLong());
-                ChokedThumpers.choke(level, thumper);
+                ThumperAccess.get().choke(level, thumper);
             }
         }
     }

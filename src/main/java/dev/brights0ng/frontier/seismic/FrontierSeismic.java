@@ -1,5 +1,7 @@
 package dev.brights0ng.frontier.seismic;
 
+import dev.brights0ng.frontier.incursion.ThumperAccess;
+import dev.brights0ng.paradynelib.services.Services;
 import dev.brights0ng.seismicsurveyance.EchoesEvent;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import dev.brights0ng.seismicsurveyance.ThumpEvent;
@@ -12,7 +14,7 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 /**
  * Frontier's side of Seismic Surveyance (split seams S5-S7). This package is the only part of Frontier that names
  * Seismic Surveyance's or Sparse Ores' classes, and it is reached only through {@link #registerIfLoaded}, so Frontier
- * runs without them: then no thumper shot ever reaches the Deep.
+ * runs without them: then no thumper shot ever reaches the Deep, and thumper incursions find no thumpers.
  */
 public final class FrontierSeismic {
 
@@ -35,6 +37,8 @@ public final class FrontierSeismic {
             NeoForge.EVENT_BUS.addListener(Hook::onLevelUnload);
             // /eae frontier deep
             NeoForge.EVENT_BUS.addListener(DeepCommand::onRegisterCommands);
+            // The thumpers thumper incursions go after and choke
+            Services.register(ThumperAccess.KEY, SeismicThumpers.INSTANCE);
         }
 
         private static void onThump(ThumpEvent event) {
