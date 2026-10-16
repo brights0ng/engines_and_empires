@@ -41,9 +41,12 @@ repositories {
             includeGroup("dev.eriksonn.aeronautics")
         }
     }
-    maven {
-        url = "https://api.modrinth.com/maven"
-        content {
+    exclusiveContent {
+        // Modrinth is the only place maven.modrinth artifacts are looked up (and only they are looked up there)
+        forRepository {
+            maven { url = "https://api.modrinth.com/maven" }
+        }
+        filter {
             includeGroup("maven.modrinth")
         }
     }// Registrate
@@ -259,11 +262,14 @@ dependencies {
     compileOnly("maven.modrinth:iris:${iris_version}") { transitive = false }
     shaderRuntime("maven.modrinth:iris:${iris_version}") { transitive = false }
     shaderRuntime("maven.modrinth:sodium:${sodium_version}") { transitive = false }
+    // GlitchCore 2.1.0.2, Serene Seasons' library, for the client run only (synced into run/mods like Iris and Sodium).
+    shaderRuntime("maven.modrinth:glitchcore:S2TfWrZR") { transitive = false }
 
-    // libs/ (git-ignored) holds Serene Seasons 10.1.0.9 and GlitchCore 2.1.0.2 (its library) for the client run.
+    // libs/ (git-ignored) holds Serene Seasons 10.1.0.9 for the client run.
     // The core mod compiles against Serene Seasons' API (weather/climate/compat) but only touches it when it is
-    // installed; the server and game test runs go without it.
-    compileOnly files("libs/SereneSeasons-neoforge-1.21.1-10.1.0.9.jar")
+    // installed; the server and game test runs go without it. Compiled against the Modrinth copy (10.1.0.9), so a
+    // fresh checkout builds without libs/.
+    compileOnly("maven.modrinth:serene-seasons:pHEgQQUE") { transitive = false }
     // Project Atmosphere was removed on 2026-10-05: the core mod now owns the weather (claude/weather-backbone-plan.md).
 }
 
