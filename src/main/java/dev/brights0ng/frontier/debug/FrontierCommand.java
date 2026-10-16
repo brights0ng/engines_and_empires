@@ -40,11 +40,8 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *   <li>{@code /eae frontier torches age <ticks> [radius]}: makes the torches around you as if lit that much earlier.</li>
  *   <li>{@code /eae frontier torches sweep}: checks every loaded torch now, putting out the ones whose day is up.</li>
  *   <li>{@code /eae frontier guards [radius]}: checks the guards around you now, and lists which are free to move.</li>
- *   <li>{@code /eae frontier deep}: the disturbance around you, its cooldown, the sculk and stirred deposits nearby, and
- *       the latest incursions thumping called up.</li>
- *   <li>{@code /eae frontier deep shot mechanical|combustive|dry}: what a thumper shot where you stand would set off
- *       (sculk, mobs, disturbance), without the survey.</li>
  * </ul>
+ * {@code /eae frontier deep} is registered with Seismic Surveyance's hook-up ({@code frontier.seismic.DeepCommand}).
  */
 @EventBusSubscriber(modid = Frontier.MODID)
 public final class FrontierCommand {
@@ -82,15 +79,6 @@ public final class FrontierCommand {
                 .executes(context -> guards(context.getSource(), 32))
                 .then(Commands.argument("radius", IntegerArgumentType.integer(1, 256))
                         .executes(context -> guards(context.getSource(), IntegerArgumentType.getInteger(context, "radius")))));
-        frontier.then(Commands.literal("deep")
-                .executes(context -> deep(context.getSource()))
-                .then(Commands.literal("shot")
-                        .then(Commands.literal("mechanical").executes(context -> shot(context.getSource(),
-                                dev.brights0ng.frontier.deep.ShotSource.MECHANICAL, 512)))
-                        .then(Commands.literal("combustive").executes(context -> shot(context.getSource(),
-                                dev.brights0ng.frontier.deep.ShotSource.COMBUSTIVE, 1024)))
-                        .then(Commands.literal("dry").executes(context -> shot(context.getSource(),
-                                dev.brights0ng.frontier.deep.ShotSource.COMBUSTIVE_DRY, 128)))));
 
         event.getDispatcher().register(Commands.literal("eae")
                 .requires(source -> source.hasPermission(2))
@@ -215,62 +203,6 @@ public final class FrontierCommand {
 
     private static int guards(CommandSourceStack source, int radius) {
         return guardsReport(source, radius);
-    }
-
-    private static int deep(CommandSourceStack source) {
-        net.minecraft.server.level.ServerLevel level = source.getLevel();
-        BlockPos pos = BlockPos.containing(source.getPosition());
-        var params = dev.brights0ng.frontier.FrontierConfig.deep();
-        var deep = dev.brights0ng.frontier.deep.Deep.of(level);
-        long now = level.getGameTime();
-        int cx = pos.getX() >> 4;
-        int cz = pos.getZ() >> 4;
-        int shots = deep.disturbance().countAround(cx, cz, now, params.disturbanceWindow());
-        boolean quiet = deep.disturbance().isQuiet(cx, cz, now);
-        long quietLeft = quiet ? deep.disturbance().quietUntil(cx, cz) - now : 0;
-        int sculkMech = dev.brights0ng.frontier.deep.SculkListeners.of(level)
-                .within(pos, 512 * params.sculkRangeFraction()).size();
-        // A combustive shot stirs deposits up to 1024 blocks away, so look that far; list the nearest ten.
-        var stirred = new java.util.ArrayList<>(dev.brights0ng.frontier.deep.StirredDeposits.of(level)
-                .near(pos, 1024, now));
-        stirred.sort(java.util.Comparator.comparingDouble(s -> s.centre().distSqr(pos)));
-        int stirredCount = stirred.size();
-        if (stirred.size() > 10) {
-            stirred.subList(10, stirred.size()).clear();
-        }
-        source.sendSuccess(() -> Component.literal("The Deep around you:"), false);
-        line(source, String.format(Locale.ROOT, "Disturbance: %d of %d shots in the last %.0f s (3x3 chunks)%s",
-                shots, params.disturbanceShots(), params.disturbanceWindow() / 20.0,
-                quiet ? String.format(Locale.ROOT, "; quiet for %.1f more minutes", quietLeft / 1200.0) : ""));
-        line(source, sculkMech + " sculk sensors and shriekers would hear a mechanical shot here ("
-                + (int) (512 * params.sculkRangeFraction()) + " blocks)");
-        line(source, stirredCount + " stirred deposits within 1024 blocks" + (stirred.isEmpty() ? "" : " (nearest shown):"));
-        for (var s : stirred) {
-            line(source, String.format(Locale.ROOT, "  %s at %d, %d, %d (%d blocks away), stirred for %.1f more minutes",
-                    s.oreId(), s.centre().getX(), s.centre().getY(), s.centre().getZ(),
-                    (int) Math.sqrt(s.centre().distSqr(pos)), (s.until() - now) / 1200.0));
-        }
-        var calls = dev.brights0ng.frontier.deep.ThumperIncursions.recent();
-        line(source, "Incursions called up by thumping: " + calls.size() + " (see /eae frontier incursion status)");
-        for (int i = Math.max(0, calls.size() - 3); i < calls.size(); i++) {
-            var call = calls.get(i);
-            line(source, String.format(Locale.ROOT, "  %s at %d, %d, %d, %.1f minutes ago",
-                    call.incursionId() == null ? "none (one already nearby)" : "incursion #" + call.incursionId(),
-                    call.pos().getX(), call.pos().getY(), call.pos().getZ(), (now - call.time()) / 1200.0));
-        }
-        return shots;
-    }
-
-    private static int shot(CommandSourceStack source, dev.brights0ng.frontier.deep.ShotSource shot, int range) {
-        BlockPos pos = BlockPos.containing(source.getPosition());
-        var deep = dev.brights0ng.frontier.deep.Deep.of(source.getLevel());
-        int before = dev.brights0ng.frontier.deep.ThumperIncursions.recent().size();
-        deep.onThump(pos, shot, range);
-        int pending = deep.pendingCount();
-        boolean called = dev.brights0ng.frontier.deep.ThumperIncursions.recent().size() > before;
-        source.sendSuccess(() -> Component.literal("A " + shot.name().toLowerCase(Locale.ROOT) + " shot here: " + pending
-                + " sculk listeners and Wardens will hear it" + (called ? "; it called up an incursion" : "") + "."), true);
-        return pending;
     }
 
     private static int guardsReport(CommandSourceStack source, int radius) {
