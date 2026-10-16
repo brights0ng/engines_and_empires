@@ -1,9 +1,11 @@
 package dev.brights0ng.enginesandempires.weather.climate.compat;
 
 import com.momosoftworks.coldsweat.common.blockentity.HearthBlockEntity;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.mixin.compat.coldsweat.HearthFuelAccessor;
 import dev.brights0ng.meteodyne.heat.world.HeatDrivers;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
@@ -26,6 +28,10 @@ import net.minecraft.world.level.block.entity.BlockEntity;
  */
 public final class ColdSweatHearths {
 
+    /** The heat drivers of hearth-family blocks using hot and cold fuel (moved out of {@link HeatDrivers}, split seam S13). */
+    public static final ResourceLocation HEATING = EnginesAndEmpires.id("cold_sweat_heating");
+    public static final ResourceLocation COOLING = EnginesAndEmpires.id("cold_sweat_cooling");
+
     /** Whether the pack's heat simulation stands in for the hearth-family block at {@code pos}. */
     public static boolean replaced(Level level, BlockPos pos) {
         return level != null && level.dimension() == Level.OVERWORLD;
@@ -37,10 +43,10 @@ public final class ColdSweatHearths {
     }
 
     static void registerDrivers() {
-        HeatDrivers.register(HeatDrivers.COLD_SWEAT_HEATING, (level, pos, state, be) ->
+        HeatDrivers.register(HEATING, (level, pos, state, be) ->
                 be instanceof HearthBlockEntity && replaced(level, pos)
                         && ((HearthFuelAccessor) be).engines_and_empires$usingHotFuel() ? 1 : 0);
-        HeatDrivers.register(HeatDrivers.COLD_SWEAT_COOLING, (level, pos, state, be) ->
+        HeatDrivers.register(COOLING, (level, pos, state, be) ->
                 be instanceof HearthBlockEntity && replaced(level, pos)
                         && ((HearthFuelAccessor) be).engines_and_empires$usingColdFuel() ? 1 : 0);
     }
