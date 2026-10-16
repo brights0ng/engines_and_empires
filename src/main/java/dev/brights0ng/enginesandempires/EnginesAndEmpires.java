@@ -7,6 +7,7 @@ import com.mojang.logging.LogUtils;
 import dev.brights0ng.enginesandempires.food.compat.AppleSkinCompat;
 import dev.brights0ng.enginesandempires.food.compat.DietCompat;
 import dev.brights0ng.enginesandempires.frontier.guard.MineColoniesGuardSource;
+import dev.brights0ng.enginesandempires.frontier.incursion.CreateLoudMachines;
 import dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatCompat;
 import dev.brights0ng.enginesandempires.weather.climate.compat.SereneSeasonsCompat;
 import dev.brights0ng.enginesandempires.weather.heat.compat.MachineHeatDrivers;
@@ -60,5 +61,7 @@ public final class EnginesAndEmpires {
 
         // MineColonies: colonists working a guard job count as Frontier's guards (only if MineColonies is installed)
         MineColoniesGuardSource.registerIfLoaded();
+        // Create's machines run (for Frontier's loud machines) while they turn
+        CreateLoudMachines.register();
     }
 }
