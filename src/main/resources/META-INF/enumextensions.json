@@ -5,7 +5,7 @@
       "name": "ENGINES_AND_EMPIRES_PRD_RAISED",
       "constructor": "(ZLnet/neoforged/neoforge/client/IArmPoseTransformer;)V",
       "parameters": {
-        "class": "dev/brights0ng/enginesandempires/geophone/client/PrdArmPose",
+        "class": "dev/brights0ng/seismicsurveyance/client/PrdArmPose",
         "field": "RAISED"
       }
     }
