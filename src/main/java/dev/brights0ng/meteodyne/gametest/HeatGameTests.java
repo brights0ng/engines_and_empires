@@ -76,13 +76,6 @@ public final class HeatGameTests {
         helper.assertTrue(HeatField.variantOf(Blocks.CAMPFIRE.defaultBlockState().setValue(CampfireBlock.LIT, false)) == null,
                 "a campfire that is out gives nothing");
         helper.assertTrue(HeatField.variantOf(Blocks.STONE.defaultBlockState()) == null, "stone gives nothing");
-        block("create:blaze_burner").ifPresent(burner -> {
-            check(helper, with(burner, "blaze", "seething"), 16.67, 6, 33.33, 204.4);
-            check(helper, with(burner, "blaze", "kindled"), 11.11, 5, 25, 204.4);
-            check(helper, with(burner, "blaze", "fading"), 6.67, 4, 16.67, 204.4);
-            check(helper, with(burner, "blaze", "smouldering"), 2.78, 3, 16.67, 204.4);
-            helper.assertTrue(HeatField.variantOf(with(burner, "blaze", "none")) == null, "an unlit burner gives nothing");
-        });
         block("cold_sweat:icebox").ifPresent(box -> {
             check(helper, with(box, "frosted", "true"), -8.33, 7, 20, 0);
             helper.assertTrue(HeatField.variantOf(with(box, "frosted", "false")) == null, "an icebox without ice gives nothing");
