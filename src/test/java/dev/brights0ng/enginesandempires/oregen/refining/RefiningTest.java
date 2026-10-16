@@ -20,7 +20,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import dev.brights0ng.enginesandempires.oregen.rich.RichOres;
+import dev.brights0ng.sparseores.refining.ChipTextures;
+import dev.brights0ng.sparseores.rich.RichOres;
 
 class RefiningTest {
 

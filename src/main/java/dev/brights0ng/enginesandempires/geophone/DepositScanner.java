@@ -7,12 +7,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import dev.brights0ng.enginesandempires.oregen.OreMap;
-import dev.brights0ng.enginesandempires.oregen.RemainingOre;
-import dev.brights0ng.enginesandempires.oregen.worldgen.LevelDeposits;
-import dev.brights0ng.enginesandempires.oregen.worldgen.LevelWorldView;
-import dev.brights0ng.enginesandempires.oregen.worldgen.OreMaps;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
+import dev.brights0ng.sparseores.OreMap;
+import dev.brights0ng.sparseores.RemainingOre;
+import dev.brights0ng.sparseores.worldgen.LevelDeposits;
+import dev.brights0ng.sparseores.worldgen.LevelWorldView;
+import dev.brights0ng.sparseores.worldgen.OreMaps;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;

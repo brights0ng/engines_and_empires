@@ -4,9 +4,9 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
-import dev.brights0ng.enginesandempires.oregen.rich.RichOreBlocks;
-import dev.brights0ng.enginesandempires.oregen.rich.RichOreDataGen;
-import dev.brights0ng.enginesandempires.oregen.worldgen.OreWorldgen;
+import dev.brights0ng.sparseores.rich.RichOreBlocks;
+import dev.brights0ng.sparseores.rich.RichOreDataGen;
+import dev.brights0ng.sparseores.worldgen.OreWorldgen;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;

@@ -13,7 +13,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import dev.brights0ng.enginesandempires.geophone.GeophoneGlow.ActivePulse;
-import dev.brights0ng.enginesandempires.oregen.OreTypes;
+import dev.brights0ng.sparseores.OreTypes;
 
 class GeophoneGlowTest {
 

@@ -7,10 +7,10 @@ import com.khofonyx.encumbered.common.events.PlayerWeightHandler;
 import com.khofonyx.encumbered.datamaps.EncumberedDataMaps;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
-import dev.brights0ng.enginesandempires.oregen.refining.RefiningItems;
-import dev.brights0ng.enginesandempires.oregen.rich.RichOreBlocks;
 import dev.brights0ng.enginesandempires.weight.ItemWeights;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
+import dev.brights0ng.sparseores.refining.RefiningItems;
+import dev.brights0ng.sparseores.rich.RichOreBlocks;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;

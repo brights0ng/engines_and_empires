@@ -18,15 +18,15 @@ import dev.brights0ng.enginesandempires.geophone.DepositFinder.Metric;
 import dev.brights0ng.enginesandempires.geophone.DepositFinder.Query;
 import dev.brights0ng.enginesandempires.geophone.DepositFinder.Result;
 import dev.brights0ng.enginesandempires.geophone.DepositFinder.Sighting;
-import dev.brights0ng.enginesandempires.oregen.Deposit;
-import dev.brights0ng.enginesandempires.oregen.DepositBody;
-import dev.brights0ng.enginesandempires.oregen.DepositResolver;
-import dev.brights0ng.enginesandempires.oregen.OreMap;
-import dev.brights0ng.enginesandempires.oregen.OreType;
-import dev.brights0ng.enginesandempires.oregen.OreTypes;
-import dev.brights0ng.enginesandempires.oregen.Realm;
-import dev.brights0ng.enginesandempires.oregen.ResolvedDeposit;
 import dev.brights0ng.paradynelib.TerrainProbe;
+import dev.brights0ng.sparseores.Deposit;
+import dev.brights0ng.sparseores.DepositBody;
+import dev.brights0ng.sparseores.DepositResolver;
+import dev.brights0ng.sparseores.OreMap;
+import dev.brights0ng.sparseores.OreType;
+import dev.brights0ng.sparseores.OreTypes;
+import dev.brights0ng.sparseores.Realm;
+import dev.brights0ng.sparseores.ResolvedDeposit;
 
 class DepositFinderTest {
 

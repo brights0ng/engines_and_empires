@@ -3,7 +3,7 @@ package dev.brights0ng.enginesandempires.geophone;
 import java.util.List;
 import java.util.Map;
 
-import dev.brights0ng.enginesandempires.oregen.OreTypes;
+import dev.brights0ng.sparseores.OreTypes;
 
 /**
  * What a brass geophone shows while it glows: which ore's colour to use when several pulses overlap, and what that

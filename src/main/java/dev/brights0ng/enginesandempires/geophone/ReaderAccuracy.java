@@ -2,7 +2,7 @@ package dev.brights0ng.enginesandempires.geophone;
 
 import java.util.Arrays;
 
-import dev.brights0ng.enginesandempires.oregen.Hashing;
+import dev.brights0ng.sparseores.Hashing;
 
 /**
  * How good a reading's fix on a deposit is, and how far off from the truth that lets it be.

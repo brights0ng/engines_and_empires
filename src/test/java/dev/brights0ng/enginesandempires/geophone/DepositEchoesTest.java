@@ -8,13 +8,13 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import dev.brights0ng.enginesandempires.oregen.Deposit;
-import dev.brights0ng.enginesandempires.oregen.DepositBody;
-import dev.brights0ng.enginesandempires.oregen.DepositResolver;
-import dev.brights0ng.enginesandempires.oregen.OreMap;
-import dev.brights0ng.enginesandempires.oregen.OreType;
-import dev.brights0ng.enginesandempires.oregen.OreTypes;
-import dev.brights0ng.enginesandempires.oregen.ResolvedDeposit;
+import dev.brights0ng.sparseores.Deposit;
+import dev.brights0ng.sparseores.DepositBody;
+import dev.brights0ng.sparseores.DepositResolver;
+import dev.brights0ng.sparseores.OreMap;
+import dev.brights0ng.sparseores.OreType;
+import dev.brights0ng.sparseores.OreTypes;
+import dev.brights0ng.sparseores.ResolvedDeposit;
 
 /** The wave model applied to real deposits, not made-up ones. */
 class DepositEchoesTest {

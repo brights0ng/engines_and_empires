@@ -6,10 +6,10 @@ import com.mojang.logging.LogUtils;
 
 import dev.brights0ng.enginesandempires.food.compat.AppleSkinCompat;
 import dev.brights0ng.enginesandempires.food.compat.DietCompat;
-import dev.brights0ng.enginesandempires.oregen.refining.RefiningItems;
 import dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatCompat;
 import dev.brights0ng.enginesandempires.weight.WeightDataMaps;
 import dev.brights0ng.enginesandempires.weight.WeightReport;
+import dev.brights0ng.sparseores.refining.RefiningItems;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;

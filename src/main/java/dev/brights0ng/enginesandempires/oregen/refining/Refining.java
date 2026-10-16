@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import dev.brights0ng.enginesandempires.oregen.rich.RichOres;
+import dev.brights0ng.sparseores.rich.RichOres;
 
 /**
  * How much every ore is worth once it is refined, in one place. Nothing here touches Minecraft, so the rules can be

@@ -1,7 +1,7 @@
 package dev.brights0ng.paradynelib.worldgen;
 
-import dev.brights0ng.enginesandempires.oregen.worldgen.OreWorldgen;
 import dev.brights0ng.paradynelib.TerrainProbe;
+import dev.brights0ng.sparseores.worldgen.OreWorldgen;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.levelgen.DensityFunction;
