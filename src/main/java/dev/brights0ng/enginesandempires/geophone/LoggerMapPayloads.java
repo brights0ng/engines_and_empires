@@ -6,7 +6,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 
 /**
  * What a player working a smart logger's map asks the server for. The map's controls are worked out on the client, which
@@ -23,7 +22,7 @@ public final class LoggerMapPayloads {
     public record View(BlockPos pos, double x, double z, int zoom) implements CustomPacketPayload {
 
         public static final CustomPacketPayload.Type<View> TYPE = new CustomPacketPayload.Type<>(
-                ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, "logger_map_view"));
+                SeismicSurveyance.id("logger_map_view"));
 
         public static final StreamCodec<ByteBuf, View> STREAM_CODEC = StreamCodec.composite(
                 BlockPos.STREAM_CODEC, View::pos,
@@ -49,7 +48,7 @@ public final class LoggerMapPayloads {
     public record Send(BlockPos pos, int number) implements CustomPacketPayload {
 
         public static final CustomPacketPayload.Type<Send> TYPE = new CustomPacketPayload.Type<>(
-                ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, "logger_map_send"));
+                SeismicSurveyance.id("logger_map_send"));
 
         public static final StreamCodec<ByteBuf, Send> STREAM_CODEC = StreamCodec.composite(
                 BlockPos.STREAM_CODEC, Send::pos,

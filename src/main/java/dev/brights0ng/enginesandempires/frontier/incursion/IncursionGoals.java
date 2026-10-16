@@ -47,7 +47,7 @@ public final class IncursionGoals {
     private static final double BYSTANDER_REACH = 3.0;
     /** How far incursion mobs notice players. */
     private static final double FOLLOW_RANGE = 48.0;
-    private static final ResourceLocation MARCH_SPEED = ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "incursion_march");
+    private static final ResourceLocation MARCH_SPEED = Frontier.id("incursion_march");
     private static Field wormIdleTime;
     private static boolean wormLookedUp;
     /** How far a retreating mob must be from every player before it is gone. */

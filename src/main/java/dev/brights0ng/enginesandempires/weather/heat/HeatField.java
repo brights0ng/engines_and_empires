@@ -9,7 +9,6 @@ import java.util.WeakHashMap;
 import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
@@ -36,7 +35,7 @@ import net.neoforged.neoforge.registries.datamaps.RegisterDataMapTypesEvent;
 public final class HeatField {
 
     public static final DataMapType<Block, HeatSourceData> DATA_MAP = DataMapType.builder(
-            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "heat_sources"), Registries.BLOCK,
+            Meteodyne.id("heat_sources"), Registries.BLOCK,
             HeatSourceData.CODEC).build();
 
     /** Ticks a chunk's list of sources is kept. */

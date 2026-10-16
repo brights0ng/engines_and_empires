@@ -12,6 +12,7 @@ import dev.brights0ng.enginesandempires.weather.wind.WindParams;
 import dev.brights0ng.enginesandempires.weather.wind.WindShips;
 import dev.brights0ng.enginesandempires.weather.wind.WindSources;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.ParadyneLib;
 import dev.ryanhcode.sable.api.physics.force.ForceGroups;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
@@ -46,7 +47,8 @@ public final class WindGameTests {
 
     @GameTest(template = SCRATCH)
     public static void windForceGroupIsRegistered(GameTestHelper helper) {
-        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "wind");
+        // The force group is the library's (WindContent), so its id is in the library's namespace
+        ResourceLocation id = ParadyneLib.id("wind");
         helper.assertTrue(WindContent.WIND.isBound(), "the wind force group should be registered");
         helper.assertTrue(ForceGroups.REGISTRY.containsKey(id), "Sable's force group registry should hold " + id);
         helper.succeed();

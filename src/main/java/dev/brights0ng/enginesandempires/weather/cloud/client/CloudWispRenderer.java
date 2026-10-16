@@ -226,7 +226,7 @@ public final class CloudWispRenderer {
             }
             texture = new DynamicTexture(img);
             texture.setFilter(true, false);
-            textureId = ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "dynamic/cloud_wisps");
+            textureId = Meteodyne.id("dynamic/cloud_wisps");
             Minecraft.getInstance().getTextureManager().register(textureId, texture);
             return true;
         } catch (RuntimeException ex) {

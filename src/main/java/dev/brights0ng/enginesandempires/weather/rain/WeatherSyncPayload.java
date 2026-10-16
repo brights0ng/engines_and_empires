@@ -4,7 +4,6 @@ import dev.brights0ng.meteodyne.Meteodyne;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 
 /**
  * What a client needs to work out the weather around its player the way the server does, sent once a second
@@ -35,7 +34,7 @@ public record WeatherSyncPayload(boolean localized, float surfaceX, float surfac
         implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<WeatherSyncPayload> TYPE = new CustomPacketPayload.Type<>(
-            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "weather_sync"));
+            Meteodyne.id("weather_sync"));
 
     public static final StreamCodec<ByteBuf, WeatherSyncPayload> STREAM_CODEC = StreamCodec.of(
             (buf, p) -> {

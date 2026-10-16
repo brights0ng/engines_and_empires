@@ -5,7 +5,6 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 
 /**
  * A player shift+scrolled over a food stack in an open menu, asking for the next group of it to go on top.
@@ -17,7 +16,7 @@ import net.minecraft.resources.ResourceLocation;
 public record FoodTopPayload(int containerId, int slot, boolean staler) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<FoodTopPayload> TYPE = new CustomPacketPayload.Type<>(
-            ResourceLocation.fromNamespaceAndPath(SimpleSpoilage.MODID, "food_top"));
+            SimpleSpoilage.id("food_top"));
 
     public static final StreamCodec<ByteBuf, FoodTopPayload> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.VAR_INT, FoodTopPayload::containerId,

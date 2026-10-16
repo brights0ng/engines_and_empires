@@ -6,7 +6,6 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.biome.Biome;
 import net.neoforged.neoforge.registries.datamaps.DataMapType;
 import net.neoforged.neoforge.registries.datamaps.RegisterDataMapTypesEvent;
@@ -40,7 +39,7 @@ public final class ClimateDataMaps {
             frozen)));
 
     public static final DataMapType<Biome, BiomeAdjust> BIOME_CLIMATE = DataMapType.builder(
-                    ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "biome_climate"),
+                    Meteodyne.id("biome_climate"),
                     Registries.BIOME, CODEC)
             .build();
 

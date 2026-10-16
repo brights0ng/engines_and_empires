@@ -36,15 +36,15 @@ import net.minecraft.world.entity.EntityType;
 public record DeepRoster(List<Entry> entries, int packs, List<Fixed> fixed) {
 
     public static final ResourceKey<Registry<DeepRoster>> KEY =
-            ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "deep_roster"));
+            ResourceKey.createRegistryKey(Frontier.id("deep_roster"));
 
-    public static final ResourceLocation THUMPER = ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "thumper");
-    public static final ResourceLocation STIRRED = ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "stirred");
-    public static final ResourceLocation LESSER = ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "lesser");
+    public static final ResourceLocation THUMPER = Frontier.id("thumper");
+    public static final ResourceLocation STIRRED = Frontier.id("stirred");
+    public static final ResourceLocation LESSER = Frontier.id("lesser");
 
     /** The roster of a greater incursion's wave {@code wave} (1 to 10). */
     public static ResourceLocation greater(int wave) {
-        return ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "greater_" + wave);
+        return Frontier.id("greater_" + wave);
     }
 
     /**

@@ -92,8 +92,7 @@ public final class LocalRainRenderer {
 
     private static final ResourceLocation RAIN = ResourceLocation.withDefaultNamespace("textures/environment/rain.png");
     private static final ResourceLocation SNOW = ResourceLocation.withDefaultNamespace("textures/environment/snow.png");
-    private static final ResourceLocation PALE_RAIN = ResourceLocation.fromNamespaceAndPath(
-            Meteodyne.MODID, "dynamic/pale_rain");
+    private static final ResourceLocation PALE_RAIN = Meteodyne.id("dynamic/pale_rain");
     private static boolean paleRainReady;
     /** The most a streak is set off its block's centre, blocks. */
     static final double JITTER = 0.35;

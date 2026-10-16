@@ -6,7 +6,6 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
@@ -34,7 +33,7 @@ public final class ApparentSync {
     public record Payload(float offsetC) implements CustomPacketPayload {
 
         public static final CustomPacketPayload.Type<Payload> TYPE = new CustomPacketPayload.Type<>(
-                ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "apparent_offset"));
+                Meteodyne.id("apparent_offset"));
 
         public static final StreamCodec<ByteBuf, Payload> STREAM_CODEC = StreamCodec.of(
                 (buf, payload) -> buf.writeFloat(payload.offsetC),

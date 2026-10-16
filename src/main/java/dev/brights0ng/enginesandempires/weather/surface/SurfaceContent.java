@@ -63,7 +63,7 @@ public final class SurfaceContent {
     }
 
     private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, path);
+        return Meteodyne.id(path);
     }
 
     private SurfaceContent() {

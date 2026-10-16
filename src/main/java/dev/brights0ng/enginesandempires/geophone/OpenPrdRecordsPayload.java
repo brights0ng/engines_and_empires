@@ -5,7 +5,6 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 
 /**
  * The portable record display's map screen asking the server to open its records list: the map is drawn by the client
@@ -17,7 +16,7 @@ import net.minecraft.resources.ResourceLocation;
 public record OpenPrdRecordsPayload(int slot) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<OpenPrdRecordsPayload> TYPE = new CustomPacketPayload.Type<>(
-            ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, "open_prd_records"));
+            SeismicSurveyance.id("open_prd_records"));
 
     public static final StreamCodec<ByteBuf, OpenPrdRecordsPayload> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.VAR_INT, OpenPrdRecordsPayload::slot,

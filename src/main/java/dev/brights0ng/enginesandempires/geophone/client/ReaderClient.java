@@ -43,11 +43,11 @@ public final class ReaderClient {
     public static final ModelResourceLocation LAMP_LIT = model("block/windup_reader_lamp_lit");
 
     private static ModelResourceLocation model(String path) {
-        return ModelResourceLocation.standalone(ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, path));
+        return ModelResourceLocation.standalone(SeismicSurveyance.id(path));
     }
 
     private static ResourceLocation property(String name) {
-        return ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, name);
+        return SeismicSurveyance.id(name);
     }
 
     @SubscribeEvent

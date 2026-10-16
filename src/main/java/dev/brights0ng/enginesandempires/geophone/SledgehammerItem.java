@@ -3,7 +3,6 @@ package dev.brights0ng.enginesandempires.geophone;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionResult;
@@ -27,7 +26,7 @@ public class SledgehammerItem extends Item {
 
     /** The blocks a hammer can strike without a plate: natural stone of every dimension, cobblestone, and ore in the rock. */
     public static final TagKey<Block> STRIKABLE = TagKey.create(Registries.BLOCK,
-            ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, "strikable"));
+            SeismicSurveyance.id("strikable"));
 
     /** How long before the hammer can strike again, in ticks. */
     public static final int COOLDOWN_TICKS = 20;
