@@ -10,7 +10,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.minecolonies.core.entity.citizen.EntityCitizen;
 
-import dev.brights0ng.enginesandempires.weather.checks.ColonyWeather;
+import dev.brights0ng.meteodyne.checks.ColonyWeather;
 import net.minecraft.world.level.Level;
 
 /** Leisure wandering follows the rain where the colonist is (weather phase 6a). */

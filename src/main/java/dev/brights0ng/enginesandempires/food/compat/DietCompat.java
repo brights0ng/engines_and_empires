@@ -5,8 +5,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
-import dev.brights0ng.enginesandempires.food.EatingEffects;
-import dev.brights0ng.enginesandempires.food.StageEffects;
+import dev.brights0ng.simplespoilage.EatingEffects;
+import dev.brights0ng.simplespoilage.StageEffects;
 import net.appleseed.appleseed.AppleSeed;
 import net.appleseed.appleseed.api.hook.DietHookRegistry;
 import net.appleseed.appleseed.api.hook.IDietItemFoodEatHook;

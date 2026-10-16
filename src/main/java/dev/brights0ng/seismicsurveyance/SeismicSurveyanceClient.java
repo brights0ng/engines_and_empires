@@ -1,7 +1,7 @@
 package dev.brights0ng.seismicsurveyance;
 
-import dev.brights0ng.enginesandempires.geophone.client.PrdItemRenderer;
-import dev.brights0ng.enginesandempires.geophone.client.ThumperClient;
+import dev.brights0ng.seismicsurveyance.client.PrdItemRenderer;
+import dev.brights0ng.seismicsurveyance.client.ThumperClient;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 

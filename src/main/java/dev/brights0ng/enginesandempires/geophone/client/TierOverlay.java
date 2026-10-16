@@ -3,9 +3,9 @@ package dev.brights0ng.enginesandempires.geophone.client;
 import java.util.List;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
-import dev.brights0ng.enginesandempires.frontier.map.TierGrid;
-import dev.brights0ng.enginesandempires.frontier.map.TierMapCache;
-import dev.brights0ng.enginesandempires.frontier.map.TierMapPayloads;
+import dev.brights0ng.frontier.map.TierGrid;
+import dev.brights0ng.frontier.map.TierMapCache;
+import dev.brights0ng.frontier.map.TierMapPayloads;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
 import net.neoforged.api.distmarker.Dist;
@@ -87,7 +87,7 @@ public final class TierOverlay {
 
     /**
      * Asks the server for the columns around a map's middle, if it is due (see
-     * {@link dev.brights0ng.enginesandempires.frontier.map.TierRequests}). {@code key} tells maps apart.
+     * {@link dev.brights0ng.frontier.map.TierRequests}). {@code key} tells maps apart.
      */
     public static void want(Object key, double centreX, double centreZ, double reachBlocks) {
         int cx = (int) Math.floor(centreX) >> 4;

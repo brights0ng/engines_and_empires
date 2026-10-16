@@ -9,7 +9,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
-import dev.brights0ng.enginesandempires.oregen.rich.RichOres;
+import dev.brights0ng.sparseores.rich.RichOres;
 
 /**
  * Every recipe the pack adds or replaces for ore refining, and the coal chip's burn time, built as plain JSON from

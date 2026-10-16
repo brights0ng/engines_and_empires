@@ -8,8 +8,9 @@ import com.simibubi.create.content.processing.recipe.ProcessingRecipe;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.oregen.refining.BoreheadCrushing;
-import dev.brights0ng.enginesandempires.oregen.refining.RefiningItems;
-import dev.brights0ng.enginesandempires.oregen.rich.RichOreBlocks;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
+import dev.brights0ng.sparseores.refining.RefiningItems;
+import dev.brights0ng.sparseores.rich.RichOreBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;

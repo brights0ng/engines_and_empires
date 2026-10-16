@@ -4,8 +4,8 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
-import dev.brights0ng.enginesandempires.weather.wind.WindConfig;
-import dev.brights0ng.enginesandempires.weather.wind.WindContent;
+import dev.brights0ng.paradynelib.wind.WindConfig;
+import dev.brights0ng.paradynelib.wind.WindContent;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
