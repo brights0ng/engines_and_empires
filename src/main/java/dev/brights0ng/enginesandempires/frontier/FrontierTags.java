@@ -2,7 +2,6 @@ package dev.brights0ng.enginesandempires.frontier;
 
 import dev.brights0ng.frontier.Frontier;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.Block;
@@ -41,11 +40,11 @@ public final class FrontierTags {
     public static final TagKey<EntityType<?>> STATIONARY = entity("stationary");
 
     private static TagKey<Block> block(String name) {
-        return TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(Frontier.MODID, name));
+        return TagKey.create(Registries.BLOCK, Frontier.id(name));
     }
 
     private static TagKey<EntityType<?>> entity(String name) {
-        return TagKey.create(Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath(Frontier.MODID, name));
+        return TagKey.create(Registries.ENTITY_TYPE, Frontier.id(name));
     }
 
     private FrontierTags() {

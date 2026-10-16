@@ -94,7 +94,7 @@ public final class ThumperClient {
     }
 
     private static ResourceLocation model(String path) {
-        return ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, path);
+        return SeismicSurveyance.id(path);
     }
 
     private ThumperClient() {

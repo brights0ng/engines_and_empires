@@ -9,7 +9,6 @@ import dev.brights0ng.meteodyne.Meteodyne;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
@@ -57,7 +56,7 @@ public final class HeatView {
         public static final int END_COUNT = -2;
 
         public static final Type<Payload> TYPE = new Type<>(
-                ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "heat_view"));
+                Meteodyne.id("heat_view"));
 
         public static final StreamCodec<ByteBuf, Payload> STREAM_CODEC = StreamCodec.of(
                 (buf, p) -> {

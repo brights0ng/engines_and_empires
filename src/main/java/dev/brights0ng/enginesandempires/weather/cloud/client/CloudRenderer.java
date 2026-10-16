@@ -16,7 +16,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.client.renderer.culling.Frustum;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -62,21 +61,21 @@ public final class CloudRenderer {
     public static void registerShaders(RegisterShadersEvent event) {
         try {
             event.registerShader(new ShaderInstance(event.getResourceProvider(),
-                    ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "clouds"),
+                    Meteodyne.id("clouds"),
                     CloudMeshes.FORMAT), s -> shader = s);
         } catch (IOException e) {
             Meteodyne.LOGGER.error("Clouds: couldn't load the cloud shader", e);
         }
         try {
             event.registerShader(new ShaderInstance(event.getResourceProvider(),
-                    ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "fog_depth"),
+                    Meteodyne.id("fog_depth"),
                     DefaultVertexFormat.POSITION), FoggedTerrainDepth::setShader);
         } catch (IOException e) {
             Meteodyne.LOGGER.error("Clouds: couldn't load the fogged-terrain depth shader", e);
         }
         try {
             event.registerShader(new ShaderInstance(event.getResourceProvider(),
-                    ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "cloud_veil"),
+                    Meteodyne.id("cloud_veil"),
                     DefaultVertexFormat.POSITION_COLOR), CloudVeilRenderer::setShader);
         } catch (IOException e) {
             Meteodyne.LOGGER.error("Clouds: couldn't load the high-cloud veil shader", e);

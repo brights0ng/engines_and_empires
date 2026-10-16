@@ -37,7 +37,7 @@ public final class ColdSweatCompat {
     public static final String MOD_ID = "cold_sweat";
 
     /** Our modifier's id in Cold Sweat's registry. */
-    public static final ResourceLocation CLIMATE_ID = ResourceLocation.fromNamespaceAndPath(EnginesAndEmpires.MODID, "climate");
+    public static final ResourceLocation CLIMATE_ID = EnginesAndEmpires.id("climate");
 
     /** Cold Sweat's own world terms that the pack's climate replaces (by registry id, so none needs its mod loaded). */
     static final Set<ResourceLocation> REPLACED = Set.of(

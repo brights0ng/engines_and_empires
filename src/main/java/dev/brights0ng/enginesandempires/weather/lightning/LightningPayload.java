@@ -4,7 +4,6 @@ import dev.brights0ng.meteodyne.Meteodyne;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 
 /**
  * A flash, from the server to the players within range (weather phase 6b): where it is in the cloud, the radius of the
@@ -15,7 +14,7 @@ public record LightningPayload(double x, double y, double z, float radius, float
                                double targetX, double targetY, double targetZ) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<LightningPayload> TYPE = new CustomPacketPayload.Type<>(
-            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "lightning"));
+            Meteodyne.id("lightning"));
 
     public static final StreamCodec<ByteBuf, LightningPayload> STREAM_CODEC = StreamCodec.of(
             (buf, p) -> {

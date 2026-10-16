@@ -52,11 +52,11 @@ public class WeatherMapScreen extends Screen {
     private static final int HEADER = 14;
     private static final int REFRESH_TICKS = 100;
     private static final ResourceLocation TEXTURE =
-            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "weather_map");
+            Meteodyne.id("weather_map");
     private static final ResourceLocation OVERLAY =
-            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "weather_map_overlay");
+            Meteodyne.id("weather_map_overlay");
     private static final ResourceLocation CLOUDS =
-            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "weather_map_clouds");
+            Meteodyne.id("weather_map_clouds");
     /** Ticks between redraws of the clouds layer. */
     private static final int CLOUD_REFRESH = 10;
     private static final String[] STAGES =

@@ -80,7 +80,7 @@ public final class HeatDrivers {
     }
 
     private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, path);
+        return Meteodyne.id(path);
     }
 
     /** Engines; each mod's classes are only touched when it is loaded. */

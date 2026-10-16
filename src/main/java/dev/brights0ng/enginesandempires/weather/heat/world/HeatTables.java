@@ -11,7 +11,6 @@ import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -32,11 +31,11 @@ import net.neoforged.neoforge.registries.datamaps.RegisterDataMapTypesEvent;
 public final class HeatTables {
 
     public static final DataMapType<Block, HeatPowerData> POWER = DataMapType.builder(
-            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "heat_power"), Registries.BLOCK,
+            Meteodyne.id("heat_power"), Registries.BLOCK,
             HeatPowerData.CODEC).build();
 
     public static final DataMapType<Block, InsulationData> INSULATION = DataMapType.builder(
-            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "insulation"), Registries.BLOCK,
+            Meteodyne.id("insulation"), Registries.BLOCK,
             InsulationData.CODEC).build();
 
     /**

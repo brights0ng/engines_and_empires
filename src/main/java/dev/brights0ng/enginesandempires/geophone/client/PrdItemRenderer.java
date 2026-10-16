@@ -73,7 +73,7 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
     public static final PartialModel EJECT = PartialModel.of(model("portable_record_display_eject"));
 
     private static ResourceLocation model(String name) {
-        return ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, "item/" + name);
+        return SeismicSurveyance.id("item/" + name);
     }
 
     /** Loads this class, and with it the models above, early enough for them to be baked. */
