@@ -10,9 +10,6 @@ import org.joml.Quaternionf;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
-import dev.brights0ng.enginesandempires.geophone.client.TierOverlay;
-import dev.brights0ng.frontier.map.TierGrid;
-import dev.brights0ng.frontier.map.TierMapPayloads;
 import dev.brights0ng.seismicsurveyance.Logbook;
 import dev.brights0ng.seismicsurveyance.LogbookEntry;
 import dev.brights0ng.seismicsurveyance.LoggerDisplay;
@@ -289,12 +286,12 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
         double k = PrdDisplay.pixelsPerBlock(view);
         int spacing = LoggerDisplay.gridSpacing(view);
         double reach = PrdShape.GLASS_WIDTH * 0.75 / k;
-        boolean tiers = TierOverlay.shows(holder.level());
-        if (tiers) {
+        List<MapLayer> layers = MapLayers.showing(holder.level());
+        for (MapLayer layer : layers) {
             if (holder == Minecraft.getInstance().player) {
-                TierOverlay.want("portable_record_display", view.centreX(), view.centreZ(), reach);
+                layer.want("portable_record_display", view.centreX(), view.centreZ(), reach);
             }
-            drawTiers(canvas, view, yaw, reach);
+            drawColumns(canvas, view, yaw, reach, layer);
         }
         for (long gx = (long) Math.ceil((view.centreX() - reach) / spacing) * spacing, n = 0;
              gx <= view.centreX() + reach && n < 128; gx += spacing, n++) {
@@ -338,14 +335,17 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
                 canvas.ring(at, DOT / 2 + 1.5, 0.8, WHITE, 4);
             }
         }
-        if (tiers) {
-            for (TierMapPayloads.Marker marker : TierOverlay.markers()) {
+        for (MapLayer layer : layers) {
+            for (MapLayer.Marker marker : layer.markers()) {
                 double[] m = PrdDisplay.toScreen(view, yaw, marker.x() + 0.5, marker.z() + 0.5);
-                double size = marker.kind() == 1 ? 5.5 : 4.5;
-                canvas.map(diamond(m, size + 1.5), TierOverlay.MARKER_OUTLINE, 3.4F);
-                canvas.map(diamond(m, size), TierOverlay.MARKER, 3.6F);
+                double size = marker.large() ? 5.5 : 4.5;
+                canvas.map(diamond(m, size + 1.5), marker.outline(), 3.4F);
+                canvas.map(diamond(m, size), marker.colour(), 3.6F);
             }
-            drawLegend(canvas, framed);
+        }
+        List<MapLayer.LegendRow> legend = MapLayers.legend(layers);
+        if (!legend.isEmpty()) {
+            drawLegend(canvas, framed, legend);
         }
 
         // Whoever holds it: a white arrow, pointing the way they face.
@@ -385,32 +385,32 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
     }
 
     /**
-     * The tier overlay: every tinted chunk column within {@code reach} blocks of the map's middle, a very faint fill and an
-     * outline where it meets a lower tier, under the grid. Made solid over the glass, like every faint thing here.
+     * A layer's tinted chunk columns within {@code reach} blocks of the map's middle (the tier overlay: a very faint fill
+     * and an outline where it meets a lower tier), under the grid. Made solid over the glass, like every faint thing here.
      */
-    private static void drawTiers(Canvas canvas, LoggerDisplay.View view, float yaw, double reach) {
+    private static void drawColumns(Canvas canvas, LoggerDisplay.View view, float yaw, double reach, MapLayer layer) {
         int minX = (int) Math.floor(view.centreX() - reach) >> 4;
         int maxX = (int) Math.floor(view.centreX() + reach) >> 4;
         int minZ = (int) Math.floor(view.centreZ() - reach) >> 4;
         int maxZ = (int) Math.floor(view.centreZ() + reach) >> 4;
-        TierOverlay.visit(minX, minZ, maxX, maxZ, (cx, cz, tier, edges) -> {
+        layer.columns(minX, minZ, maxX, maxZ, (cx, cz, fill, outline, edges) -> {
             double x1 = cx * 16.0;
             double z1 = cz * 16.0;
             double x2 = x1 + 16;
             double z2 = z1 + 16;
-            canvas.world(view, yaw, new double[][]{{x1, z1}, {x1, z2}, {x2, z2}, {x2, z1}}, overGlass(TierOverlay.fill(tier)), 0.4F);
+            canvas.world(view, yaw, new double[][]{{x1, z1}, {x1, z2}, {x2, z2}, {x2, z1}}, overGlass(fill), 0.4F);
             // Outlines above the grid (layer 1), so one on a grid line still shows; the blurs are at 2.
-            int edge = overGlass(TierOverlay.edge(tier));
-            if ((edges & TierGrid.NORTH) != 0) {
+            int edge = overGlass(outline);
+            if ((edges & MapLayer.NORTH) != 0) {
                 canvas.line(view, yaw, x1, z1, x2, z1, edge, 1.5F);
             }
-            if ((edges & TierGrid.SOUTH) != 0) {
+            if ((edges & MapLayer.SOUTH) != 0) {
                 canvas.line(view, yaw, x1, z2, x2, z2, edge, 1.5F);
             }
-            if ((edges & TierGrid.WEST) != 0) {
+            if ((edges & MapLayer.WEST) != 0) {
                 canvas.line(view, yaw, x1, z1, x1, z2, edge, 1.5F);
             }
-            if ((edges & TierGrid.EAST) != 0) {
+            if ((edges & MapLayer.EAST) != 0) {
                 canvas.line(view, yaw, x2, z1, x2, z2, edge, 1.5F);
             }
         });
@@ -419,14 +419,17 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
     /** How big the legend's lettering is: a font pixel, in glass pixels. */
     private static final float LEGEND_TEXT = 0.6F;
 
-    /** The legend, in the top right (below the tabs, while it is being worked): the tinted tiers and the incursion marker. */
-    private static void drawLegend(Canvas canvas, boolean framed) {
+    /**
+     * The legend, in the top right (below the tabs, while it is being worked): the layers' rows (the tinted tiers and the
+     * incursion marker).
+     */
+    private static void drawLegend(Canvas canvas, boolean framed, List<MapLayer.LegendRow> legend) {
         Font font = canvas.font();
-        int rows = TierOverlay.LEGEND_KEYS.length;
+        int rows = legend.size();
         float row = 10 * LEGEND_TEXT;
         float widest = 0;
         for (int i = 0; i < rows; i++) {
-            widest = Math.max(widest, font.width(TierOverlay.legendName(i)) * LEGEND_TEXT);
+            widest = Math.max(widest, font.width(legend.get(i).name()) * LEGEND_TEXT);
         }
         float width = widest + 10;
         float right = PrdShape.GLASS_WIDTH - 2;
@@ -434,17 +437,18 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
         float top = 2 + (framed ? PrdShape.TAB_HEIGHT : 0);
         canvas.page(left, top, right, top + rows * row + 2, overGlass(0xD0000000), 6);
         for (int i = 0; i < rows; i++) {
+            MapLayer.LegendRow entry = legend.get(i);
             float y = top + 1 + i * row;
-            if (i < rows - 1) {
-                canvas.page(left + 2, y + 1.2F, left + 5.5F, y + 4.7F, TierOverlay.legendColour(i), 7);
+            if (!entry.marker()) {
+                canvas.page(left + 2, y + 1.2F, left + 5.5F, y + 4.7F, entry.colour(), 7);
             } else {
                 float cx = left + 3.75F;
                 float cy = y + 2.95F;
-                canvas.page(cx - 1.2F, cy - 1.2F, cx + 1.2F, cy + 1.2F, TierOverlay.MARKER, 7);
-                canvas.page(cx - 0.5F, cy - 1.8F, cx + 0.5F, cy + 1.8F, TierOverlay.MARKER, 7);
-                canvas.page(cx - 1.8F, cy - 0.5F, cx + 1.8F, cy + 0.5F, TierOverlay.MARKER, 7);
+                canvas.page(cx - 1.2F, cy - 1.2F, cx + 1.2F, cy + 1.2F, entry.colour(), 7);
+                canvas.page(cx - 0.5F, cy - 1.8F, cx + 0.5F, cy + 1.8F, entry.colour(), 7);
+                canvas.page(cx - 1.8F, cy - 0.5F, cx + 1.8F, cy + 0.5F, entry.colour(), 7);
             }
-            canvas.text(TierOverlay.legendName(i), left + 7.5F, y + 0.6F, WHITE, LEGEND_TEXT);
+            canvas.text(entry.name(), left + 7.5F, y + 0.6F, WHITE, LEGEND_TEXT);
         }
     }
 
