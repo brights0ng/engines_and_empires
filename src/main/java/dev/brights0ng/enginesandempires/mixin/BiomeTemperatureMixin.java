@@ -5,7 +5,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import dev.brights0ng.enginesandempires.weather.surface.SurfaceWeather;
+import dev.brights0ng.meteodyne.surface.SurfaceWeather;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.biome.Biome;
 

@@ -5,7 +5,7 @@ import java.util.Locale;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 
-import dev.brights0ng.enginesandempires.weather.wind.WindSources;
+import dev.brights0ng.meteodyne.wind.WindSources;
 import dev.brights0ng.paradynelib.ParadyneLib;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;

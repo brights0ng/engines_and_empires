@@ -5,7 +5,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import dev.brights0ng.enginesandempires.weather.fog.client.FogEffects;
+import dev.brights0ng.meteodyne.fog.client.FogEffects;
 import net.minecraft.client.Camera;
 import net.minecraft.client.renderer.LevelRenderer;
 

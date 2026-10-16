@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 
-import dev.brights0ng.enginesandempires.weather.cloud.client.CloudRenderer;
+import dev.brights0ng.meteodyne.cloud.client.CloudRenderer;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LevelRenderer;
 

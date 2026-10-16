@@ -5,9 +5,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import dev.brights0ng.enginesandempires.frontier.deep.SculkListeners;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevel;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevels;
-import dev.brights0ng.enginesandempires.frontier.deep.SculkListeners;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.state.BlockState;
@@ -32,7 +32,7 @@ public abstract class LevelChunkFrontierMixin {
             return;
         }
         LevelChunk chunk = (LevelChunk) (Object) this;
-        dev.brights0ng.enginesandempires.weather.heat.world.HeatWorld.onBlockChanged(chunk, pos, before, state);
+        dev.brights0ng.meteodyne.heat.world.HeatWorld.onBlockChanged(chunk, pos, before, state);
         FrontierLevel frontier = FrontierLevels.of(chunk.getLevel());
         if (frontier != null) {
             frontier.onBlockChanged(chunk, pos, before, state);

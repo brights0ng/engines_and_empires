@@ -6,7 +6,7 @@ import java.util.Map;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
-import dev.brights0ng.enginesandempires.weather.wind.WindSources;
+import dev.brights0ng.meteodyne.wind.WindSources;
 import dev.ryanhcode.sable.api.physics.mass.MassData;
 import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
 import dev.ryanhcode.sable.companion.math.BoundingBox3ic;

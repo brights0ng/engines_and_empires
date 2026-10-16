@@ -7,8 +7,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import dev.brights0ng.enginesandempires.weather.WeatherOwnership;
-import dev.brights0ng.enginesandempires.weather.surface.SurfaceWeather;
+import dev.brights0ng.meteodyne.WeatherOwnership;
+import dev.brights0ng.meteodyne.surface.SurfaceWeather;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.chunk.LevelChunk;
