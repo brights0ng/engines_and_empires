@@ -275,6 +275,10 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Split step 1d: ArchitectureTest reads the Java source text and the split manifest, not just the compiled classes,
+    // so a change to either (even a comment) must rerun the tests.
+    inputs.files(fileTree('src/main/java'), fileTree('src/test/java'), 'docs/split/mod-split-manifest.csv')
+            .withPathSensitivity(PathSensitivity.RELATIVE).withPropertyName('architectureSources')
     // Weather phase 7c: the forecast skill harness runs longer offline with -Peae.harnessDays=30 (and harnessSeeds).
     ['eae.harnessDays', 'eae.harnessSeeds'].each { key ->
         if (project.hasProperty(key)) {
