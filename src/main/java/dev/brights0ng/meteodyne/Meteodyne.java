@@ -10,8 +10,10 @@ import dev.brights0ng.meteodyne.heat.HeatField;
 import dev.brights0ng.meteodyne.heat.world.HeatContent;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
 import dev.brights0ng.meteodyne.surface.SurfaceContent;
+import dev.brights0ng.meteodyne.wind.WindSources;
 import dev.brights0ng.paradynelib.services.Services;
 import dev.brights0ng.paradynelib.services.TemperatureProvider;
+import dev.brights0ng.paradynelib.services.WindProvider;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -46,7 +48,8 @@ public final class Meteodyne {
         // Weather on the ground: glaze (freezing rain's ice layer) and the crops hail knocks back
         SurfaceContent.register(modEventBus);
 
-        // What the family's other mods ask of the weather (split seams S1-S3): temperatures (food)
+        // What the family's other mods ask of the weather (split seams S1-S3): temperatures (food) and the wind (ships)
         Services.register(TemperatureProvider.KEY, MeteodyneTemperature.INSTANCE);
+        Services.register(WindProvider.KEY, WindSources.PROVIDER);
     }
 }

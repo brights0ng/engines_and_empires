@@ -5,8 +5,8 @@ import java.util.Locale;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 
-import dev.brights0ng.meteodyne.wind.WindSources;
 import dev.brights0ng.paradynelib.ParadyneLib;
+import dev.brights0ng.paradynelib.services.WindProvider;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
@@ -53,16 +53,16 @@ public final class WindCommand {
 
     private static int set(CommandSourceStack source, double speed, double yaw) {
         double[] vector = WindColumn.fromYaw(speed, yaw);
-        WindSources.setOverride(WindColumn.uniform(vector[0], vector[1]));
+        WindProvider.get().setOverride(WindColumn.uniform(vector[0], vector[1]));
         source.sendSuccess(() -> Component.literal("Wind forced to " + speedAndHeading(vector[0], vector[1])
                 + " everywhere, until /eae wind clear."), true);
         return 1;
     }
 
     private static int clear(CommandSourceStack source) {
-        WindSources.setOverride(null);
+        WindProvider.get().setOverride(null);
         source.sendSuccess(() -> Component.literal("Wind override cleared. Wind now comes from: "
-                + WindSources.describe() + "."), true);
+                + WindProvider.get().describe() + "."), true);
         return 1;
     }
 
@@ -70,10 +70,10 @@ public final class WindCommand {
         ServerLevel level = source.getLevel();
         Vec3 at = source.getPosition();
         WindParams params = WindConfig.params();
-        source.sendSuccess(() -> Component.literal("Wind comes from: " + WindSources.describe()
+        source.sendSuccess(() -> Component.literal("Wind comes from: " + WindProvider.get().describe()
                 + (params.enabled() ? "" : " (the push is switched off in the config)")), false);
 
-        WindColumn column = WindSources.column(level, at.x, at.z);
+        WindColumn column = WindProvider.get().column(level, at.x, at.z);
         if (column == null) {
             line(source, "No wind here.");
         } else {
