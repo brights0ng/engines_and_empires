@@ -25,19 +25,19 @@ public abstract class PlotChunkAttachmentSaveMixin {
 
     @WrapOperation(method = "save", at = @At(value = "INVOKE",
             target = "Ldev/ryanhcode/sable/platform/SablePlotPlatform;writeChunkAttachments(Lnet/minecraft/nbt/CompoundTag;Lnet/minecraft/core/RegistryAccess;Lnet/minecraft/world/level/chunk/LevelChunk;)V"))
-    private void engines_and_empires$attachmentsIntoTheChunk(SablePlotPlatform platform, CompoundTag plotTag,
-                                                             RegistryAccess registries, LevelChunk chunk,
-                                                             Operation<Void> original,
-                                                             @Local(name = "chunkTag") CompoundTag chunkTag) {
+    private void sable_fixes$attachmentsIntoTheChunk(SablePlotPlatform platform, CompoundTag plotTag,
+                                                     RegistryAccess registries, LevelChunk chunk,
+                                                     Operation<Void> original,
+                                                     @Local(name = "chunkTag") CompoundTag chunkTag) {
         original.call(platform, chunkTag, registries, chunk);
     }
 
     @WrapOperation(method = "save", at = @At(value = "INVOKE",
             target = "Ldev/ryanhcode/sable/platform/SablePlotPlatform;writeLightData(Lnet/minecraft/nbt/CompoundTag;Lnet/minecraft/core/RegistryAccess;Lnet/minecraft/world/level/chunk/LevelChunk;)V"))
-    private void engines_and_empires$lightIntoTheChunk(SablePlotPlatform platform, CompoundTag plotTag,
-                                                       RegistryAccess registries, LevelChunk chunk,
-                                                       Operation<Void> original,
-                                                       @Local(name = "chunkTag") CompoundTag chunkTag) {
+    private void sable_fixes$lightIntoTheChunk(SablePlotPlatform platform, CompoundTag plotTag,
+                                               RegistryAccess registries, LevelChunk chunk,
+                                               Operation<Void> original,
+                                               @Local(name = "chunkTag") CompoundTag chunkTag) {
         original.call(platform, chunkTag, registries, chunk);
     }
 }

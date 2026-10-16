@@ -1,0 +1,11 @@
+plugins {
+    id 'eae.mod-conventions'
+}
+
+// Sable Fixes stands outside the family's graph (plan section 2): it requires Sable and nothing of ours.
+
+dependencies {
+    // Sable, required: its fixes are mixins on its classes, and its bare runs load it (from the runtime classpath, as
+    // the root's runs do). Non-transitive: its pom pulls in a Sable build that isn't published.
+    implementation("dev.ryanhcode.sable:sable-neoforge-${minecraft_version}:${sable_version}") { transitive = false }
+}

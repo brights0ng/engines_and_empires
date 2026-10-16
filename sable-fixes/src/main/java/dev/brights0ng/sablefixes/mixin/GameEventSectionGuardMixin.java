@@ -32,11 +32,11 @@ public abstract class GameEventSectionGuardMixin {
     private static final int MAX_SECTIONS = 16;
 
     @Inject(method = "post", at = @At(value = "NEW", target = "java/util/ArrayList"))
-    private void engines_and_empires$guardSectionRange(Holder<GameEvent> gameEvent, Vec3 pos, GameEvent.Context context,
-                                                       CallbackInfo ci,
-                                                       @Local(ordinal = 1) LocalIntRef x1, @Local(ordinal = 2) LocalIntRef y1,
-                                                       @Local(ordinal = 3) LocalIntRef z1, @Local(ordinal = 4) LocalIntRef x2,
-                                                       @Local(ordinal = 5) LocalIntRef y2, @Local(ordinal = 6) LocalIntRef z2) {
+    private void sable_fixes$guardSectionRange(Holder<GameEvent> gameEvent, Vec3 pos, GameEvent.Context context,
+                                               CallbackInfo ci,
+                                               @Local(ordinal = 1) LocalIntRef x1, @Local(ordinal = 2) LocalIntRef y1,
+                                               @Local(ordinal = 3) LocalIntRef z1, @Local(ordinal = 4) LocalIntRef x2,
+                                               @Local(ordinal = 5) LocalIntRef y2, @Local(ordinal = 6) LocalIntRef z2) {
         if (broken(x1.get(), x2.get()) || broken(y1.get(), y2.get()) || broken(z1.get(), z2.get())) {
             // An empty range (from 0 to -1), so the loops below visit nothing
             x1.set(0);

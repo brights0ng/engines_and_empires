@@ -159,10 +159,9 @@ Core mod for the Engines and Empires modpack.
     ordering="NONE"
     side="BOTH"
 
-# Mixins: one config per future mod not yet sliced into a project of its own (split step 1b), each with a plugin that applies a mixin only when the mod it
+# Mixins: one config per future mod (split step 1b), each with a plugin that applies a mixin only when the mod it
 # targets is loaded. Listed so that mixins on a shared target (Monster, ItemEntity) keep their old relative order.
-[[mixins]]
-    config="sable_fixes.mixins.json"
+# Paradyne Lib and Sable Fixes register their own configs in their own metadata (step 2b).
 [[mixins]]
     config="sparse_ores.mixins.json"
 [[mixins]]
