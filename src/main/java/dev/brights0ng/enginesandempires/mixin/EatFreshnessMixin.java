@@ -5,8 +5,8 @@ import org.spongepowered.asm.mixin.Mixin;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 
-import dev.brights0ng.enginesandempires.food.FoodFreshness;
-import dev.brights0ng.enginesandempires.food.Spoilage;
+import dev.brights0ng.simplespoilage.FoodFreshness;
+import dev.brights0ng.simplespoilage.Spoilage;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.ItemStack;

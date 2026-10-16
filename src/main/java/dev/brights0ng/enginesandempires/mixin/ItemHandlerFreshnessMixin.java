@@ -5,7 +5,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 
-import dev.brights0ng.enginesandempires.food.Spoilage;
+import dev.brights0ng.simplespoilage.Spoilage;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;

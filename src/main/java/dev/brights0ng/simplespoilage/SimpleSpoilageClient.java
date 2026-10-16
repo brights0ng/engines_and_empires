@@ -1,6 +1,6 @@
 package dev.brights0ng.simplespoilage;
 
-import dev.brights0ng.enginesandempires.food.client.FoodClient;
+import dev.brights0ng.simplespoilage.client.FoodClient;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 

@@ -6,7 +6,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
-import dev.brights0ng.enginesandempires.food.client.FoodClient;
+import dev.brights0ng.simplespoilage.client.FoodClient;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
