@@ -8,7 +8,8 @@ import dev.brights0ng.paradynelib.MixinGate;
 /**
  * The core mod's mixin config plugin (split step 1b: one mixin config per mod). The MineColonies and Cold Sweat mixins
  * apply only when that mod is loaded; the rest target Create, Encumbered (both required by the core) or vanilla and
- * always apply.
+ * always apply, as does {@code compat.cloudworks.CloudWorksDebugDumpMixin}, which is {@code @Pseudo} with
+ * {@code require = 0} and so does nothing without CloudWorks.
  */
 public final class EnginesAndEmpiresMixinPlugin extends GatedMixinPlugin {
 

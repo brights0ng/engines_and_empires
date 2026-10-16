@@ -104,6 +104,22 @@ class MixinConfigTest {
         assertTrue(mixinNames(config).containsAll(GATED.keySet()), "a gated mixin is not in the config");
     }
 
+    /**
+     * CloudWorks' debug dump mixin (moved here from Meteodyne in split step 1c-A) is not gated: it is {@code @Pseudo}
+     * with {@code require = 0}, so without CloudWorks it does nothing rather than failing.
+     */
+    @Test
+    void theCloudWorksMixinIsPseudoAndAlwaysListed() throws IOException {
+        String name = "compat.cloudworks.CloudWorksDebugDumpMixin";
+        assertTrue(mixinNames(read(CONFIG)).contains(name), name + " is not in the config");
+        assertFalse(GATED.containsKey(name));
+        try (InputStream in = MixinConfigTest.class.getResourceAsStream(classResource(name))) {
+            assertNotNull(in, "missing " + name);
+            String bytes = new String(in.readAllBytes(), StandardCharsets.ISO_8859_1);
+            assertTrue(bytes.contains("Lorg/spongepowered/asm/mixin/Pseudo;"), name + " should be @Pseudo");
+        }
+    }
+
     /** "required" makes any mixin failure fatal; only a config whose mixins never depend on another mod keeps it. */
     @Test
     void theConfigIsRequiredOnlyWithoutOptionalTargets() throws IOException {
