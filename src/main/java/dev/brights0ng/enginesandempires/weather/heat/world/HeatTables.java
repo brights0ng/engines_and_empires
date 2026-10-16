@@ -4,10 +4,10 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.heat.HeatField;
 import dev.brights0ng.enginesandempires.weather.heat.HeatSourceData;
 import dev.brights0ng.enginesandempires.weather.heat.air.AirGrid;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
@@ -28,15 +28,15 @@ import net.neoforged.neoforge.registries.datamaps.RegisterDataMapTypesEvent;
  * {@code insulation} (how blocks hold and pass it), and what each block state is as a cell ({@link #cell}). Lookups
  * are cached per block and per state and cleared when data maps reload. Server thread only.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class HeatTables {
 
     public static final DataMapType<Block, HeatPowerData> POWER = DataMapType.builder(
-            ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "heat_power"), Registries.BLOCK,
+            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "heat_power"), Registries.BLOCK,
             HeatPowerData.CODEC).build();
 
     public static final DataMapType<Block, InsulationData> INSULATION = DataMapType.builder(
-            ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "insulation"), Registries.BLOCK,
+            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "insulation"), Registries.BLOCK,
             InsulationData.CODEC).build();
 
     /**

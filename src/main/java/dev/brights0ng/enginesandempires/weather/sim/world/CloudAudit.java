@@ -12,12 +12,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.cloud.sim.CloudChecks;
 import dev.brights0ng.enginesandempires.weather.cloud.sim.CloudDiagnostics;
 import dev.brights0ng.enginesandempires.weather.cloud.sim.CloudSim;
 import dev.brights0ng.enginesandempires.weather.cloud.sim.SimCloud;
 import dev.brights0ng.enginesandempires.weather.sim.WeatherSystem;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -32,7 +32,7 @@ import net.minecraft.server.level.ServerPlayer;
  *       them, the clouds within 4 km by type, and every rule broken ({@link CloudChecks}) with examples.</li>
  * </ul>
  */
-@net.neoforged.fml.common.EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@net.neoforged.fml.common.EventBusSubscriber(modid = Meteodyne.MODID)
 public final class CloudAudit {
 
     @net.neoforged.bus.api.SubscribeEvent
@@ -46,7 +46,7 @@ public final class CloudAudit {
             try {
                 start(event.getServer().overworld());
             } catch (IOException e) {
-                EnginesAndEmpiresMod.LOGGER.warn("Weather: couldn't start the cloud audit", e);
+                Meteodyne.LOGGER.warn("Weather: couldn't start the cloud audit", e);
             }
         }
     }
@@ -106,7 +106,7 @@ public final class CloudAudit {
             }
             out.flush();
         } catch (IOException | RuntimeException ex) {
-            EnginesAndEmpiresMod.LOGGER.warn("Weather: the cloud audit failed; stopping it", ex);
+            Meteodyne.LOGGER.warn("Weather: the cloud audit failed; stopping it", ex);
             stop();
         }
     }

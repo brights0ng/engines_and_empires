@@ -2,7 +2,7 @@ package dev.brights0ng.enginesandempires.gametest;
 
 import java.util.Optional;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.weather.checks.StormSleep;
 import dev.brights0ng.enginesandempires.weather.cloud.CloudType;
 import dev.brights0ng.enginesandempires.weather.cloud.sim.SimCloud;
@@ -31,7 +31,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * over the test and made to rain; loot's {@code weather_check} (Channeling's gate), pandas' thunder fear and the
  * shared queries see it there and not far away. Also the night skip's fast-forward.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(EnginesAndEmpires.MODID)
 @PrefixGameTestTemplate(false)
 public final class WeatherChecksGameTests {
 
@@ -78,12 +78,12 @@ public final class WeatherChecksGameTests {
                         under.getZ() + 0.5);
                 if (dry(level, under) || !here.falling()) {
                     // A dry biome (or air that won't let it fall): nothing to check against.
-                    EnginesAndEmpiresMod.LOGGER.warn("weather checks test: nothing falls here ({}), checks skipped",
+                    EnginesAndEmpires.LOGGER.warn("weather checks test: nothing falls here ({}), checks skipped",
                             level.getBiome(under).getRegisteredName());
                     helper.succeed();
                     return;
                 }
-                EnginesAndEmpiresMod.LOGGER.info("weather checks test: storm over the test ({} {})", here.precip(),
+                EnginesAndEmpires.LOGGER.info("weather checks test: storm over the test ({} {})", here.precip(),
                         here.strength());
                 helper.assertTrue(WeatherQueries.precipitationOver(level, under), "something falls under the storm");
                 helper.assertTrue(WeatherQueries.thunderOver(level, under), "and it thunders there");

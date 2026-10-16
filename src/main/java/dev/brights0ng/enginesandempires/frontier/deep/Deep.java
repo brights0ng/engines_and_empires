@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.WeakHashMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.frontier.FrontierConfig;
 import dev.brights0ng.enginesandempires.frontier.incursion.IncursionData;
 import dev.brights0ng.enginesandempires.frontier.incursion.IncursionOdds;
@@ -18,6 +17,7 @@ import dev.brights0ng.enginesandempires.geophone.DepositScanner;
 import dev.brights0ng.enginesandempires.geophone.SeismicWave;
 import dev.brights0ng.enginesandempires.geophone.WaveModel;
 import dev.brights0ng.enginesandempires.oregen.Realm;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -156,7 +156,7 @@ public final class Deep {
                     onEchoes(source, echoers);
                 }, level.getServer())
                 .exceptionally(error -> {
-                    EnginesAndEmpiresMod.LOGGER.error("Looking for deposits to stir failed", error);
+                    Frontier.LOGGER.error("Looking for deposits to stir failed", error);
                     return null;
                 });
     }

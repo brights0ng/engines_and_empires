@@ -5,12 +5,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.WeatherOwnership;
 import dev.brights0ng.enginesandempires.weather.rain.LocalWeather;
 import dev.brights0ng.enginesandempires.weather.rain.Precip;
 import dev.brights0ng.enginesandempires.weather.rain.WeatherConfig;
 import dev.brights0ng.enginesandempires.weather.ships.ShipCover;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
@@ -41,7 +41,7 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
  *
  * Runs once a second per level; whether it hails is asked once per chunk ({@link LocalWeather#at}).
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class HailDamage {
 
     /** Durability a helmet loses to a hailstone (Bright, 2026-10-08). */

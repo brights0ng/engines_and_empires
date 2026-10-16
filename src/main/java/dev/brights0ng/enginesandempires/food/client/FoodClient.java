@@ -2,7 +2,6 @@ package dev.brights0ng.enginesandempires.food.client;
 
 import java.util.List;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.food.Cohort;
 import dev.brights0ng.enginesandempires.food.FoodFreshness;
 import dev.brights0ng.enginesandempires.food.FoodStage;
@@ -27,12 +26,13 @@ import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import dev.brights0ng.enginesandempires.food.FoodTopPayload;
+import dev.brights0ng.simplespoilage.SimpleSpoilage;
 
     /**
      * The client side of food spoilage: the client's clock, the freshness lines in food tooltips, shift+scroll to choose the
      * top group, and the top group in the hotbar's item name (see {@code SelectedFoodNameMixin}).
      */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = SimpleSpoilage.MODID, value = Dist.CLIENT)
 public final class FoodClient {
 
     /** Gives {@link SpoilClock} the client's copy of the game time. */

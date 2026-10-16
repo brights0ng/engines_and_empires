@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.geophone;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -23,7 +23,7 @@ public final class LoggerMapPayloads {
     public record View(BlockPos pos, double x, double z, int zoom) implements CustomPacketPayload {
 
         public static final CustomPacketPayload.Type<View> TYPE = new CustomPacketPayload.Type<>(
-                ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "logger_map_view"));
+                ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, "logger_map_view"));
 
         public static final StreamCodec<ByteBuf, View> STREAM_CODEC = StreamCodec.composite(
                 BlockPos.STREAM_CODEC, View::pos,
@@ -49,7 +49,7 @@ public final class LoggerMapPayloads {
     public record Send(BlockPos pos, int number) implements CustomPacketPayload {
 
         public static final CustomPacketPayload.Type<Send> TYPE = new CustomPacketPayload.Type<>(
-                ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "logger_map_send"));
+                ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, "logger_map_send"));
 
         public static final StreamCodec<ByteBuf, Send> STREAM_CODEC = StreamCodec.composite(
                 BlockPos.STREAM_CODEC, Send::pos,

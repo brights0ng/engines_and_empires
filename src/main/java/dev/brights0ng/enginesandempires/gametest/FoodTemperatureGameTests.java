@@ -4,7 +4,6 @@ import java.util.UUID;
 
 import com.mojang.authlib.GameProfile;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.food.Cohort;
 import dev.brights0ng.enginesandempires.food.FoodClimateSweep;
 import dev.brights0ng.enginesandempires.food.FoodFreshness;
@@ -12,6 +11,7 @@ import dev.brights0ng.enginesandempires.food.FoodTemperature;
 import dev.brights0ng.enginesandempires.food.SpoilClock;
 import dev.brights0ng.enginesandempires.food.SpoilTimes;
 import dev.brights0ng.enginesandempires.food.Spoilage;
+import dev.brights0ng.simplespoilage.SimpleSpoilage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -29,7 +29,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * Food by temperature (2026-10-15; {@code claude/food-temperature.md}): the sweep applies the temperature where food is
  * to it. The temperature is set for each test ({@link FoodTemperature#setOverride}); all in one batch of their own.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(SimpleSpoilage.MODID)
 @PrefixGameTestTemplate(false)
 public final class FoodTemperatureGameTests {
 

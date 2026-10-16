@@ -1,7 +1,7 @@
 package dev.brights0ng.enginesandempires.frontier.tier;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.frontier.FrontierTags;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -20,7 +20,7 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
  * Feeds the world into {@link FrontierLevel}: levels and chunks loading, time passing, and people being about. (Block
  * changes come in through {@code LevelChunkFrontierMixin}, since events miss explosions, pistons and Create contraptions.)
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Frontier.MODID)
 public final class FrontierEvents {
 
     /** How often people are counted, in ticks. Each counting adds this many ticks of inhabited time. */

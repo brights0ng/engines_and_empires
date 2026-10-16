@@ -4,7 +4,6 @@ import java.util.Set;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.oregen.BiomeRule;
 import dev.brights0ng.enginesandempires.oregen.Deposit;
 import dev.brights0ng.enginesandempires.oregen.DepositBody;
@@ -16,6 +15,7 @@ import dev.brights0ng.enginesandempires.oregen.OreTypes;
 import dev.brights0ng.enginesandempires.oregen.Realm;
 import dev.brights0ng.enginesandempires.oregen.ResolvedDeposit;
 import dev.brights0ng.enginesandempires.oregen.TerrainProbe;
+import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
@@ -233,16 +233,16 @@ public final class LevelDeposits {
     private void report(DepositLedger.EntryView deposit) {
         long predicted = Math.round(deposit.solidFraction() * 100.0);
         switch (deposit.state()) {
-            case PHANTOM -> EnginesAndEmpiresMod.LOGGER.warn(
+            case PHANTOM -> SparseOres.LOGGER.warn(
                     "Phantom deposit in {}: {} at ({}, {}), y={}, accepted on attempt {}. The terrain estimate "
                             + "predicted {}% of its ore in rock, but it placed 0 of {} ore blocks across {} chunks.",
                     dimensionName, deposit.oreId(), deposit.x(), deposit.z(), deposit.centerY(), deposit.attempt() + 1,
                     predicted, deposit.expectedOre(), deposit.expectedChunks().length);
-            case THIN -> EnginesAndEmpiresMod.LOGGER.info(
+            case THIN -> SparseOres.LOGGER.info(
                     "Thin deposit in {}: {} at ({}, {}), y={}: predicted {}% in rock, placed {} of {} ore blocks.",
                     dimensionName, deposit.oreId(), deposit.x(), deposit.z(), deposit.centerY(), predicted,
                     deposit.placed(), deposit.expectedOre());
-            default -> EnginesAndEmpiresMod.LOGGER.debug(
+            default -> SparseOres.LOGGER.debug(
                     "Deposit complete in {}: {} at ({}, {}): placed {} of {} ore blocks.",
                     dimensionName, deposit.oreId(), deposit.x(), deposit.z(), deposit.placed(), deposit.expectedOre());
         }

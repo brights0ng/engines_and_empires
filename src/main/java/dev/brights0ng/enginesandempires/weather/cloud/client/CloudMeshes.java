@@ -26,7 +26,7 @@ import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexBuffer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -375,7 +375,7 @@ public final class CloudMeshes {
                     // Watchdog (Bright, 2026-10-06: clouds stopped churning after a while): a generation this old is
                     // stuck; say why in the log and start over.
                     Generation g = fe.gen;
-                    EnginesAndEmpiresMod.LOGGER.warn("Clouds: a rebuild of {} has run for {} s ({}; {} of {} sections "
+                    Meteodyne.LOGGER.warn("Clouds: a rebuild of {} has run for {} s ({}; {} of {} sections "
                                     + "started, {} running, {} done; budget {} ms, mesher queue {}); starting over",
                             f.regionId(), (System.nanoTime() - g.startNanos) / 1_000_000_000L,
                             g.planned() ? "planned" : g.planning.isDone() ? "planning done" : "still planning",
@@ -738,7 +738,7 @@ public final class CloudMeshes {
                     g.field = c.field();
                     g.cullNanos = c.nanos();
                 } catch (RuntimeException ex) {
-                    EnginesAndEmpiresMod.LOGGER.warn("Clouds: planning a cloud's sections failed", ex);
+                    Meteodyne.LOGGER.warn("Clouds: planning a cloud's sections failed", ex);
                     fe.gen = null;
                     continue;
                 }
@@ -755,7 +755,7 @@ public final class CloudMeshes {
                 try {
                     b = fut.join();
                 } catch (RuntimeException ex) {
-                    EnginesAndEmpiresMod.LOGGER.warn("Clouds: building a cloud mesh failed", ex);
+                    Meteodyne.LOGGER.warn("Clouds: building a cloud mesh failed", ex);
                     continue;
                 }
                 LOAD[loadTick] += b.nanos();

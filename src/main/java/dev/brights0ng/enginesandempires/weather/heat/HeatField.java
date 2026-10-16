@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -32,11 +32,11 @@ import net.neoforged.neoforge.registries.datamaps.RegisterDataMapTypesEvent;
  * around it, by {@link HeatMath}. Walls and roofs don't matter yet (8f's rooms will); ships' blocks are not looked at.
  * Server side, on the server thread.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class HeatField {
 
     public static final DataMapType<Block, HeatSourceData> DATA_MAP = DataMapType.builder(
-            ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "heat_sources"), Registries.BLOCK,
+            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "heat_sources"), Registries.BLOCK,
             HeatSourceData.CODEC).build();
 
     /** Ticks a chunk's list of sources is kept. */

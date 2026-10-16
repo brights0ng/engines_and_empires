@@ -2,11 +2,11 @@ package dev.brights0ng.enginesandempires.frontier;
 
 import java.util.function.Supplier;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierChunkData;
 import dev.brights0ng.enginesandempires.frontier.upkeep.DryTorchBlock;
 import dev.brights0ng.enginesandempires.frontier.upkeep.DryWallTorchBlock;
 import dev.brights0ng.enginesandempires.frontier.upkeep.FrontierDataGen;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
@@ -26,9 +26,9 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 public final class FrontierContent {
 
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENTS =
-            DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, EnginesAndEmpiresMod.MODID);
-    private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(EnginesAndEmpiresMod.MODID);
-    private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(EnginesAndEmpiresMod.MODID);
+            DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, Frontier.MODID);
+    private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(Frontier.MODID);
+    private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(Frontier.MODID);
 
     /** Each chunk's anchor counts, inhabited time and torch clocks, saved with the chunk. */
     public static final Supplier<AttachmentType<FrontierChunkData>> CHUNK_DATA = ATTACHMENTS.register("frontier",

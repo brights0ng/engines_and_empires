@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.oregen.worldgen;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.chunk.ChunkAccess;
@@ -23,7 +23,7 @@ import net.neoforged.neoforge.event.level.ChunkEvent;
  * thread and is small: deposits the ledger does not track, and ones with no ore in the chunk, are skipped
  * before anything is resolved.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = SparseOres.MODID)
 public final class ChunkDepletionEvents {
 
     @SubscribeEvent

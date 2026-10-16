@@ -8,7 +8,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.simibubi.create.content.kinetics.base.GeneratingKineticBlockEntity;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.frontier.Frontier;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
@@ -48,7 +48,7 @@ public final class LoudMachines {
     }
 
     public static final DataMapType<Block, LoudMachine> DATA_MAP = DataMapType.builder(
-            ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "loud_machines"), Registries.BLOCK,
+            ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "loud_machines"), Registries.BLOCK,
             LoudMachine.CODEC).build();
 
     public static final int SAMPLE_INTERVAL = 100;

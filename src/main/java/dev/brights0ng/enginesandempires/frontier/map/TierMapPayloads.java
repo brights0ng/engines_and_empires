@@ -3,7 +3,7 @@ package dev.brights0ng.enginesandempires.frontier.map;
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.frontier.Frontier;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -20,7 +20,7 @@ public final class TierMapPayloads {
     public record Request(int x, int z, int radius) implements CustomPacketPayload {
 
         public static final Type<Request> TYPE = new Type<>(
-                ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "tier_map_request"));
+                ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "tier_map_request"));
 
         public static final StreamCodec<ByteBuf, Request> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.VAR_INT, Request::x,
@@ -51,7 +51,7 @@ public final class TierMapPayloads {
     public record Answer(int x, int z, int size, byte[] packed, List<Marker> markers) implements CustomPacketPayload {
 
         public static final Type<Answer> TYPE = new Type<>(
-                ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "tier_map_answer"));
+                ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "tier_map_answer"));
 
         public static final StreamCodec<ByteBuf, Answer> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.VAR_INT, Answer::x,

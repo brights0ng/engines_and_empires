@@ -6,7 +6,7 @@ import java.util.Optional;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
@@ -36,15 +36,15 @@ import net.minecraft.world.entity.EntityType;
 public record DeepRoster(List<Entry> entries, int packs, List<Fixed> fixed) {
 
     public static final ResourceKey<Registry<DeepRoster>> KEY =
-            ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "deep_roster"));
+            ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "deep_roster"));
 
-    public static final ResourceLocation THUMPER = ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "thumper");
-    public static final ResourceLocation STIRRED = ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "stirred");
-    public static final ResourceLocation LESSER = ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "lesser");
+    public static final ResourceLocation THUMPER = ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "thumper");
+    public static final ResourceLocation STIRRED = ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "stirred");
+    public static final ResourceLocation LESSER = ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "lesser");
 
     /** The roster of a greater incursion's wave {@code wave} (1 to 10). */
     public static ResourceLocation greater(int wave) {
-        return ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "greater_" + wave);
+        return ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "greater_" + wave);
     }
 
     /**

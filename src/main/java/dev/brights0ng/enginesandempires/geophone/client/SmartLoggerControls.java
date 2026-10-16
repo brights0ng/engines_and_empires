@@ -4,13 +4,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.geophone.LogbookEntry;
 import dev.brights0ng.enginesandempires.geophone.LoggerDisplay;
 import dev.brights0ng.enginesandempires.geophone.LoggerMapInput;
 import dev.brights0ng.enginesandempires.geophone.LoggerMapPayloads;
 import dev.brights0ng.enginesandempires.geophone.ReaderReading;
 import dev.brights0ng.enginesandempires.geophone.SmartLoggerBlockEntity;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -46,7 +46,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  *
  * <p>Only ever loaded on a client.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = SeismicSurveyance.MODID, value = Dist.CLIENT)
 public final class SmartLoggerControls {
 
     /** This player's selection on each logger, by where it is: the selected entry's number. */

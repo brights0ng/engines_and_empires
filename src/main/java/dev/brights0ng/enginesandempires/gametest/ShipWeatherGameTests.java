@@ -2,13 +2,13 @@ package dev.brights0ng.enginesandempires.gametest;
 
 import org.joml.Vector2i;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.rain.LocalWeather;
 import dev.brights0ng.enginesandempires.weather.rain.Precip;
 import dev.brights0ng.enginesandempires.weather.ships.ShipCover;
 import dev.brights0ng.enginesandempires.weather.ships.ShipWeather;
 import dev.brights0ng.enginesandempires.weather.surface.GlazeBlock;
 import dev.brights0ng.enginesandempires.weather.surface.HailDamage;
+import dev.brights0ng.meteodyne.Meteodyne;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
@@ -36,7 +36,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * spawns a one-block ship over the test area (it falls slowly at first; the checks run a few ticks in) and opens the
  * test framework's barrier roof over it.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class ShipWeatherGameTests {
 

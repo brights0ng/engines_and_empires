@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.weather.rain;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.meteodyne.Meteodyne;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -35,7 +35,7 @@ public record WeatherSyncPayload(boolean localized, float surfaceX, float surfac
         implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<WeatherSyncPayload> TYPE = new CustomPacketPayload.Type<>(
-            ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "weather_sync"));
+            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "weather_sync"));
 
     public static final StreamCodec<ByteBuf, WeatherSyncPayload> STREAM_CODEC = StreamCodec.of(
             (buf, p) -> {

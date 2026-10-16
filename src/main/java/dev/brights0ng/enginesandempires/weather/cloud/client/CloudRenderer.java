@@ -10,8 +10,8 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexBuffer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.cloud.CloudScale;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.ShaderInstance;
@@ -62,24 +62,24 @@ public final class CloudRenderer {
     public static void registerShaders(RegisterShadersEvent event) {
         try {
             event.registerShader(new ShaderInstance(event.getResourceProvider(),
-                    ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "clouds"),
+                    ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "clouds"),
                     CloudMeshes.FORMAT), s -> shader = s);
         } catch (IOException e) {
-            EnginesAndEmpiresMod.LOGGER.error("Clouds: couldn't load the cloud shader", e);
+            Meteodyne.LOGGER.error("Clouds: couldn't load the cloud shader", e);
         }
         try {
             event.registerShader(new ShaderInstance(event.getResourceProvider(),
-                    ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "fog_depth"),
+                    ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "fog_depth"),
                     DefaultVertexFormat.POSITION), FoggedTerrainDepth::setShader);
         } catch (IOException e) {
-            EnginesAndEmpiresMod.LOGGER.error("Clouds: couldn't load the fogged-terrain depth shader", e);
+            Meteodyne.LOGGER.error("Clouds: couldn't load the fogged-terrain depth shader", e);
         }
         try {
             event.registerShader(new ShaderInstance(event.getResourceProvider(),
-                    ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "cloud_veil"),
+                    ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "cloud_veil"),
                     DefaultVertexFormat.POSITION_COLOR), CloudVeilRenderer::setShader);
         } catch (IOException e) {
-            EnginesAndEmpiresMod.LOGGER.error("Clouds: couldn't load the high-cloud veil shader", e);
+            Meteodyne.LOGGER.error("Clouds: couldn't load the high-cloud veil shader", e);
         }
     }
 

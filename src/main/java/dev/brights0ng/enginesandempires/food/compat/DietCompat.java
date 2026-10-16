@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.food.EatingEffects;
 import dev.brights0ng.enginesandempires.food.StageEffects;
 import net.appleseed.appleseed.AppleSeed;
@@ -129,7 +129,7 @@ public final class DietCompat {
                 server.getGameRules().getRule(AppleSeed.RULE_DECAY_BY_HUNGER).set(HUNGER_DECAY, server);
                 setup.decaySet = true;
                 setup.setDirty();
-                EnginesAndEmpiresMod.LOGGER.info("Diet hunger decay for this world set to {}", HUNGER_DECAY);
+                EnginesAndEmpires.LOGGER.info("Diet hunger decay for this world set to {}", HUNGER_DECAY);
             }
         }
     }

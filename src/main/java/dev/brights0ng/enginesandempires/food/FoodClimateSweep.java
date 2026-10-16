@@ -4,8 +4,8 @@ import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.function.DoubleSupplier;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.food.icechest.IceChestBlockEntity;
+import dev.brights0ng.simplespoilage.SimpleSpoilage;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.sublevel.ServerSubLevel;
@@ -37,7 +37,7 @@ import net.neoforged.neoforge.items.IItemHandler;
  * between places is aged once for each stretch of time; one that sat unseen longer than three sweeps (an unloaded
  * chunk) catches up at the place's seasonal temperature. Ice chests run their own cooling ({@link IceChestBlockEntity}).
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = SimpleSpoilage.MODID)
 public final class FoodClimateSweep {
 
     private static final class State {

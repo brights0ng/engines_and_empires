@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.geophone;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -17,7 +17,7 @@ import net.minecraft.resources.ResourceLocation;
 public record OpenPrdRecordsPayload(int slot) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<OpenPrdRecordsPayload> TYPE = new CustomPacketPayload.Type<>(
-            ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "open_prd_records"));
+            ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, "open_prd_records"));
 
     public static final StreamCodec<ByteBuf, OpenPrdRecordsPayload> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.VAR_INT, OpenPrdRecordsPayload::slot,

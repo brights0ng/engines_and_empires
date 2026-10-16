@@ -5,12 +5,12 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.lightning.FlashLight;
 import dev.brights0ng.enginesandempires.weather.lightning.LightningFlashes;
 import dev.brights0ng.enginesandempires.weather.lightning.LightningModel;
 import dev.brights0ng.enginesandempires.weather.lightning.LightningPayload;
 import dev.brights0ng.enginesandempires.weather.lightning.ThunderPlan;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.ShaderInstance;
@@ -39,7 +39,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
  *       {@code LightningBoltSoundMixin}): its thunder is this one.</li>
  * </ul>
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = Meteodyne.MODID, value = Dist.CLIENT)
 public final class ClientLightning {
 
     /** How many flashes the cloud shader lights at once. */

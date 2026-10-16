@@ -1,6 +1,5 @@
 package dev.brights0ng.enginesandempires.oregen.worldgen;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.oregen.Deposit;
 import dev.brights0ng.enginesandempires.oregen.DepositBody;
 import dev.brights0ng.enginesandempires.oregen.DepositLedger;
@@ -8,6 +7,7 @@ import dev.brights0ng.enginesandempires.oregen.OreMap;
 import dev.brights0ng.enginesandempires.oregen.OreType;
 import dev.brights0ng.enginesandempires.oregen.Realm;
 import dev.brights0ng.enginesandempires.oregen.ResolvedDeposit;
+import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
@@ -100,7 +100,7 @@ public class DepositFeature extends Feature<NoneFeatureConfiguration> {
                 }
                 if (placement.changed() > 0) {
                     placedAny = true;
-                    EnginesAndEmpiresMod.LOGGER.debug(
+                    SparseOres.LOGGER.debug(
                             "Placed {} blocks of {} deposit ({}, {}) in chunk {} (whole deposit: {} ore, {} rich)",
                             placement.changed(), deposit.oreId(), deposit.x(), deposit.z(), chunk,
                             body.oreCount(), body.richCount());

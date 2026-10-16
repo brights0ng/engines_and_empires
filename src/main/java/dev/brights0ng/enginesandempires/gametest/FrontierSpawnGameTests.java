@@ -2,7 +2,6 @@ package dev.brights0ng.enginesandempires.gametest;
 
 import java.util.UUID;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.frontier.FrontierConfig;
 import dev.brights0ng.enginesandempires.frontier.FrontierContent;
 import dev.brights0ng.enginesandempires.frontier.Tier;
@@ -10,6 +9,7 @@ import dev.brights0ng.enginesandempires.frontier.spawn.FrontierSpawnEvents;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevel;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevels;
 import dev.brights0ng.enginesandempires.frontier.tier.TierParams;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -33,7 +33,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * the config for their duration and put them back afterwards. Each test runs in a batch of its own, since tiers look further
  * than the space between tests.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Frontier.MODID)
 @PrefixGameTestTemplate(false)
 public final class FrontierSpawnGameTests {
 

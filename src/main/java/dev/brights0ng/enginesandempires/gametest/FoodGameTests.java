@@ -3,7 +3,6 @@ package dev.brights0ng.enginesandempires.gametest;
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.food.Cohort;
 import dev.brights0ng.enginesandempires.food.FoodFreshness;
 import dev.brights0ng.enginesandempires.food.FoodNetwork;
@@ -11,6 +10,7 @@ import dev.brights0ng.enginesandempires.food.SourceFreshness;
 import dev.brights0ng.enginesandempires.food.SpoilClock;
 import dev.brights0ng.enginesandempires.food.SpoilTimes;
 import dev.brights0ng.enginesandempires.food.Spoilage;
+import dev.brights0ng.simplespoilage.SimpleSpoilage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTest;
@@ -50,7 +50,7 @@ import net.neoforged.neoforge.items.wrapper.InvWrapper;
  * shift-clicking, picking up, item entities, hoppers, item handlers, splitting) keeps each unit's freshness, with the top
  * units leaving first. Stage lengths are the defaults (5 days each) unless a world config says otherwise.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(SimpleSpoilage.MODID)
 @PrefixGameTestTemplate(false)
 public final class FoodGameTests {
 

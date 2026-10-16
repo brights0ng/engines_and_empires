@@ -7,7 +7,7 @@ import com.momosoftworks.coldsweat.api.util.Temperature;
 import com.momosoftworks.coldsweat.api.util.placement.Matcher;
 import com.momosoftworks.coldsweat.api.util.placement.Placement;
 import com.momosoftworks.coldsweat.config.ConfigSettings;
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.weather.WeatherOwnership;
 import dev.brights0ng.enginesandempires.weather.climate.RainSoak;
 import dev.brights0ng.enginesandempires.weather.rain.LocalWeather;
@@ -122,7 +122,7 @@ public final class ColdSweatWater {
             ConfigSettings.USE_CUSTOM_WATER_FREEZE_BEHAVIOR.set(false);
             if (!warned) {
                 warned = true;
-                EnginesAndEmpiresMod.LOGGER.warn("Cold Sweat's \"Custom Freezing Behavior\" is on in its world config; the pack owns "
+                EnginesAndEmpires.LOGGER.warn("Cold Sweat's \"Custom Freezing Behavior\" is on in its world config; the pack owns "
                         + "freezing and melting, so it is forced off. Set it to false in coldsweat/world.toml to silence this.");
             }
             return true;

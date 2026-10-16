@@ -4,8 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.rain.WeatherConfig;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
@@ -35,7 +35,7 @@ import net.neoforged.neoforge.registries.datamaps.DataMapsUpdatedEvent;
  * {@link BiomeAdjust}). Both the regional field's nodes and the biome underfoot are worked out this way, so the climate
  * changes smoothly across biome borders and always agrees with where the biomes are.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class Climate {
 
     /** Heights above sea level tried, in order, when looking for the surface biome without a loaded chunk. */

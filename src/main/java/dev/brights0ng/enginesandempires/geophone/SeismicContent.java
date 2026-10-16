@@ -3,7 +3,7 @@ package dev.brights0ng.enginesandempires.geophone;
 import java.util.List;
 import java.util.function.Supplier;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import com.simibubi.create.api.stress.BlockStressValues;
 import com.mojang.serialization.Codec;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -38,18 +38,18 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  */
 public final class SeismicContent {
 
-    public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(EnginesAndEmpiresMod.MODID);
-    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(EnginesAndEmpiresMod.MODID);
+    public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(SeismicSurveyance.MODID);
+    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(SeismicSurveyance.MODID);
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES =
-            DeferredRegister.create(Registries.ENTITY_TYPE, EnginesAndEmpiresMod.MODID);
+            DeferredRegister.create(Registries.ENTITY_TYPE, SeismicSurveyance.MODID);
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITY_TYPES =
-            DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, EnginesAndEmpiresMod.MODID);
+            DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, SeismicSurveyance.MODID);
     public static final DeferredRegister.DataComponents COMPONENTS =
-            DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, EnginesAndEmpiresMod.MODID);
+            DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, SeismicSurveyance.MODID);
     public static final DeferredRegister<MenuType<?>> MENUS =
-            DeferredRegister.create(Registries.MENU, EnginesAndEmpiresMod.MODID);
+            DeferredRegister.create(Registries.MENU, SeismicSurveyance.MODID);
     public static final DeferredRegister<CreativeModeTab> TABS =
-            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, EnginesAndEmpiresMod.MODID);
+            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, SeismicSurveyance.MODID);
 
     public static final DeferredBlock<StrikePlateBlock> STRIKE_PLATE = BLOCKS.register("strike_plate",
             () -> new StrikePlateBlock(BlockBehaviour.Properties.of()

@@ -6,7 +6,6 @@ import java.util.Map;
 import java.util.SplittableRandom;
 import java.util.WeakHashMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.oregen.TerrainProbe;
 import dev.brights0ng.enginesandempires.oregen.worldgen.NoiseTerrainProbe;
 import dev.brights0ng.enginesandempires.weather.climate.Climate;
@@ -25,6 +24,7 @@ import dev.brights0ng.enginesandempires.weather.sim.SimMath;
 import dev.brights0ng.enginesandempires.weather.sim.SimParams;
 import dev.brights0ng.enginesandempires.weather.sim.SystemsSim;
 import dev.brights0ng.enginesandempires.weather.sim.WeatherSystem;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -47,7 +47,7 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
  *       heights for new cells are worked out a few milliseconds per tick from the world's terrain noise.</li>
  * </ul>
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class WeatherSim {
 
     public static final int STEP = 100;
@@ -167,7 +167,7 @@ public final class WeatherSim {
         // Report the cost of the first few live windows with a field, once per session.
         if (stepsLogged > 0 && windowsLogged < 3 && lastWindowNanos > 0) {
             windowsLogged++;
-            EnginesAndEmpiresMod.LOGGER.info("Weather: field took {} ms over the last {} ticks (at most {} ms in one "
+            Meteodyne.LOGGER.info("Weather: field took {} ms over the last {} ticks (at most {} ms in one "
                             + "tick; {} active tiles)", String.format(java.util.Locale.ROOT, "%.1f", lastWindowNanos / 1e6),
                     STEP, String.format(java.util.Locale.ROOT, "%.2f", lastWindowMaxNanos / 1e6),
                     data.field.active(time() - STEP).size());
@@ -176,7 +176,7 @@ public final class WeatherSim {
         // Report the cost of the first few live steps with a field, once per session.
         if (stepsLogged < 3 && !data.field.tiles().isEmpty()) {
             stepsLogged++;
-            EnginesAndEmpiresMod.LOGGER.info("Weather: live systems step {} took {} ms ({} systems, {} field tiles, {} "
+            Meteodyne.LOGGER.info("Weather: live systems step {} took {} ms ({} systems, {} field tiles, {} "
                             + "terrain cells still to work out)", stepsLogged, String.format(java.util.Locale.ROOT, "%.2f",
                             lastStepMillis()), data.systems.size(), data.field.tiles().size(), terrainPending());
         }
@@ -459,7 +459,7 @@ public final class WeatherSim {
             step(t + (long) i * COARSE_STEP, COARSE_STEP, false);
         }
         data.spunUp = true;
-        EnginesAndEmpiresMod.LOGGER.info("Weather: spun up {} in-game days of weather ({} systems, {} field tiles) in {} ms",
+        Meteodyne.LOGGER.info("Weather: spun up {} in-game days of weather ({} systems, {} field tiles) in {} ms",
                 SPIN_UP_DAYS, data.systems.size(), data.field.tiles().size(), (System.nanoTime() - started) / 1_000_000);
     }
 

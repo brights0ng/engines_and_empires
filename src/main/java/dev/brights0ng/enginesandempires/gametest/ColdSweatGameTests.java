@@ -6,7 +6,7 @@ import java.util.UUID;
 import com.mojang.authlib.GameProfile;
 import com.momosoftworks.coldsweat.api.event.core.init.DefaultTempModifiersEvent;
 import com.momosoftworks.coldsweat.api.temperature.modifier.TempModifier;
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.weather.climate.Temperature;
 import dev.brights0ng.enginesandempires.weather.climate.compat.ClimateTempModifier;
 import dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatCompat;
@@ -30,7 +30,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * Weather phase 8d: Cold Sweat's world temperature from the pack's climate ({@code weather/climate/compat/ColdSweatCompat}).
  * The dev runs always have Cold Sweat.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(EnginesAndEmpires.MODID)
 @PrefixGameTestTemplate(false)
 public final class ColdSweatGameTests {
 
