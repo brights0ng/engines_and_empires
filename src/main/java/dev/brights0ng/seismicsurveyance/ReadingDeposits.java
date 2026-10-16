@@ -1,11 +1,12 @@
-package dev.brights0ng.sparseores.worldgen;
+package dev.brights0ng.seismicsurveyance;
 
-import dev.brights0ng.seismicsurveyance.ReaderReading;
 import dev.brights0ng.sparseores.Deposit;
 import dev.brights0ng.sparseores.DepositBody;
 import dev.brights0ng.sparseores.OreMap;
 import dev.brights0ng.sparseores.Realm;
 import dev.brights0ng.sparseores.ResolvedDeposit;
+import dev.brights0ng.sparseores.worldgen.LevelDeposits;
+import dev.brights0ng.sparseores.worldgen.OreMaps;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;

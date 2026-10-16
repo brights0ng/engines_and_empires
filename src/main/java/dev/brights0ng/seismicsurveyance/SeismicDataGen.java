@@ -5,10 +5,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 import javax.imageio.ImageIO;
 
@@ -18,31 +21,61 @@ import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.Util;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.data.CachedOutput;
+import net.minecraft.data.DataGenerator;
 import net.minecraft.data.DataProvider;
 import net.minecraft.data.PackOutput;
+import net.minecraft.data.loot.BlockLootSubProvider;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.data.recipes.RecipeProvider;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.data.recipes.SimpleCookingRecipeBuilder;
+import net.minecraft.data.tags.IntrinsicHolderTagsProvider;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.flag.FeatureFlags;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.storage.loot.LootPool;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.entries.AlternativesEntry;
+import net.minecraft.world.level.storage.loot.entries.LootItem;
+import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
+import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
+import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
 import net.neoforged.neoforge.client.model.generators.BlockModelBuilder;
 import net.neoforged.neoforge.client.model.generators.BlockStateProvider;
 import net.neoforged.neoforge.client.model.generators.ModelProvider;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
+import net.neoforged.neoforge.data.event.GatherDataEvent;
 
 /**
- * Generates the seismic survey's models, textures and recipes. It is called from the mod's data generator, which
- * owns the providers for block states, loot and tags: only one of each can exist, so the pieces that belong to
- * those are contributed here as plain functions, and the ones that are new (recipes, textures) are providers here.
+ * Generates the seismic survey's models, textures, recipes, loot and tags. Its own providers (recipes, fluid tags,
+ * textures) are added by {@link #gatherData}. Until the split's step 2 gives each mod its own output, only one loot table,
+ * block state and block tag provider can exist in a run, and the core's data generator puts those together from each
+ * mod's parts ({@code enginesandempires/datagen/SharedDataGen}, split seam S9): this mod's are {@link Loot},
+ * {@link #registerModels} and {@link #addBlockTags}.
  */
 public final class SeismicDataGen {
 
     private static final String MODID = SeismicSurveyance.MODID;
+
+    /** Registered on the mod event bus by the mod class. */
+    public static void gatherData(GatherDataEvent event) {
+        DataGenerator generator = event.getGenerator();
+        PackOutput output = generator.getPackOutput();
+        ExistingFileHelper existing = event.getExistingFileHelper();
+        CompletableFuture<HolderLookup.Provider> lookup = event.getLookupProvider();
+
+        trackTextures(existing);
+        generator.addProvider(event.includeServer(), new Recipes(output, lookup));
+        generator.addProvider(event.includeServer(), new ThumperFluidTags(output, lookup, existing));
+        generator.addProvider(event.includeClient(), new Textures(output));
+    }
 
     /**
      * Tells the model generator that the textures exist. They are written by this same run, so it cannot find them
@@ -192,6 +225,76 @@ public final class SeismicDataGen {
                 face.tintindex(0);
             }
         }).end();
+    }
+
+    /**
+     * Loot: the survey's blocks drop themselves, except the smart logger (only its master quarter drops the desk) and the
+     * choked thumpers.
+     */
+    public static final class Loot extends BlockLootSubProvider {
+
+        public Loot(HolderLookup.Provider registries) {
+            super(Set.of(), FeatureFlags.REGISTRY.allFlags(), registries);
+        }
+
+        @Override
+        protected void generate() {
+            for (Block block : SeismicContent.blocks()) {
+                dropSelf(block);
+            }
+            // The smart logger is four blocks of one; only its master quarter drops the desk.
+            add(SeismicContent.SMART_LOGGER.get(), createSinglePropConditionTable(SeismicContent.SMART_LOGGER.get(),
+                    SmartLoggerBlock.PART, SmartLoggerBlock.Part.FRONT_LEFT));
+            // Choked thumpers: Silk Touch gives the block (to be cooked clean); otherwise the iron block, and some of the
+            // andesite alloy (mechanical, up to the 2 in its casing) or copper sheets (combustive, up to the 4 in its tank and
+            // around its casing) it was made with.
+            add(SeismicContent.CHOKED_MECHANICAL_THUMPER.get(), chokedDrop(SeismicContent.CHOKED_MECHANICAL_THUMPER.get(),
+                    item("create:andesite_alloy"), 2));
+            add(SeismicContent.CHOKED_COMBUSTIVE_THUMPER.get(), chokedDrop(SeismicContent.CHOKED_COMBUSTIVE_THUMPER.get(),
+                    item("create:copper_sheet"), 4));
+        }
+
+        private LootTable.Builder chokedDrop(Block block, Item material, int most) {
+            return LootTable.lootTable()
+                    .withPool(LootPool.lootPool().setRolls(ConstantValue.exactly(1))
+                            .add(AlternativesEntry.alternatives(
+                                    LootItem.lootTableItem(block).when(hasSilkTouch()),
+                                    LootItem.lootTableItem(Items.IRON_BLOCK))))
+                    .withPool(LootPool.lootPool().setRolls(ConstantValue.exactly(1))
+                            .when(doesNotHaveSilkTouch())
+                            .add(LootItem.lootTableItem(material)
+                                    .apply(SetItemCountFunction.setCount(UniformGenerator.between(1, most)))));
+        }
+
+        private static Item item(String id) {
+            return BuiltInRegistries.ITEM.getOptional(ResourceLocation.parse(id))
+                    .orElseThrow(() -> new IllegalStateException("Item '" + id + "' does not exist. Is Create loaded?"));
+        }
+
+        @Override
+        protected Iterable<Block> getKnownBlocks() {
+            List<Block> known = new ArrayList<>(SeismicContent.blocks());
+            known.addAll(SeismicContent.chokedThumpers());
+            known.add(SeismicContent.SMART_LOGGER.get());
+            return known;
+        }
+    }
+
+    /**
+     * Block tags: everything mines with a pickaxe. {@code tag} is the block tag provider's own {@code tag}.
+     */
+    public static void addBlockTags(Function<TagKey<Block>, IntrinsicHolderTagsProvider.IntrinsicTagAppender<Block>> tag) {
+        TagKey<Block> pickaxe = TagKey.create(Registries.BLOCK,
+                ResourceLocation.parse("minecraft:mineable/pickaxe"));
+        for (Block block : SeismicContent.blocks()) {
+            tag.apply(pickaxe).add(block);
+        }
+        // Not in blocks(): it drops nothing (breaking it drops the machine from its base), but mines like the rest.
+        tag.apply(pickaxe).add(SeismicContent.COMBUSTIVE_THUMPER_COLUMN.get());
+        tag.apply(pickaxe).add(SeismicContent.SMART_LOGGER.get());
+        for (Block block : SeismicContent.chokedThumpers()) {
+            tag.apply(pickaxe).add(block);
+        }
     }
 
     /**

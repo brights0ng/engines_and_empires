@@ -39,15 +39,26 @@ import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
 import net.neoforged.neoforge.client.model.generators.BlockStateProvider;
 import net.neoforged.neoforge.client.model.generators.ModelProvider;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
+import net.neoforged.neoforge.data.event.GatherDataEvent;
 
 /**
  * The data generator's providers for ore refining: the recipes of {@link RefiningRecipes}, the chips' item models and
  * textures, and the iron golem's cut-down drop. Ore block loot tables are generated with the rich ones, in
- * {@code RichOreDataGen}, from the same {@code RichOres} table. Called from {@code RichOreDataGen.gatherData}.
+ * {@code RichOreDataGen}, from the same {@code RichOres} table. The recipes and textures are added by {@link #gatherData};
+ * the golem's loot and the chips' models go into the shared providers ({@code datagen/SharedDataGen}).
  */
 public final class RefiningDataGen {
 
     private static final String MODID = EnginesAndEmpires.MODID;
+
+    /** Registered on the mod event bus by the mod class. */
+    public static void gatherData(GatherDataEvent event) {
+        PackOutput output = event.getGenerator().getPackOutput();
+        ExistingFileHelper existing = event.getExistingFileHelper();
+        trackTextures(existing);
+        event.getGenerator().addProvider(event.includeServer(), new Recipes(output));
+        event.getGenerator().addProvider(event.includeClient(), new Textures(output, existing));
+    }
 
     /** Writes {@link RefiningRecipes#files()}. */
     public static final class Recipes implements DataProvider {
