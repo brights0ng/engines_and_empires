@@ -8,6 +8,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.oregen.rich.RichOres;
 
 /**
@@ -20,7 +21,7 @@ import dev.brights0ng.enginesandempires.oregen.rich.RichOres;
  */
 public final class RefiningRecipes {
 
-    private static final String MODID = "engines_and_empires";
+    private static final String MODID = EnginesAndEmpires.MODID;
 
     /** Every file, keyed by its path under {@code data/} (such as {@code minecraft/recipe/x.json}). */
     public static Map<String, JsonObject> files() {

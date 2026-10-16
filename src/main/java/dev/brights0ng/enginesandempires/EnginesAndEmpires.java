@@ -17,7 +17,8 @@ import net.neoforged.neoforge.common.NeoForge;
 
 /**
  * Engines and Empires, the core modpack mod (the glue between the family's mods and the pack's other mods, refining,
- * carry weight): its id, logger and registration. Its id stays "engines_and_empires" after the split.
+ * carry weight): its id, logger and registration. Its id is the one the single mod has today, and it keeps it after
+ * the split.
  */
 public final class EnginesAndEmpires {
 

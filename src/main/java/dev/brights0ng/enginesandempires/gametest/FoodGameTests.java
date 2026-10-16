@@ -594,7 +594,7 @@ public final class FoodGameTests {
     @GameTest(template = SCRATCH)
     public static void iceChestRecipeLoads(GameTestHelper helper) {
         helper.assertTrue(helper.getLevel().getRecipeManager()
-                .byKey(ResourceLocation.fromNamespaceAndPath("engines_and_empires", "ice_chest")).isPresent(), "no ice chest recipe");
+                .byKey(SimpleSpoilage.id("ice_chest")).isPresent(), "no ice chest recipe");
         helper.succeed();
     }
 

@@ -161,7 +161,7 @@ public final class HeatShipGameTests {
             boolean found = false;
             for (String key : chunks.getAllKeys()) {
                 CompoundTag chunk = chunks.getCompound(key);
-                found |= chunk.getCompound(AttachmentHolder.ATTACHMENTS_NBT_KEY).contains("engines_and_empires:heat");
+                found |= chunk.getCompound(AttachmentHolder.ATTACHMENTS_NBT_KEY).contains(Meteodyne.id("heat").toString());
             }
             helper.assertTrue(found, "the room is saved in the ship chunk's own tag: " + chunks.getAllKeys());
             helper.assertFalse(saved.contains(AttachmentHolder.ATTACHMENTS_NBT_KEY), "not in the plot's tag");
