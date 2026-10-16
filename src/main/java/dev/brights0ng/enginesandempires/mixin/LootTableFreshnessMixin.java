@@ -5,7 +5,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 
-import dev.brights0ng.enginesandempires.food.SourceFreshness;
+import dev.brights0ng.simplespoilage.SourceFreshness;
 import net.minecraft.world.Container;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.LootTable;

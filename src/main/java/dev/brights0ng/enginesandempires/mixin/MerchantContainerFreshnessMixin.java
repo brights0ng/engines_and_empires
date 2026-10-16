@@ -7,8 +7,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import dev.brights0ng.enginesandempires.food.SourceFreshness;
-import dev.brights0ng.enginesandempires.food.Spoilage;
+import dev.brights0ng.simplespoilage.SourceFreshness;
+import dev.brights0ng.simplespoilage.Spoilage;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.inventory.MerchantContainer;
 import net.minecraft.world.item.trading.Merchant;
