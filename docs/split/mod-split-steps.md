@@ -25,10 +25,10 @@ Optional outside mods (Sable, Cold Sweat, MineColonies, Serene Seasons, Iris, Ap
 `pack/`, anything for the Modrinth profile, `tools/profiling`, `run/`. Do not delete tests to make things pass. Do not weaken assertions.
 
 ## Commands
-Full check (baseline 964 unit tests with 2 skipped, 202/202 game tests): `./gradlew compileJava compileTestJava test runGameTestServer`
+Full check (baseline now 1041 unit tests with 2 skipped, 211/211 game tests, after steps 1a-1d): `./gradlew compileJava compileTestJava test runGameTestServer`
 Cold compile ~9 min, warm ~5 min, game tests ~3 min on 2 cores / 7 GB. Run in the background and poll; do not run two Gradle builds at once.
 If Maven Central answers 429, use the mirror workaround in `docs/split/baseline.md` (kept outside the repo).
-Client runs and shaders cannot be tested in the cloud; say so rather than guess.
+A client boot under `xvfb-run` with software graphics is a valid crash-on-boot check in the cloud (see `docs/split/build-layout.md`). Anything visual cannot be tested there; say so rather than guess.
 
 ## Conventions
 `git mv` for moves (keep history). One logical change per commit. Commit messages say what and why. Lang keys, ids and resource paths change only in the step that says so.
@@ -41,12 +41,12 @@ You are working on the repo brights0ng/engines_and_empires, branch `split` (crea
 Read first: CLAUDE.md, docs/split/mod-split-plan.md, and the manifest/seams CSVs. They are the master plan; Bright has approved every decision in them. You are an implementer, not a designer: if something is ambiguous or the plan is wrong, do the safest reading, flag it in the PR description under "Questions for Bright", and keep going; if you cannot continue safely, stop at the last green commit and say what is left.
 
 Rules for every step:
-- Behaviour must not change. The baseline is 964 unit tests (2 skipped) and 202/202 game tests. Run `./gradlew compileJava compileTestJava test runGameTestServer` (background it; it takes 5-10 min) before every commit that you intend to keep and at the end. New tests may add to the totals; none may be removed, skipped or weakened to get green.
+- Behaviour must not change. The baseline is 1041 unit tests (2 skipped) and 211/211 game tests (it was 964/202 before the split; steps 1a-1d added tests). From 2b on, the full check also runs each mod's bare game tests. Run `./gradlew compileJava compileTestJava test runGameTestServer` (background it; it takes 5-10 min) before every commit that you intend to keep and at the end. New tests may add to the totals; none may be removed, skipped or weakened to get green.
 - Do not touch `pack/`, the Modrinth profile, `tools/profiling` or `run/`. Do not add dependencies the plan does not name.
 - Keep commits small and reviewable. Moves are `git mv`.
 - If the build is OOM-killed, lower parallelism or heap; do not skip tests.
 - If Maven Central rate-limits the sandbox (HTTP 429, reported by Gradle as "Could not find ..."), set up the mirror workaround described in `docs/split/baseline.md`. Keep it outside the repo; never commit it.
-- Cannot be checked in the cloud (say so in the PR, do not guess): client rendering, shaders, the PRD model and map GUIs, ten-year climatology runs, the Modrinth smoke test.
+- A client boot under xvfb-run is allowed as a crash check. Cannot be checked in the cloud (say so in the PR, do not guess): client rendering, shaders, the PRD model and map GUIs, ten-year climatology runs, the Modrinth smoke test.
 
 Finish with a PR into `split` whose description has: (1) what changed, (2) unit and game test counts before and after, (3) deviations from the plan, (4) Questions for Bright, (5) anything left undone.
 ```
@@ -126,9 +126,10 @@ Acceptance: full check green; the test fails if you add a deliberate forbidden i
 Goal: prove which build layout works before touching the real tree.
 Tasks: on a throwaway branch, make a minimal multi-project build (`paradyne-lib` + one dependent module, a toy block each, `neoforge.mods.toml` each) using ModDevGradle, and show that `runServer`/`runGameTestServer` from an aggregator project loads both mods (and a client run configuration is at least generated). If it works, document the exact `build.gradle` shapes and the convention plugin in `docs/split/build-layout.md`. If it does not, build the fallback (one project, one source set per mod, `mods {}` block with `sourceSet`s, `addModdingDependenciesTo`) and prove the same thing, plus show the compiler rejecting an import that breaks the graph. Report which layout is recommended and why.
 Acceptance: written report in the PR; the toy builds committed on the throwaway branch only (not into `split`).
-Decision gate: Bright reads the report before 2b starts.
+Result: multi-project layout approved by Bright (one Gradle project per mod; core stays at the root and is the aggregator; bare game tests per mod are part of the full check; the architecture test enforces `frontier.seismic`; client boot allowed as a cloud crash check). Report: `docs/split/build-layout.md`.
 
 ### Steps 2b-2f: slicing (one session each; same shape)
+**Approved layout (read `docs/split/build-layout.md` sections 1-6 first; follow it exactly):** one Gradle project per mod, shared build logic in `build-logic/` (convention plugin), the root stays core and the dev aggregator, `requireMod(':x')` / `loadMod(':x')` helpers, one Minecraft run at a time via the `MinecraftRunLimit` build service. Rules from the prototype that apply to every slicing step: (1) a `compileOnly` project dependency carries none of its dependencies, so declare outside mods where they are used; runtime-only extras (MineColonies, Iris/Sodium, Guard Villagers, Deeper and Darker, AppleSkin, Diet, Cold Sweat) stay in the root only; (2) every mod with game tests gets its own empty structure under its own namespace, `GameTestStructures` takes the mod id and each mod's datagen adds it; (3) never make a mixin injector cancellable or set a return value at `RETURN` where another mod injects at the same point (`LevelChunkFrontierMixin` halves stay non-cancellable; use MixinExtras `@ModifyReturnValue` if a return value must change); (4) the convention plugin fails the build if a subproject's `mod_id` equals the root's; (5) a mod the aggregator loads but does not require (Sable Fixes) uses `loadMod`; (6) the architecture test must scan every module's `src/main/java` and `src/test/java`; (7) watch Gradle heap (`-Xmx2G` worked in the prototype), raise it only if OOM-killed; (8) the full check now includes each mod's bare `runGameTestServer`.
 Common tasks for each module being cut out (use the layout the 2a report chose):
 1. Create the module/source set, its `neoforge.mods.toml` (id, version, `license="All Rights Reserved"`, required and optional dependencies exactly as plan section 2, `ordering="AFTER"` where the plan says), its mixin config registration, its `MODID` constant flipped to the real id.
 2. Move the module's sources, tests, resources (per plan section 8, by grep ownership), lang keys and `generated` resources; flip namespaces in resource paths and code (`data/engines_and_empires/...` -> `data/<id>/...`) and update every reference, including tags, data maps, loot tables, recipes, structure files and `GameTestStructures` lookups. No aliasing.
