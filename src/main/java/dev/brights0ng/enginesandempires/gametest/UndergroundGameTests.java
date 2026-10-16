@@ -5,6 +5,7 @@ import dev.brights0ng.enginesandempires.weather.climate.Temperature;
 import dev.brights0ng.enginesandempires.weather.climate.Underground;
 import dev.brights0ng.enginesandempires.weather.climate.UndergroundProbe;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;

@@ -13,6 +13,7 @@ import dev.brights0ng.enginesandempires.frontier.spawn.FrontierSpawnEvents;
 import dev.brights0ng.enginesandempires.geophone.SeismicWave;
 import dev.brights0ng.enginesandempires.geophone.WaveModel;
 import dev.brights0ng.frontier.Frontier;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;

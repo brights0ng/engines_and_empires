@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.weather.field;
 
-import dev.brights0ng.enginesandempires.oregen.TerrainProbe;
+import dev.brights0ng.paradynelib.TerrainProbe;
 
 /**
  * The ground's height from the world's terrain noise, for field cells that may never have been generated. Pure over

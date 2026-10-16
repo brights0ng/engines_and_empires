@@ -14,6 +14,7 @@ import dev.brights0ng.enginesandempires.food.SpoilTimes;
 import dev.brights0ng.enginesandempires.food.Spoilage;
 import dev.brights0ng.enginesandempires.food.SpoilageConfig;
 import dev.brights0ng.enginesandempires.food.compat.DietCompat;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.appleseed.appleseed.AppleSeed;
 import net.appleseed.appleseed.api.hook.DietHookRegistry;
 import net.appleseed.appleseed.api.type.IDietGroup;

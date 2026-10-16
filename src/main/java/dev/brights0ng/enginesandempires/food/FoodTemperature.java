@@ -7,7 +7,7 @@ import dev.brights0ng.enginesandempires.weather.climate.Temperature;
 import dev.brights0ng.enginesandempires.weather.climate.UndergroundProbe;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatWorld;
 import dev.brights0ng.enginesandempires.weather.rain.WeatherConfig;
-import dev.brights0ng.enginesandempires.weather.ships.ShipCover;
+import dev.brights0ng.paradynelib.ships.ShipCover;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;

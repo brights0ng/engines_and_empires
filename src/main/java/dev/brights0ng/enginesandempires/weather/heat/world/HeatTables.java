@@ -6,8 +6,8 @@ import java.util.Map;
 
 import dev.brights0ng.enginesandempires.weather.heat.HeatField;
 import dev.brights0ng.enginesandempires.weather.heat.HeatSourceData;
-import dev.brights0ng.enginesandempires.weather.heat.air.AirGrid;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.heat.air.AirGrid;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;

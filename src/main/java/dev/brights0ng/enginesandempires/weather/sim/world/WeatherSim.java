@@ -6,8 +6,6 @@ import java.util.Map;
 import java.util.SplittableRandom;
 import java.util.WeakHashMap;
 
-import dev.brights0ng.enginesandempires.oregen.TerrainProbe;
-import dev.brights0ng.enginesandempires.oregen.worldgen.NoiseTerrainProbe;
 import dev.brights0ng.enginesandempires.weather.climate.Climate;
 import dev.brights0ng.enginesandempires.weather.climate.ClimateCurves;
 import dev.brights0ng.enginesandempires.weather.climate.SeasonSource;
@@ -25,6 +23,8 @@ import dev.brights0ng.enginesandempires.weather.sim.SimParams;
 import dev.brights0ng.enginesandempires.weather.sim.SystemsSim;
 import dev.brights0ng.enginesandempires.weather.sim.WeatherSystem;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.TerrainProbe;
+import dev.brights0ng.paradynelib.worldgen.NoiseTerrainProbe;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;

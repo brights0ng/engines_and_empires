@@ -7,6 +7,7 @@ import dev.brights0ng.enginesandempires.geophone.CombustiveThumperBlock;
 import dev.brights0ng.enginesandempires.geophone.CombustiveThumperBlockEntity;
 import dev.brights0ng.enginesandempires.geophone.SeismicContent;
 import dev.brights0ng.enginesandempires.geophone.ThumperFluids;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;

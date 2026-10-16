@@ -6,6 +6,7 @@ import dev.brights0ng.enginesandempires.weather.sim.world.CloudWorld;
 import dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim;
 import dev.brights0ng.enginesandempires.weather.sky.StormLight;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;

@@ -10,6 +10,7 @@ import dev.brights0ng.enginesandempires.weather.rain.LocalWeather;
 import dev.brights0ng.enginesandempires.weather.rain.WeatherQueries;
 import dev.brights0ng.enginesandempires.weather.sim.world.CloudWorld;
 import dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;

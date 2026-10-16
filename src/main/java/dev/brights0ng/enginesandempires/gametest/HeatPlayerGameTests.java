@@ -9,6 +9,7 @@ import dev.brights0ng.enginesandempires.weather.heat.world.HeatRadiant;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatRegion;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatTables;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatWorld;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;

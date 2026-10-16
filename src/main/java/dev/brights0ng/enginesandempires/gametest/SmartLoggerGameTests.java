@@ -8,6 +8,7 @@ import dev.brights0ng.enginesandempires.geophone.ReaderReading;
 import dev.brights0ng.enginesandempires.geophone.SeismicContent;
 import dev.brights0ng.enginesandempires.geophone.SmartLoggerBlock;
 import dev.brights0ng.enginesandempires.geophone.SmartLoggerBlockEntity;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;

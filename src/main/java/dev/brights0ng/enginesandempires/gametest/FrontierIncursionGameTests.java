@@ -16,6 +16,7 @@ import dev.brights0ng.enginesandempires.geophone.ChokedThumperBlock;
 import dev.brights0ng.enginesandempires.geophone.ChokedThumpers;
 import dev.brights0ng.enginesandempires.geophone.CombustiveThumperBlock;
 import dev.brights0ng.enginesandempires.geophone.SeismicContent;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;

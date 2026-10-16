@@ -1,5 +1,7 @@
 package dev.brights0ng.enginesandempires.oregen;
 
+import dev.brights0ng.paradynelib.TerrainProbe;
+
 /**
  * Decides, before anything is generated, whether a deposit will really have ore, and if its first draw
  * would not, finds one that will.

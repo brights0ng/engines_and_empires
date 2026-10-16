@@ -1,6 +1,7 @@
 package dev.brights0ng.enginesandempires.weather.wind;
 
 import dev.brights0ng.enginesandempires.weather.sim.world.Atmosphere;
+import dev.brights0ng.paradynelib.wind.WindColumn;
 import net.minecraft.server.level.ServerLevel;
 
 /**

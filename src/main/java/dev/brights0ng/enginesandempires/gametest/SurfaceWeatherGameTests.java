@@ -4,6 +4,7 @@ import dev.brights0ng.enginesandempires.weather.WeatherOwnership;
 import dev.brights0ng.enginesandempires.weather.rain.Precip;
 import dev.brights0ng.enginesandempires.weather.surface.SurfaceWeather;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;

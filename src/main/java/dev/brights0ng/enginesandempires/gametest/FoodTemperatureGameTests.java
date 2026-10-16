@@ -11,6 +11,7 @@ import dev.brights0ng.enginesandempires.food.FoodTemperature;
 import dev.brights0ng.enginesandempires.food.SpoilClock;
 import dev.brights0ng.enginesandempires.food.SpoilTimes;
 import dev.brights0ng.enginesandempires.food.Spoilage;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import dev.brights0ng.simplespoilage.SimpleSpoilage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
