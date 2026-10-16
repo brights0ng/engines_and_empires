@@ -1,18 +1,21 @@
-package dev.brights0ng.frontier.gametest;
+package dev.brights0ng.frontier.seismic.gametest;
 
 import java.util.List;
 
 import dev.brights0ng.frontier.Frontier;
 import dev.brights0ng.frontier.FrontierConfig;
-import dev.brights0ng.frontier.deep.Deep;
 import dev.brights0ng.frontier.deep.DeepRoster;
 import dev.brights0ng.frontier.deep.DeepSpawns;
-import dev.brights0ng.frontier.deep.ShotSource;
 import dev.brights0ng.frontier.deep.StirredDeposits;
 import dev.brights0ng.frontier.deep.ThumperIncursions;
+import dev.brights0ng.frontier.seismic.Deep;
 import dev.brights0ng.frontier.spawn.FrontierSpawnEvents;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
+import dev.brights0ng.seismicsurveyance.EchoesEvent;
+import dev.brights0ng.seismicsurveyance.SeismicShots;
 import dev.brights0ng.seismicsurveyance.SeismicWave;
+import dev.brights0ng.seismicsurveyance.ShotSource;
+import dev.brights0ng.seismicsurveyance.ThumpEvent;
 import dev.brights0ng.seismicsurveyance.WaveModel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -26,6 +29,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SculkSensorBlock;
 import net.minecraft.world.level.block.state.properties.SculkSensorPhase;
 import net.minecraft.world.phys.AABB;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.neoforged.fml.ModList;
@@ -33,6 +37,8 @@ import net.neoforged.fml.ModList;
 /**
  * In-game checks of what thumper shots set off (Frontier phase 5): sculk hearing them, the disturbance calling up an
  * incursion, mobs coming up, and echoes stirring deposits. Each runs in its own batch, since they share the level's state.
+ * Shots and echoes reach the Deep the way Seismic Surveyance sends them, as events (split seam S5): the first test fires a
+ * real thumper shot, the rest post the events directly.
  */
 @GameTestHolder(Frontier.MODID)
 @PrefixGameTestTemplate(false)
@@ -45,7 +51,8 @@ public final class FrontierDeepGameTests {
     public static void aThumperShotSetsOffASculkSensor(GameTestHelper helper) {
         helper.setBlock(SPOT.below(), Blocks.STONE);
         helper.setBlock(SPOT, Blocks.SCULK_SENSOR);
-        Deep.of(helper.getLevel()).onThump(helper.absolutePos(new BlockPos(0, 1, 0)), ShotSource.COMBUSTIVE_DRY, 128);
+        SeismicShots.thump(helper.getLevel(), helper.absolutePos(new BlockPos(0, 1, 0)), Blocks.STONE.defaultBlockState(), 128,
+                ShotSource.COMBUSTIVE_DRY);
         helper.succeedWhen(() -> helper.assertTrue(
                 helper.getBlockState(SPOT).getValue(SculkSensorBlock.PHASE) == SculkSensorPhase.ACTIVE,
                 "the sculk sensor should hear the shot"));
@@ -58,9 +65,9 @@ public final class FrontierDeepGameTests {
         Deep deep = Deep.of(helper.getLevel());
         int before = deep.pendingCount();
         // 4 blocks away with a range of 6: half the range is 3, so it is out of reach.
-        deep.onThump(helper.absolutePos(SPOT.west(4)), ShotSource.COMBUSTIVE_DRY, 6);
+        thump(helper, helper.absolutePos(SPOT.west(4)), ShotSource.COMBUSTIVE_DRY, 6);
         helper.assertTrue(deep.pendingCount() == before, "a sensor beyond half the shot's range should not hear it");
-        deep.onThump(helper.absolutePos(SPOT.west(4)), ShotSource.COMBUSTIVE_DRY, 10);
+        thump(helper, helper.absolutePos(SPOT.west(4)), ShotSource.COMBUSTIVE_DRY, 10);
         helper.assertTrue(deep.pendingCount() == before + 1, "within half the range it should");
         deep.hearAllNow();
         helper.succeed();
@@ -76,13 +83,13 @@ public final class FrontierDeepGameTests {
             int before = ThumperIncursions.recent().size();
             int dry = 0;
             for (int i = 0; i < 6; i++) {
-                deep.onThump(at, ShotSource.COMBUSTIVE_DRY, 128);
+                thump(helper, at, ShotSource.COMBUSTIVE_DRY, 128);
                 dry++;
             }
             helper.assertTrue(ThumperIncursions.recent().size() == before, "dry fires should not count, even " + dry);
             int shots = 0;
             while (ThumperIncursions.recent().size() == before && shots < 10) {
-                deep.onThump(at, ShotSource.MECHANICAL, 512);
+                thump(helper, at, ShotSource.MECHANICAL, 512);
                 shots++;
             }
             helper.assertTrue(ThumperIncursions.recent().size() == before + 1 && shots <= 5,
@@ -94,7 +101,7 @@ public final class FrontierDeepGameTests {
                     && incursion.kind() == dev.brights0ng.frontier.incursion.Incursion.Kind.THUMPER,
                     "a thumper incursion");
             for (int i = 0; i < 10; i++) {
-                deep.onThump(at.east(16), ShotSource.MECHANICAL, 512);
+                thump(helper, at.east(16), ShotSource.MECHANICAL, 512);
             }
             helper.assertTrue(ThumperIncursions.recent().size() == before + 1, "the area around should be quiet for the cooldown");
         });
@@ -120,7 +127,7 @@ public final class FrontierDeepGameTests {
         int found;
         try {
             for (int i = 0; i < 20; i++) {
-                deep.onThump(at, ShotSource.MECHANICAL, 512);
+                thump(helper, at, ShotSource.MECHANICAL, 512);
             }
             found = helper.getLevel().getEntitiesOfClass(Mob.class, new AABB(at).inflate(40),
                     mob -> mob.getTags().contains(DeepSpawns.TAG)).size();
@@ -148,7 +155,6 @@ public final class FrontierDeepGameTests {
 
     @GameTest(template = SCRATCH, batch = "deep_stir")
     public static void echoesStirTheDepositsTheyCameBackOff(GameTestHelper helper) {
-        Deep deep = Deep.of(helper.getLevel());
         BlockPos centre = helper.absolutePos(SPOT);
         WaveModel.OreCells cells = new WaveModel.OreCells(
                 new double[] {centre.getX() - 1.5, centre.getX() + 2.5},
@@ -157,10 +163,10 @@ public final class FrontierDeepGameTests {
         long now = helper.getLevel().getGameTime();
         StirredDeposits stirred = StirredDeposits.of(helper.getLevel());
 
-        deep.onEchoes(ShotSource.COMBUSTIVE_DRY, List.of(new SeismicWave.Echoer(987_654L, "iron", cells)));
+        echoes(helper, ShotSource.COMBUSTIVE_DRY, List.of(new SeismicWave.Echoer(987_654L, "iron", cells)));
         helper.assertTrue(stirred.near(centre, 2, now).stream().noneMatch(s -> s.seed() == 987_654L), "a dry fire stirs nothing");
 
-        deep.onEchoes(ShotSource.MECHANICAL, List.of(new SeismicWave.Echoer(987_654L, "iron", cells)));
+        echoes(helper, ShotSource.MECHANICAL, List.of(new SeismicWave.Echoer(987_654L, "iron", cells)));
         List<StirredDeposits.Stirred> near = stirred.near(centre, 2, now);
         helper.assertTrue(near.stream().anyMatch(s -> s.seed() == 987_654L), "a real shot's echo should stir the deposit");
         StirredDeposits.Stirred s = near.stream().filter(x -> x.seed() == 987_654L).findFirst().orElseThrow();
@@ -213,6 +219,16 @@ public final class FrontierDeepGameTests {
             mob.discard();
         }
         helper.succeed();
+    }
+
+    /** A thumper shot as Seismic Surveyance announces it, at {@code at} (absolute). */
+    private static void thump(GameTestHelper helper, BlockPos at, ShotSource source, int range) {
+        NeoForge.EVENT_BUS.post(new ThumpEvent(helper.getLevel(), at, source, range));
+    }
+
+    /** A thumper shot's echoes as Seismic Surveyance announces them. */
+    private static void echoes(GameTestHelper helper, ShotSource source, List<SeismicWave.Echoer> echoers) {
+        NeoForge.EVENT_BUS.post(new EchoesEvent(helper.getLevel(), source, echoers));
     }
 
     /** Runs {@code body} with shots bringing no mobs up, so they don't get in the way. */

@@ -1,0 +1,63 @@
+package dev.brights0ng.frontier.seismic;
+
+import dev.brights0ng.seismicsurveyance.EchoesEvent;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
+import dev.brights0ng.seismicsurveyance.ThumpEvent;
+import net.minecraft.server.level.ServerLevel;
+import net.neoforged.fml.ModList;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.level.LevelEvent;
+import net.neoforged.neoforge.event.tick.LevelTickEvent;
+
+/**
+ * Frontier's side of Seismic Surveyance (split seams S5-S7). This package is the only part of Frontier that names
+ * Seismic Surveyance's or Sparse Ores' classes, and it is reached only through {@link #registerIfLoaded}, so Frontier
+ * runs without them: then no thumper shot ever reaches the Deep.
+ */
+public final class FrontierSeismic {
+
+    /** Hooks the Deep up to Seismic Surveyance's thumper shots if it is present. Safe to call either way. */
+    public static void registerIfLoaded() {
+        if (ModList.get().isLoaded(SeismicSurveyance.MODID)) {
+            Hook.register();
+        }
+    }
+
+    /** Kept separate so that Seismic Surveyance's classes are only looked up once it is known to be there. */
+    private static final class Hook {
+
+        static void register() {
+            // A thumper shot and its echoes set off what lives below (see Deep)
+            NeoForge.EVENT_BUS.addListener(Hook::onThump);
+            NeoForge.EVENT_BUS.addListener(Hook::onEchoes);
+            // The Deep's pending sculk triggers and stirred deposits, as time passes
+            NeoForge.EVENT_BUS.addListener(Hook::onLevelTick);
+            NeoForge.EVENT_BUS.addListener(Hook::onLevelUnload);
+            // /eae frontier deep
+            NeoForge.EVENT_BUS.addListener(DeepCommand::onRegisterCommands);
+        }
+
+        private static void onThump(ThumpEvent event) {
+            Deep.of(event.level()).onThump(event.pos(), event.source(), event.range());
+        }
+
+        private static void onEchoes(EchoesEvent event) {
+            Deep.of(event.level()).onEchoes(event.source(), event.echoers());
+        }
+
+        private static void onLevelTick(LevelTickEvent.Post event) {
+            if (event.getLevel() instanceof ServerLevel level) {
+                Deep.of(level).tick();
+            }
+        }
+
+        private static void onLevelUnload(LevelEvent.Unload event) {
+            if (event.getLevel() instanceof ServerLevel level) {
+                Deep.forget(level);
+            }
+        }
+    }
+
+    private FrontierSeismic() {
+    }
+}
