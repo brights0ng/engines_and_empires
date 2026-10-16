@@ -9,6 +9,7 @@ import dev.brights0ng.enginesandempires.food.compat.DietCompat;
 import dev.brights0ng.enginesandempires.frontier.guard.MineColoniesGuardSource;
 import dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatCompat;
 import dev.brights0ng.enginesandempires.weather.climate.compat.SereneSeasonsCompat;
+import dev.brights0ng.enginesandempires.weather.heat.compat.MachineHeatDrivers;
 import dev.brights0ng.enginesandempires.weight.WeightDataMaps;
 import dev.brights0ng.enginesandempires.weight.WeightReport;
 import dev.brights0ng.sparseores.refining.RefiningItems;
@@ -48,6 +49,9 @@ public final class EnginesAndEmpires {
         AppleSkinCompat.registerIfLoaded();
         // Diet: spoiled food feeds its groups less, death resets them to 25% (only if Diet is installed)
         DietCompat.registerIfLoaded();
+
+        // Engines and hot air burners are heat sources while they run (their heat_power entries name these drivers)
+        MachineHeatDrivers.register();
 
         // Cold Sweat: the pack's air temperature becomes its world temperature in the Overworld (only if Cold Sweat is installed)
         ColdSweatCompat.registerIfLoaded(modEventBus);
