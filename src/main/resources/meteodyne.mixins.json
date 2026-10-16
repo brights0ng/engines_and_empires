@@ -24,7 +24,8 @@
     "LightningRodWeatherMixin",
     "ServerLevelLightningInvoker",
     "LevelStormLightMixin",
-    "DaylightDetectorStormMixin"
+    "DaylightDetectorStormMixin",
+    "LevelChunkHeatMixin"
   ],
   "client": [
     "client.GameRendererCloudDepthMixin",
