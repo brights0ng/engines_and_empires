@@ -5,10 +5,13 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import dev.brights0ng.meteodyne.climate.ClimateDataMaps;
+import dev.brights0ng.meteodyne.climate.MeteodyneTemperature;
 import dev.brights0ng.meteodyne.heat.HeatField;
 import dev.brights0ng.meteodyne.heat.world.HeatContent;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
 import dev.brights0ng.meteodyne.surface.SurfaceContent;
+import dev.brights0ng.paradynelib.services.Services;
+import dev.brights0ng.paradynelib.services.TemperatureProvider;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -42,5 +45,8 @@ public final class Meteodyne {
         modContainer.registerConfig(ModConfig.Type.SERVER, WeatherConfig.SPEC, WeatherConfig.FILE_NAME);
         // Weather on the ground: glaze (freezing rain's ice layer) and the crops hail knocks back
         SurfaceContent.register(modEventBus);
+
+        // What the family's other mods ask of the weather (split seams S1-S3): temperatures (food)
+        Services.register(TemperatureProvider.KEY, MeteodyneTemperature.INSTANCE);
     }
 }
