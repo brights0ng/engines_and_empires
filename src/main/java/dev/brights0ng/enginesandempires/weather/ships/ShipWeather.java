@@ -6,7 +6,6 @@ import java.util.Map;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.WeatherOwnership;
 import dev.brights0ng.enginesandempires.weather.climate.Temperature;
 import dev.brights0ng.enginesandempires.weather.rain.LocalWeather;
@@ -14,6 +13,7 @@ import dev.brights0ng.enginesandempires.weather.rain.Precip;
 import dev.brights0ng.enginesandempires.weather.surface.SurfaceWeather;
 import dev.brights0ng.enginesandempires.weather.wind.WindColumn;
 import dev.brights0ng.enginesandempires.weather.wind.WindSources;
+import dev.brights0ng.meteodyne.Meteodyne;
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.api.physics.mass.MassData;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
@@ -53,7 +53,7 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
  * </ul>
  * Only ships within {@link #PLAYER_RANGE} blocks of a player are visited.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class ShipWeather {
 
     /** Steeper than this (degrees from level) and a deck collects nothing (Bright, 2026-10-08: 45). */

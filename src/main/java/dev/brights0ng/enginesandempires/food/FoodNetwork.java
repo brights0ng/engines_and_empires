@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.food;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.simplespoilage.SimpleSpoilage;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
@@ -11,7 +11,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** The message food spoilage sends from client to server: choosing which group of a food stack is on top. */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = SimpleSpoilage.MODID)
 public final class FoodNetwork {
 
     /** Bumped if a message's format ever changes. */

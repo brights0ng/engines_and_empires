@@ -6,7 +6,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.WeatherOwnership;
 import dev.brights0ng.enginesandempires.weather.climate.BiomeAdjust;
 import dev.brights0ng.enginesandempires.weather.climate.BiomeClimate;
@@ -18,6 +17,7 @@ import dev.brights0ng.enginesandempires.weather.rain.Precip;
 import dev.brights0ng.enginesandempires.weather.ships.ShipCover;
 import dev.brights0ng.enginesandempires.weather.wind.WindColumn;
 import dev.brights0ng.enginesandempires.weather.wind.WindSources;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
@@ -84,7 +84,7 @@ import net.neoforged.neoforge.server.ServerLifecycleHooks;
  * thread for Overworld biomes from this same temperature, so vanilla's cold checks (snow golems, frost, mods asking
  * {@code coldEnoughToSnow}) agree with the pack's weather. Worldgen (worker threads) and the client keep vanilla's.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class SurfaceWeather {
 
     /** Ticks between visits to a chunk. */

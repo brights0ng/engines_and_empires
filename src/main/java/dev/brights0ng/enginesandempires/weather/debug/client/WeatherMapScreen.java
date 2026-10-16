@@ -7,8 +7,8 @@ import java.util.Locale;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.debug.WeatherMapPayloads;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -52,11 +52,11 @@ public class WeatherMapScreen extends Screen {
     private static final int HEADER = 14;
     private static final int REFRESH_TICKS = 100;
     private static final ResourceLocation TEXTURE =
-            ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "weather_map");
+            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "weather_map");
     private static final ResourceLocation OVERLAY =
-            ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "weather_map_overlay");
+            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "weather_map_overlay");
     private static final ResourceLocation CLOUDS =
-            ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "weather_map_clouds");
+            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "weather_map_clouds");
     /** Ticks between redraws of the clouds layer. */
     private static final int CLOUD_REFRESH = 10;
     private static final String[] STAGES =

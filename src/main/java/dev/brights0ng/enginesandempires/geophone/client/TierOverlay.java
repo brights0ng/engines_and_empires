@@ -2,7 +2,7 @@ package dev.brights0ng.enginesandempires.geophone.client;
 
 import java.util.List;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.frontier.map.TierGrid;
 import dev.brights0ng.enginesandempires.frontier.map.TierMapCache;
 import dev.brights0ng.enginesandempires.frontier.map.TierMapPayloads;
@@ -21,7 +21,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  *
  * <p>This holds what both maps share: the colours, walking the visible columns, and asking the server for them.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = EnginesAndEmpires.MODID, value = Dist.CLIENT)
 public final class TierOverlay {
 
     /** The tiers' colours, as {@code /eae frontier map} shows them: yellow Uninhabited, green Settled, blue Civilized. */

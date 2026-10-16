@@ -2,7 +2,6 @@ package dev.brights0ng.enginesandempires.gametest;
 
 import com.mojang.serialization.JsonOps;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.geophone.Logbook;
 import dev.brights0ng.enginesandempires.geophone.LogbookCodecs;
 import dev.brights0ng.enginesandempires.geophone.LogbookEntry;
@@ -16,6 +15,7 @@ import dev.brights0ng.enginesandempires.geophone.ReadingBoardMenu;
 import dev.brights0ng.enginesandempires.geophone.SeismicContent;
 import dev.brights0ng.enginesandempires.geophone.SmartLoggerBlock;
 import dev.brights0ng.enginesandempires.geophone.SmartLoggerBlockEntity;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
@@ -40,7 +40,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * logger's out on a double click, gives it back, and drops it when broken. Also that the logbook still works after its
  * screen and menu were folded into the shared board.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(SeismicSurveyance.MODID)
 @PrefixGameTestTemplate(false)
 public final class PrdGameTests {
 

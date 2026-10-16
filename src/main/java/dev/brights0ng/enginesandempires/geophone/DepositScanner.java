@@ -7,12 +7,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.oregen.OreMap;
 import dev.brights0ng.enginesandempires.oregen.RemainingOre;
 import dev.brights0ng.enginesandempires.oregen.worldgen.LevelDeposits;
 import dev.brights0ng.enginesandempires.oregen.worldgen.LevelWorldView;
 import dev.brights0ng.enginesandempires.oregen.worldgen.OreMaps;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -41,7 +41,7 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
  *
  * <p>Results are ground truth about what is there. See {@link DepositFinder}.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = SeismicSurveyance.MODID)
 public final class DepositScanner {
 
     /**

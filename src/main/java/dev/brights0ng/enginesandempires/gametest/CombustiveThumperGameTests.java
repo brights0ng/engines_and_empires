@@ -2,12 +2,12 @@ package dev.brights0ng.enginesandempires.gametest;
 
 import java.lang.reflect.Field;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.geophone.CombustiveFiring;
 import dev.brights0ng.enginesandempires.geophone.CombustiveThumperBlock;
 import dev.brights0ng.enginesandempires.geophone.CombustiveThumperBlockEntity;
 import dev.brights0ng.enginesandempires.geophone.SeismicContent;
 import dev.brights0ng.enginesandempires.geophone.ThumperFluids;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -31,7 +31,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * <p>Each test starts from an empty template ({@link GameTestStructures}) and builds what it needs. The head is lifted by
  * setting the block entity's armed flag directly: the tests are about what a shot does, not about the torque that lifts it.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(SeismicSurveyance.MODID)
 @PrefixGameTestTemplate(false)
 public final class CombustiveThumperGameTests {
 

@@ -5,7 +5,6 @@ import java.util.Locale;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.climate.Baseline;
 import dev.brights0ng.enginesandempires.weather.climate.BiomeClimate;
 import dev.brights0ng.enginesandempires.weather.climate.Climate;
@@ -15,6 +14,7 @@ import dev.brights0ng.enginesandempires.weather.sim.WeatherSystem;
 import dev.brights0ng.enginesandempires.weather.sim.world.Atmosphere;
 import dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim;
 import dev.brights0ng.enginesandempires.weather.wind.WindColumn;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -52,7 +52,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  * </ul>
  * The weather lives in the Overworld, so these always read the Overworld (at your x and z if you are elsewhere).
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class WeatherCommand {
 
     @SubscribeEvent

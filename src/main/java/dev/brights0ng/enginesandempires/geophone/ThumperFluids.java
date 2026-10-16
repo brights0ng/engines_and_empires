@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.geophone;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
@@ -44,7 +44,7 @@ public final class ThumperFluids {
     }
 
     private static TagKey<Fluid> tag(String name) {
-        return TagKey.create(Registries.FLUID, ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, name));
+        return TagKey.create(Registries.FLUID, ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, name));
     }
 
     private ThumperFluids() {

@@ -6,13 +6,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.geophone.SeismicContent;
 import dev.brights0ng.enginesandempires.geophone.SmartLoggerBlock;
 import dev.brights0ng.enginesandempires.geophone.SeismicDataGen;
 import dev.brights0ng.enginesandempires.geophone.ThumperFluidTags;
 import dev.brights0ng.enginesandempires.gametest.GameTestStructures;
 import dev.brights0ng.enginesandempires.oregen.refining.RefiningDataGen;
+import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -211,7 +211,7 @@ public final class RichOreDataGen {
     private static final class States extends BlockStateProvider {
 
         States(PackOutput output, ExistingFileHelper existing) {
-            super(output, EnginesAndEmpiresMod.MODID, existing);
+            super(output, SparseOres.MODID, existing);
         }
 
         @Override
@@ -255,7 +255,7 @@ public final class RichOreDataGen {
     private static final class BlockTagsGen extends BlockTagsProvider {
 
         BlockTagsGen(PackOutput output, CompletableFuture<HolderLookup.Provider> lookup, ExistingFileHelper existing) {
-            super(output, lookup, EnginesAndEmpiresMod.MODID, existing);
+            super(output, lookup, SparseOres.MODID, existing);
         }
 
         @Override
@@ -291,7 +291,7 @@ public final class RichOreDataGen {
 
         ItemTagsGen(PackOutput output, CompletableFuture<HolderLookup.Provider> lookup,
                     CompletableFuture<TagsProvider.TagLookup<Block>> blockTags, ExistingFileHelper existing) {
-            super(output, lookup, blockTags, EnginesAndEmpiresMod.MODID, existing);
+            super(output, lookup, blockTags, SparseOres.MODID, existing);
         }
 
         @Override

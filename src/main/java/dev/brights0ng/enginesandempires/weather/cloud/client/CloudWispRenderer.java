@@ -18,7 +18,7 @@ import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexBuffer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
@@ -226,11 +226,11 @@ public final class CloudWispRenderer {
             }
             texture = new DynamicTexture(img);
             texture.setFilter(true, false);
-            textureId = ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "dynamic/cloud_wisps");
+            textureId = ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "dynamic/cloud_wisps");
             Minecraft.getInstance().getTextureManager().register(textureId, texture);
             return true;
         } catch (RuntimeException ex) {
-            EnginesAndEmpiresMod.LOGGER.warn("Clouds: couldn't make the wisp texture", ex);
+            Meteodyne.LOGGER.warn("Clouds: couldn't make the wisp texture", ex);
             CloudTuning.wisps = false;
             return false;
         }

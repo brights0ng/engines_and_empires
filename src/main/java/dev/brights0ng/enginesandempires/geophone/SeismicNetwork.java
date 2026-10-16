@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.geophone;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -14,7 +14,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
  * record display's map asking for its records list, the display worked by hand (deleting or renaming a reading on it), and
  * a smart logger's map being worked.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = SeismicSurveyance.MODID)
 public final class SeismicNetwork {
 
     /** Bumped if a message's format ever changes, so old and new clients are told apart. */

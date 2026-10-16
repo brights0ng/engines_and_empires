@@ -10,7 +10,6 @@ import org.joml.Quaternionf;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.geophone.Logbook;
 import dev.brights0ng.enginesandempires.geophone.LogbookEntry;
 import dev.brights0ng.enginesandempires.geophone.LoggerDisplay;
@@ -22,6 +21,7 @@ import dev.brights0ng.enginesandempires.geophone.ReaderReading;
 import dev.brights0ng.enginesandempires.geophone.ReadingOres;
 import dev.brights0ng.enginesandempires.frontier.map.TierGrid;
 import dev.brights0ng.enginesandempires.frontier.map.TierMapPayloads;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import dev.engine_room.flywheel.lib.model.baked.PartialModel;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -73,7 +73,7 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
     public static final PartialModel EJECT = PartialModel.of(model("portable_record_display_eject"));
 
     private static ResourceLocation model(String name) {
-        return ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "item/" + name);
+        return ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, "item/" + name);
     }
 
     /** Loads this class, and with it the models above, early enough for them to be baked. */

@@ -1,7 +1,7 @@
 package dev.brights0ng.enginesandempires.weather.climate;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.WeatherOwnership;
+import dev.brights0ng.meteodyne.Meteodyne;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.codec.StreamCodec;
@@ -22,7 +22,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
  * their client's copy of the Cold Sweat temperature agrees with the server's: the wind, the shelter and the sun live
  * on the server. Only when Cold Sweat is installed (nothing reads it otherwise).
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class ApparentSync {
 
     private static final String VERSION = "1";
@@ -34,7 +34,7 @@ public final class ApparentSync {
     public record Payload(float offsetC) implements CustomPacketPayload {
 
         public static final CustomPacketPayload.Type<Payload> TYPE = new CustomPacketPayload.Type<>(
-                ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "apparent_offset"));
+                ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "apparent_offset"));
 
         public static final StreamCodec<ByteBuf, Payload> STREAM_CODEC = StreamCodec.of(
                 (buf, payload) -> buf.writeFloat(payload.offsetC),

@@ -1,7 +1,7 @@
 package dev.brights0ng.enginesandempires.weather.climate;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.climate.compat.SereneSeasonsCompat;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.world.level.Level;
 import net.neoforged.fml.ModList;
 
@@ -62,7 +62,7 @@ public final class SeasonSource {
         } catch (RuntimeException | LinkageError e) {
             if (!warned) {
                 warned = true;
-                EnginesAndEmpiresMod.LOGGER.warn("Climate: couldn't read Serene Seasons' calendar; no seasons", e);
+                Meteodyne.LOGGER.warn("Climate: couldn't read Serene Seasons' calendar; no seasons", e);
             }
             return Double.NaN;
         }

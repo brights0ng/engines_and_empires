@@ -6,11 +6,11 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.WeakHashMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.frontier.incursion.Incursion;
 import dev.brights0ng.enginesandempires.frontier.incursion.Incursions;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevel;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevels;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -26,7 +26,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
  * ({@link TierMapPayloads.Request}), and the server answers with them and the incursions under way
  * ({@link TierMapPayloads.Answer}). Only the Overworld has tiers.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Frontier.MODID)
 public final class TierMapNetwork {
 
     private static final String VERSION = "1";

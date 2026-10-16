@@ -12,7 +12,7 @@ import javax.imageio.ImageIO;
 
 import com.google.common.hash.Hashing;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.Util;
 import net.minecraft.data.CachedOutput;
 import net.minecraft.data.DataProvider;
@@ -40,7 +40,7 @@ public final class FrontierDataGen {
         @Override
         public CompletableFuture<?> run(CachedOutput cache) {
             return CompletableFuture.runAsync(() -> {
-                Path root = output.getOutputFolder(PackOutput.Target.RESOURCE_PACK).resolve(EnginesAndEmpiresMod.MODID)
+                Path root = output.getOutputFolder(PackOutput.Target.RESOURCE_PACK).resolve(Frontier.MODID)
                         .resolve("textures");
                 for (Map.Entry<String, BufferedImage> texture : FrontierTextures.all().entrySet()) {
                     try {

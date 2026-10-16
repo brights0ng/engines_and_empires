@@ -4,9 +4,9 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Field;
 import java.util.EnumSet;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.frontier.FrontierTags;
 import dev.brights0ng.enginesandempires.frontier.deep.DeepSpawns;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -47,7 +47,7 @@ public final class IncursionGoals {
     private static final double BYSTANDER_REACH = 3.0;
     /** How far incursion mobs notice players. */
     private static final double FOLLOW_RANGE = 48.0;
-    private static final ResourceLocation MARCH_SPEED = ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "incursion_march");
+    private static final ResourceLocation MARCH_SPEED = ResourceLocation.fromNamespaceAndPath(Frontier.MODID, "incursion_march");
     private static Field wormIdleTime;
     private static boolean wormLookedUp;
     /** How far a retreating mob must be from every player before it is gone. */
@@ -97,7 +97,7 @@ public final class IncursionGoals {
                 wormIdleTime = mob.getClass().getDeclaredField("idleTime");
                 wormIdleTime.setAccessible(true);
             } catch (ReflectiveOperationException | RuntimeException e) {
-                EnginesAndEmpiresMod.LOGGER.warn("Can't keep shriek worms up in incursions: {}", e.toString());
+                Frontier.LOGGER.warn("Can't keep shriek worms up in incursions: {}", e.toString());
             }
         }
         if (wormIdleTime == null || !wormIdleTime.getDeclaringClass().isInstance(mob)) {
@@ -250,7 +250,7 @@ public final class IncursionGoals {
                     slimeSetDirection = control.getDeclaredMethod("setDirection", float.class, boolean.class);
                     slimeSetDirection.setAccessible(true);
                 } catch (ReflectiveOperationException | RuntimeException e) {
-                    EnginesAndEmpiresMod.LOGGER.warn("Can't steer slimes in incursions: {}", e.toString());
+                    Frontier.LOGGER.warn("Can't steer slimes in incursions: {}", e.toString());
                 }
             }
             if (slimeSetDirection == null) {

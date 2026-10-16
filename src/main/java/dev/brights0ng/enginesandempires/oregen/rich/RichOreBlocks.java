@@ -3,7 +3,7 @@ package dev.brights0ng.enginesandempires.oregen.rich;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.valueproviders.UniformInt;
@@ -34,8 +34,8 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  */
 public final class RichOreBlocks {
 
-    public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(EnginesAndEmpiresMod.MODID);
-    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(EnginesAndEmpiresMod.MODID);
+    public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(SparseOres.MODID);
+    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(SparseOres.MODID);
 
     /** Every rich block, by name, in registration order. */
     private static final Map<String, DeferredBlock<Block>> BY_NAME = new LinkedHashMap<>();

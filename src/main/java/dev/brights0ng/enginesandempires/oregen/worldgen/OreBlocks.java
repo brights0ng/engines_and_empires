@@ -7,11 +7,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.oregen.OreTypes;
 import dev.brights0ng.enginesandempires.oregen.Realm;
 import dev.brights0ng.enginesandempires.oregen.rich.RichOreBlocks;
 import dev.brights0ng.enginesandempires.oregen.rich.RichOres;
+import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
@@ -141,7 +141,7 @@ final class OreBlocks {
         if (fallbackId == null) {
             throw new IllegalStateException("Block '" + id + "' does not exist and has no fallback");
         }
-        EnginesAndEmpiresMod.LOGGER.warn("Block '{}' is not available; using '{}' as a placeholder", id, fallbackId);
+        SparseOres.LOGGER.warn("Block '{}' is not available; using '{}' as a placeholder", id, fallbackId);
         return BuiltInRegistries.BLOCK.getOptional(ResourceLocation.parse(fallbackId))
                 .orElseThrow(() -> new IllegalStateException("Fallback block '" + fallbackId + "' does not exist"))
                 .defaultBlockState();

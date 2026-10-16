@@ -4,8 +4,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.WeakHashMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.debug.client.WeatherMapClient;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -23,7 +23,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
  * (shared by everyone's maps) and sent when complete, so a map never stalls the server; a newer request from the same
  * player replaces an unfinished one.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class WeatherDebugNetwork {
 
     private static final String VERSION = "1";

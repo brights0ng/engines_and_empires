@@ -1,10 +1,10 @@
 package dev.brights0ng.enginesandempires.gametest;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.frontier.Tier;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevel;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevels;
 import dev.brights0ng.enginesandempires.frontier.tier.TierParams;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -24,7 +24,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * <p>The game test world is a superflat one below y 0, where everything is Frontier whatever is built; so these check the
  * section's <em>base</em> tier, and that the tier at the block is Frontier because of the depth.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Frontier.MODID)
 @PrefixGameTestTemplate(false)
 public final class FrontierGameTests {
 

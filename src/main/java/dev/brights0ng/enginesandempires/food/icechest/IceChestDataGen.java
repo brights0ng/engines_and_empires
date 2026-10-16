@@ -13,7 +13,7 @@ import javax.imageio.ImageIO;
 
 import com.google.common.hash.Hashing;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.simplespoilage.SimpleSpoilage;
 import net.minecraft.Util;
 import net.minecraft.data.CachedOutput;
 import net.minecraft.data.DataProvider;
@@ -47,7 +47,7 @@ public final class IceChestDataGen {
         @Override
         public CompletableFuture<?> run(CachedOutput cache) {
             return CompletableFuture.runAsync(() -> {
-                Path root = output.getOutputFolder(PackOutput.Target.RESOURCE_PACK).resolve(EnginesAndEmpiresMod.MODID)
+                Path root = output.getOutputFolder(PackOutput.Target.RESOURCE_PACK).resolve(SimpleSpoilage.MODID)
                         .resolve("textures");
                 for (Map.Entry<String, BufferedImage> texture : IceChestTextures.all(this::vanilla).entrySet()) {
                     try {

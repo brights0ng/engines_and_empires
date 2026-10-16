@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -59,7 +59,7 @@ public final class HeatDrivers {
         Driver driver = DRIVERS.get(variant.driver());
         if (driver == null) {
             if (WARNED.add(variant.driver())) {
-                EnginesAndEmpiresMod.LOGGER.warn("Unknown heat driver {} (for {}); that source stays off",
+                Meteodyne.LOGGER.warn("Unknown heat driver {} (for {}); that source stays off",
                         variant.driver(), state.getBlock());
             }
             return 0;
@@ -73,14 +73,14 @@ public final class HeatDrivers {
             return Double.isFinite(s) ? Math.max(0, Math.min(1, s)) : 0;
         } catch (RuntimeException | LinkageError e) {
             if (WARNED.add(variant.driver())) {
-                EnginesAndEmpiresMod.LOGGER.warn("Heat driver {} failed; that source stays off", variant.driver(), e);
+                Meteodyne.LOGGER.warn("Heat driver {} failed; that source stays off", variant.driver(), e);
             }
             return 0;
         }
     }
 
     private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, path);
+        return ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, path);
     }
 
     /** Engines; each mod's classes are only touched when it is loaded. */

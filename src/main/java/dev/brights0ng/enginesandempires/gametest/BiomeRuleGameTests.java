@@ -1,9 +1,9 @@
 package dev.brights0ng.enginesandempires.gametest;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.oregen.BiomeRule;
 import dev.brights0ng.enginesandempires.oregen.OreType;
 import dev.brights0ng.enginesandempires.oregen.OreTypes;
+import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTest;
@@ -20,7 +20,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * Checks that every biome rule names something that exists once the game has loaded, so a typo in a tag or
  * biome id cannot silently turn a rule off, and that the key biomes land in the tags the rules rely on.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(SparseOres.MODID)
 @PrefixGameTestTemplate(false)
 public final class BiomeRuleGameTests {
 

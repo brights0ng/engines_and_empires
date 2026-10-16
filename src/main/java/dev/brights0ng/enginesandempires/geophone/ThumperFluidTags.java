@@ -2,7 +2,7 @@ package dev.brights0ng.enginesandempires.geophone;
 
 import java.util.concurrent.CompletableFuture;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.data.PackOutput;
 import net.minecraft.data.tags.FluidTagsProvider;
@@ -17,7 +17,7 @@ import net.neoforged.neoforge.common.data.ExistingFileHelper;
 public final class ThumperFluidTags extends FluidTagsProvider {
 
     public ThumperFluidTags(PackOutput output, CompletableFuture<HolderLookup.Provider> lookup, ExistingFileHelper existing) {
-        super(output, lookup, EnginesAndEmpiresMod.MODID, existing);
+        super(output, lookup, SeismicSurveyance.MODID, existing);
     }
 
     @Override

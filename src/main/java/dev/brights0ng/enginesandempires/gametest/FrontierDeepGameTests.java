@@ -2,7 +2,6 @@ package dev.brights0ng.enginesandempires.gametest;
 
 import java.util.List;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.frontier.FrontierConfig;
 import dev.brights0ng.enginesandempires.frontier.deep.Deep;
 import dev.brights0ng.enginesandempires.frontier.deep.DeepRoster;
@@ -13,6 +12,7 @@ import dev.brights0ng.enginesandempires.frontier.deep.ThumperIncursions;
 import dev.brights0ng.enginesandempires.frontier.spawn.FrontierSpawnEvents;
 import dev.brights0ng.enginesandempires.geophone.SeismicWave;
 import dev.brights0ng.enginesandempires.geophone.WaveModel;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
@@ -33,7 +33,7 @@ import net.neoforged.fml.ModList;
  * In-game checks of what thumper shots set off (Frontier phase 5): sculk hearing them, the disturbance calling up an
  * incursion, mobs coming up, and echoes stirring deposits. Each runs in its own batch, since they share the level's state.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Frontier.MODID)
 @PrefixGameTestTemplate(false)
 public final class FrontierDeepGameTests {
 

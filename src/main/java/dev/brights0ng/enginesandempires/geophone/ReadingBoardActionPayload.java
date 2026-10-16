@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.geophone;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -19,7 +19,7 @@ import net.minecraft.resources.ResourceLocation;
 public record ReadingBoardActionPayload(int action, int number, String name) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<ReadingBoardActionPayload> TYPE = new CustomPacketPayload.Type<>(
-            ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "reading_board_action"));
+            ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, "reading_board_action"));
 
     /** A name is at most {@link Logbook#MAX_NAME_LENGTH} characters, some of which can take several bytes to write. */
     public static final StreamCodec<ByteBuf, ReadingBoardActionPayload> STREAM_CODEC = StreamCodec.composite(

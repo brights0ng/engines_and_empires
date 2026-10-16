@@ -8,7 +8,7 @@ import java.util.concurrent.CompletableFuture;
 
 import com.google.common.hash.Hashing;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.paradynelib.ParadyneLib;
 import net.minecraft.SharedConstants;
 import net.minecraft.Util;
 import net.minecraft.data.CachedOutput;
@@ -58,7 +58,7 @@ public final class GameTestStructures implements DataProvider {
                 NbtIo.writeCompressed(structure, bytes);
                 byte[] data = bytes.toByteArray();
                 Path path = output.getOutputFolder(PackOutput.Target.DATA_PACK)
-                        .resolve(EnginesAndEmpiresMod.MODID).resolve("structure").resolve(EMPTY + ".nbt");
+                        .resolve(ParadyneLib.MODID).resolve("structure").resolve(EMPTY + ".nbt");
                 cache.writeIfNeeded(path, data, Hashing.sha1().hashBytes(data));
             } catch (IOException e) {
                 throw new UncheckedIOException(e);

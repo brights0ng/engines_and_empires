@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.weather.wind;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.paradynelib.ParadyneLib;
 import dev.ryanhcode.sable.api.physics.force.ForceGroup;
 import dev.ryanhcode.sable.api.physics.force.ForceGroups;
 import net.minecraft.network.chat.Component;
@@ -15,7 +15,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public final class WindContent {
 
     public static final DeferredRegister<ForceGroup> FORCE_GROUPS =
-            DeferredRegister.create(ForceGroups.REGISTRY_KEY, EnginesAndEmpiresMod.MODID);
+            DeferredRegister.create(ForceGroups.REGISTRY_KEY, ParadyneLib.MODID);
 
     /** Wind's own force group, so Simulated's contraption diagram draws it apart from drag and lift. */
     public static final DeferredHolder<ForceGroup, ForceGroup> WIND = FORCE_GROUPS.register("wind",

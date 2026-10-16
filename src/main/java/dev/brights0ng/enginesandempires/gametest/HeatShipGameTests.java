@@ -4,11 +4,11 @@ import java.util.List;
 
 import org.joml.Vector2i;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatRegion;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatWorld;
 import dev.brights0ng.enginesandempires.weather.wind.WindColumn;
 import dev.brights0ng.enginesandempires.weather.wind.WindSources;
+import dev.brights0ng.meteodyne.Meteodyne;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
@@ -37,7 +37,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * test cell, plans only inside that ship's plot ({@link HeatWorld#setTestArea}) with the live tick paused, and removes
  * the ship (and anything built in the world) at the end. Same batch as the other heat tests.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class HeatShipGameTests {
 
@@ -147,7 +147,7 @@ public final class HeatShipGameTests {
             BlockPos corner = plot(ship, -2, 2, -2);
             double inside = offset(w, corner);
             double outside = offset(w, plot(ship, 0, 6, 6));
-            EnginesAndEmpiresMod.LOGGER.info("heat ship test: cabin corner {}, outside the cabin {}", inside, outside);
+            Meteodyne.LOGGER.info("heat ship test: cabin corner {}, outside the cabin {}", inside, outside);
             helper.assertTrue(inside > 3, "the cabin warms: " + inside);
             helper.assertTrue(outside < inside * 0.3, "outside the cabin, little: " + outside);
 
@@ -173,7 +173,7 @@ public final class HeatShipGameTests {
                 try {
                     Vec3 world = ship.logicalPose().transformPosition(Vec3.atCenterOf(corner));
                     double felt = w.roomAt(world);
-                    EnginesAndEmpiresMod.LOGGER.info("heat ship test: felt in the world aboard {}", felt);
+                    Meteodyne.LOGGER.info("heat ship test: felt in the world aboard {}", felt);
                     helper.assertTrue(Math.abs(felt - inside) < 0.05,
                             "the world point aboard reads the cabin: " + felt + " / " + inside);
                     w.setExtraAnchors(List.of(world));
@@ -210,7 +210,7 @@ public final class HeatShipGameTests {
             helper.assertTrue(r != null && r.naturalOnly() && r.ship() == ship,
                     "lava on a ship makes a region with nobody near (a ship is its own anchor)");
             double over = offset(w, plot(ship, 0, 2, 0));
-            EnginesAndEmpiresMod.LOGGER.info("heat ship test: over the lava aboard {}", over);
+            Meteodyne.LOGGER.info("heat ship test: over the lava aboard {}", over);
             helper.assertTrue(over > 5, "hot over it at once (its steady state): " + over);
         } finally {
             done(w);
@@ -229,7 +229,7 @@ public final class HeatShipGameTests {
             cabin(ship);
             WindSources.setOverride(WindColumn.uniform(5, 0));
             HeatWorld.ShipAir open = w.shipAir(ship);
-            EnginesAndEmpiresMod.LOGGER.info("heat ship test: open {}", open);
+            Meteodyne.LOGGER.info("heat ship test: open {}", open);
             helper.assertFalse(open.roofed(), "in the open: not roofed");
             helper.assertTrue(Math.hypot(open.windX(), open.windZ()) > 4, "the wind over it: " + open);
 
@@ -243,7 +243,7 @@ public final class HeatShipGameTests {
                 }
             }
             HeatWorld.ShipAir roofed = w.shipAir(ship);
-            EnginesAndEmpiresMod.LOGGER.info("heat ship test: under a hangar roof {}", roofed);
+            Meteodyne.LOGGER.info("heat ship test: under a hangar roof {}", roofed);
             helper.assertTrue(roofed.roofed(), "under a hangar roof: roofed");
             helper.assertTrue(Math.hypot(roofed.windX(), roofed.windZ()) < Math.hypot(open.windX(), open.windZ()),
                     "and less wind: " + roofed + " / " + open);

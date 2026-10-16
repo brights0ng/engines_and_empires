@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.frontier.deep;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -11,7 +11,7 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.registries.DataPackRegistryEvent;
 
 /** Keeps the Deep's state going: sculk listeners as chunks come and go, pending triggers and stirred deposits as time passes. */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Frontier.MODID)
 public final class DeepEvents {
 
     @SubscribeEvent

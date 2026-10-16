@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.weather.lightning;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.meteodyne.Meteodyne;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -15,7 +15,7 @@ public record LightningPayload(double x, double y, double z, float radius, float
                                double targetX, double targetY, double targetZ) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<LightningPayload> TYPE = new CustomPacketPayload.Type<>(
-            ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "lightning"));
+            ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, "lightning"));
 
     public static final StreamCodec<ByteBuf, LightningPayload> STREAM_CODEC = StreamCodec.of(
             (buf, p) -> {

@@ -3,12 +3,12 @@ package dev.brights0ng.enginesandempires.gametest;
 import java.util.List;
 import java.util.Optional;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.heat.air.AirGrid;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatPowerData;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatRegion;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatTables;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatWorld;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
@@ -30,7 +30,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * the test's own cell are planned ({@link HeatWorld#setTestArea}), so neighbouring tests' fires don't mix in. Each test
  * runs to the end in its first tick, so tests of one batch never overlap in time.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class HeatAirGameTests {
 
@@ -176,7 +176,7 @@ public final class HeatAirGameTests {
         double corner = offset(helper, w, new BlockPos(1, 2, 1));
         double byFire = offset(helper, w, new BlockPos(3, 2, 3));
         double outside = offset(helper, w, new BlockPos(3, 7, -4));
-        EnginesAndEmpiresMod.LOGGER.info("heat room test: region {} sources {}; corner {}, by the fire {}, outside {}",
+        Meteodyne.LOGGER.info("heat room test: region {} sources {}; corner {}, by the fire {}, outside {}",
                 r == null ? -1 : r.id(), r == null ? -1 : r.sourceCount(), corner, byFire, outside);
         helper.assertTrue(corner > 3, "the room is warm after 10 minutes: " + corner);
         helper.assertTrue(byFire > corner, "warmer by the fire: " + byFire + " / " + corner);
@@ -186,7 +186,7 @@ public final class HeatAirGameTests {
         w.runNow(10);
         w.runNow(600);
         double after = offset(helper, w, new BlockPos(1, 2, 1));
-        EnginesAndEmpiresMod.LOGGER.info("heat room test: after the fire went out {}", after);
+        Meteodyne.LOGGER.info("heat room test: after the fire went out {}", after);
         helper.assertTrue(after < corner * 0.2, "ten minutes after the fire went out, it has cooled: " + after);
         done(helper, w);
     }
@@ -207,7 +207,7 @@ public final class HeatAirGameTests {
         }
         w.runNow(1200);
         double open = offset(helper, w, new BlockPos(1, 2, 3));
-        EnginesAndEmpiresMod.LOGGER.info("heat roof-hole test: sealed {}, open {}", sealed, open);
+        Meteodyne.LOGGER.info("heat roof-hole test: sealed {}, open {}", sealed, open);
         helper.assertTrue(open < sealed * 0.85, "a hole in the roof loses warmth: " + open + " of " + sealed);
         done(helper, w);
     }
@@ -233,7 +233,7 @@ public final class HeatAirGameTests {
         HeatRegion r = regionAt(helper, w, lava);
         helper.assertTrue(r != null && r.naturalOnly(), "someone near: a natural region");
         double above = offset(helper, w, new BlockPos(3, 2, 3));
-        EnginesAndEmpiresMod.LOGGER.info("heat lava test: over the lava {}, strongest {}", above,
+        Meteodyne.LOGGER.info("heat lava test: over the lava {}, strongest {}", above,
                 r == null || r.published() == null ? -1 : r.published().maxMagnitude());
         helper.assertTrue(above > 5, "already hot over the lava (started at its steady state): " + above);
         helper.assertTrue(r.published().maxMagnitude() <= 60.5, "never past +60: " + r.published().maxMagnitude());
@@ -257,7 +257,7 @@ public final class HeatAirGameTests {
         helper.setBlock(new BlockPos(5, 1, 5), Blocks.MAGMA_BLOCK);
         w.runNow(1);
         HeatRegion both = regionAt(helper, w, fire);
-        EnginesAndEmpiresMod.LOGGER.info("heat kept test: alone {}, with magma {}", count,
+        Meteodyne.LOGGER.info("heat kept test: alone {}, with magma {}", count,
                 both == null ? -1 : both.sourceCount());
         helper.assertTrue(both != null && !both.naturalOnly() && both.sourceCount() > count,
                 "magma inside the campfire's region counts, with nobody near: " + (both == null ? -1 : both.sourceCount())
@@ -299,7 +299,7 @@ public final class HeatAirGameTests {
             float lee = windShare(helper, r, new BlockPos(4, y0 + 1, 2));
             float windward = windShare(helper, r, new BlockPos(2, y0 + 1, 2));
             float above = windShare(helper, r, new BlockPos(2, y0 + 6, 2));
-            EnginesAndEmpiresMod.LOGGER.info("heat wind test: lee {}, windward {}, high above {}", lee, windward, above);
+            Meteodyne.LOGGER.info("heat wind test: lee {}, windward {}, high above {}", lee, windward, above);
             helper.assertTrue(lee < 0.05, "in the wall's lee, no wind: " + lee);
             helper.assertTrue(windward > 0.95, "on its windward side (the wall downwind), all of it: " + windward);
             helper.assertTrue(above > 0.95, "above the wall, all of it: " + above);
@@ -324,7 +324,7 @@ public final class HeatAirGameTests {
         helper.assertTrue(offset(helper, w, probe) == 0, "forgotten");
         w.runNow(0);
         double back = offset(helper, w, probe);
-        EnginesAndEmpiresMod.LOGGER.info("heat saved test: warm {}, back {}", warm, back);
+        Meteodyne.LOGGER.info("heat saved test: warm {}, back {}", warm, back);
         helper.assertTrue(Math.abs(back - warm) < 0.1, "back as it was: " + back + " / " + warm);
 
         // A cooling room (fire out) comes back too, though nothing in it is a source any more
@@ -335,7 +335,7 @@ public final class HeatAirGameTests {
         w.forgetRegions();
         w.runNow(0);
         double cooledBack = offset(helper, w, probe);
-        EnginesAndEmpiresMod.LOGGER.info("heat saved test: cooling {}, back {}", cooling, cooledBack);
+        Meteodyne.LOGGER.info("heat saved test: cooling {}, back {}", cooling, cooledBack);
         helper.assertTrue(cooling > 0.5 && Math.abs(cooledBack - cooling) < 0.1,
                 "a cooling room comes back: " + cooledBack + " / " + cooling);
         done(helper, w);

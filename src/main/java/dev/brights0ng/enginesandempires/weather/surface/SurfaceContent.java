@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.weather.surface;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -23,8 +23,8 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 /** What the weather adds on the ground (phase 5c): glaze, the hail damage type and the crops hail knocks back. */
 public final class SurfaceContent {
 
-    private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(EnginesAndEmpiresMod.MODID);
-    private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(EnginesAndEmpiresMod.MODID);
+    private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(Meteodyne.MODID);
+    private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(Meteodyne.MODID);
 
     /** Freezing rain's ice layer. */
     public static final DeferredBlock<GlazeBlock> GLAZE = BLOCKS.register("glaze", () -> new GlazeBlock(
@@ -63,7 +63,7 @@ public final class SurfaceContent {
     }
 
     private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, path);
+        return ResourceLocation.fromNamespaceAndPath(Meteodyne.MODID, path);
     }
 
     private SurfaceContent() {

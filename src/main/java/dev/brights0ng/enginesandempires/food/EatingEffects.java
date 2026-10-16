@@ -5,7 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.simplespoilage.SimpleSpoilage;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -77,7 +77,7 @@ public final class EatingEffects {
         if (holder == null) {
             synchronized (WARNED) {
                 if (WARNED.add(id)) {
-                    EnginesAndEmpiresMod.LOGGER.warn("Food spoilage config names an effect that does not exist: {}", id);
+                    SimpleSpoilage.LOGGER.warn("Food spoilage config names an effect that does not exist: {}", id);
                 }
             }
         }

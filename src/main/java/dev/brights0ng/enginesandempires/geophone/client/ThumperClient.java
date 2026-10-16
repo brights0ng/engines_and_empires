@@ -6,8 +6,8 @@ import com.simibubi.create.content.kinetics.base.HorizontalAxisKineticBlock;
 import com.simibubi.create.AllPartialModels;
 import com.simibubi.create.content.kinetics.base.SingleAxisRotatingVisual;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.geophone.SeismicContent;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import dev.engine_room.flywheel.lib.model.baked.PartialModel;
 import dev.engine_room.flywheel.lib.visualization.SimpleBlockEntityVisualizer;
 import net.minecraft.core.Direction.Axis;
@@ -34,7 +34,7 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
  *
  * <p>This class is only ever loaded on a client.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = SeismicSurveyance.MODID, value = Dist.CLIENT)
 public final class ThumperClient {
 
     public static final PartialModel HEAD = PartialModel.of(model("block/mechanical_thumper_head"));
@@ -94,7 +94,7 @@ public final class ThumperClient {
     }
 
     private static ResourceLocation model(String path) {
-        return ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, path);
+        return ResourceLocation.fromNamespaceAndPath(SeismicSurveyance.MODID, path);
     }
 
     private ThumperClient() {

@@ -10,10 +10,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.rain.WeatherConfig;
 import dev.brights0ng.enginesandempires.weather.sim.SimMath;
 import dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -47,7 +47,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  *
  * <p>Nothing is saved: a restart starts over.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class ForecastScore {
 
     /** Hours of truth kept per region (long enough to check a whole 4-day forecast made a day earlier). */
@@ -286,7 +286,7 @@ public final class ForecastScore {
                 }
             }
         } catch (RuntimeException e) {
-            EnginesAndEmpiresMod.LOGGER.warn("Weather: the forecast scorer failed this hour", e);
+            Meteodyne.LOGGER.warn("Weather: the forecast scorer failed this hour", e);
         }
     }
 

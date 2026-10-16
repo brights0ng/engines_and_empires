@@ -1,7 +1,5 @@
 package dev.brights0ng.enginesandempires;
 
-import org.slf4j.Logger;
-
 import dev.brights0ng.frontier.Frontier;
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.paradynelib.ParadyneLib;
@@ -18,9 +16,6 @@ import net.neoforged.fml.common.Mod;
  */
 @Mod(EnginesAndEmpires.MODID)
 public class EnginesAndEmpiresMod {
-
-    public static final String MODID = EnginesAndEmpires.MODID;
-    public static final Logger LOGGER = EnginesAndEmpires.LOGGER;
 
     public EnginesAndEmpiresMod(IEventBus modEventBus, ModContainer modContainer) {
         ParadyneLib.init(modEventBus, modContainer);

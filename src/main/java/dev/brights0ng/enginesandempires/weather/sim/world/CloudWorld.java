@@ -10,7 +10,6 @@ import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.climate.Temperature;
 import dev.brights0ng.enginesandempires.weather.cloud.CloudType;
 import dev.brights0ng.enginesandempires.weather.cloud.client.CloudShape;
@@ -23,6 +22,7 @@ import dev.brights0ng.enginesandempires.weather.field.AtmosphereField;
 import dev.brights0ng.enginesandempires.weather.rain.WeatherConfig;
 import dev.brights0ng.enginesandempires.weather.sim.PressureField;
 import dev.brights0ng.enginesandempires.weather.sim.SimMath;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
@@ -42,7 +42,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
  * <p>Clouds live on game time (not the simulation's time, which {@code /eae weather step} can move ahead), since
  * clients age and move them by their own game clock.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class CloudWorld {
 
     /** Ticks between spawner passes (offset from the systems step, which runs on multiples of 100). */
@@ -97,7 +97,7 @@ public final class CloudWorld {
             sim.markDirty();
             CloudAudit.afterPass(level, sim, env, lastReport);
         } catch (RuntimeException ex) {
-            EnginesAndEmpiresMod.LOGGER.warn("Weather: the cloud pass failed", ex);
+            Meteodyne.LOGGER.warn("Weather: the cloud pass failed", ex);
         }
     }
 
