@@ -11,9 +11,9 @@ import com.mojang.math.Axis;
 import com.simibubi.create.AllPartialModels;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntityRenderer;
 
-import dev.brights0ng.enginesandempires.frontier.map.TierGrid;
-import dev.brights0ng.enginesandempires.frontier.map.TierMapPayloads;
 import dev.brights0ng.enginesandempires.geophone.client.TierOverlay;
+import dev.brights0ng.frontier.map.TierGrid;
+import dev.brights0ng.frontier.map.TierMapPayloads;
 import dev.brights0ng.seismicsurveyance.LogbookEntry;
 import dev.brights0ng.seismicsurveyance.LoggerDisplay;
 import dev.brights0ng.seismicsurveyance.ReaderReading;

@@ -5,9 +5,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import dev.brights0ng.enginesandempires.frontier.deep.SculkListeners;
-import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevel;
-import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevels;
+import dev.brights0ng.frontier.deep.SculkListeners;
+import dev.brights0ng.frontier.tier.FrontierLevel;
+import dev.brights0ng.frontier.tier.FrontierLevels;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.state.BlockState;
