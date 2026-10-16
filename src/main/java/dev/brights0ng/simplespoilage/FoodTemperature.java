@@ -1,13 +1,6 @@
 package dev.brights0ng.simplespoilage;
 
-import dev.brights0ng.meteodyne.WeatherOwnership;
-import dev.brights0ng.meteodyne.climate.Baseline;
-import dev.brights0ng.meteodyne.climate.Climate;
-import dev.brights0ng.meteodyne.climate.Temperature;
-import dev.brights0ng.meteodyne.climate.UndergroundProbe;
-import dev.brights0ng.meteodyne.heat.world.HeatWorld;
-import dev.brights0ng.meteodyne.rain.WeatherConfig;
-import dev.brights0ng.paradynelib.ships.ShipCover;
+import dev.brights0ng.paradynelib.services.TemperatureProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -15,9 +8,9 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * The temperature food sees (food by temperature, 2026-10-15; {@code claude/food-temperature.md}): the air where it is
- * (underground included) plus the heat simulation's room there; on a ship, the air where the ship is and the ship's
- * room. Not wind chill, sun or radiant warmth. NaN where the pack doesn't own the weather (other dimensions): food
- * there ages by the clock alone.
+ * (underground included) plus the room there; on a ship, the air where the ship is and the ship's room. Not wind chill,
+ * sun or radiant warmth. Asked of the library's {@link TemperatureProvider} (split seam S1; Meteodyne answers in the
+ * pack). NaN where nobody knows (no provider, or other dimensions): food there ages by the clock alone.
  */
 public final class FoodTemperature {
 
@@ -40,20 +33,9 @@ public final class FoodTemperature {
         if (!Double.isNaN(overrideNow)) {
             return overrideNow;
         }
-        if (!WeatherOwnership.owns(level)) {
-            return Double.NaN;
-        }
-        double air;
-        if (ShipCover.inPlot(level, pos)) {
-            Vec3 w = ShipCover.worldCentre(level, pos);
-            if (w == null) {
-                return Double.NaN;
-            }
-            air = Climate.sample(level, w.x, w.y, w.z).temperature();
-        } else {
-            air = Temperature.at(level, pos);
-        }
-        return air + room(level, Vec3.atCenterOf(pos));
+        TemperatureProvider temperatures = TemperatureProvider.get();
+        double air = temperatures.air(level, pos);
+        return Double.isNaN(air) ? Double.NaN : air + temperatures.room(level, Vec3.atCenterOf(pos));
     }
 
     /** The temperature at an entity (a player, an item on the ground), C, or NaN. */
@@ -61,21 +43,10 @@ public final class FoodTemperature {
         if (!Double.isNaN(overrideNow)) {
             return overrideNow;
         }
-        if (!WeatherOwnership.owns(level)) {
-            return Double.NaN;
-        }
-        BlockPos feet = entity.blockPosition();
-        double air;
-        if (ShipCover.inPlot(level, feet)) {
-            Vec3 w = ShipCover.worldCentre(level, feet);
-            if (w == null) {
-                return Double.NaN;
-            }
-            air = Climate.sample(level, w.x, w.y, w.z).temperature();
-        } else {
-            air = Temperature.at(level, feet);
-        }
-        return air + room(level, entity.position().add(0, Math.min(0.9, entity.getBbHeight() / 2), 0));
+        TemperatureProvider temperatures = TemperatureProvider.get();
+        double air = temperatures.air(level, entity.blockPosition());
+        return Double.isNaN(air) ? Double.NaN
+                : air + temperatures.room(level, entity.position().add(0, Math.min(0.9, entity.getBbHeight() / 2), 0));
     }
 
     /**
@@ -86,30 +57,9 @@ public final class FoodTemperature {
         if (!Double.isNaN(overrideSeasonal)) {
             return overrideSeasonal;
         }
-        if (!WeatherOwnership.owns(level)) {
-            return Double.NaN;
-        }
-        double t;
-        if (ShipCover.inPlot(level, pos)) {
-            Vec3 w = ShipCover.worldCentre(level, pos);
-            if (w == null) {
-                return Double.NaN;
-            }
-            t = mean(Climate.sample(level, w.x, w.y, w.z));
-        } else {
-            double outside = mean(Climate.sample(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
-            t = UndergroundProbe.read(level, pos, outside).temperature();
-        }
-        return t + room(level, Vec3.atCenterOf(pos));
-    }
-
-    private static double mean(Baseline.Sample s) {
-        return s.dailyMean() - s.anomaly();
-    }
-
-    private static double room(ServerLevel level, Vec3 at) {
-        HeatWorld heat = HeatWorld.of(level);
-        return heat != null && WeatherConfig.heat().enabled() ? heat.roomAt(at) : 0;
+        TemperatureProvider temperatures = TemperatureProvider.get();
+        double t = temperatures.seasonal(level, pos);
+        return Double.isNaN(t) ? Double.NaN : t + temperatures.room(level, Vec3.atCenterOf(pos));
     }
 
     private FoodTemperature() {
