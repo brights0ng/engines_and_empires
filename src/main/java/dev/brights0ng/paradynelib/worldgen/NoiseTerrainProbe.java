@@ -1,7 +1,6 @@
 package dev.brights0ng.paradynelib.worldgen;
 
 import dev.brights0ng.paradynelib.TerrainProbe;
-import dev.brights0ng.sparseores.worldgen.OreWorldgen;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.levelgen.DensityFunction;
@@ -31,14 +30,10 @@ public final class NoiseTerrainProbe implements TerrainProbe {
     }
 
     /**
-     * The probe for a level. Sky showcase mode builds deposits in open sky whatever the ground is, and a
-     * dimension whose terrain is not noise-based (a flat or void world, say) cannot be predicted, so both
-     * get a probe that accepts everything and rejects nothing.
+     * The probe for a level. A dimension whose terrain is not noise-based (a flat or void world, say)
+     * cannot be predicted, so it gets a probe that accepts everything and rejects nothing.
      */
     public static TerrainProbe forLevel(ServerLevel level) {
-        if (OreWorldgen.SKY_SHOWCASE) {
-            return TerrainProbe.ALL_SOLID;
-        }
         ServerChunkCache chunks = level.getChunkSource();
         if (chunks.getGenerator() instanceof NoiseBasedChunkGenerator) {
             return new NoiseTerrainProbe(chunks.randomState().router().finalDensity());
