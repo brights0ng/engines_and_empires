@@ -16,7 +16,7 @@ import dev.brights0ng.enginesandempires.frontier.FrontierTags;
 import dev.brights0ng.enginesandempires.frontier.deep.DeepRoster;
 import dev.brights0ng.enginesandempires.frontier.deep.DeepSpawns;
 import dev.brights0ng.enginesandempires.frontier.upkeep.DryTorches;
-import dev.brights0ng.enginesandempires.geophone.ChokedThumpers;
+import dev.brights0ng.seismicsurveyance.ChokedThumpers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;

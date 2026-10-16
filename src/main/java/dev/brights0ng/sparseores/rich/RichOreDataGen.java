@@ -6,12 +6,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-import dev.brights0ng.enginesandempires.geophone.SeismicContent;
-import dev.brights0ng.enginesandempires.geophone.SeismicDataGen;
-import dev.brights0ng.enginesandempires.geophone.SmartLoggerBlock;
-import dev.brights0ng.enginesandempires.geophone.ThumperFluidTags;
 import dev.brights0ng.enginesandempires.oregen.refining.RefiningDataGen;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
+import dev.brights0ng.seismicsurveyance.SeismicContent;
+import dev.brights0ng.seismicsurveyance.SeismicDataGen;
+import dev.brights0ng.seismicsurveyance.SmartLoggerBlock;
+import dev.brights0ng.seismicsurveyance.ThumperFluidTags;
 import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;

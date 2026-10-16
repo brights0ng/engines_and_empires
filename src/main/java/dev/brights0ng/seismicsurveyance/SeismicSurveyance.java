@@ -4,7 +4,7 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
-import dev.brights0ng.enginesandempires.geophone.SeismicContent;
+import dev.brights0ng.seismicsurveyance.SeismicContent;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;

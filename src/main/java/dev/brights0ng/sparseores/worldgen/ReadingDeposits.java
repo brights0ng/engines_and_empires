@@ -1,6 +1,6 @@
 package dev.brights0ng.sparseores.worldgen;
 
-import dev.brights0ng.enginesandempires.geophone.ReaderReading;
+import dev.brights0ng.seismicsurveyance.ReaderReading;
 import dev.brights0ng.sparseores.Deposit;
 import dev.brights0ng.sparseores.DepositBody;
 import dev.brights0ng.sparseores.OreMap;
