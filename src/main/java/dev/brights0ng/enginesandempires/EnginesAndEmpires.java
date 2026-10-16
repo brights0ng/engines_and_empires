@@ -6,6 +6,7 @@ import com.mojang.logging.LogUtils;
 
 import dev.brights0ng.enginesandempires.food.compat.AppleSkinCompat;
 import dev.brights0ng.enginesandempires.food.compat.DietCompat;
+import dev.brights0ng.enginesandempires.frontier.guard.MineColoniesGuardSource;
 import dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatCompat;
 import dev.brights0ng.enginesandempires.weather.climate.compat.SereneSeasonsCompat;
 import dev.brights0ng.enginesandempires.weight.WeightDataMaps;
@@ -52,5 +53,8 @@ public final class EnginesAndEmpires {
         ColdSweatCompat.registerIfLoaded(modEventBus);
         // Serene Seasons: its calendar runs Meteodyne's year in place of the built-in one (only if Serene Seasons is installed)
         SereneSeasonsCompat.registerIfLoaded();
+
+        // MineColonies: colonists working a guard job count as Frontier's guards (only if MineColonies is installed)
+        MineColoniesGuardSource.registerIfLoaded();
     }
 }
