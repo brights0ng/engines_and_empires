@@ -1,4 +1,4 @@
-package dev.brights0ng.sparseores.refining;
+package dev.brights0ng.sparseores.chips;
 
 import java.awt.image.BufferedImage;
 

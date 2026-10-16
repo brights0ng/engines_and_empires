@@ -15,7 +15,6 @@ import dev.brights0ng.enginesandempires.weather.climate.compat.SereneSeasonsComp
 import dev.brights0ng.enginesandempires.weather.heat.compat.MachineHeatDrivers;
 import dev.brights0ng.enginesandempires.weight.WeightDataMaps;
 import dev.brights0ng.enginesandempires.weight.WeightReport;
-import dev.brights0ng.sparseores.refining.RefiningItems;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -40,9 +39,7 @@ public final class EnginesAndEmpires {
     }
 
     public static void init(IEventBus modEventBus, ModContainer modContainer) {
-        // The chips (coal, diamond, quartz): what those ores drop now instead of a whole item
-        RefiningItems.register(modEventBus);
-        // Refining's recipes and the chip textures; and the providers the mods share until each has its own output
+        // Refining's recipes; and the data providers the mods share until each has its own output
         modEventBus.addListener(RefiningDataGen::gatherData);
         modEventBus.addListener(SharedDataGen::gatherData);
 
