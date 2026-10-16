@@ -1,0 +1,14 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "dev.brights0ng.sablefixes.mixin",
+  "plugin": "dev.brights0ng.sablefixes.SableFixesMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "GameEventSectionGuardMixin",
+    "compat.sable.PlotChunkAttachmentSaveMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

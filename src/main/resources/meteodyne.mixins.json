@@ -1,0 +1,44 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.brights0ng.meteodyne.mixin",
+  "plugin": "dev.brights0ng.meteodyne.MeteodyneMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ServerLevelWeatherMixin",
+    "LevelWeatherMixin",
+    "WeatherCommandMixin",
+    "CloudWorksDebugDumpMixin",
+    "BiomeTemperatureMixin",
+    "IceLightMeltMixin",
+    "EntityGlazeFrictionMixin",
+    "WeatherCheckMixin",
+    "FireRainMixin",
+    "BeeWeatherMixin",
+    "BeePollinateWeatherMixin",
+    "BeehiveWeatherMixin",
+    "FoxWeatherMixin",
+    "FoxShelterWeatherMixin",
+    "PandaWeatherMixin",
+    "MonsterThunderMixin",
+    "LightningRodWeatherMixin",
+    "ServerLevelLightningInvoker",
+    "LevelStormLightMixin",
+    "DaylightDetectorStormMixin"
+  ],
+  "client": [
+    "client.GameRendererCloudDepthMixin",
+    "client.LevelRendererCloudsMixin",
+    "client.LevelRendererRainMixin",
+    "client.LevelRainLevelMixin",
+    "client.LevelRendererSkyMixin",
+    "client.ClientLevelSkyColourMixin",
+    "client.LightningBoltSoundMixin",
+    "client.ClientLevelSkyDarkenMixin",
+    "client.FogRendererStormMixin",
+    "client.LevelRendererSunMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
