@@ -1,6 +1,5 @@
 package dev.brights0ng.frontier.guard;
 
-import dev.brights0ng.enginesandempires.frontier.guard.MineColoniesGuards;
 import dev.brights0ng.frontier.FrontierTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -8,24 +7,25 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.fml.ModList;
 
 /**
  * Who counts as a guard: anything in the {@code engines_and_empires:guards} tag (iron golems, Guard Villagers' guards), and
- * MineColonies' colonists working a guard job. Also how the world looks to a guard deciding where it can walk.
+ * whatever a registered guard source ({@link #SOURCES}) says is one (the pack registers MineColonies' colonists working a guard job).
+ * Also how the world looks to a guard deciding where it can walk.
  */
 public final class GuardTypes {
 
-    private static final boolean MINECOLONIES = ModList.get() != null && ModList.get().isLoaded("minecolonies");
+    /** Where guards the tag can't pick out come from (split seam S12); the pack registers MineColonies'. */
+    public static final GuardSources<Entity> SOURCES = new GuardSources<>();
 
     /** Whether the entity is worth tracking: a guard now, or a colonist who could be made one. */
     public static boolean isCandidate(Entity entity) {
-        return entity.getType().is(FrontierTags.GUARDS) || (MINECOLONIES && MineColoniesGuards.isColonist(entity));
+        return entity.getType().is(FrontierTags.GUARDS) || SOURCES.isCandidate(entity);
     }
 
     /** Whether the entity is a guard right now. */
     public static boolean isGuard(Entity entity) {
-        return entity.getType().is(FrontierTags.GUARDS) || (MINECOLONIES && MineColoniesGuards.isGuard(entity));
+        return entity.getType().is(FrontierTags.GUARDS) || SOURCES.isGuard(entity);
     }
 
     /** The world as a guard walking about sees it, for {@link GuardFreedom}. Unloaded ground cannot be walked on. */

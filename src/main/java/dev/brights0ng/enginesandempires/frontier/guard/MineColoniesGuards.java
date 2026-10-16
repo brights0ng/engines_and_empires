@@ -3,17 +3,17 @@ package dev.brights0ng.enginesandempires.frontier.guard;
 import com.minecolonies.api.colony.jobs.IJob;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
 
-import dev.brights0ng.frontier.guard.GuardTypes;
 import net.minecraft.world.entity.Entity;
 
 /**
  * MineColonies' guards (knights, rangers, druids and the rest). They are ordinary colonists with a guard job, all one entity
  * type, so a tag cannot pick them out; this asks MineColonies' own API instead.
  *
- * <p>Only ever touched through {@link GuardTypes}, and only when MineColonies is loaded, so the pack runs without it.
+ * <p>Only ever touched through {@link MineColoniesGuardSource}, which Frontier's guard counting asks, and only when
+ * MineColonies is loaded, so the pack runs without it.
  *
- * <p>Public since split step 1b only because {@link GuardTypes} is in Frontier's package now; seam S12 replaces that
- * call with a guard-source registry.
+ * <p>Public since split step 1b only because Frontier's {@code GuardTypes} called it from another package; seam S12
+ * replaced that call with Frontier's guard-source registry.
  */
 public final class MineColoniesGuards {
 
