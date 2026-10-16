@@ -5,20 +5,16 @@ import java.util.Map;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.simibubi.create.content.kinetics.base.GeneratingKineticBlockEntity;
-import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 
 import dev.brights0ng.frontier.Frontier;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -33,9 +29,10 @@ import net.neoforged.neoforge.registries.datamaps.DataMapType;
  * <p>Positions are found as chunks load and blocks change, kept only in memory. Every {@link #SAMPLE_INTERVAL} ticks each is
  * checked for running, and the time it last ran is written to {@link IncursionData}, which saves it.
  *
- * <p>Running means: a Create kinetic block turning; a block whose {@code powered} or {@code lit} property is on (steam
- * whistles, Aeronautics' burners and vents); or, for engines that drive a separate shaft (the steam engine, the huge diesel
- * engine), a generating shaft turning within two blocks.
+ * <p>Running means: a block whose {@code powered} or {@code lit} property is on (steam whistles, Aeronautics' burners and
+ * vents), or whatever a registered {@link RunningProviders.Provider} says (split seam S14; the pack registers Create's: a
+ * Create kinetic block turning or, for engines that drive a separate shaft, a generating shaft turning within two
+ * blocks).
  */
 public final class LoudMachines {
 
@@ -51,6 +48,13 @@ public final class LoudMachines {
             LoudMachine.CODEC).build();
 
     public static final int SAMPLE_INTERVAL = 100;
+
+    /** A machine being checked for running: where it is, and its block. */
+    public record Machine(ServerLevel level, BlockPos pos, BlockState state) {
+    }
+
+    /** What else can tell a machine is running (split seam S14); the pack registers Create's. */
+    public static final RunningProviders<Machine> PROVIDERS = new RunningProviders<>();
 
     private static final Map<Block, Double> WEIGHTS = new IdentityHashMap<>();
 
@@ -174,19 +178,6 @@ public final class LoudMachines {
         if (state.hasProperty(BlockStateProperties.LIT) && state.getValue(BlockStateProperties.LIT)) {
             return true;
         }
-        BlockEntity be = level.getBlockEntity(pos);
-        if (be instanceof KineticBlockEntity kinetic) {
-            return kinetic.getSpeed() != 0;
-        }
-        // An engine driving a shaft of its own (steam engine, huge diesel engine): is a generating shaft nearby turning?
-        for (Direction direction : Direction.values()) {
-            for (int step = 1; step <= 2; step++) {
-                if (level.getBlockEntity(pos.relative(direction, step)) instanceof GeneratingKineticBlockEntity shaft
-                        && shaft.getSpeed() != 0) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return PROVIDERS.isRunning(new Machine(level, pos, state));
     }
 }

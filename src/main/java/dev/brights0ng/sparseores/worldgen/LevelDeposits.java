@@ -72,7 +72,9 @@ public final class LevelDeposits {
         DepositLedgerData data = persist
                 ? level.getDataStorage().computeIfAbsent(DepositLedgerData.factory(), DepositLedgerData.NAME)
                 : null;
-        return new LevelDeposits(realm, dimension, NoiseTerrainProbe.forLevel(level), SurfaceBiomes.forLevel(level), data);
+        // Sky showcase mode builds deposits in open sky whatever the ground is, so nothing is rejected.
+        TerrainProbe probe = OreWorldgen.SKY_SHOWCASE ? TerrainProbe.ALL_SOLID : NoiseTerrainProbe.forLevel(level);
+        return new LevelDeposits(realm, dimension, probe, SurfaceBiomes.forLevel(level), data);
     }
 
     public Realm realm() {

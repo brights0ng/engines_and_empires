@@ -16,6 +16,12 @@ see what is still left (it prints the current edges, plus the per-mod file count
 - Visibility widened in 1b because a caller is in another package now (undo when the seam goes):
   `enginesandempires/frontier/guard/MineColoniesGuards` and its two methods (S12);
   `sparseores/refining/ChipTextures`' shape constants and helpers, used by the core's `RefiningTest` (S15).
+  Both undone in step 1c-A (`b4b0dd0`).
+
+**Step 1c-A (S4, S9-S15):** 15 forbidden rows ticked below; `check_split.py` now reports 21 forbidden references (S1-S3,
+S5, S8, for 1c-B) and the same 10 gated ones. S13 and S14 had no rows here: they removed outside-mod code (Create,
+Simulated, Aeronautics, Diesel Generators) from Meteodyne's `HeatDrivers` and Frontier's `LoudMachines`
+(`df9873a`, `b216f1b`).
 
 ## Forbidden edges (36)
 
@@ -33,7 +39,7 @@ see what is still left (it prints the current edges, plus the per-mod file count
 | [ ] | S3 | frontier | meteodyne | `frontier/spawn/FrontierDarkness.java` | `meteodyne/WeatherOwnership.java` |
 | [ ] | S3 | frontier | meteodyne | `frontier/spawn/FrontierDarkness.java` | `meteodyne/rain/WeatherQueries.java` |
 | [ ] | S3 | frontier | meteodyne | `frontier/spawn/FrontierDarkness.java` | `meteodyne/sky/StormLight.java` |
-| [ ] | S4 | frontier | meteodyne | `frontier/mixin/LevelChunkFrontierMixin.java` | `meteodyne/heat/world/HeatWorld.java` |
+| [x] `c9356be` | S4 | frontier | meteodyne | `frontier/mixin/LevelChunkFrontierMixin.java` | `meteodyne/heat/world/HeatWorld.java` |
 | [ ] | S5 | seismic_surveyance | frontier | `seismicsurveyance/CombustiveThumperBlockEntity.java` | `frontier/deep/ShotSource.java` |
 | [ ] | S5 | seismic_surveyance | frontier | `seismicsurveyance/SeismicShots.java` | `frontier/deep/Deep.java` |
 | [ ] | S5 | seismic_surveyance | frontier | `seismicsurveyance/SeismicShots.java` | `frontier/deep/ShotSource.java` |
@@ -43,20 +49,20 @@ see what is still left (it prints the current edges, plus the per-mod file count
 | [ ] | S8 | seismic_surveyance | engines_and_empires | `seismicsurveyance/client/SmartLoggerRenderer.java` | `enginesandempires/geophone/client/TierOverlay.java` |
 | [ ] | S8 | seismic_surveyance | frontier | `seismicsurveyance/client/SmartLoggerRenderer.java` | `frontier/map/TierGrid.java` |
 | [ ] | S8 | seismic_surveyance | frontier | `seismicsurveyance/client/SmartLoggerRenderer.java` | `frontier/map/TierMapPayloads.java` |
-| [ ] | S9 | sparse_ores | seismic_surveyance | `sparseores/debug/DepositCommand.java` | `seismicsurveyance/DepositFinder.java` |
-| [ ] | S9 | sparse_ores | seismic_surveyance | `sparseores/debug/DepositCommand.java` | `seismicsurveyance/DepositScanner.java` |
-| [ ] | S9 | sparse_ores | seismic_surveyance | `sparseores/debug/DepositCommand.java` | `seismicsurveyance/SeismicShots.java` |
-| [ ] | S9 | sparse_ores | engines_and_empires | `sparseores/rich/RichOreDataGen.java` | `enginesandempires/oregen/refining/RefiningDataGen.java` |
-| [ ] | S9 | sparse_ores | seismic_surveyance | `sparseores/rich/RichOreDataGen.java` | `seismicsurveyance/SeismicContent.java` |
-| [ ] | S9 | sparse_ores | seismic_surveyance | `sparseores/rich/RichOreDataGen.java` | `seismicsurveyance/SeismicDataGen.java` |
-| [ ] | S9 | sparse_ores | seismic_surveyance | `sparseores/rich/RichOreDataGen.java` | `seismicsurveyance/SmartLoggerBlock.java` |
-| [ ] | S9 | sparse_ores | seismic_surveyance | `sparseores/rich/RichOreDataGen.java` | `seismicsurveyance/ThumperFluidTags.java` |
-| [ ] | S9 | sparse_ores | seismic_surveyance | `sparseores/worldgen/ReadingDeposits.java` | `seismicsurveyance/ReaderReading.java` |
-| [ ] | S10 | paradyne_lib | sparse_ores | `paradynelib/worldgen/NoiseTerrainProbe.java` | `sparseores/worldgen/OreWorldgen.java` |
-| [ ] | S11 | meteodyne | engines_and_empires | `meteodyne/climate/SeasonSource.java` | `enginesandempires/weather/climate/compat/SereneSeasonsCompat.java` |
-| [ ] | S12 | frontier | engines_and_empires | `frontier/guard/GuardTypes.java` | `enginesandempires/frontier/guard/MineColoniesGuards.java` |
-| [ ] | S15 | sparse_ores | engines_and_empires | `sparseores/refining/RefiningItems.java` | `enginesandempires/EnginesAndEmpires.java` |
-| [ ] | S15 | sparse_ores | engines_and_empires | `sparseores/refining/RefiningItems.java` | `enginesandempires/oregen/refining/Refining.java` |
+| [x] `fb98004` | S9 | sparse_ores | seismic_surveyance | `sparseores/debug/DepositCommand.java` | `seismicsurveyance/DepositFinder.java` |
+| [x] `fb98004` | S9 | sparse_ores | seismic_surveyance | `sparseores/debug/DepositCommand.java` | `seismicsurveyance/DepositScanner.java` |
+| [x] `fb98004` | S9 | sparse_ores | seismic_surveyance | `sparseores/debug/DepositCommand.java` | `seismicsurveyance/SeismicShots.java` |
+| [x] `fb98004` | S9 | sparse_ores | engines_and_empires | `sparseores/rich/RichOreDataGen.java` | `enginesandempires/oregen/refining/RefiningDataGen.java` |
+| [x] `fb98004` | S9 | sparse_ores | seismic_surveyance | `sparseores/rich/RichOreDataGen.java` | `seismicsurveyance/SeismicContent.java` |
+| [x] `fb98004` | S9 | sparse_ores | seismic_surveyance | `sparseores/rich/RichOreDataGen.java` | `seismicsurveyance/SeismicDataGen.java` |
+| [x] `fb98004` | S9 | sparse_ores | seismic_surveyance | `sparseores/rich/RichOreDataGen.java` | `seismicsurveyance/SmartLoggerBlock.java` |
+| [x] `fb98004` | S9 | sparse_ores | seismic_surveyance | `sparseores/rich/RichOreDataGen.java` | `seismicsurveyance/ThumperFluidTags.java` |
+| [x] `fb98004` | S9 | sparse_ores | seismic_surveyance | `sparseores/worldgen/ReadingDeposits.java` | `seismicsurveyance/ReaderReading.java` |
+| [x] `1d3d855` | S10 | paradyne_lib | sparse_ores | `paradynelib/worldgen/NoiseTerrainProbe.java` | `sparseores/worldgen/OreWorldgen.java` |
+| [x] `775aeba` | S11 | meteodyne | engines_and_empires | `meteodyne/climate/SeasonSource.java` | `enginesandempires/weather/climate/compat/SereneSeasonsCompat.java` |
+| [x] `51ba816` | S12 | frontier | engines_and_empires | `frontier/guard/GuardTypes.java` | `enginesandempires/frontier/guard/MineColoniesGuards.java` |
+| [x] `0b48dfe` | S15 | sparse_ores | engines_and_empires | `sparseores/refining/RefiningItems.java` | `enginesandempires/EnginesAndEmpires.java` |
+| [x] `0b48dfe` | S15 | sparse_ores | engines_and_empires | `sparseores/refining/RefiningItems.java` | `enginesandempires/oregen/refining/Refining.java` |
 
 ## Frontier -> Seismic/Sparse Ores, to be gated in `frontier.seismic` (10)
 
