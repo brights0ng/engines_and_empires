@@ -1,0 +1,5 @@
+plugins {
+    id 'eae.mod-conventions'
+}
+
+requireMod(':paradyne-lib')

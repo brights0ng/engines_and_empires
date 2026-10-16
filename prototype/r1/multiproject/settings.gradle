@@ -1,0 +1,18 @@
+// R1 prototype (step 2a, throwaway): one multi-project build, one Gradle project per mod.
+// The root project is the toy core mod and the dev aggregator at the same time, as the real root will be during 2b-2e.
+pluginManagement {
+    // The shared settings live in a convention plugin built from build-logic/ (an included build).
+    includeBuild('build-logic')
+    repositories {
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'engines_and_empires'
+
+include 'paradyne-lib'
+include 'sparse-ores'

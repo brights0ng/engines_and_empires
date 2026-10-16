@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.brights0ng.sparseores.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MinecraftServerBrandMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

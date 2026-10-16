@@ -1,0 +1,4 @@
+plugins {
+    id 'eae.mod-conventions'
+}
+// The library requires no other mod of ours.

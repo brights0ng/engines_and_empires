@@ -1,0 +1,30 @@
+// The root project: the toy core mod, which requires every mod, and the dev aggregator whose client, server and game
+// test runs load all of them.
+plugins {
+    id 'eae.mod-conventions'
+}
+
+requireMod(':paradyne-lib')
+requireMod(':sparse-ores')
+
+neoForge {
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', allModIds()
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', allModIds()
+        }
+        // The aggregate game test run: core's own run already loads every mod; it runs every mod's game tests.
+        gameTestServer {
+            systemProperty 'neoforge.enabledGameTestNamespaces', allModIds()
+        }
+    }
+}
+
+String allModIds() {
+    ([mod_id] + requiredModPaths.collect { project(it).mod_id }).join(',')
+}

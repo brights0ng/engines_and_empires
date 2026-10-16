@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.brights0ng.enginesandempires.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MinecraftServerCoreBrandMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
