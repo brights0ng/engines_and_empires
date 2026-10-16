@@ -2,6 +2,7 @@ package dev.brights0ng.frontier.gametest;
 
 import dev.brights0ng.frontier.Frontier;
 import dev.brights0ng.frontier.Tier;
+import dev.brights0ng.frontier.incursion.ThumperAccess;
 import dev.brights0ng.frontier.tier.FrontierLevel;
 import dev.brights0ng.frontier.tier.FrontierLevels;
 import dev.brights0ng.frontier.tier.TierParams;
@@ -31,6 +32,19 @@ public final class FrontierGameTests {
 
     private static final String SCRATCH = GameTestStructures.EMPTY;
     private static final BlockPos SPOT = new BlockPos(3, 1, 3);
+
+    /** Split seam S6: without Seismic Surveyance (nothing registered), Frontier knows no thumpers. */
+    @GameTest(template = SCRATCH, batch = "frontier_no_thumpers")
+    public static void withoutSeismicThereAreNoThumpers(GameTestHelper helper) {
+        ThumperAccess none = ThumperAccess.NONE;
+        BlockPos at = helper.absolutePos(SPOT);
+        helper.setBlock(SPOT, Blocks.STONE);
+        helper.assertFalse(none.isThumper(helper.getBlockState(SPOT)), "no block is a thumper");
+        helper.assertTrue(none.basePos(at, helper.getBlockState(SPOT)) == at, "a block stands for itself");
+        helper.assertFalse(none.choke(helper.getLevel(), at), "nothing to choke");
+        helper.assertBlockPresent(Blocks.STONE, SPOT);
+        helper.succeed();
+    }
 
     @GameTest(template = SCRATCH, batch = "frontier_anchors")
     public static void anchorBlocksAreCounted(GameTestHelper helper) {
