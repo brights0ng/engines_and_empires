@@ -4,12 +4,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.heat.air.AirGrid;
+import dev.brights0ng.meteodyne.Meteodyne;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
@@ -27,7 +26,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
  * message so the client drops regions that are gone. Their client draws it every frame ({@code HeatViewClient}) until
  * they turn it off. Operators only; debugging, so no limit on how much is drawn (Bright, 2026-10-15).
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class HeatView {
 
     private static final String VERSION = "1";
@@ -57,7 +56,7 @@ public final class HeatView {
         public static final int END_COUNT = -2;
 
         public static final Type<Payload> TYPE = new Type<>(
-                ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "heat_view"));
+                Meteodyne.id("heat_view"));
 
         public static final StreamCodec<ByteBuf, Payload> STREAM_CODEC = StreamCodec.of(
                 (buf, p) -> {

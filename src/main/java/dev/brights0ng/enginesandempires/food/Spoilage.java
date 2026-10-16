@@ -6,11 +6,10 @@ import java.util.Objects;
 
 import javax.annotation.Nullable;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.simplespoilage.SimpleSpoilage;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -40,11 +39,11 @@ public final class Spoilage {
 
     /** Food that never spoils. Empty for now: Bright's rule (2026-09-27) is that everything edible spoils. */
     public static final TagKey<Item> NON_PERISHABLE =
-            ItemTags.create(ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "non_perishable"));
+            ItemTags.create(SimpleSpoilage.id("non_perishable"));
 
     /** Food that is rotting from the moment it exists, whatever else would say (rotten flesh). */
     public static final TagKey<Item> ALWAYS_ROTTING =
-            ItemTags.create(ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "always_rotting"));
+            ItemTags.create(SimpleSpoilage.id("always_rotting"));
 
     /** Whether this stack is food that spoils: anything edible, bar the {@link #NON_PERISHABLE} tag. */
     public static boolean isSpoilable(ItemStack stack) {

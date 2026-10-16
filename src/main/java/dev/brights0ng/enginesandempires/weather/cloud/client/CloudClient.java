@@ -2,6 +2,7 @@ package dev.brights0ng.enginesandempires.weather.cloud.client;
 
 import com.mojang.brigadier.CommandDispatcher;
 
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.commands.CommandSourceStack;
@@ -179,7 +180,7 @@ public final class CloudClient {
                     entries));
             return "Saved " + entries.size() + " cloud formations to " + path.getFileName() + ".";
         } catch (java.io.IOException e) {
-            dev.brights0ng.enginesandempires.EnginesAndEmpiresMod.LOGGER.warn("Clouds: dump failed", e);
+            Meteodyne.LOGGER.warn("Clouds: dump failed", e);
             return "Couldn't save the clouds: " + e.getMessage();
         }
     }
@@ -211,7 +212,7 @@ public final class CloudClient {
             return "Profiling for " + seconds + " s; it will be saved to " + path.getFileName()
                     + " when done. Stay near the clouds.";
         } catch (Exception e) {
-            dev.brights0ng.enginesandempires.EnginesAndEmpiresMod.LOGGER.warn("Clouds: profiling failed", e);
+            Meteodyne.LOGGER.warn("Clouds: profiling failed", e);
             return "Couldn't start profiling: " + e.getMessage();
         }
     }

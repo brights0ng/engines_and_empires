@@ -1,7 +1,7 @@
 package dev.brights0ng.enginesandempires.geophone.client;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.geophone.SeismicContent;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -10,7 +10,7 @@ import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 /**
  * Client-side registration for the logbook: which screen is drawn for its menu. Only ever loaded on a client.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = SeismicSurveyance.MODID, value = Dist.CLIENT)
 public final class LogbookClient {
 
     @SubscribeEvent

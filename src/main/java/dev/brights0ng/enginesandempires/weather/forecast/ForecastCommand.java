@@ -2,9 +2,9 @@ package dev.brights0ng.enginesandempires.weather.forecast;
 
 import java.util.UUID;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.debug.WeatherDebugNetwork;
 import dev.brights0ng.enginesandempires.weather.rain.WeatherConfig;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -21,7 +21,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  * forecaster for the area you are in and prints the answer when it arrives (after the forecaster's delay, 30 s by
  * default). Registered beside {@code WeatherCommand}; Brigadier merges the two trees.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class ForecastCommand {
 
     @SubscribeEvent
@@ -79,7 +79,7 @@ public final class ForecastCommand {
         Vec3 at = source.getPosition();
         java.util.List<String> lines = ForecastProbe.compare(source.getServer().overworld(), at.x, at.z, 24);
         for (String line : lines) {
-            EnginesAndEmpiresMod.LOGGER.info("Forecast probe: {}", line);
+            Meteodyne.LOGGER.info("Forecast probe: {}", line);
         }
         try {
             java.nio.file.Path dir = source.getServer().getServerDirectory().resolve("logs");

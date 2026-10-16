@@ -3,6 +3,8 @@ package dev.brights0ng.enginesandempires.geophone;
 import java.util.ArrayList;
 import java.util.List;
 
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
+
 /**
  * The shape of the portable record display's 3D model: every box it is built from, and where its screen and lamps are. The
  * data generator builds the model from {@link #boxes()}, and the renderer ({@code PrdItemRenderer}) draws the live map and
@@ -55,7 +57,7 @@ public final class PrdShape {
 
         /** Where it is, as a model names it: {@code namespace:path}. */
         public String location() {
-            return borrowed != null ? borrowed : "engines_and_empires:" + path();
+            return borrowed != null ? borrowed : SeismicSurveyance.MODID + ":" + path();
         }
     }
 

@@ -6,7 +6,7 @@ import java.util.UUID;
 
 import com.mojang.authlib.GameProfile;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.food.Cohort;
 import dev.brights0ng.enginesandempires.food.FoodFreshness;
 import dev.brights0ng.enginesandempires.food.SpoilClock;
@@ -37,7 +37,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * In-game checks of the Diet hooks (food/compat/DietCompat) and the pack's Diet group data. The dev runs always have Diet.
  * Bread is Diet's built-in 4% grains.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(EnginesAndEmpires.MODID)
 @PrefixGameTestTemplate(false)
 public final class DietGameTests {
 

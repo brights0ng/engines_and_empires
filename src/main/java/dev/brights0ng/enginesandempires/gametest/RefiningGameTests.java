@@ -6,7 +6,7 @@ import java.util.Optional;
 import com.simibubi.create.AllRecipeTypes;
 import com.simibubi.create.content.processing.recipe.ProcessingRecipe;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.oregen.refining.BoreheadCrushing;
 import dev.brights0ng.enginesandempires.oregen.refining.RefiningItems;
 import dev.brights0ng.enginesandempires.oregen.rich.RichOreBlocks;
@@ -34,7 +34,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * loaded (the files could exist and still lose to theirs), that the cut ores drop what they should, and that the
  * borehead bearing crushes ore.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(EnginesAndEmpires.MODID)
 @PrefixGameTestTemplate(false)
 public final class RefiningGameTests {
 

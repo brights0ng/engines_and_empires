@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.weather.cloud.client;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.client.Minecraft;
 import net.neoforged.fml.ModList;
 
@@ -58,7 +58,7 @@ public final class IrisCompat {
 
     private static void fail(Throwable e) {
         broken = true;
-        EnginesAndEmpiresMod.LOGGER.error("Clouds: this Iris version doesn't match the clouds' shader-pack support; "
+        Meteodyne.LOGGER.error("Clouds: this Iris version doesn't match the clouds' shader-pack support; "
                 + "the clouds won't show while a shader pack is on", e);
     }
 

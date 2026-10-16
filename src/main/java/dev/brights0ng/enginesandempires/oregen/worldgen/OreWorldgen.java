@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.oregen.worldgen;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.neoforged.bus.api.IEventBus;
@@ -31,7 +31,7 @@ public final class OreWorldgen {
     public static final int SHOWCASE_Y = 200;
 
     public static final DeferredRegister<Feature<?>> FEATURES =
-            DeferredRegister.create(Registries.FEATURE, EnginesAndEmpiresMod.MODID);
+            DeferredRegister.create(Registries.FEATURE, SparseOres.MODID);
 
     public static final DeferredHolder<Feature<?>, DepositFeature> DEPOSITS =
             FEATURES.register("deposits", DepositFeature::new);

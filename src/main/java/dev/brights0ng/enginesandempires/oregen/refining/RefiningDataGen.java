@@ -17,7 +17,7 @@ import javax.imageio.ImageIO;
 import com.google.common.hash.Hashing;
 import com.google.gson.JsonObject;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import net.minecraft.Util;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.data.CachedOutput;
@@ -46,7 +46,7 @@ import net.neoforged.neoforge.common.data.ExistingFileHelper;
  */
 public final class RefiningDataGen {
 
-    private static final String MODID = EnginesAndEmpiresMod.MODID;
+    private static final String MODID = EnginesAndEmpires.MODID;
 
     /** Writes {@link RefiningRecipes#files()}. */
     public static final class Recipes implements DataProvider {

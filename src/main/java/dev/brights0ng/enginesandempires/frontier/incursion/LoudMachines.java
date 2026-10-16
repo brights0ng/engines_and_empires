@@ -8,14 +8,13 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.simibubi.create.content.kinetics.base.GeneratingKineticBlockEntity;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.frontier.Frontier;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
@@ -48,7 +47,7 @@ public final class LoudMachines {
     }
 
     public static final DataMapType<Block, LoudMachine> DATA_MAP = DataMapType.builder(
-            ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "loud_machines"), Registries.BLOCK,
+            Frontier.id("loud_machines"), Registries.BLOCK,
             LoudMachine.CODEC).build();
 
     public static final int SAMPLE_INTERVAL = 100;

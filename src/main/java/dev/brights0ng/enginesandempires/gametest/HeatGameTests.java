@@ -2,10 +2,10 @@ package dev.brights0ng.enginesandempires.gametest;
 
 import java.util.Optional;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.heat.HeatField;
 import dev.brights0ng.enginesandempires.weather.heat.HeatSourceData;
 import dev.brights0ng.enginesandempires.weather.surface.SurfaceWeather;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
@@ -27,7 +27,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * ({@link HeatField}, from the {@code heat_sources} data map). The air given is passed in, so the weather doesn't
  * matter. The probes far from a source are taken straight above it, away from the neighbouring cells' own sources.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class HeatGameTests {
 

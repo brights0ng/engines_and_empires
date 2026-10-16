@@ -13,6 +13,7 @@ import dev.brights0ng.enginesandempires.weather.rain.LocalWeather;
 import dev.brights0ng.enginesandempires.weather.rain.Precip;
 import dev.brights0ng.enginesandempires.weather.rain.RainColumn;
 import dev.brights0ng.enginesandempires.weather.rain.StreakShape;
+import dev.brights0ng.meteodyne.Meteodyne;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
@@ -91,8 +92,7 @@ public final class LocalRainRenderer {
 
     private static final ResourceLocation RAIN = ResourceLocation.withDefaultNamespace("textures/environment/rain.png");
     private static final ResourceLocation SNOW = ResourceLocation.withDefaultNamespace("textures/environment/snow.png");
-    private static final ResourceLocation PALE_RAIN = ResourceLocation.fromNamespaceAndPath(
-            dev.brights0ng.enginesandempires.EnginesAndEmpiresMod.MODID, "dynamic/pale_rain");
+    private static final ResourceLocation PALE_RAIN = Meteodyne.id("dynamic/pale_rain");
     private static boolean paleRainReady;
     /** The most a streak is set off its block's centre, blocks. */
     static final double JITTER = 0.35;

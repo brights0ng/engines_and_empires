@@ -3,12 +3,11 @@ package dev.brights0ng.enginesandempires.frontier.map;
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.frontier.Frontier;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 
 /** The messages behind the maps' tier overlay (Frontier phase 7). */
 public final class TierMapPayloads {
@@ -20,7 +19,7 @@ public final class TierMapPayloads {
     public record Request(int x, int z, int radius) implements CustomPacketPayload {
 
         public static final Type<Request> TYPE = new Type<>(
-                ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "tier_map_request"));
+                Frontier.id("tier_map_request"));
 
         public static final StreamCodec<ByteBuf, Request> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.VAR_INT, Request::x,
@@ -51,7 +50,7 @@ public final class TierMapPayloads {
     public record Answer(int x, int z, int size, byte[] packed, List<Marker> markers) implements CustomPacketPayload {
 
         public static final Type<Answer> TYPE = new Type<>(
-                ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "tier_map_answer"));
+                Frontier.id("tier_map_answer"));
 
         public static final StreamCodec<ByteBuf, Answer> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.VAR_INT, Answer::x,

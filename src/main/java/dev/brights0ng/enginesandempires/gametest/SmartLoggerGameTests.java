@@ -2,13 +2,13 @@ package dev.brights0ng.enginesandempires.gametest;
 
 import com.mojang.serialization.JsonOps;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.geophone.LoggerDisplay;
 import dev.brights0ng.enginesandempires.geophone.ReaderCodecs;
 import dev.brights0ng.enginesandempires.geophone.ReaderReading;
 import dev.brights0ng.enginesandempires.geophone.SeismicContent;
 import dev.brights0ng.enginesandempires.geophone.SmartLoggerBlock;
 import dev.brights0ng.enginesandempires.geophone.SmartLoggerBlockEntity;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -30,7 +30,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * <p>Its speed is set on the block entity directly: the tests are about what it does with rotation, not about Create's
  * networks.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(SeismicSurveyance.MODID)
 @PrefixGameTestTemplate(false)
 public final class SmartLoggerGameTests {
 

@@ -5,9 +5,9 @@ import java.util.Locale;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.climate.Temperature;
 import dev.brights0ng.enginesandempires.weather.rain.WeatherConfig;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -30,7 +30,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *   <li>{@code /eae heat show}: turns the in-world view of the nearest region on or off for you ({@link HeatView}).</li>
  * </ul>
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class HeatCommand {
 
     @SubscribeEvent

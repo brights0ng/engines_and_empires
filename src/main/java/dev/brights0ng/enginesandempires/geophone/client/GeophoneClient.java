@@ -1,10 +1,9 @@
 package dev.brights0ng.enginesandempires.geophone.client;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.geophone.GeophoneGlow;
 import dev.brights0ng.enginesandempires.geophone.SeismicContent;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.client.resources.model.ModelResourceLocation;
-import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -17,7 +16,7 @@ import net.neoforged.neoforge.client.event.ModelEvent;
  *
  * <p>This class is only ever loaded on a client.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = SeismicSurveyance.MODID, value = Dist.CLIENT)
 public final class GeophoneClient {
 
     /** The body (spike, crossguard and rod), the sensor cap when it is dark, and the sensor cap when it glows. */
@@ -34,7 +33,7 @@ public final class GeophoneClient {
     public static final ModelResourceLocation BRASS_CAP_LIT = model("block/brass_geophone_cap_lit");
 
     private static ModelResourceLocation model(String path) {
-        return ModelResourceLocation.standalone(ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, path));
+        return ModelResourceLocation.standalone(SeismicSurveyance.id(path));
     }
 
     @SubscribeEvent

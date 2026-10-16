@@ -1,11 +1,11 @@
 package dev.brights0ng.enginesandempires.gametest;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.cloud.CloudType;
 import dev.brights0ng.enginesandempires.weather.cloud.sim.SimCloud;
 import dev.brights0ng.enginesandempires.weather.sim.world.CloudWorld;
 import dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim;
 import dev.brights0ng.enginesandempires.weather.sky.StormLight;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -18,7 +18,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * darkening there is above the clear sky's, and a block's light (what spawning and undead see) is lower; far away
  * nothing changes.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class StormLightGameTests {
 

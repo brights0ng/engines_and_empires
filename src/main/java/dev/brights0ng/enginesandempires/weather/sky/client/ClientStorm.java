@@ -1,9 +1,9 @@
 package dev.brights0ng.enginesandempires.weather.sky.client;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.cloud.CloudSources;
 import dev.brights0ng.enginesandempires.weather.rain.LocalWeather;
 import dev.brights0ng.enginesandempires.weather.sky.StormShade;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.util.Mth;
@@ -20,7 +20,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
  * ({@code LevelRendererSunMixin}) all read it. Minecraft lights a frame with one value, so this follows where the
  * camera is (Bright's choice: camera-based dimming).
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = Meteodyne.MODID, value = Dist.CLIENT)
 public final class ClientStorm {
 
     static final double EASE_SECONDS = 0.75;

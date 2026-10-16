@@ -7,12 +7,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.oregen.BodyCache;
 import dev.brights0ng.enginesandempires.oregen.OreMap;
 import dev.brights0ng.enginesandempires.oregen.OreType;
 import dev.brights0ng.enginesandempires.oregen.OreTypes;
 import dev.brights0ng.enginesandempires.oregen.Realm;
+import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.server.level.ServerLevel;
 
 /**
@@ -67,7 +67,7 @@ public final class OreMaps {
         if (deposits == null) {
             // Levels are attached when they load, before anything generates. If we get here something asked early;
             // work without saving rather than touching the level's data storage from an unknown thread.
-            EnginesAndEmpiresMod.LOGGER.warn("Deposit state for {} was requested before the level finished loading; "
+            SparseOres.LOGGER.warn("Deposit state for {} was requested before the level finished loading; "
                     + "its deposit ledger will not be saved this session", level.dimension().location());
             deposits = LevelDeposits.create(level, false);
             LEVELS.put(level, deposits);

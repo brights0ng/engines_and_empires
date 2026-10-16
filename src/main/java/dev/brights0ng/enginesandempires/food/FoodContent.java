@@ -2,11 +2,11 @@ package dev.brights0ng.enginesandempires.food;
 
 import java.util.function.Supplier;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.food.icechest.IceChestBlock;
 import dev.brights0ng.enginesandempires.food.icechest.IceChestBlockEntity;
 import dev.brights0ng.enginesandempires.food.icechest.IceChestDataGen;
 import dev.brights0ng.enginesandempires.food.icechest.IceChestMenu;
+import dev.brights0ng.simplespoilage.SimpleSpoilage;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.flag.FeatureFlags;
@@ -29,12 +29,12 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public final class FoodContent {
 
     private static final DeferredRegister.DataComponents COMPONENTS =
-            DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, EnginesAndEmpiresMod.MODID);
-    private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(EnginesAndEmpiresMod.MODID);
-    private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(EnginesAndEmpiresMod.MODID);
+            DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, SimpleSpoilage.MODID);
+    private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(SimpleSpoilage.MODID);
+    private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(SimpleSpoilage.MODID);
     private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITY_TYPES =
-            DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, EnginesAndEmpiresMod.MODID);
-    private static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU, EnginesAndEmpiresMod.MODID);
+            DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, SimpleSpoilage.MODID);
+    private static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU, SimpleSpoilage.MODID);
 
     /**
      * How fresh the units in a food stack are. A food stack without it has not been looked at yet and counts as all born

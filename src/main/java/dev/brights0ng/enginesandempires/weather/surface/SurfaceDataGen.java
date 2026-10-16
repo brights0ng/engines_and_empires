@@ -13,7 +13,7 @@ import javax.imageio.ImageIO;
 
 import com.google.common.hash.Hashing;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.Util;
 import net.minecraft.data.CachedOutput;
 import net.minecraft.data.DataProvider;
@@ -50,7 +50,7 @@ public final class SurfaceDataGen {
                 }
                 first = false;
                 sb.append("    \"layers=").append(layers).append(",snow=").append(snow).append("\": { \"model\": \"")
-                        .append(EnginesAndEmpiresMod.MODID).append(":block/").append(modelName(layers, snow))
+                        .append(Meteodyne.MODID).append(":block/").append(modelName(layers, snow))
                         .append("\" }");
             }
         }
@@ -64,7 +64,7 @@ public final class SurfaceDataGen {
     static String model(int layers, int snow) {
         int s = snow * 2;
         int top = s + layers;
-        String glaze = EnginesAndEmpiresMod.MODID + ":block/glaze";
+        String glaze = Meteodyne.MODID + ":block/glaze";
         StringBuilder sb = new StringBuilder();
         sb.append("{\n  \"parent\": \"minecraft:block/block\",\n  \"render_type\": \"minecraft:translucent\",\n");
         sb.append("  \"textures\": { \"particle\": \"").append(glaze).append("\", \"glaze\": \"").append(glaze)
@@ -95,7 +95,7 @@ public final class SurfaceDataGen {
     }
 
     static String itemModel() {
-        return "{\n  \"parent\": \"" + EnginesAndEmpiresMod.MODID + ":block/" + modelName(GlazeBlock.MAX, 0) + "\"\n}\n";
+        return "{\n  \"parent\": \"" + Meteodyne.MODID + ":block/" + modelName(GlazeBlock.MAX, 0) + "\"\n}\n";
     }
 
     public static final class Assets implements DataProvider {
@@ -111,7 +111,7 @@ public final class SurfaceDataGen {
         @Override
         public CompletableFuture<?> run(CachedOutput cache) {
             return CompletableFuture.runAsync(() -> {
-                Path root = output.getOutputFolder(PackOutput.Target.RESOURCE_PACK).resolve(EnginesAndEmpiresMod.MODID);
+                Path root = output.getOutputFolder(PackOutput.Target.RESOURCE_PACK).resolve(Meteodyne.MODID);
                 try {
                     ByteArrayOutputStream png = new ByteArrayOutputStream();
                     ImageIO.write(GlazeTextures.glaze(vanillaIce()), "png", png);

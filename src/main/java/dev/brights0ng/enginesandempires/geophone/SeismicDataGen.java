@@ -14,7 +14,7 @@ import javax.imageio.ImageIO;
 
 import com.google.common.hash.Hashing;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.Util;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -42,7 +42,7 @@ import net.neoforged.neoforge.common.data.ExistingFileHelper;
  */
 public final class SeismicDataGen {
 
-    private static final String MODID = EnginesAndEmpiresMod.MODID;
+    private static final String MODID = SeismicSurveyance.MODID;
 
     /**
      * Tells the model generator that the textures exist. They are written by this same run, so it cannot find them

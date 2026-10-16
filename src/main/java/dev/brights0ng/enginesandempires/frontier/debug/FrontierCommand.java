@@ -8,12 +8,12 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.frontier.Tier;
 import dev.brights0ng.enginesandempires.frontier.tier.AreaCounts;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevel;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevels;
 import dev.brights0ng.enginesandempires.frontier.tier.TierParams;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -46,7 +46,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *       (sculk, mobs, disturbance), without the survey.</li>
  * </ul>
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Frontier.MODID)
 public final class FrontierCommand {
 
     @SubscribeEvent

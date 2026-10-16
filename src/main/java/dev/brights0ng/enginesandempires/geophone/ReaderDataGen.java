@@ -3,7 +3,7 @@ package dev.brights0ng.enginesandempires.geophone;
 import java.util.List;
 import java.util.Locale;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.client.model.generators.BlockModelBuilder;
 import net.neoforged.neoforge.client.model.generators.BlockStateProvider;
@@ -30,7 +30,7 @@ import net.neoforged.neoforge.client.model.generators.ItemModelProvider;
  */
 final class ReaderDataGen {
 
-    private static final String MODID = EnginesAndEmpiresMod.MODID;
+    private static final String MODID = SeismicSurveyance.MODID;
 
     /** The name of a property the item model reads: {@code engines_and_empires:<name>}. */
     private static ResourceLocation property(String name) {

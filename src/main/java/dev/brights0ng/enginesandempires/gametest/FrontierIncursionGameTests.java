@@ -3,7 +3,7 @@ package dev.brights0ng.enginesandempires.gametest;
 import java.util.HashSet;
 import java.util.Set;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.frontier.FrontierContent;
 import dev.brights0ng.enginesandempires.frontier.deep.DeepRoster;
 import dev.brights0ng.enginesandempires.frontier.incursion.Incursion;
@@ -33,7 +33,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * In-game checks of incursions (Frontier phase 6): choking thumpers, snuffing torches, the wave rosters and loud machines
  * loading, and a thumper incursion bringing its first wave up. Each runs in its own batch.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(EnginesAndEmpires.MODID)
 @PrefixGameTestTemplate(false)
 public final class FrontierIncursionGameTests {
 

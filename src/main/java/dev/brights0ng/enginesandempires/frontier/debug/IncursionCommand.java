@@ -7,7 +7,6 @@ import java.util.Set;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.frontier.FrontierConfig;
 import dev.brights0ng.enginesandempires.frontier.incursion.Incursion;
 import dev.brights0ng.enginesandempires.frontier.incursion.IncursionData;
@@ -17,6 +16,7 @@ import dev.brights0ng.enginesandempires.frontier.incursion.SettlementClusters;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevel;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevels;
 import dev.brights0ng.enginesandempires.frontier.tier.SectionKey;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -41,7 +41,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *   <li>{@code immunity clear}: forgets every settlement's immunity.</li>
  * </ul>
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Frontier.MODID)
 public final class IncursionCommand {
 
     @SubscribeEvent
