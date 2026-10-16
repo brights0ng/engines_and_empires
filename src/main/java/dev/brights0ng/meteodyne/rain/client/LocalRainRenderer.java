@@ -264,9 +264,9 @@ public final class LocalRainRenderer {
         double floor = pivot - MAX_FALL;
         // Ships (phase 5d): rain stops on their decks and roofs. The ships over the drawn circle are found once a tick.
         int reach = r + 8;
-        ships = dev.brights0ng.paradynelib.ships.ShipCover.area(level, cx - reach, cz - reach,
+        ships = dev.brights0ng.paradynelib.sable.ships.ShipCover.area(level, cx - reach, cz - reach,
                 cx + reach + 1, cz + reach + 1);
-        dev.brights0ng.paradynelib.ships.ShipCover.Area over = ships;
+        dev.brights0ng.paradynelib.sable.ships.ShipCover.Area over = ships;
         StreakShape.Ground ground = over.isEmpty()
                 ? (x, z) -> level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z)
                 : (x, z) -> Math.max(level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z), over.top(x, z));
@@ -318,7 +318,7 @@ public final class LocalRainRenderer {
      * it as small ice pellets (phase 5a), with a tick or clatter.
      */
     /** The ships over the drawn circle this tick (phase 5d); null before the first. */
-    private static dev.brights0ng.paradynelib.ships.ShipCover.Area ships;
+    private static dev.brights0ng.paradynelib.sable.ships.ShipCover.Area ships;
 
     /**
      * The top of what roofs the camera's column: the world's (heightmap) or a ship's over it, whichever is higher, as

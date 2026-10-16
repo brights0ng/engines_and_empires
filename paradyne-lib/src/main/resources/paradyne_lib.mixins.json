@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.brights0ng.paradynelib.mixin",
+  "plugin": "dev.brights0ng.paradynelib.ParadyneLibMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "sable.SubLevelSilhouetteMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

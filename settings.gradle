@@ -1,4 +1,8 @@
+// One multi-project build, one Gradle project per mod of the family (split step 2b, docs/split/build-layout.md).
+// The root project is the core mod and the dev aggregator at the same time.
 pluginManagement {
+    // The shared settings live in a convention plugin built from build-logic/ (an included build).
+    includeBuild('build-logic')
     repositories {
         gradlePluginPortal()
     }
@@ -7,3 +11,7 @@ pluginManagement {
 plugins {
     id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
 }
+
+rootProject.name = 'engines_and_empires'
+
+include 'paradyne-lib'

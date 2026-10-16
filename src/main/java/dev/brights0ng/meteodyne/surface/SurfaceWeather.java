@@ -16,7 +16,7 @@ import dev.brights0ng.meteodyne.heat.HeatField;
 import dev.brights0ng.meteodyne.rain.LocalWeather;
 import dev.brights0ng.meteodyne.rain.Precip;
 import dev.brights0ng.meteodyne.wind.WindSources;
-import dev.brights0ng.paradynelib.ships.ShipCover;
+import dev.brights0ng.paradynelib.sable.ships.ShipCover;
 import dev.brights0ng.paradynelib.wind.WindColumn;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;

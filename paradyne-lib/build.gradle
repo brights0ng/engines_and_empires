@@ -1,0 +1,14 @@
+plugins {
+    id 'eae.mod-conventions'
+}
+
+// The library requires no other mod of ours.
+
+dependencies {
+    // Sable is optional (plan section 2): only the sable sub-packages touch it, and only after ModList.isLoaded("sable"),
+    // so it is compiled against but never on the runtime classpath of the library's own runs. Non-transitive: its pom
+    // pulls in a Sable build that isn't published. Its companion library (Pose3d, bounding boxes) is inside Sable's jar
+    // at runtime.
+    compileOnly("dev.ryanhcode.sable:sable-neoforge-${minecraft_version}:${sable_version}") { transitive = false }
+    compileOnly("dev.ryanhcode.sable-companion:sable-companion-common-${minecraft_version}:${sable_companion_version}") { transitive = false }
+}
