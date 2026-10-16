@@ -12,19 +12,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import dev.brights0ng.enginesandempires.weather.climate.Temperature;
-import dev.brights0ng.enginesandempires.weather.heat.air.AirGrid;
-import dev.brights0ng.enginesandempires.weather.heat.air.AirParams;
-import dev.brights0ng.enginesandempires.weather.heat.air.HeatClusters;
 import dev.brights0ng.enginesandempires.weather.rain.WeatherConfig;
-import dev.brights0ng.enginesandempires.weather.ships.ShipCover;
-import dev.brights0ng.enginesandempires.weather.wind.Shelter;
-import dev.brights0ng.enginesandempires.weather.wind.ShelterProbe;
-import dev.brights0ng.enginesandempires.weather.wind.WindBlend;
-import dev.brights0ng.enginesandempires.weather.wind.WindColumn;
-import dev.brights0ng.enginesandempires.weather.wind.WindConfig;
-import dev.brights0ng.enginesandempires.weather.wind.WindParams;
 import dev.brights0ng.enginesandempires.weather.wind.WindSources;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.heat.air.AirGrid;
+import dev.brights0ng.paradynelib.heat.air.AirParams;
+import dev.brights0ng.paradynelib.heat.air.HeatClusters;
+import dev.brights0ng.paradynelib.ships.ShipCover;
+import dev.brights0ng.paradynelib.wind.Shelter;
+import dev.brights0ng.paradynelib.wind.ShelterProbe;
+import dev.brights0ng.paradynelib.wind.WindBlend;
+import dev.brights0ng.paradynelib.wind.WindColumn;
+import dev.brights0ng.paradynelib.wind.WindConfig;
+import dev.brights0ng.paradynelib.wind.WindParams;
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
@@ -936,8 +936,8 @@ public final class HeatWorld {
      * the heightmap, where nothing inside the box is above). Server thread.
      */
     private byte[] cover(HeatRegion r, byte[] kinds) {
-        dev.brights0ng.enginesandempires.weather.wind.WindParams wp =
-                dev.brights0ng.enginesandempires.weather.wind.WindConfig.params();
+        dev.brights0ng.paradynelib.wind.WindParams wp =
+                dev.brights0ng.paradynelib.wind.WindConfig.params();
         int reach = wp.sideReach();
         int roofReach = wp.roofReach();
         int[] b = r.box;
@@ -1046,14 +1046,14 @@ public final class HeatWorld {
      */
     static float[] windShares(byte[] cover, double windX, double windZ, double roofWeight) {
         float[] byPattern = new float[32];
-        double[] coverage = new double[dev.brights0ng.enginesandempires.weather.wind.Shelter.FACES];
+        double[] coverage = new double[dev.brights0ng.paradynelib.wind.Shelter.FACES];
         for (int bits = 0; bits < 32; bits++) {
-            coverage[dev.brights0ng.enginesandempires.weather.wind.Shelter.TOP] = (bits & HeatRegion.COVER_TOP) != 0 ? 1 : 0;
-            coverage[dev.brights0ng.enginesandempires.weather.wind.Shelter.NORTH] = (bits & HeatRegion.COVER_NORTH) != 0 ? 1 : 0;
-            coverage[dev.brights0ng.enginesandempires.weather.wind.Shelter.SOUTH] = (bits & HeatRegion.COVER_SOUTH) != 0 ? 1 : 0;
-            coverage[dev.brights0ng.enginesandempires.weather.wind.Shelter.WEST] = (bits & HeatRegion.COVER_WEST) != 0 ? 1 : 0;
-            coverage[dev.brights0ng.enginesandempires.weather.wind.Shelter.EAST] = (bits & HeatRegion.COVER_EAST) != 0 ? 1 : 0;
-            byPattern[bits] = (float) dev.brights0ng.enginesandempires.weather.wind.Shelter.exposure(coverage, windX, windZ,
+            coverage[dev.brights0ng.paradynelib.wind.Shelter.TOP] = (bits & HeatRegion.COVER_TOP) != 0 ? 1 : 0;
+            coverage[dev.brights0ng.paradynelib.wind.Shelter.NORTH] = (bits & HeatRegion.COVER_NORTH) != 0 ? 1 : 0;
+            coverage[dev.brights0ng.paradynelib.wind.Shelter.SOUTH] = (bits & HeatRegion.COVER_SOUTH) != 0 ? 1 : 0;
+            coverage[dev.brights0ng.paradynelib.wind.Shelter.WEST] = (bits & HeatRegion.COVER_WEST) != 0 ? 1 : 0;
+            coverage[dev.brights0ng.paradynelib.wind.Shelter.EAST] = (bits & HeatRegion.COVER_EAST) != 0 ? 1 : 0;
+            byPattern[bits] = (float) dev.brights0ng.paradynelib.wind.Shelter.exposure(coverage, windX, windZ,
                     roofWeight);
         }
         float[] shares = new float[cover.length];
@@ -1107,7 +1107,7 @@ public final class HeatWorld {
         double seconds = r.lastStep == Long.MIN_VALUE ? 0 : Math.min(MAX_CATCH_UP, (now - r.lastStep) / 20.0);
         Job job = new Job(r, r.pendingGeometry, r.pendingInitial, r.pendingSettle, r.sources, r.windX, r.windZ,
                 r.geometry == null ? null : r.geometry.cover(),
-                dev.brights0ng.enginesandempires.weather.wind.WindConfig.params().roofWeight(), seconds, now);
+                dev.brights0ng.paradynelib.wind.WindConfig.params().roofWeight(), seconds, now);
         r.pendingGeometry = null;
         r.pendingInitial = null;
         r.pendingSettle = false;

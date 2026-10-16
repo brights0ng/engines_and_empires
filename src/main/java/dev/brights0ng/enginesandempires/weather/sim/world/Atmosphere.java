@@ -4,7 +4,7 @@ import java.util.List;
 
 import dev.brights0ng.enginesandempires.weather.sim.PressureField;
 import dev.brights0ng.enginesandempires.weather.sim.WeatherSystem;
-import dev.brights0ng.enginesandempires.weather.wind.WindColumn;
+import dev.brights0ng.paradynelib.wind.WindColumn;
 import net.minecraft.server.level.ServerLevel;
 
 /**

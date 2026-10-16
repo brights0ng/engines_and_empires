@@ -2,9 +2,9 @@ package dev.brights0ng.enginesandempires.weather.climate;
 
 import dev.brights0ng.enginesandempires.weather.WeatherOwnership;
 import dev.brights0ng.enginesandempires.weather.rain.WeatherConfig;
-import dev.brights0ng.enginesandempires.weather.ships.ShipCover;
 import dev.brights0ng.enginesandempires.weather.sky.StormLight;
 import dev.brights0ng.enginesandempires.weather.sky.StormShade;
+import dev.brights0ng.paradynelib.ships.ShipCover;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;

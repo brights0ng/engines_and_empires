@@ -6,6 +6,7 @@ import dev.brights0ng.enginesandempires.weather.surface.HailDamage;
 import dev.brights0ng.enginesandempires.weather.surface.SurfaceContent;
 import dev.brights0ng.enginesandempires.weather.surface.SurfaceWeather;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;

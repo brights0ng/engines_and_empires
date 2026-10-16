@@ -3,12 +3,13 @@ package dev.brights0ng.enginesandempires.gametest;
 import java.util.List;
 import java.util.Optional;
 
-import dev.brights0ng.enginesandempires.weather.heat.air.AirGrid;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatPowerData;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatRegion;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatTables;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatWorld;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
+import dev.brights0ng.paradynelib.heat.air.AirGrid;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
@@ -288,10 +289,10 @@ public final class HeatAirGameTests {
         helper.setBlock(new BlockPos(5, y0, 5), LIT);
         BlockPos abs = helper.absolutePos(BlockPos.ZERO);
         w.setTestArea(new int[]{abs.getX() - 1, abs.getY(), abs.getZ() - 1, abs.getX() + 7, abs.getY() + y0 + 4, abs.getZ() + 7});
-        dev.brights0ng.enginesandempires.weather.wind.WindColumn before =
+        dev.brights0ng.paradynelib.wind.WindColumn before =
                 dev.brights0ng.enginesandempires.weather.wind.WindSources.override();
         dev.brights0ng.enginesandempires.weather.wind.WindSources.setOverride(
-                dev.brights0ng.enginesandempires.weather.wind.WindColumn.uniform(5, 0));
+                dev.brights0ng.paradynelib.wind.WindColumn.uniform(5, 0));
         try {
             w.runNow(1);
             HeatRegion r = regionAt(helper, w, new BlockPos(5, y0, 5));

@@ -5,6 +5,7 @@ import java.util.List;
 import dev.brights0ng.enginesandempires.weather.climate.SeasonSource;
 import dev.brights0ng.enginesandempires.weather.forecast.Climatology;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;

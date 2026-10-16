@@ -4,11 +4,12 @@ import org.joml.Vector2i;
 
 import dev.brights0ng.enginesandempires.weather.rain.LocalWeather;
 import dev.brights0ng.enginesandempires.weather.rain.Precip;
-import dev.brights0ng.enginesandempires.weather.ships.ShipCover;
 import dev.brights0ng.enginesandempires.weather.ships.ShipWeather;
 import dev.brights0ng.enginesandempires.weather.surface.GlazeBlock;
 import dev.brights0ng.enginesandempires.weather.surface.HailDamage;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
+import dev.brights0ng.paradynelib.ships.ShipCover;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.BoundingBox3dc;

@@ -26,7 +26,7 @@ import dev.brights0ng.enginesandempires.oregen.OreType;
 import dev.brights0ng.enginesandempires.oregen.OreTypes;
 import dev.brights0ng.enginesandempires.oregen.Realm;
 import dev.brights0ng.enginesandempires.oregen.ResolvedDeposit;
-import dev.brights0ng.enginesandempires.oregen.TerrainProbe;
+import dev.brights0ng.paradynelib.TerrainProbe;
 
 class DepositFinderTest {
 

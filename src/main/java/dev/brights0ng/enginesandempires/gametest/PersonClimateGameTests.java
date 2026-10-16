@@ -2,18 +2,19 @@ package dev.brights0ng.enginesandempires.gametest;
 
 import org.joml.Vector2i;
 
-import dev.brights0ng.enginesandempires.weather.cloud.CloudType;
-import dev.brights0ng.enginesandempires.weather.cloud.sim.SimCloud;
 import dev.brights0ng.enginesandempires.weather.climate.PersonClimate;
 import dev.brights0ng.enginesandempires.weather.climate.SunWarmth;
+import dev.brights0ng.enginesandempires.weather.cloud.CloudType;
+import dev.brights0ng.enginesandempires.weather.cloud.sim.SimCloud;
 import dev.brights0ng.enginesandempires.weather.sim.world.CloudWorld;
 import dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim;
 import dev.brights0ng.enginesandempires.weather.sky.StormLight;
-import dev.brights0ng.enginesandempires.weather.wind.WindColumn;
-import dev.brights0ng.enginesandempires.weather.wind.WindConfig;
-import dev.brights0ng.enginesandempires.weather.wind.WindParams;
 import dev.brights0ng.enginesandempires.weather.wind.WindSources;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
+import dev.brights0ng.paradynelib.wind.WindColumn;
+import dev.brights0ng.paradynelib.wind.WindConfig;
+import dev.brights0ng.paradynelib.wind.WindParams;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.BoundingBox3dc;

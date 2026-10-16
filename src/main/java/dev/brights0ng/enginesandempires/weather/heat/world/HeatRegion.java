@@ -2,8 +2,8 @@ package dev.brights0ng.enginesandempires.weather.heat.world;
 
 import java.util.List;
 
-import dev.brights0ng.enginesandempires.weather.heat.air.AirGrid;
-import dev.brights0ng.enginesandempires.weather.heat.air.AirParams;
+import dev.brights0ng.paradynelib.heat.air.AirGrid;
+import dev.brights0ng.paradynelib.heat.air.AirParams;
 
 /**
  * One region of the heat simulation in the world (weather phase 8f-2): a box of world blocks (its outermost layer is

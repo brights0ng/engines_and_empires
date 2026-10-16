@@ -10,6 +10,7 @@ import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevel;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevels;
 import dev.brights0ng.enginesandempires.frontier.tier.TierParams;
 import dev.brights0ng.frontier.Frontier;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;

@@ -6,9 +6,9 @@ import java.util.List;
 
 import dev.brights0ng.enginesandempires.weather.climate.SunLight;
 import dev.brights0ng.enginesandempires.weather.climate.SunWarmth;
-import dev.brights0ng.enginesandempires.weather.heat.air.AirParams;
-import dev.brights0ng.enginesandempires.weather.heat.air.Radiant;
-import dev.brights0ng.enginesandempires.weather.ships.ShipCover;
+import dev.brights0ng.paradynelib.heat.air.AirParams;
+import dev.brights0ng.paradynelib.heat.air.Radiant;
+import dev.brights0ng.paradynelib.ships.ShipCover;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.FluidTags;

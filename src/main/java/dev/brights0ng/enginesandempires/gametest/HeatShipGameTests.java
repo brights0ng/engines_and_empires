@@ -6,9 +6,10 @@ import org.joml.Vector2i;
 
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatRegion;
 import dev.brights0ng.enginesandempires.weather.heat.world.HeatWorld;
-import dev.brights0ng.enginesandempires.weather.wind.WindColumn;
 import dev.brights0ng.enginesandempires.weather.wind.WindSources;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
+import dev.brights0ng.paradynelib.wind.WindColumn;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
@@ -252,7 +253,7 @@ public final class HeatShipGameTests {
             byte above = r.published().kinds()[r.published().index(
                     plot(ship, 0, 6, 0).getX() - r.published().minX(), plot(ship, 0, 6, 0).getY() - r.published().minY(),
                     plot(ship, 0, 6, 0).getZ() - r.published().minZ())];
-            helper.assertTrue(above == dev.brights0ng.enginesandempires.weather.heat.air.AirGrid.AIR,
+            helper.assertTrue(above == dev.brights0ng.paradynelib.heat.air.AirGrid.AIR,
                     "over its roof is indoors air under the hangar: " + above);
         } finally {
             WindSources.setOverride(before);

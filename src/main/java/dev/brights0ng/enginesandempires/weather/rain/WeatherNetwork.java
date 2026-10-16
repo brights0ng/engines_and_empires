@@ -1,9 +1,9 @@
 package dev.brights0ng.enginesandempires.weather.rain;
 
 import dev.brights0ng.enginesandempires.weather.climate.Temperature;
-import dev.brights0ng.enginesandempires.weather.wind.WindColumn;
 import dev.brights0ng.enginesandempires.weather.wind.WindSources;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.wind.WindColumn;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;

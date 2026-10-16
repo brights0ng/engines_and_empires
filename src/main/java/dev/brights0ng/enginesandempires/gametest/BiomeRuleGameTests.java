@@ -3,6 +3,7 @@ package dev.brights0ng.enginesandempires.gametest;
 import dev.brights0ng.enginesandempires.oregen.BiomeRule;
 import dev.brights0ng.enginesandempires.oregen.OreType;
 import dev.brights0ng.enginesandempires.oregen.OreTypes;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;

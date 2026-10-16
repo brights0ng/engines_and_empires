@@ -15,6 +15,7 @@ import dev.brights0ng.enginesandempires.geophone.ReadingBoardMenu;
 import dev.brights0ng.enginesandempires.geophone.SeismicContent;
 import dev.brights0ng.enginesandempires.geophone.SmartLoggerBlock;
 import dev.brights0ng.enginesandempires.geophone.SmartLoggerBlockEntity;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;

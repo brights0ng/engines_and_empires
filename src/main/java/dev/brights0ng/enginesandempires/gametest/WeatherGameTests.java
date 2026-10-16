@@ -4,6 +4,7 @@ import dev.brights0ng.enginesandempires.weather.climate.Baseline;
 import dev.brights0ng.enginesandempires.weather.climate.BiomeClimate;
 import dev.brights0ng.enginesandempires.weather.climate.Climate;
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
