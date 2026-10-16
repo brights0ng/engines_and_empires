@@ -167,6 +167,23 @@ public final class WeatherConfig {
             .defineInRange("localBiomeWeight", 0.5, 0.0, 1.0);
 
     static {
+        BUILDER.pop().comment("Seasons: where in the year it is. A season provider sets it when one is registered (the pack",
+                "registers Serene Seasons' calendar when it is installed); without one, the built-in calendar below does.")
+                .push("seasons");
+    }
+
+    public static final ModConfigSpec.BooleanValue USE_BUILTIN_CALENDAR = BUILDER
+            .comment("Without a season provider: whether the built-in calendar runs the year. Off: no seasons, every day",
+                    "is the year's mean.")
+            .define("useBuiltinCalendar", true);
+
+    public static final ModConfigSpec.LongValue YEAR_TICKS = BUILDER
+            .comment("The built-in calendar's year, ticks. The default is 72 days: 12 sub-seasons of 6 days, the shape of",
+                    "Serene Seasons' default year. The year starts (early spring) at day time 0.")
+            .defineInRange("yearTicks", dev.brights0ng.meteodyne.climate.BuiltinCalendar.DEFAULT_YEAR_TICKS, 24000L,
+                    24000L * 10000);
+
+    static {
         BUILDER.pop().comment("Weather systems: the jet, lows (storms), highs and their fronts.").push("systems");
     }
 
@@ -456,6 +473,13 @@ public final class WeatherConfig {
 
     public static double localBiomeWeight() {
         return SPEC.isLoaded() ? LOCAL_BIOME_WEIGHT.get() : 0.5;
+    }
+
+    /** The built-in calendar (the default before the config loads). */
+    public static dev.brights0ng.meteodyne.climate.BuiltinCalendar calendar() {
+        return SPEC.isLoaded()
+                ? new dev.brights0ng.meteodyne.climate.BuiltinCalendar(USE_BUILTIN_CALENDAR.get(), YEAR_TICKS.get())
+                : dev.brights0ng.meteodyne.climate.BuiltinCalendar.DEFAULT;
     }
 
     /** The weather systems' settings. */

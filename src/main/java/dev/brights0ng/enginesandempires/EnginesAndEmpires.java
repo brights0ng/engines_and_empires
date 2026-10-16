@@ -7,6 +7,7 @@ import com.mojang.logging.LogUtils;
 import dev.brights0ng.enginesandempires.food.compat.AppleSkinCompat;
 import dev.brights0ng.enginesandempires.food.compat.DietCompat;
 import dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatCompat;
+import dev.brights0ng.enginesandempires.weather.climate.compat.SereneSeasonsCompat;
 import dev.brights0ng.enginesandempires.weight.WeightDataMaps;
 import dev.brights0ng.enginesandempires.weight.WeightReport;
 import dev.brights0ng.sparseores.refining.RefiningItems;
@@ -49,5 +50,7 @@ public final class EnginesAndEmpires {
 
         // Cold Sweat: the pack's air temperature becomes its world temperature in the Overworld (only if Cold Sweat is installed)
         ColdSweatCompat.registerIfLoaded(modEventBus);
+        // Serene Seasons: its calendar runs Meteodyne's year in place of the built-in one (only if Serene Seasons is installed)
+        SereneSeasonsCompat.registerIfLoaded();
     }
 }
