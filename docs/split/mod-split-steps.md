@@ -81,7 +81,7 @@ Tasks:
 1. Script the moves from `docs/split/mod-split-manifest.csv` (main and test). Use `git mv` and rewrite package declarations and imports. Target roots: `dev.brights0ng.paradynelib`, `...sablefixes`, `...sparseores`, `...seismicsurveyance`, `...meteodyne`, `...frontier`, `...simplespoilage`, and the unchanged `dev.brights0ng.enginesandempires` for core. Keep the sub-package structure under each root as in the manifest (e.g. `weather/wind/Shelter.java` -> `paradynelib/wind/Shelter.java` as the manifest says).
 2. Classes that used to share a package and now do not need explicit imports; add them. Where a class now references another mod across a forbidden edge, **leave it** (it is a seam handled in 1c); list each one in `docs/split/seams-after-1b.md` so 1c can check them off. The file may be long; that is expected.
 3. Split `engines_and_empires.mixins.json` into one config per mod that has mixins (lib 1, sable_fixes 2, sparse_ores 1, frontier 2, meteodyne ~35, simple_spoilage 12, core 13), each with its own `package`, an `IMixinConfigPlugin` (`shouldApplyMixin` returns true only when the target mod is loaded: Sable for lib's `SubLevelSilhouetteMixin` and the two Sable Fixes mixins; MineColonies and Cold Sweat for the core's compat mixins; vanilla targets always true), `required: true` only for configs with no optional targets. Register all configs in the single `neoforge.mods.toml` `[[mixins]]` block. Split `MixinConfigTest` the same way.
-4. Update `enumextensions.json` is NOT touched (it stays; it moves with Seismic in step 2e).
+4. `enumextensions.json` stays where it is (it moves with Seismic in step 2e), but its `PrdArmPose` class path follows the class (done in 1b, with a unit test).
 Acceptance: full check green at the baseline (test count may rise by the new per-mod mixin config tests; the 202 game tests must all pass); `git diff --stat -M` shows moves, not rewrites; the manifest's per-mod file counts match the tree (write a small script and attach its output); `seams-after-1b.md` exists and lists every remaining forbidden edge (about 34).
 Out of scope: resolving seams, resources, ids, Gradle changes.
 
@@ -96,7 +96,9 @@ Tasks (each as its own commit, in this order; read the plan's section 5 row firs
 6. **S4:** split `LevelChunkFrontierMixin` into Frontier's mixin and Meteodyne's `HeatWorld.onBlockChanged` mixin.
 7. **S9:** move `DepositCommand`, `ReadingDeposits` and `RichOreDataGen` pieces to the owner of what each touches; `RichOreDataGen` no longer calls `RefiningDataGen` (core calls its own).
 8. **S15 (chips):** move the chip items to Sparse Ores in package `sparseores.chips`: `RefiningItems` (rename `ChipItems`), `ChipTextures`, the chip list and `Chip` record from `Refining`, the chip item models and textures from `RefiningDataGen`, the 2x2 chip recipe, and the chip fuel value. Core's `Refining`/`RefiningRecipes`/`RefiningGameTests` import them. Ids stay `engines_and_empires:*_chip` until step 2e. Chip item weights stay in the core.
-9. **Template leftovers (Q11):** delete the stale lang keys `magicNumberIntroduction` and the three "Example Mod Configs" titles; confirm by grep that nothing uses them.
+9. **Undo temporary visibility (from 1b):** make `MineColoniesGuards` (S12) and `ChipTextures`' shape helpers (S15) package-private/private again once their seams are fixed.
+10. **`CloudWorksDebugDumpMixin`:** move it from Meteodyne to core (it patches Diet's library CloudWorks, which is outside-mod compat); keep it `@Pseudo`, and move it into the core's mixin config and its test.
+11. **Template leftovers (Q11):** delete the stale lang keys `magicNumberIntroduction` and the three "Example Mod Configs" titles; confirm by grep that nothing uses them.
 Acceptance: full check green; the corresponding rows removed from `seams-after-1b.md`; for S13/S14/S12 a unit test proving the default (nothing registered) behaviour and one with a fake registration.
 Out of scope: S1-S3, S5-S8 (next step).
 
@@ -133,9 +135,10 @@ Common tasks for each module being cut out (use the layout the 2a report chose):
 4. Datagen for that mod only, output to its `src/generated/resources`.
 5. Commands: the mod's own root; core keeps `/eae <feature>` redirects (core step 2f).
 6. Per-mod config specs keep today's defaults.
-7. Game tests need an empty test structure under each mod's own namespace: have the library's `GameTestStructures` helper take the namespace as a parameter and write one copy per mod, and update each mod's tests to use its own.
-8. List in the PR every name you changed that spelled `engines_and_empires` (lang keys, saved data, config file names, entity tags, structure ids), so Bright can review them.
-9. Prove: the module's own tests; a **bare** `runGameTestServer` with only its required mods (list the mods loaded in the PR); the aggregate full check at the baseline.
+7. Mixin configs: where a bare run now proves the mixin plugin gating works, set `required: true` on the lib, Sable Fixes and core configs again (1b left them `false`); a skipped mixin is not a failure, but a broken injection should be.
+8. Game tests need an empty test structure under each mod's own namespace: have the library's `GameTestStructures` helper take the namespace as a parameter and write one copy per mod, and update each mod's tests to use its own.
+9. List in the PR every name you changed that spelled `engines_and_empires` (lang keys, saved data, config file names, entity tags, structure ids), so Bright can review them.
+10. Prove: the module's own tests; a **bare** `runGameTestServer` with only its required mods (list the mods loaded in the PR); the aggregate full check at the baseline.
 
 - **2b lib + Sable Fixes.** Lib: Sable-gated sub-package, `Services` + providers, `GameTestStructures`. Sable Fixes standalone, requires Sable only, plugin-gated mixins. Bare run for Sable Fixes needs only Sable.
 - **2c Meteodyne.** Largest; include `IrisCompat` (Iris optional), `shaderRuntime` configuration, `-Peae.*` -> `-Pmeteodyne.*` property rename (update `tools/` scripts only if they live outside `pack/` and `tools/profiling`; otherwise list them in the PR for Bright). Decide the wind command's home (lib vs Meteodyne root) and put the choice in "Questions for Bright" if unsure.
