@@ -33,6 +33,8 @@ public final class SeismicSurveyance {
         // The seismic survey: the sledgehammer, strike plate, geophones, thumpers, readers and loggers
         SeismicContent.register(modEventBus);
         modEventBus.addListener(SeismicContent::registerCapabilities);
+        // Its data generator (run configuration Data)
+        modEventBus.addListener(SeismicDataGen::gatherData);
     }
 
     private static void commonSetup(FMLCommonSetupEvent event) {

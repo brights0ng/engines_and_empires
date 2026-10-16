@@ -4,10 +4,12 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
+import dev.brights0ng.enginesandempires.datagen.SharedDataGen;
 import dev.brights0ng.enginesandempires.food.compat.AppleSkinCompat;
 import dev.brights0ng.enginesandempires.food.compat.DietCompat;
 import dev.brights0ng.enginesandempires.frontier.guard.MineColoniesGuardSource;
 import dev.brights0ng.enginesandempires.frontier.incursion.CreateLoudMachines;
+import dev.brights0ng.enginesandempires.oregen.refining.RefiningDataGen;
 import dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatCompat;
 import dev.brights0ng.enginesandempires.weather.climate.compat.SereneSeasonsCompat;
 import dev.brights0ng.enginesandempires.weather.heat.compat.MachineHeatDrivers;
@@ -40,6 +42,9 @@ public final class EnginesAndEmpires {
     public static void init(IEventBus modEventBus, ModContainer modContainer) {
         // The chips (coal, diamond, quartz): what those ores drop now instead of a whole item
         RefiningItems.register(modEventBus);
+        // Refining's recipes and the chip textures; and the providers the mods share until each has its own output
+        modEventBus.addListener(RefiningDataGen::gatherData);
+        modEventBus.addListener(SharedDataGen::gatherData);
 
         // Item carry weights: the pack's weight data map, which Encumbered is made to read (see EncumberedWeightMixin),
         // and a log of the items no weight group covers yet
