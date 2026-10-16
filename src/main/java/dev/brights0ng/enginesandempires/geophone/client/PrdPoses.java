@@ -6,10 +6,10 @@ import com.mojang.math.Axis;
 
 import org.joml.Matrix4f;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.geophone.LoggerDisplay;
 import dev.brights0ng.enginesandempires.geophone.PrdItem;
 import dev.brights0ng.enginesandempires.geophone.PrdShape;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
@@ -47,7 +47,7 @@ import net.neoforged.neoforge.client.event.RenderLivingEvent;
  *
  * <p>Every number that places the display or the arms is a constant here, to be tuned by eye.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = SeismicSurveyance.MODID, value = Dist.CLIENT)
 public final class PrdPoses {
 
     // ---- tuning: first person, held up ----

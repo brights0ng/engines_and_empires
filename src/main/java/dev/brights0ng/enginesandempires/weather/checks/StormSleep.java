@@ -2,10 +2,10 @@ package dev.brights0ng.enginesandempires.weather.checks;
 
 import java.util.List;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.WeatherOwnership;
 import dev.brights0ng.enginesandempires.weather.rain.WeatherQueries;
 import dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -34,7 +34,7 @@ import net.neoforged.neoforge.event.level.SleepFinishedTimeEvent;
  *       morning.</li>
  * </ul>
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class StormSleep {
 
     @SubscribeEvent
@@ -79,7 +79,7 @@ public final class StormSleep {
     public static void fastForward(ServerLevel level, long ticks) {
         long started = System.nanoTime();
         WeatherSim.of(level).advance(ticks);
-        EnginesAndEmpiresMod.LOGGER.info("Weather: the night skip ran the weather {} ticks ahead in {} ms", ticks,
+        Meteodyne.LOGGER.info("Weather: the night skip ran the weather {} ticks ahead in {} ms", ticks,
                 (System.nanoTime() - started) / 1_000_000);
     }
 

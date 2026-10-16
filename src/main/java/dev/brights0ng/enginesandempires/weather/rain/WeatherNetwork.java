@@ -1,9 +1,9 @@
 package dev.brights0ng.enginesandempires.weather.rain;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.climate.Temperature;
 import dev.brights0ng.enginesandempires.weather.wind.WindColumn;
 import dev.brights0ng.enginesandempires.weather.wind.WindSources;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
@@ -19,7 +19,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
  * works out rain and snow the way the server does. Overworld only (where the pack's weather lives; sent even with the
  * pack's weather turned off, so clients learn that); it costs 25 temperature lookups per player per second.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class WeatherNetwork {
 
     private static final String VERSION = "5";

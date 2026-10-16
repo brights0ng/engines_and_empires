@@ -1,7 +1,7 @@
 package dev.brights0ng.enginesandempires.gametest;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.forecast.Climatology;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
@@ -15,7 +15,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * weather around each as if a player stood there. The report goes to the log and the daily and trace CSVs to
  * {@code run/logs/}. Without the property the test passes at once.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class ClimatologyDiagnosticRun {
 
@@ -44,7 +44,7 @@ public final class ClimatologyDiagnosticRun {
                 .thenWaitUntil(() -> helper.assertFalse(Climatology.running(), "still running"))
                 .thenExecute(() -> {
                     Climatology.clearSpots();
-                    EnginesAndEmpiresMod.LOGGER.info("Climatology diagnostic year:\n{}",
+                    Meteodyne.LOGGER.info("Climatology diagnostic year:\n{}",
                             String.join("\n", Climatology.report()));
                 })
                 .thenSucceed();

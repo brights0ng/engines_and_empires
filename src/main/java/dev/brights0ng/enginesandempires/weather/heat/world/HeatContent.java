@@ -2,7 +2,7 @@ package dev.brights0ng.enginesandempires.weather.heat.world;
 
 import java.util.function.Supplier;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -12,7 +12,7 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 public final class HeatContent {
 
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENTS =
-            DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, EnginesAndEmpiresMod.MODID);
+            DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, Meteodyne.MODID);
 
     /** Each chunk's share of saved rooms' warmth ({@link HeatChunkData}). */
     public static final Supplier<AttachmentType<HeatChunkData>> CHUNK_DATA = ATTACHMENTS.register("heat",

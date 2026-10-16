@@ -1,9 +1,9 @@
 package dev.brights0ng.enginesandempires.geophone.client;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.geophone.ReaderCompass;
 import dev.brights0ng.enginesandempires.geophone.ReaderReading;
 import dev.brights0ng.enginesandempires.geophone.SeismicContent;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.item.ItemProperties;
@@ -34,7 +34,7 @@ import net.neoforged.neoforge.client.event.ModelEvent;
  *
  * <p>This class is only ever loaded on a client.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = SeismicSurveyance.MODID, value = Dist.CLIENT)
 public final class ReaderClient {
 
     /** The body of the placed reader, and the lamp on top of it dark and lit. */
@@ -43,11 +43,11 @@ public final class ReaderClient {
     public static final ModelResourceLocation LAMP_LIT = model("block/windup_reader_lamp_lit");
 
     private static ModelResourceLocation model(String path) {
-        return ModelResourceLocation.standalone(ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, path));
+        return ModelResourceLocation.standalone(SeismicSurveyance.id(path));
     }
 
     private static ResourceLocation property(String name) {
-        return ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, name);
+        return SeismicSurveyance.id(name);
     }
 
     @SubscribeEvent

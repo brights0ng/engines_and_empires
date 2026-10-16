@@ -3,12 +3,12 @@ package dev.brights0ng.enginesandempires.food.debug;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.food.Cohort;
 import dev.brights0ng.enginesandempires.food.FoodFreshness;
 import dev.brights0ng.enginesandempires.food.SpoilClock;
 import dev.brights0ng.enginesandempires.food.SpoilTimes;
 import dev.brights0ng.enginesandempires.food.Spoilage;
+import dev.brights0ng.simplespoilage.SimpleSpoilage;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -28,7 +28,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *   <li>{@code /eae food age <ticks>}: makes the whole stack older by that much (24000 = a day).</li>
  * </ul>
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = SimpleSpoilage.MODID)
 public final class FoodCommand {
 
     @SubscribeEvent

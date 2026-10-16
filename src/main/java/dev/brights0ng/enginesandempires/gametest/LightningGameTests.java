@@ -2,7 +2,6 @@ package dev.brights0ng.enginesandempires.gametest;
 
 import java.util.SplittableRandom;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.cloud.CloudType;
 import dev.brights0ng.enginesandempires.weather.cloud.sim.SimCloud;
 import dev.brights0ng.enginesandempires.weather.lightning.Lightning;
@@ -11,6 +10,7 @@ import dev.brights0ng.enginesandempires.weather.lightning.LightningPayload;
 import dev.brights0ng.enginesandempires.weather.ships.ShipCover;
 import dev.brights0ng.enginesandempires.weather.sim.world.CloudWorld;
 import dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim;
+import dev.brights0ng.meteodyne.Meteodyne;
 import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
 import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import net.minecraft.core.BlockPos;
@@ -31,7 +31,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * pillar, a ship's deck); an in-cloud flash takes a flier inside the cloud within reach; a storm's flash comes out as
  * a payload, with a real bolt where it struck.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class LightningGameTests {
 

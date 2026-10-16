@@ -9,12 +9,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.climate.Climate;
 import dev.brights0ng.enginesandempires.weather.climate.SeasonSource;
 import dev.brights0ng.enginesandempires.weather.debug.WeatherDebugNetwork;
 import dev.brights0ng.enginesandempires.weather.rain.WeatherConfig;
 import dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -49,7 +49,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * The world's weather ends up the run's length ahead (like {@code /eae weather step}); the game clock and Serene
  * Seasons' calendar are left alone. Nothing is saved.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class Climatology {
 
     /** Server time each tick may spend on the run, nanoseconds. */
@@ -177,7 +177,7 @@ public final class Climatology {
         sim.setExtraAnchors(anchors);
         sim.refreshAllNormals();
         sim.buildFieldNow();
-        EnginesAndEmpiresMod.LOGGER.info("Weather: climatology run of {} days over {} spot(s) from {}% through the year",
+        Meteodyne.LOGGER.info("Weather: climatology run of {} days over {} spot(s) from {}% through the year",
                 days, run.spots.size(), String.format(Locale.ROOT, "%.1f", 100 * from));
         return null;
     }
@@ -284,7 +284,7 @@ public final class Climatology {
                 hour(level);
             }
         } catch (RuntimeException e) {
-            EnginesAndEmpiresMod.LOGGER.warn("Weather: the climatology run failed; stopping it", e);
+            Meteodyne.LOGGER.warn("Weather: the climatology run failed; stopping it", e);
             end(level, false);
         }
     }
@@ -440,10 +440,10 @@ public final class Climatology {
         try {
             csv = writeCsv(level.getServer());
         } catch (IOException e) {
-            EnginesAndEmpiresMod.LOGGER.warn("Weather: couldn't write the climatology CSV", e);
+            Meteodyne.LOGGER.warn("Weather: couldn't write the climatology CSV", e);
         }
         List<String> report = report();
-        EnginesAndEmpiresMod.LOGGER.info("Weather: climatology run {} after {} days:\n{}", complete ? "finished" : "stopped",
+        Meteodyne.LOGGER.info("Weather: climatology run {} after {} days:\n{}", complete ? "finished" : "stopped",
                 r.done / DAY, String.join("\n", report));
         if (r.listener != null) {
             r.listener.finished(report, csv);
@@ -508,11 +508,11 @@ public final class Climatology {
             if (p.contains(":")) {
                 double[] at = findBiome(level, p);
                 if (at == null) {
-                    EnginesAndEmpiresMod.LOGGER.warn("Weather: climatology found no {} within {} blocks of the origin",
+                    Meteodyne.LOGGER.warn("Weather: climatology found no {} within {} blocks of the origin",
                             p, BIOME_SEARCH_RADIUS);
                     continue;
                 }
-                EnginesAndEmpiresMod.LOGGER.info("Weather: climatology spot for {} at {}, {}", p, (long) at[0],
+                Meteodyne.LOGGER.info("Weather: climatology spot for {} at {}, {}", p, (long) at[0],
                         (long) at[1]);
                 add(level, at[0], at[1]);
             } else {
@@ -527,17 +527,17 @@ public final class Climatology {
         String error = start(level, days, new Listener() {
             @Override
             public void progress(int percent) {
-                EnginesAndEmpiresMod.LOGGER.info("Weather: automatic climatology run {}% done", percent);
+                Meteodyne.LOGGER.info("Weather: automatic climatology run {}% done", percent);
             }
 
             @Override
             public void finished(List<String> report, Path csv) {
-                EnginesAndEmpiresMod.LOGGER.info("Weather: automatic climatology run done; stopping the server");
+                Meteodyne.LOGGER.info("Weather: automatic climatology run done; stopping the server");
                 server.halt(false);
             }
         });
         if (error != null) {
-            EnginesAndEmpiresMod.LOGGER.warn("Weather: automatic climatology run didn't start: {}", error);
+            Meteodyne.LOGGER.warn("Weather: automatic climatology run didn't start: {}", error);
             server.halt(false);
         }
     }

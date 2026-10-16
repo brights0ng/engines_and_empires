@@ -1,10 +1,10 @@
 package dev.brights0ng.enginesandempires.frontier.incursion;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.frontier.FrontierTags;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevel;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevels;
 import dev.brights0ng.enginesandempires.frontier.tier.TierParams;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
@@ -24,7 +24,7 @@ import net.neoforged.neoforge.registries.datamaps.DataMapsUpdatedEvent;
 import net.neoforged.neoforge.registries.datamaps.RegisterDataMapTypesEvent;
 
 /** Keeps incursions going: time passing, their mobs joining and leaving, and what those mobs kill. */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Frontier.MODID)
 public final class IncursionEvents {
 
     @SubscribeEvent

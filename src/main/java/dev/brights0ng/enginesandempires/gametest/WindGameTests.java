@@ -3,7 +3,6 @@ package dev.brights0ng.enginesandempires.gametest;
 import org.joml.Vector2i;
 import org.joml.Vector3d;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.wind.ShelterProbe;
 import dev.brights0ng.enginesandempires.weather.wind.Shelter;
 import dev.brights0ng.enginesandempires.weather.wind.ShipWind;
@@ -12,6 +11,8 @@ import dev.brights0ng.enginesandempires.weather.wind.WindContent;
 import dev.brights0ng.enginesandempires.weather.wind.WindParams;
 import dev.brights0ng.enginesandempires.weather.wind.WindShips;
 import dev.brights0ng.enginesandempires.weather.wind.WindSources;
+import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.paradynelib.ParadyneLib;
 import dev.ryanhcode.sable.api.physics.force.ForceGroups;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
@@ -38,7 +39,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * <p>The override is global, so the push tests run in batches of their own. The floating block is spawned well above the
  * test's walled room, where nothing shelters it.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class WindGameTests {
 
@@ -46,7 +47,8 @@ public final class WindGameTests {
 
     @GameTest(template = SCRATCH)
     public static void windForceGroupIsRegistered(GameTestHelper helper) {
-        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "wind");
+        // The force group is the library's (WindContent), so its id is in the library's namespace
+        ResourceLocation id = ParadyneLib.id("wind");
         helper.assertTrue(WindContent.WIND.isBound(), "the wind force group should be registered");
         helper.assertTrue(ForceGroups.REGISTRY.containsKey(id), "Sable's force group registry should hold " + id);
         helper.succeed();

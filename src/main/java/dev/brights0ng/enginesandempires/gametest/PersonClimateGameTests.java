@@ -2,7 +2,6 @@ package dev.brights0ng.enginesandempires.gametest;
 
 import org.joml.Vector2i;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.cloud.CloudType;
 import dev.brights0ng.enginesandempires.weather.cloud.sim.SimCloud;
 import dev.brights0ng.enginesandempires.weather.climate.PersonClimate;
@@ -14,6 +13,7 @@ import dev.brights0ng.enginesandempires.weather.wind.WindColumn;
 import dev.brights0ng.enginesandempires.weather.wind.WindConfig;
 import dev.brights0ng.enginesandempires.weather.wind.WindParams;
 import dev.brights0ng.enginesandempires.weather.wind.WindSources;
+import dev.brights0ng.meteodyne.Meteodyne;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
@@ -43,7 +43,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * happens {@link #UP} blocks above the cell, in open air. Tests that build blocks, and the wind tests that look 16
  * blocks sideways, each run in a batch of their own so that a neighbouring cell's building isn't in their way.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class PersonClimateGameTests {
 

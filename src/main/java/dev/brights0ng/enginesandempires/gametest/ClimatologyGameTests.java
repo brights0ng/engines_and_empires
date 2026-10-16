@@ -2,9 +2,9 @@ package dev.brights0ng.enginesandempires.gametest;
 
 import java.util.List;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.climate.SeasonSource;
 import dev.brights0ng.enginesandempires.weather.forecast.Climatology;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -16,7 +16,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * Weather phase 8a: the climatology run in a running server. A two-day run moves the season override along with the
  * simulation, reads every hour at its spot, ends by itself, and gives the calendar back.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class ClimatologyGameTests {
 
@@ -49,7 +49,7 @@ public final class ClimatologyGameTests {
         String all = String.join("\n", report);
         helper.assertTrue(all.contains("48 hours read"), "every hour was read:\n" + all);
         helper.assertTrue(all.contains(" C (lows "), "with a season summary:\n" + all);
-        EnginesAndEmpiresMod.LOGGER.info("Climatology after a 2-day run:\n{}", all);
+        Meteodyne.LOGGER.info("Climatology after a 2-day run:\n{}", all);
         Climatology.clearSpots();
         helper.succeed();
     }

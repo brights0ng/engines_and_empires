@@ -1,11 +1,11 @@
 package dev.brights0ng.enginesandempires.gametest;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.rain.Precip;
 import dev.brights0ng.enginesandempires.weather.surface.GlazeBlock;
 import dev.brights0ng.enginesandempires.weather.surface.HailDamage;
 import dev.brights0ng.enginesandempires.weather.surface.SurfaceContent;
 import dev.brights0ng.enginesandempires.weather.surface.SurfaceWeather;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -27,7 +27,7 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Phase 5c of the weather backbone: glaze (freezing rain's ice layer), hail on players and mobs, and hail on crops. */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class GlazeHailGameTests {
 

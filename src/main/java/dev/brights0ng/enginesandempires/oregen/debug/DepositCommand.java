@@ -8,7 +8,6 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.geophone.DepositFinder;
 import dev.brights0ng.enginesandempires.geophone.DepositScanner;
 import dev.brights0ng.enginesandempires.geophone.SeismicShots;
@@ -22,6 +21,7 @@ import dev.brights0ng.enginesandempires.oregen.ResolvedDeposit;
 import dev.brights0ng.enginesandempires.oregen.worldgen.LevelDeposits;
 import dev.brights0ng.enginesandempires.oregen.worldgen.OreMaps;
 import dev.brights0ng.enginesandempires.oregen.worldgen.OreWorldgen;
+import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -62,7 +62,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *
  * Deposit lines show only deposits that exist: ones the terrain check dropped are counted but not listed.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = SparseOres.MODID)
 public final class DepositCommand {
 
     private static final int DEFAULT_RADIUS = 3000;
@@ -250,7 +250,7 @@ public final class DepositCommand {
         MinecraftServer server = source.getServer();
         DepositScanner.scanAsync(level, finalQuery).whenComplete((scan, error) -> server.execute(() -> {
             if (error != null) {
-                EnginesAndEmpiresMod.LOGGER.error("Deposit scan failed", error);
+                SparseOres.LOGGER.error("Deposit scan failed", error);
                 source.sendFailure(Component.literal("The scan failed: " + error.getMessage() + " (see the log)"));
             } else {
                 reportScan(source, finalQuery, scan);

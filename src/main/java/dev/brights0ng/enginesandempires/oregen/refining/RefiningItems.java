@@ -3,7 +3,7 @@ package dev.brights0ng.enginesandempires.oregen.refining;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
@@ -18,7 +18,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  */
 public final class RefiningItems {
 
-    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(EnginesAndEmpiresMod.MODID);
+    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(EnginesAndEmpires.MODID);
 
     /** Every chip, by name, in registration order. */
     private static final Map<String, DeferredItem<Item>> CHIPS = new LinkedHashMap<>();

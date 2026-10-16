@@ -7,7 +7,7 @@ import com.momosoftworks.coldsweat.api.event.core.registry.TempModifierRegisterE
 import com.momosoftworks.coldsweat.api.util.placement.Matcher;
 import com.momosoftworks.coldsweat.api.util.placement.Placement;
 import com.momosoftworks.coldsweat.config.ConfigSettings;
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.weather.rain.ClientWeather;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
@@ -37,7 +37,7 @@ public final class ColdSweatCompat {
     public static final String MOD_ID = "cold_sweat";
 
     /** Our modifier's id in Cold Sweat's registry. */
-    public static final ResourceLocation CLIMATE_ID = ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "climate");
+    public static final ResourceLocation CLIMATE_ID = EnginesAndEmpires.id("climate");
 
     /** Cold Sweat's own world terms that the pack's climate replaces (by registry id, so none needs its mod loaded). */
     static final Set<ResourceLocation> REPLACED = Set.of(
@@ -124,7 +124,7 @@ public final class ColdSweatCompat {
                     field.set(difficulty, copy);
                 }
             } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
-                EnginesAndEmpiresMod.LOGGER.warn("Could not give Cold Sweat's difficulties one comfort range; its own presets stay", e);
+                EnginesAndEmpires.LOGGER.warn("Could not give Cold Sweat's difficulties one comfort range; its own presets stay", e);
             }
         }
 

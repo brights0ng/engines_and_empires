@@ -11,7 +11,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.climate.Temperature;
 import dev.brights0ng.enginesandempires.weather.heat.air.AirGrid;
 import dev.brights0ng.enginesandempires.weather.heat.air.AirParams;
@@ -25,6 +24,7 @@ import dev.brights0ng.enginesandempires.weather.wind.WindColumn;
 import dev.brights0ng.enginesandempires.weather.wind.WindConfig;
 import dev.brights0ng.enginesandempires.weather.wind.WindParams;
 import dev.brights0ng.enginesandempires.weather.wind.WindSources;
+import dev.brights0ng.meteodyne.Meteodyne;
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
@@ -72,7 +72,7 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
  *       its chunks ({@link HeatChunkData}).</li>
  * </ul>
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class HeatWorld {
 
     /** Ticks between plans. */
@@ -1152,7 +1152,7 @@ public final class HeatWorld {
             return new Done(r, new HeatRegion.Published(b[0], b[1], b[2], r.nx, r.ny, r.nz, offsets, kinds, wind,
                     job.tick), System.nanoTime() - start);
         } catch (Throwable t) {
-            EnginesAndEmpiresMod.LOGGER.error("Heat simulation step failed for region {}", r.id, t);
+            Meteodyne.LOGGER.error("Heat simulation step failed for region {}", r.id, t);
             return new Done(r, null, System.nanoTime() - start);
         }
     }

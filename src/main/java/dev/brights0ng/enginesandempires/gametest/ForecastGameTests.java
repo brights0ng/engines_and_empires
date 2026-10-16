@@ -2,11 +2,11 @@ package dev.brights0ng.enginesandempires.gametest;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.forecast.Forecast;
 import dev.brights0ng.enginesandempires.weather.forecast.ForecastService;
 import dev.brights0ng.enginesandempires.weather.forecast.ForecastText;
 import dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -19,7 +19,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * request for the same area is answered from the cache without new work, and a jump in the weather
  * ({@code /eae weather step}) throws the cache away so the next answer is worked out afresh.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class ForecastGameTests {
 
@@ -130,7 +130,7 @@ public final class ForecastGameTests {
         helper.assertTrue(all.contains("Day forecast, period 1: ") && !all.contains("period 1: nothing"),
                 "day forecasts were checked:\n" + all);
         helper.assertTrue(all.contains("Longer forecast, day 1: "), "the longer forecast's day 1 was checked:\n" + all);
-        EnginesAndEmpiresMod.LOGGER.info("Forecast score after a 2-day step:\n{}", all);
+        Meteodyne.LOGGER.info("Forecast score after a 2-day step:\n{}", all);
         helper.succeed();
     }
 

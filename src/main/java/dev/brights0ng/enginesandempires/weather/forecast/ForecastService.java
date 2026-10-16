@@ -10,13 +10,13 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.weather.climate.SeasonSource;
 import dev.brights0ng.enginesandempires.weather.field.AtmosphereField;
 import dev.brights0ng.enginesandempires.weather.rain.WeatherConfig;
 import dev.brights0ng.enginesandempires.weather.sim.SimMath;
 import dev.brights0ng.enginesandempires.weather.sim.SystemsSim;
 import dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim;
+import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -43,7 +43,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  *       ({@link #invalidate}); waiting requests are answered from a fresh run.</li>
  * </ul>
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class ForecastService {
 
     /** What to do with the answer. Called on the server thread. */
@@ -221,7 +221,7 @@ public final class ForecastService {
             double off = felt - ForecastRun.lensGroundT(s, x, z, level.getDayTime());
             return Double.isFinite(off) ? Math.max(-25, Math.min(25, off)) : 0;
         } catch (RuntimeException e) {
-            EnginesAndEmpiresMod.LOGGER.debug("Weather: couldn't work out a forecast's temperature offset", e);
+            Meteodyne.LOGGER.debug("Weather: couldn't work out a forecast's temperature offset", e);
             return 0;
         }
     }
@@ -293,7 +293,7 @@ public final class ForecastService {
                 CACHE.put(job.key, new Cached(job.result, job.window, job.generation));
                 if (runsLogged < 5) {
                     runsLogged++;
-                    EnginesAndEmpiresMod.LOGGER.info("Weather: {} forecast for {}, {} worked out in {} ms",
+                    Meteodyne.LOGGER.info("Weather: {} forecast for {}, {} worked out in {} ms",
                             job.key.product.id, Math.round(job.key.centreX()), Math.round(job.key.centreZ()),
                             job.nanos / 1_000_000);
                 }
@@ -315,7 +315,7 @@ public final class ForecastService {
             }
             snapshot = snapshot(level, sim, job.key, job.window, settings());
         } catch (RuntimeException e) {
-            EnginesAndEmpiresMod.LOGGER.warn("Weather: couldn't take a forecast snapshot", e);
+            Meteodyne.LOGGER.warn("Weather: couldn't take a forecast snapshot", e);
             job.failed = true;
             DONE.add(job);
             return;
@@ -330,7 +330,7 @@ public final class ForecastService {
                     job.failed = true;
                 }
             } catch (Throwable t) {
-                EnginesAndEmpiresMod.LOGGER.warn("Weather: a forecast run failed", t);
+                Meteodyne.LOGGER.warn("Weather: a forecast run failed", t);
                 job.failed = true;
             }
             job.nanos = System.nanoTime() - started;
@@ -359,7 +359,7 @@ public final class ForecastService {
             if (f == null) {
                 if (!p.warned && now > p.due + 10_000) {
                     p.warned = true;
-                    EnginesAndEmpiresMod.LOGGER.warn("Weather: a {} forecast is taking longer than its delay",
+                    Meteodyne.LOGGER.warn("Weather: a {} forecast is taking longer than its delay",
                             p.key.product.id);
                 }
                 continue;

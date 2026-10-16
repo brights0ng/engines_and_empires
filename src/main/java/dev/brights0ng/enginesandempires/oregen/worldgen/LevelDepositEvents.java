@@ -1,7 +1,7 @@
 package dev.brights0ng.enginesandempires.oregen.worldgen;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.oregen.Realm;
+import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -12,7 +12,7 @@ import net.neoforged.neoforge.event.level.LevelEvent;
  * chunk generates, and drops it when the level unloads. Loading the saved ledger has to happen here,
  * because the level's data storage is not safe to touch from worldgen threads.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = SparseOres.MODID)
 public final class LevelDepositEvents {
 
     @SubscribeEvent

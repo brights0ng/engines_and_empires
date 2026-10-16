@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.geophone;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionResult;
@@ -16,7 +16,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
  * Where on a smart logger's map a click lands, shared by the client (which works the map's controls) and the server
  * (which must not let a right-click on the map do anything else, such as placing the item in hand).
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = SeismicSurveyance.MODID)
 public final class LoggerMapInput {
 
     /** A point on a logger's top: which logger, and where, as {u, v} (see {@link LoggerDisplay}). */

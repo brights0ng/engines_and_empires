@@ -14,7 +14,7 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.simplespoilage.SimpleSpoilage;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
@@ -38,7 +38,7 @@ import net.neoforged.neoforge.event.AddReloadListenerEvent;
  * All three are optional (a bucket with no stages hands out fresh food). Stages are {@code fresh}, {@code ripe},
  * {@code stale} and {@code rotting}, each with a whole-number weight.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = SimpleSpoilage.MODID)
 public final class FreshnessSourcesLoader extends SimpleJsonResourceReloadListener {
 
     public static final String DIRECTORY = "freshness_sources";
@@ -79,12 +79,12 @@ public final class FreshnessSourcesLoader extends SimpleJsonResourceReloadListen
         // Sorted by id, so ties between buckets are settled the same way every time
         for (Map.Entry<ResourceLocation, JsonElement> file : new TreeMap<>(files).entrySet()) {
             CODEC.parse(JsonOps.INSTANCE, file.getValue())
-                    .resultOrPartial(error -> EnginesAndEmpiresMod.LOGGER.error("Freshness source {}: {}", file.getKey(), error))
+                    .resultOrPartial(error -> SimpleSpoilage.LOGGER.error("Freshness source {}: {}", file.getKey(), error))
                     .ifPresent(json -> buckets.add(new FreshnessSources.Bucket(file.getKey().toString(), json.lootTables(),
                             json.traders(), json.stages())));
         }
         current = new FreshnessSources(buckets);
-        EnginesAndEmpiresMod.LOGGER.info("Loaded {} food freshness source buckets", buckets.size());
+        SimpleSpoilage.LOGGER.info("Loaded {} food freshness source buckets", buckets.size());
     }
 
     @SubscribeEvent

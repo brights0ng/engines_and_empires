@@ -7,11 +7,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.frontier.FrontierConfig;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevel;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevels;
 import dev.brights0ng.enginesandempires.geophone.ChokedThumpers;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -196,7 +196,7 @@ public final class Incursions {
                 player.playNotifySound(SoundEvents.WARDEN_EMERGE, SoundSource.HOSTILE, 1.0F, 0.5F);
             }
         }
-        EnginesAndEmpiresMod.LOGGER.info("A {} incursion begins against the settlement around {} ({} waves)",
+        Frontier.LOGGER.info("A {} incursion begins against the settlement around {} ({} waves)",
                 greater ? "greater" : "lesser", incursion.centre(), waves);
         return incursion;
     }
@@ -226,7 +226,7 @@ public final class Incursions {
         Incursion incursion = new Incursion(data().nextId(), Incursion.Kind.THUMPER, pos, Set.of(), Set.of(), thumpers,
                 1 + level.random.nextInt(2), now, -1, now + FrontierConfig.incursions().waveDelay() / 3);
         data().incursions().add(incursion);
-        EnginesAndEmpiresMod.LOGGER.info("Thumping called up an incursion at {} against {} thumper(s)", pos, thumpers.size());
+        Frontier.LOGGER.info("Thumping called up an incursion at {} against {} thumper(s)", pos, thumpers.size());
         return incursion;
     }
 

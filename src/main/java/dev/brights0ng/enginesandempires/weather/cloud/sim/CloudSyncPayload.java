@@ -3,13 +3,12 @@ package dev.brights0ng.enginesandempires.weather.cloud.sim;
 import java.util.List;
 import java.util.UUID;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.meteodyne.Meteodyne;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.ByteBufOutputStream;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 
 /**
  * Cloud changes for one player (phase 4a): clouds that are new to them or changed since they last heard
@@ -23,7 +22,7 @@ import net.minecraft.resources.ResourceLocation;
 public record CloudSyncPayload(boolean reset, List<SimCloud> upserts, List<UUID> removed) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<CloudSyncPayload> TYPE = new CustomPacketPayload.Type<>(
-            ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "cloud_sync"));
+            Meteodyne.id("cloud_sync"));
 
     /** At most this many clouds per packet; more go in further packets. */
     public static final int MAX_UPSERTS = 96;

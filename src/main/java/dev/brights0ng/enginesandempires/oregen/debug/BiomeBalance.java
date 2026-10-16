@@ -7,7 +7,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.oregen.BiomeRule;
 import dev.brights0ng.enginesandempires.oregen.DepthProfile;
 import dev.brights0ng.enginesandempires.oregen.OreType;
@@ -15,6 +14,7 @@ import dev.brights0ng.enginesandempires.oregen.OreTypes;
 import dev.brights0ng.enginesandempires.oregen.Realm;
 import dev.brights0ng.enginesandempires.oregen.worldgen.LevelDeposits;
 import dev.brights0ng.enginesandempires.oregen.worldgen.OreMaps;
+import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.Holder;
@@ -59,7 +59,7 @@ final class BiomeBalance {
         CompletableFuture.supplyAsync(() -> sample(deposits, ores, cx, cz, radius))
                 .whenComplete((report, error) -> source.getServer().execute(() -> {
                     if (error != null) {
-                        EnginesAndEmpiresMod.LOGGER.error("Biome balance report failed", error);
+                        SparseOres.LOGGER.error("Biome balance report failed", error);
                         source.sendFailure(Component.literal("Biome report failed: " + error.getMessage()));
                     } else {
                         send(source, ores, report);

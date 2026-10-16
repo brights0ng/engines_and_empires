@@ -4,10 +4,10 @@ import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.geophone.PrdItem;
 import dev.brights0ng.enginesandempires.geophone.PrdSignal;
 import dev.brights0ng.enginesandempires.geophone.SeismicContent;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
@@ -43,7 +43,7 @@ import net.neoforged.neoforge.client.settings.KeyConflictContext;
  * ({@link PrdSignal}), or else the green lamp, steady, while it is being worked. How it is held is {@link PrdPoses}; working
  * it is {@link PrdSession}.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = SeismicSurveyance.MODID, value = Dist.CLIENT)
 public final class PrdClient {
 
     /**

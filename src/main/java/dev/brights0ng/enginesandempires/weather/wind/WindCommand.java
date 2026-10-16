@@ -5,7 +5,7 @@ import java.util.Locale;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.paradynelib.ParadyneLib;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
@@ -31,7 +31,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *   <li>{@code /eae wind clear}: back to Project Atmosphere's wind.</li>
  * </ul>
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = ParadyneLib.MODID)
 public final class WindCommand {
 
     private static final double SHIP_SEARCH = 64;

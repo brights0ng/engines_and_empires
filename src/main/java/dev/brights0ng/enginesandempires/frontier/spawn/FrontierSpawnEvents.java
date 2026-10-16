@@ -1,12 +1,12 @@
 package dev.brights0ng.enginesandempires.frontier.spawn;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.frontier.FrontierConfig;
 import dev.brights0ng.enginesandempires.frontier.FrontierTags;
 import dev.brights0ng.enginesandempires.frontier.Tier;
 import dev.brights0ng.enginesandempires.frontier.deep.DeepSpawns;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevel;
 import dev.brights0ng.enginesandempires.frontier.tier.FrontierLevels;
+import dev.brights0ng.frontier.Frontier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -37,7 +37,7 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
  *   <li>Players in Civilized land have Regeneration I.</li>
  * </ul>
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = Frontier.MODID)
 public final class FrontierSpawnEvents {
 
     /** Priority of the "attack players in Frontier land" goal: after a mob's own reasons to fight (hurt by, owner...). */

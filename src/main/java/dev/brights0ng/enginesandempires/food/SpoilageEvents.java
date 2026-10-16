@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.food;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.simplespoilage.SimpleSpoilage;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -16,7 +16,7 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
  * food whose cohorts have aged into the same stage is merged. Nothing needs to tick for food to age (its stage comes from the
  * clock), so this is only housekeeping, all on the server.
  */
-@EventBusSubscriber(modid = EnginesAndEmpiresMod.MODID)
+@EventBusSubscriber(modid = SimpleSpoilage.MODID)
 public final class SpoilageEvents {
 
     /** How often a player's inventory is tidied, in ticks. */

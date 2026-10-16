@@ -3,13 +3,12 @@ package dev.brights0ng.enginesandempires.weather.debug;
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.meteodyne.Meteodyne;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 
 /** The messages behind the weather debug map ({@code /eae weather map}, ops only). */
 public final class WeatherMapPayloads {
@@ -24,7 +23,7 @@ public final class WeatherMapPayloads {
     public record Open() implements CustomPacketPayload {
 
         public static final Type<Open> TYPE = new Type<>(
-                ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "weather_map_open"));
+                Meteodyne.id("weather_map_open"));
         public static final StreamCodec<ByteBuf, Open> STREAM_CODEC = StreamCodec.unit(new Open());
 
         @Override
@@ -37,7 +36,7 @@ public final class WeatherMapPayloads {
     public record Request(int x, int z, int scale, int size) implements CustomPacketPayload {
 
         public static final Type<Request> TYPE = new Type<>(
-                ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "weather_map_request"));
+                Meteodyne.id("weather_map_request"));
         public static final StreamCodec<ByteBuf, Request> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.VAR_INT, Request::x,
                 ByteBufCodecs.VAR_INT, Request::z,
@@ -78,7 +77,7 @@ public final class WeatherMapPayloads {
             implements CustomPacketPayload {
 
         public static final Type<Answer> TYPE = new Type<>(
-                ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "weather_map_answer"));
+                Meteodyne.id("weather_map_answer"));
         public static final StreamCodec<FriendlyByteBuf, Answer> STREAM_CODEC = StreamCodec.of(
                 (buf, a) -> {
                     buf.writeVarInt(a.x);

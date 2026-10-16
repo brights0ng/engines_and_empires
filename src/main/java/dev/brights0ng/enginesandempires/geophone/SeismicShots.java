@@ -4,10 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
 import dev.brights0ng.enginesandempires.frontier.deep.Deep;
 import dev.brights0ng.enginesandempires.frontier.deep.ShotSource;
 import dev.brights0ng.enginesandempires.oregen.Realm;
+import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
@@ -111,7 +111,7 @@ public final class SeismicShots {
         DepositScanner.scanAsync(level, query)
                 .thenAcceptAsync(scan -> deliver(level, source, range, start, geophones, scan, shot), level.getServer())
                 .exceptionally(error -> {
-                    EnginesAndEmpiresMod.LOGGER.error("A seismic vibration failed", error);
+                    SeismicSurveyance.LOGGER.error("A seismic vibration failed", error);
                     return null;
                 });
         return geophones.size();
