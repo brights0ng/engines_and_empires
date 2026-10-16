@@ -28,3 +28,10 @@ neoForge {
 String allModIds() {
     ([mod_id] + requiredModPaths.collect { project(it).mod_id }).join(',')
 }
+
+// Every mod's jar in one folder (build/allJars), for copying into a test instance; separate jars, no jar-in-jar.
+tasks.register('buildAll', Sync) {
+    from(tasks.named('jar'))
+    requiredModPaths.each { from(project(it).tasks.named('jar')) }
+    into(layout.buildDirectory.dir('allJars'))
+}

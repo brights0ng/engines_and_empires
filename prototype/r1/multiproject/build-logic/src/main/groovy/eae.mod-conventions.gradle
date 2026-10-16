@@ -91,6 +91,14 @@ neoForge {
     }
 }
 
+// One Minecraft run at a time across the whole build: `./gradlew runGameTestServer` matches every project's run task.
+def minecraftRunLimit = gradle.sharedServices.registerIfAbsent('minecraftRunLimit', dev.brights0ng.buildlogic.MinecraftRunLimit) {
+    maxParallelUsages = 1
+}
+tasks.matching { it.name in ['runClient', 'runServer', 'runGameTestServer', 'runData'] }.configureEach {
+    usesService(minecraftRunLimit)
+}
+
 // Every mod has a neoforge.mods.toml template under src/main/templates, expanded with the same properties.
 def generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
     def replaceProperties = [
