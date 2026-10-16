@@ -1,4 +1,4 @@
-# Mod split: repo CLAUDE.md and cloud session prompts (v1, 2026-10-16)
+# Mod split: repo CLAUDE.md and cloud session prompts (v1.1, 2026-10-16)
 
 Companion to `claude/mod-split-plan.md` (the master plan). Each Claude Code cloud session gets: the **common preamble** (section 2), then **one step prompt** (section 4). The repo copy of the plan lives in `docs/split/` and is frozen; sessions report deviations in their PR description instead of editing it.
 
@@ -27,6 +27,7 @@ Optional outside mods (Sable, Cold Sweat, MineColonies, Serene Seasons, Iris, Ap
 ## Commands
 Full check (baseline 964 unit tests with 2 skipped, 202/202 game tests): `./gradlew compileJava compileTestJava test runGameTestServer`
 Cold compile ~9 min, warm ~5 min, game tests ~3 min on 2 cores / 7 GB. Run in the background and poll; do not run two Gradle builds at once.
+If Maven Central answers 429, use the mirror workaround in `docs/split/baseline.md` (kept outside the repo).
 Client runs and shaders cannot be tested in the cloud; say so rather than guess.
 
 ## Conventions
@@ -44,16 +45,14 @@ Rules for every step:
 - Do not touch `pack/`, the Modrinth profile, `tools/profiling` or `run/`. Do not add dependencies the plan does not name.
 - Keep commits small and reviewable. Moves are `git mv`.
 - If the build is OOM-killed, lower parallelism or heap; do not skip tests.
+- If Maven Central rate-limits the sandbox (HTTP 429, reported by Gradle as "Could not find ..."), set up the mirror workaround described in `docs/split/baseline.md`. Keep it outside the repo; never commit it.
 - Cannot be checked in the cloud (say so in the PR, do not guess): client rendering, shaders, the PRD model and map GUIs, ten-year climatology runs, the Modrinth smoke test.
 
 Finish with a PR into `split` whose description has: (1) what changed, (2) unit and game test counts before and after, (3) deviations from the plan, (4) Questions for Bright, (5) anything left undone.
 ```
 
 ## 3. Logistics before step 0
-The cloud sessions only see the repo, so `CLAUDE.md` (section 1) and `docs/split/` (the plan, the manifest CSV, the seams CSV, this file) must be committed to branch `split` first. Two ways, Bright's choice:
-- **A (recommended):** Bright grants this session push access to the repo; I create branch `split` from `9ebdb39` and commit those five files, and nothing else, for his review.
-- **B:** Bright copies the four docs out of the Project into `docs/split/` and pastes the `CLAUDE.md` block, then commits to a new `split` branch himself.
-Nothing is pushed until he says which.
+Done: the cloud sessions only see the repo, so `CLAUDE.md` (section 1), `docs/split/` and `docs/design/` were committed to branch `split`. Each step merges into `split` by pull request. When the plan changes, update both the Project copy and the repo copy.
 
 ## 4. Step prompts
 
@@ -96,6 +95,8 @@ Tasks (each as its own commit, in this order; read the plan's section 5 row firs
 5. **S14:** `LoudMachines` provider interface in Frontier; Create-aware implementation in core; data-map weights stay in Frontier.
 6. **S4:** split `LevelChunkFrontierMixin` into Frontier's mixin and Meteodyne's `HeatWorld.onBlockChanged` mixin.
 7. **S9:** move `DepositCommand`, `ReadingDeposits` and `RichOreDataGen` pieces to the owner of what each touches; `RichOreDataGen` no longer calls `RefiningDataGen` (core calls its own).
+8. **S15 (chips):** move the chip items to Sparse Ores in package `sparseores.chips`: `RefiningItems` (rename `ChipItems`), `ChipTextures`, the chip list and `Chip` record from `Refining`, the chip item models and textures from `RefiningDataGen`, the 2x2 chip recipe, and the chip fuel value. Core's `Refining`/`RefiningRecipes`/`RefiningGameTests` import them. Ids stay `engines_and_empires:*_chip` until step 2e. Chip item weights stay in the core.
+9. **Template leftovers (Q11):** delete the stale lang keys `magicNumberIntroduction` and the three "Example Mod Configs" titles; confirm by grep that nothing uses them.
 Acceptance: full check green; the corresponding rows removed from `seams-after-1b.md`; for S13/S14/S12 a unit test proving the default (nothing registered) behaviour and one with a fake registration.
 Out of scope: S1-S3, S5-S8 (next step).
 
@@ -132,12 +133,14 @@ Common tasks for each module being cut out (use the layout the 2a report chose):
 4. Datagen for that mod only, output to its `src/generated/resources`.
 5. Commands: the mod's own root; core keeps `/eae <feature>` redirects (core step 2f).
 6. Per-mod config specs keep today's defaults.
-7. Prove: the module's own tests; a **bare** `runGameTestServer` with only its required mods (list the mods loaded in the PR); the aggregate full check at the baseline.
+7. Game tests need an empty test structure under each mod's own namespace: have the library's `GameTestStructures` helper take the namespace as a parameter and write one copy per mod, and update each mod's tests to use its own.
+8. List in the PR every name you changed that spelled `engines_and_empires` (lang keys, saved data, config file names, entity tags, structure ids), so Bright can review them.
+9. Prove: the module's own tests; a **bare** `runGameTestServer` with only its required mods (list the mods loaded in the PR); the aggregate full check at the baseline.
 
 - **2b lib + Sable Fixes.** Lib: Sable-gated sub-package, `Services` + providers, `GameTestStructures`. Sable Fixes standalone, requires Sable only, plugin-gated mixins. Bare run for Sable Fixes needs only Sable.
 - **2c Meteodyne.** Largest; include `IrisCompat` (Iris optional), `shaderRuntime` configuration, `-Peae.*` -> `-Pmeteodyne.*` property rename (update `tools/` scripts only if they live outside `pack/` and `tools/profiling`; otherwise list them in the PR for Bright). Decide the wind command's home (lib vs Meteodyne root) and put the choice in "Questions for Bright" if unsure.
 - **2d Simple Spoilage + Frontier.** Spoilage requires lib only (Sable optional through lib). Frontier requires lib; Seismic optional via `frontier.seismic` and `neoforge.mods.toml` `type="optional"`; Frontier bare run must pass without Seismic (the `ThumperAccess` default and `Deep` listener absent).
-- **2e Sparse Ores + Seismic.** Sparse Ores: no outside mod; `ordering="AFTER"` Create. Seismic: lib + Sparse Ores + Create required, Create Diesel Generators optional, `enumextensions.json` moves here, Flywheel/Catnip come with Create. Bare run for Seismic loads lib, Sparse Ores, Create.
+- **2e Sparse Ores + Seismic.** Sparse Ores: no outside mod; `ordering="AFTER"` Create. Sparse Ores also flips the chip ids to `sparse_ores:*_chip` and updates every reference (core recipes, item weights, rich ore loot). Seismic: lib + Sparse Ores + Create required, Create Diesel Generators optional, `enumextensions.json` moves here, Flywheel/Catnip come with Create. Bare run for Seismic loads lib, Sparse Ores, Create.
 - **2f core.** What remains plus glue: refining, weight, `food/compat`, all external compat, `HeatDrivers` registrations, `LoudMachines` impl, `TierOverlay`, `ColdSweatCompat`, MineColonies mixins, Serene provider, the four integration game tests, `defaultconfigs/` (only deviations from mod defaults), `/eae` redirects, pack datapack (Deeper and Darker, Born in Chaos, Naturalist rosters), version 0.4.0. Core requires lib, six feature mods, Sable, Create, Simulated/Aeronautics/Offroad, Encumbered.
 Acceptance for each: the PR lists the mods loaded for the bare run and its result; aggregate full check at the baseline (sum of unit tests across modules, 202 game tests); the architecture test (adapted to the new layout, same rules) green.
 

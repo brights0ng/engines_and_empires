@@ -1,4 +1,4 @@
-# Splitting the core mod into a mod family (plan v3, 2026-10-16)
+# Splitting the core mod into a mod family (plan v3.1, 2026-10-16)
 
 Status: **plan settled, nothing built.** Every question from v2 is answered (section 13). Decisions marked (Bright) are his. Facts come from the working tree at commit `9ebdb39` (clean; same as GitHub `brights0ng/engines_and_empires`): 530 main Java files (68.7k lines, including 31 game test classes that live in `src/main`) plus 124 unit test files. Companions: `claude/mod-split-manifest.csv` (every Java file -> target mod), `claude/mod-split-seams.csv` (every reference that would cross a forbidden boundary), and `claude/mod-split-steps.md` (the repo `CLAUDE.md` and one prompt per Claude Code cloud session).
 
@@ -10,7 +10,7 @@ Status: **plan settled, nothing built.** Every question from v2 is answered (sec
 5. **Required dependencies:** every mod requires the library (except Sable Fixes); Seismic Surveyance requires Sparse Ores **and Create**; the core mod requires every mod except Sable Fixes. Everything else is optional wherever possible. **Create Diesel Generators is a soft dependency of Seismic** (its thumpers burn fuels by fluid tag, so no code depends on it).
 6. **Placement rule:** a mechanism that is its own thing gets its own mod (food spoilage); anything that only hooks into outside mechanisms goes in the core mod. The library gives common building blocks and lets the mods talk to each other.
 7. **Frontier owns** everything about mob spawning, including the "thumper shots stir up deposits" code (`frontier/deep`).
-8. Rich ore blocks live in Sparse Ores; refining (chips, recipe cuts, borehead) lives in the core mod.
+8. Rich ore blocks **and the chip items (coal, diamond, quartz chips: item, model, texture, 2x2 recipe, fuel value)** live in Sparse Ores (Bright, 2026-10-16, so rich ores can drop chips without the core). Refining proper (recipe cuts, loot cuts, borehead crushing) lives in the core mod and refers to the chips by id.
 9. No save compatibility with pre-split worlds (test worlds only).
 10. Versions: new mods start at **0.1.0**; the core mod goes to **0.4.0**. **All licences are All Rights Reserved.**
 11. Order: package-first inside the single mod, then slice the build. The plan is settled before any code; implementation runs in Claude Code cloud sessions, one pull request per step into a `split` branch for Bright's review.
@@ -45,7 +45,8 @@ If the code makes **our** mechanism work or look right, it stays with the mechan
 | Serene Seasons (`SereneSeasonsCompat`) | core | core registers it as Meteodyne's `SeasonProvider` (S11) |
 | AppleSkin, Diet (`food/compat`) | core | stated rule |
 | Encumbered weight (`weight/`, 3 mixins) | core | stated rule |
-| Refining (`oregen/refining`, `BoreheadBreakingMixin`, chips, Create recipes, iron golem loot) | core | stated rule |
+| Refining (`oregen/refining` rules and recipes, `BoreheadBreakingMixin`, Create recipes, iron golem loot) | core | stated rule |
+| Chip items (`RefiningItems`, `ChipTextures`, the chip list and the chip parts of `RefiningDataGen`; ids become `sparse_ores:coal_chip` etc.) | Sparse Ores | rich ores drop chips, and Sparse Ores must work without the core (S15) |
 | MineColonies guard counting (`MineColoniesGuards`) | core | Frontier defines a guard-source registry; core registers MineColonies and the Guard Villagers tag |
 | Machine heat drivers for Create/Simulated/Aeronautics/Diesel/Cold Sweat (`HeatDrivers` built-ins; machine entries of `heat_power.json`) | core | `HeatDrivers.register(...)` already exists; the data map splits (vanilla heat sources stay in Meteodyne) |
 | Create loudness of machines (`LoudMachines`) | core | Frontier keeps the data-map weights; Create-aware weighting becomes a core-registered provider |
@@ -75,6 +76,8 @@ If the code makes **our** mechanism work or look right, it stays with the mechan
 | S12 | `GuardTypes` references `MineColoniesGuards` | Frontier guard-source registry; core registers. |
 | S13 | `HeatDrivers` has Create/Simulated/Aeronautics/Diesel/Cold Sweat drivers built in | Drivers move to core, registered through `HeatDrivers.register`. |
 | S14 | `LoudMachines` uses Create's kinetic classes | Provider interface; Create-aware implementation in core. |
+
+| S15 | `RichOres` (Sparse Ores) drops chips registered by `RefiningItems` (core); `Refining.Chip`/`CHIPS` live in the core's rules | Chip items, textures, models, recipe, fuel value and the chip list move to Sparse Ores (package `sparseores.chips`); core's `Refining` and `RefiningRecipes` import them (core -> Sparse Ores is an allowed edge). Item weights for chips stay in the core. |
 
 Mechanical: per-mod `MODID`/`LOGGER` constants replace `EnginesAndEmpiresMod` (128 files); literal `"engines_and_empires"` strings in code (34) and resources become the owning mod's id.
 
@@ -145,5 +148,8 @@ R1 above; Mixin ordering when two mods inject the same `LevelChunk` method (S4);
 - **Q7** defaults stay at today's values; `defaultconfigs/` carries deviations; new mods 0.1.0, core 0.4.0; all licences ARR.
 - **Q8** one PR per step into `split`; step-0 deletions; leave `pack/config` alone. **Yes.**
 - **Q9** package-first order. **Yes.**
+- **Q10** (from step 1a) chips: **move the chip items into Sparse Ores** (option b); the core's refining refers to them by id.
+- **Q11** (from step 0) leftover template lang keys (`magicNumberIntroduction`, the three "Example Mod Configs" titles): delete, in step 1c-A.
+- **Q12** (from step 1a) names that spell `engines_and_empires` (lang keys, saved data, config file names, entity tags) follow each owning mod's `MODID` in step 2, each listed in that step's PR. Separate core and client entry classes: accepted.
 
-Open logistics item: how `docs/split/` and `CLAUDE.md` reach the repo before step 0 (section 3 of `claude/mod-split-steps.md`).
+Logistics: `CLAUDE.md`, `docs/split/` and eight reference notes (`docs/design/`) are on branch `split`; steps are merged into `split` one PR at a time. The repo copy of this file is the one sessions read; keep it in step with the Project copy.

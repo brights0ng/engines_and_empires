@@ -22,6 +22,7 @@ Optional outside mods (Sable, Cold Sweat, MineColonies, Serene Seasons, Iris, Ap
 ## Commands
 Full check (baseline 964 unit tests with 2 skipped, 202/202 game tests): `./gradlew compileJava compileTestJava test runGameTestServer`
 Cold compile ~9 min, warm ~5 min, game tests ~3 min on 2 cores / 7 GB. Run in the background and poll; do not run two Gradle builds at once.
+If Maven Central answers 429, use the mirror workaround in `docs/split/baseline.md` (kept outside the repo).
 Client runs and shaders cannot be tested in the cloud; say so rather than guess.
 
 ## Conventions
