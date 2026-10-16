@@ -28,6 +28,13 @@ public final class FieldTile {
     public final byte[] surface;
     /** Terrain elevation above sea level, blocks (NaN until worked out). */
     public final float[] elevation;
+    /**
+     * Terrain elevation above sea level on a finer grid, {@link AtmosphereField#FINE_PER_CELL} samples a cell side
+     * ({@link AtmosphereField#FINE_STEP} blocks apart), row by row, x fastest; NaN until worked out (8b follow-up,
+     * round 6: upslope lift reads the climb from the real terrain, not cell-centre points 512 blocks apart). Not saved;
+     * worked out again after loading.
+     */
+    public float[] fine;
     /** Simulation time this tile was last inside a player's zone. */
     public long lastActive;
     /** Simulation time this tile was last stepped (not saved; 0 until the first step after loading). */
@@ -48,6 +55,9 @@ public final class FieldTile {
         Arrays.fill(humidity, 0.5f);
         this.elevation = new float[n];
         Arrays.fill(elevation, Float.NaN);
+        int f = AtmosphereField.SIZE * AtmosphereField.FINE_PER_CELL;
+        this.fine = new float[f * f];
+        Arrays.fill(fine, Float.NaN);
     }
 
     /** World x of cell column {@code i}'s centre. */
@@ -58,6 +68,16 @@ public final class FieldTile {
     /** World z of cell row {@code k}'s centre. */
     public double cellZ(int k) {
         return ((double) tz * AtmosphereField.SIZE + k + 0.5) * AtmosphereField.CELL;
+    }
+
+    /** World x of fine column {@code j}'s centre. */
+    public double fineX(int j) {
+        return (double) tx * AtmosphereField.TILE + (j + 0.5) * AtmosphereField.FINE_STEP;
+    }
+
+    /** World z of fine row {@code j}'s centre. */
+    public double fineZ(int j) {
+        return (double) tz * AtmosphereField.TILE + (j + 0.5) * AtmosphereField.FINE_STEP;
     }
 
     /** Elevation of cell {@code idx}, 0 while unknown. */
@@ -78,6 +98,7 @@ public final class FieldTile {
         System.arraycopy(humidity, 0, c.humidity, 0, humidity.length);
         System.arraycopy(surface, 0, c.surface, 0, surface.length);
         System.arraycopy(elevation, 0, c.elevation, 0, elevation.length);
+        c.fine = fine.clone();
         c.lastActive = lastActive;
         c.lastStepped = lastStepped;
         return c;

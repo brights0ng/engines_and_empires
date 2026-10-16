@@ -83,6 +83,24 @@ public final class StormLight {
         return Math.max(level.getSkyDarken(), ours);
     }
 
+    /**
+     * The level's clouds, bucketed (kept for up to {@value #MAX_AGE} ticks, shared with {@link #darkness}): null when
+     * the pack doesn't own the weather. For the sun's ray (weather phase 8e-2).
+     */
+    public static synchronized StormShade.Index index(ServerLevel level) {
+        if (!WeatherOwnership.owns(level)) {
+            return null;
+        }
+        Cache c = CACHES.computeIfAbsent(level, l -> new Cache());
+        long now = level.getGameTime();
+        if (c.index == null || now - c.indexTick >= MAX_AGE || now < c.indexTick) {
+            c.index = new StormShade.Index(CloudSources.server(level), now);
+            c.indexTick = now;
+            c.cells.clear();
+        }
+        return c.index;
+    }
+
     /** Forgets the cached darkness (after clouds are changed by a command or a test). */
     public static synchronized void invalidate(ServerLevel level) {
         CACHES.remove(level);

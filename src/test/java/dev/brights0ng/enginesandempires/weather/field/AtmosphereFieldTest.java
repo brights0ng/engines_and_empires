@@ -59,8 +59,48 @@ class AtmosphereFieldTest {
         run(f, w, 50, 1000);
         assertEquals(10, f.sample(AtmosphereField.Var.T, 1000, 1000, w), 1e-6);
         assertEquals(0, f.sample(AtmosphereField.Var.ANOMALY, 1000, 1000, w), 1e-6);
-        double eq = Moisture.capacity(10) * Moisture.targetHumidity(0, 0.5);
+        double eq = Moisture.capacity(10) * Moisture.targetHumidity(0, 0.5, 10);
         assertEquals(eq, f.sample(AtmosphereField.Var.Q, 1000, 1000, w), 1e-3);
+    }
+
+    /** Weather phase 8a (2026-10-14): real winters have higher relative humidity than summers. */
+    @Test
+    void coldAirSitsNearerSaturation() {
+        double summer = Moisture.targetHumidity(0, 0.4, 25);
+        double winter = Moisture.targetHumidity(0, 0.4, -5);
+        assertEquals(Moisture.targetHumidity(0, 0.4), summer, 1e-9, "warm air: the ground's own equilibrium");
+        assertTrue(winter > summer + 0.2 && winter < 0.8, "temperate land in winter about 65-70%: " + winter);
+        assertTrue(Moisture.targetHumidity(2, 0.5, -5) < 1, "never past saturation");
+        // Cold air over warmer water takes up water faster; land doesn't care.
+        assertEquals(Moisture.evaporationTicks(2) / 3, Moisture.evaporationTicks(2, 0, 8), 1e-6);
+        assertEquals(Moisture.evaporationTicks(2), Moisture.evaporationTicks(2, 10, 8), 1e-6, "warm air over cooler water");
+        assertEquals(Moisture.evaporationTicks(0), Moisture.evaporationTicks(0, 0, 8), 1e-6);
+    }
+
+    /** Weather phase 8b (2026-10-14): moist, still air dries back toward its ground's equilibrium over days. */
+    @Test
+    void moistStillAirDriesBackTowardEquilibrium() {
+        World w = new World();
+        AtmosphereField f = new AtmosphereField();
+        f.ensure(0, 0, 4000, w, 0);
+        double eq = Moisture.capacity(10) * Moisture.targetHumidity(0, 0.5, 10);
+        for (FieldTile tile : f.tiles().values()) {
+            java.util.Arrays.fill(tile.q, (float) (0.98 * Moisture.capacity(10)));
+        }
+        double start = f.sample(AtmosphereField.Var.Q, 0, 0, w);
+        run(f, w, 72, 1000);
+        double after = f.sample(AtmosphereField.Var.Q, 0, 0, w);
+        // Three days: about two thirds of the way back.
+        assertTrue(after < start - 0.5 * (start - eq), "dried: " + start + " -> " + after + " (eq " + eq + ")");
+        assertTrue(after > eq, "but not past its equilibrium");
+    }
+
+    /** Weather phase 8b (2026-10-14): a tropical sea's dry season lowers its pull on the air; other seas don't move. */
+    @Test
+    void aTropicalSeasDrySeasonDriesItsAir() {
+        assertEquals(0.85, Moisture.targetHumidity(2, 0.5), 1e-9, "an ordinary sea");
+        assertEquals(0.85, Moisture.targetHumidity(2, 0.72), 1e-9, "a tropical sea in the wet season stays at 85%");
+        assertEquals(0.63, Moisture.targetHumidity(2, 0.28), 1e-9, "and in the dry season drops");
     }
 
     @Test
@@ -228,5 +268,62 @@ class AtmosphereFieldTest {
         double spreadCoarse = coarse.sample(AtmosphereField.Var.T, 1280, 256, w);
         assertEquals(a, b, 1.0, "the spike decays alike: " + a + " vs " + b);
         assertEquals(spreadFine, spreadCoarse, 0.6, "and spreads alike: " + spreadFine + " vs " + spreadCoarse);
+    }
+
+    /** 8b follow-up (2026-10-14): a peak meets the climb from its windward side; centred slopes cancelled there. */
+    @Test
+    void theColdBoostStopsShortOfSaturation() {
+        double land = Moisture.targetHumidity(0, 0.5, -5);
+        assertEquals(0.5 + 0.45 * 0.5, land, 1e-9, "dry land still gets its full winter boost");
+        assertEquals(Moisture.COLD_BOOST_CAP, Moisture.targetHumidity(1, 0.9, -5), 1e-9, "moist forest stops at the cap");
+        assertEquals(Moisture.COLD_BOOST_CAP, Moisture.targetHumidity(2, 0.5, 0), 1e-9, "so does the sea");
+        assertEquals(0.45 + 0.45, Moisture.targetHumidity(1, 1, -10), 1e-9, "ground already above it keeps its own");
+    }
+
+    /** 8b follow-up (2026-10-14): a peak meets the climb from its windward side; centred slopes cancelled there. */
+    @Test
+    void aPeakMeetsTheWindsClimb() {
+        AtmosphereField field = new AtmosphereField();
+        FieldTile tile = new FieldTile(0, 0);
+        java.util.Arrays.fill(tile.elevation, 0f);
+        // A one-cell peak 120 blocks high at cell (5, 5).
+        tile.elevation[5 * AtmosphereField.SIZE + 5] = 120f;
+        field.put(tile);
+        double x = tile.cellX(5);
+        double z = tile.cellZ(5);
+        double[] east = field.slopeFacing(x, z, 8, 0);
+        assertEquals(120.0 / AtmosphereField.CELL, east[0], 1e-9, "a westerly climbs the peak's west face");
+        assertEquals(0, east[1], 1e-9);
+        double[] lee = field.slopeFacing(tile.cellX(6), z, 8, 0);
+        assertTrue(8 * lee[0] < 0, "the cell downwind is on the descent");
+        double[] calm = field.slopeFacing(x, z, 0.1, 0);
+        assertEquals(0, calm[0], 1e-9, "in a calm, the centred slope (zero on a peak)");
+    }
+
+    /**
+     * 8b follow-up round 6: the climb is read from the fine terrain along the wind: a narrow 150-block ridge inside one
+     * cell (invisible to cell averages) still lifts the air its full height.
+     */
+    @Test
+    void theClimbComesFromTheRealTerrain() {
+        AtmosphereField field = new AtmosphereField();
+        FieldTile tile = new FieldTile(0, 0);
+        java.util.Arrays.fill(tile.elevation, 10f);
+        java.util.Arrays.fill(tile.fine, 10f);
+        int side = AtmosphereField.SIZE * AtmosphereField.FINE_PER_CELL;
+        // A ridge one fine sample wide along z at fine column 30, rising 150 blocks.
+        for (int k = 0; k < side; k++) {
+            tile.fine[k * side + 30] = 160f;
+        }
+        field.put(tile);
+        double x = tile.fineX(30);
+        double z = tile.fineZ(20);
+        assertEquals(150, field.climbFacing(x, z, 6, 0), 1e-9, "a westerly climbs the whole ridge");
+        assertEquals(0, field.climbFacing(tile.fineX(31), z, 6, 0), 1e-9, "and none on the lee side");
+        double[] slope = field.slopeFacing(x, z, 6, 0);
+        assertTrue(slope[0] > 0.5, "steep on the fine terrain: " + slope[0]);
+        assertTrue(Double.isNaN(field.climbFacing(x, z, 0.1, 0)), "no wind, no climb");
+        java.util.Arrays.fill(tile.fine, Float.NaN);
+        assertTrue(Double.isNaN(field.climbFacing(x, z, 6, 0)), "unknown until the fine terrain is worked out");
     }
 }

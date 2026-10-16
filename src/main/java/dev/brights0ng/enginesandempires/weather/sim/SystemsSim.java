@@ -22,6 +22,16 @@ import java.util.random.RandomGenerator;
  *       radius of a low or high already there. A new system in ground already supplied before starts as a young wave;
  *       in fresh ground (a player arriving somewhere new) it starts part way through its life, so weather is already
  *       there.</li>
+ *   <li><b>The bands between the tracks</b> (weather phase 8b, 2026-10-14). Storm tracks sit every track spacing;
+ *       halfway between lies a warm band (on track k's warm side when k is northern-style) or a cold one, which the
+ *       tracks' lows and highs never reach:
+ *       <ul>
+ *         <li><b>Dry-season highs</b> over the warm band: during Serene Seasons' tropical dry season, slow, broad
+ *             highs (one per system spacing along the band, 7,000-11,000 blocks across) whose sinking air shuts off
+ *             the tropics' daily storms. Without them sea air kept tropical coasts wet all year.</li>
+ *         <li><b>Polar disturbances</b> over the cold band: now and then (most often in winter) a small, short-lived
+ *             low, so polar winters get some snow and stagnant polar air gets stirred.</li>
+ *       </ul></li>
  * </ol>
  * Genesis is deterministic (hashed from the world seed, the track, the place and the in-game day), so a forecast run
  * agrees with the live one about where and when systems form. What differs (phase 7a, the sources of forecast error):
@@ -63,6 +73,8 @@ public final class SystemsSim {
     private long traitSalt;
     /** A forecast's start (newborn systems' make-up blends toward the forecast's roll from it), or MIN_VALUE: fully. */
     private long forecastStart = Long.MIN_VALUE;
+    /** Serene Seasons' tropical wet season factor now, -1 height of the dry season to +1 wet (weather phase 8b). */
+    private double tropicalWet;
 
     public SystemsSim(JetStream jet, long seed, List<WeatherSystem> systems, long nextId) {
         this.jet = jet;
@@ -92,6 +104,11 @@ public final class SystemsSim {
         return drift;
     }
 
+    /** Where the tropical wet and dry seasons stand (the server and forecasts set it before each step; 0 = neither). */
+    public void setTropicalWet(double tropicalWet) {
+        this.tropicalWet = Double.isFinite(tropicalWet) ? Math.max(-1, Math.min(1, tropicalWet)) : 0;
+    }
+
     /** A copy to run forward without touching this one. */
     public SystemsSim copy() {
         List<WeatherSystem> c = new ArrayList<>(systems.size());
@@ -102,6 +119,7 @@ public final class SystemsSim {
         copy.drift = drift;
         copy.traitSalt = traitSalt;
         copy.forecastStart = forecastStart;
+        copy.tropicalWet = tropicalWet;
         return copy;
     }
 
@@ -248,6 +266,87 @@ public final class SystemsSim {
                 maybeSpawnHigh(track, mid, time, seconds, season, seasonal, spacing, coverage);
             }
         }
+        bandSystems(a, time, season, spacing, coverage);
+    }
+
+    /** The dry season must be at least this far in before dry-season highs form (0-1). */
+    static final double DRY_HIGH_START = 0.25;
+
+    /** Extra daily chance of a polar disturbance per cell at midsummer (round 5 of the 8b follow-up). */
+    static final double POLAR_SUMMER = 0.08;
+
+    /** Dry-season highs over the warm bands and polar disturbances over the cold ones, around anchor {@code a}. */
+    private void bandSystems(Anchor a, long time, double season, double spacing, Coverage coverage) {
+        SimParams p = jet.params();
+        double ts = p.trackSpacing();
+        double zone = p.zoneRadius();
+        int kMin = (int) Math.floor((a.z() - zone) / ts - 0.5);
+        int kMax = (int) Math.ceil((a.z() + zone) / ts - 0.5);
+        long day = Math.floorDiv(time, 24000L);
+        for (int k = kMin; k <= kMax && systems.size() < MAX_SYSTEMS; k++) {
+            double zb = (k + 0.5) * ts;
+            if (Math.abs(zb - a.z()) > zone + 0.25 * ts) {
+                continue;
+            }
+            boolean warm = jet.hemisphere(k) > 0;
+            double cell = warm ? spacing : 2 * spacing;
+            int i0 = (int) Math.floor((a.x() - zone) / cell);
+            int i1 = (int) Math.floor((a.x() + zone) / cell);
+            for (int i = i0; i <= i1 && systems.size() < MAX_SYSTEMS; i++) {
+                double xc = (i + 0.5) * cell;
+                if (warm) {
+                    spawnDrySeasonHigh(k, i, xc, zb, cell, ts, day, time, coverage);
+                } else {
+                    spawnPolarDisturbance(k, i, xc, zb, cell, ts, day, time, season, coverage);
+                }
+            }
+        }
+    }
+
+    private void spawnDrySeasonHigh(int k, int i, double xc, double zb, double cell, double ts, long day, long time,
+                                    Coverage coverage) {
+        double dry = Math.max(0, -tropicalWet);
+        if (dry < DRY_HIGH_START) {
+            return;
+        }
+        long h = SimMath.hash(seed, 0x5DB1L, k, i, day);
+        double x = xc + (trait(h, 1, time) - 0.5) * 0.4 * cell;
+        double z = zb + (trait(h, 2, time) - 0.5) * 0.08 * ts;
+        double radius = 7000 + 4000 * trait(h, 3, time);
+        if (sameKindNear(WeatherSystem.Kind.HIGH, x, z, radius) || crowded(WeatherSystem.Kind.LOW, x, z, 0)) {
+            return;
+        }
+        long lifetime = (long) ((5 + 4 * trait(h, 4, time)) * 24000);
+        double peak = 8 + 8 * dry;
+        long age = coverage.covered(x, z) ? 0 : (long) ((0.2 + 0.4 * trait(h, 5, time)) * lifetime);
+        // Ordinary (not blocking): blocking highs bring heat waves or cold snaps by the season, which in the tropics
+        // would mean cold snaps late in the dry season; these drift slowly east and new ones keep forming behind.
+        systems.add(new WeatherSystem(nextId++, WeatherSystem.Kind.HIGH, x, z, k, jet.hemisphere(k), age, lifetime,
+                peak, radius, false));
+    }
+
+    private void spawnPolarDisturbance(int k, int i, double xc, double zb, double cell, double ts, long day, long time,
+                                       double season, Coverage coverage) {
+        // About one in eight cells a day at the equinoxes, three in ten in midwinter; round 5 of the 8b follow-up
+        // (2026-10-14, Bright: polar summers a bit wetter, toward 40 h): about one in five in midsummer, as the
+        // real Arctic's summer cyclones.
+        double chance = 0.12 + 0.18 * Math.max(0, -season)
+                + (dev.brights0ng.enginesandempires.weather.cloud.sim.CloudRain.LEGACY_8B ? 0 : POLAR_SUMMER * Math.max(0, season));
+        long h = SimMath.hash(seed, 0x9017L, k, i, day);
+        if (trait(h, 0, time) >= chance) {
+            return;
+        }
+        double x = xc + (trait(h, 1, time) - 0.5) * cell;
+        double z = zb + (trait(h, 2, time) - 0.5) * 0.15 * ts;
+        double radius = 2500 + 1500 * trait(h, 3, time);
+        if (sameKindNear(WeatherSystem.Kind.LOW, x, z, radius) || crowded(WeatherSystem.Kind.HIGH, x, z, radius)) {
+            return;
+        }
+        long lifetime = (long) ((2 + 1.5 * trait(h, 4, time)) * 24000);
+        double peak = 10 + 8 * trait(h, 5, time);
+        long age = coverage.covered(x, z) ? 0 : (long) ((0.1 + 0.4 * trait(h, 6, time)) * lifetime);
+        systems.add(new WeatherSystem(nextId++, WeatherSystem.Kind.LOW, x, z, k, jet.hemisphere(k), age, lifetime, peak,
+                radius, false));
     }
 
     private long dayHash(int track, double x, long time, long salt) {

@@ -201,9 +201,18 @@ public final class ForecastService {
      * ground temperature (its 512-block field cell, at the cell's height). 0 if it can't be worked out.
      */
     static double offset(ServerLevel level, WeatherSim sim, double x, double z, ForecastSettings st) {
+        int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                (int) Math.floor(x), (int) Math.floor(z));
+        return offset(level, sim, x, y, z, st);
+    }
+
+    /**
+     * As {@link #offset(ServerLevel, WeatherSim, double, double, ForecastSettings)} with the ground's height {@code y}
+     * given (phase 8a: the climatology run reads spots whose chunks may not be loaded, where the heightmap answers with
+     * the bottom of the world).
+     */
+    static double offset(ServerLevel level, WeatherSim sim, double x, int y, double z, ForecastSettings st) {
         try {
-            int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    (int) Math.floor(x), (int) Math.floor(z));
             double felt = dev.brights0ng.enginesandempires.weather.climate.Climate.sample(level, x, y + 1, z)
                     .temperature();
             Key key = Key.of(Forecast.Product.TODAY, x, z);

@@ -66,6 +66,11 @@ public final class CloudSim {
         /** -1 midwinter to +1 midsummer. */
         double season();
 
+        /** The sun's strength through the year, -1 to +1 (weather phase 8b; defaults to the season). */
+        default double sun() {
+            return season();
+        }
+
         /**
          * Rain takes {@code mm} of water out of the air over (x, z) (phase 4b); returns how much it actually took.
          * Default: nothing.
@@ -183,7 +188,8 @@ public final class CloudSim {
         if (n == null) {
             double cx = (ci + 0.5) * CELL;
             double cz = (ck + 0.5) * CELL;
-            n = CloudDiagnostics.diagnose(cx, cz, env.air(cx, cz), env.systems(), env.dayTime(), env.season());
+            n = CloudDiagnostics.diagnose(cx, cz, env.air(cx, cz), env.systems(), env.dayTime(), env.season(),
+                    env.sun());
             needs.put(key, n);
             diagnoses++;
         }

@@ -51,6 +51,81 @@ class WeatherSystemsTest {
     }
 
     @Test
+    void theSeasonalShiftIsEarthLike() {
+        // Weather phase 8a (2026-10-14): ±1,600 blocks at the default band period, so spawn stays in the storm belt.
+        // Equinox to midsummer (the meanders are the same at both; winter also calms them, phase 8b).
+        double shift = JET.trackZ(0, 0, 0, 0) - JET.trackZ(0, 0, 0, 1);
+        assertEquals(0.025 * P.bandPeriod(), shift, 1e-6);
+    }
+
+    /** Bright, 2026-10-14: a steadier winter storm belt. */
+    @Test
+    void tracksWanderLessInWinter() {
+        double summer = 0;
+        double winter = 0;
+        for (int x = -200_000; x <= 200_000; x += 1000) {
+            summer = Math.max(summer, Math.abs(JET.trackZ(0, x, 0, 0)));
+            // In midwinter spawn's track is centred 0.025 of a band period south (+Z); measure its wander from there.
+            winter = Math.max(winter, Math.abs(JET.trackZ(0, x, 0, -1) - 0.025 * P.bandPeriod()));
+        }
+        assertEquals(1, JetStream.meanderScale(0.5), 1e-9, "summer: full wandering");
+        assertEquals(1, JetStream.meanderScale(0), 1e-9, "equinoxes: full");
+        assertEquals(0.5, JetStream.meanderScale(-1), 1e-9, "midwinter: half");
+        assertTrue(winter < 0.6 * summer, "midwinter wanders about half as far: " + winter + " vs " + summer);
+    }
+
+    /** The band halfway between tracks on track k's side: warm when k is northern-style. */
+    private static double band(boolean warm) {
+        int k = (JET.hemisphere(0) > 0) == warm ? 0 : 1;
+        return (k + 0.5) * P.trackSpacing();
+    }
+
+    private static long near(SystemsSim sim, WeatherSystem.Kind kind, double zb) {
+        return sim.systems().stream().filter(s -> s.kind == kind && Math.abs(s.z - zb) < 0.1 * P.trackSpacing())
+                .count();
+    }
+
+    /** Weather phase 8b (2026-10-14): the tropical dry season brings broad highs over the warm band; the wet doesn't. */
+    @Test
+    void theDrySeasonBringsHighsToTheWarmBand() {
+        double zb = band(true);
+        List<SystemsSim.Anchor> here = List.of(new SystemsSim.Anchor(0, zb));
+        SystemsSim dry = new SystemsSim(JET, 5, new ArrayList<>(), 0);
+        dry.setTropicalWet(-1);
+        dry.step(0, 1000, 0.5, here, (x, z) -> false, null);
+        SystemsSim wet = new SystemsSim(JET, 5, new ArrayList<>(), 0);
+        wet.setTropicalWet(1);
+        wet.step(0, 1000, 0.5, here, (x, z) -> false, null);
+        System.out.println("warm band highs: dry season " + near(dry, WeatherSystem.Kind.HIGH, zb) + ", wet "
+                + near(wet, WeatherSystem.Kind.HIGH, zb));
+        assertTrue(near(dry, WeatherSystem.Kind.HIGH, zb) >= 2, "highs cover the band in the dry season");
+        assertEquals(0, near(wet, WeatherSystem.Kind.HIGH, zb), "none in the wet season");
+    }
+
+    /** Weather phase 8b: small lows now and then over the cold band, more often in winter. */
+    @Test
+    void theColdBandGetsPolarDisturbancesMostlyInWinter() {
+        double zb = band(false);
+        List<SystemsSim.Anchor> here = List.of(new SystemsSim.Anchor(0, zb));
+        long winter = 0;
+        long summer = 0;
+        for (long seed = 1; seed <= 4; seed++) {
+            SystemsSim w = new SystemsSim(JET, seed, new ArrayList<>(), 0);
+            SystemsSim s = new SystemsSim(JET, seed, new ArrayList<>(), 0);
+            for (int day = 0; day < 20; day++) {
+                long t = day * 24000L;
+                w.step(t, 24000, -1, here, (x, z) -> true, null);
+                s.step(t, 24000, 1, here, (x, z) -> true, null);
+                winter += near(w, WeatherSystem.Kind.LOW, zb);
+                summer += near(s, WeatherSystem.Kind.LOW, zb);
+            }
+        }
+        System.out.println("cold band low-days: winter " + winter + ", summer " + summer);
+        assertTrue(winter > 0 && summer > 0, "some in both");
+        assertTrue(winter > summer, "more in winter");
+    }
+
+    @Test
     void theJetBlowsEastAndStrongerInWinter() {
         double[] winter = JET.aloftWind(0, JET.trackZ(0, 0, 0, -1), 0, -1);
         double[] summer = JET.aloftWind(0, JET.trackZ(0, 0, 0, 1), 0, 1);

@@ -136,6 +136,28 @@ public final class WeatherCommand {
         line(source, String.format(Locale.ROOT, "Season %+.1f C, band %+.1f C, time of day %+.1f C, height %+.1f C%s.",
                 s.seasonal(), s.band(), s.diurnal(), s.height(),
                 s.clamped() ? "; held at " + BiomeClimate.FROZEN_MAX + " C (always frozen)" : ""));
+        var u = dev.brights0ng.enginesandempires.weather.climate.Temperature.reading(level,
+                net.minecraft.core.BlockPos.containing(at));
+        if (u.insulation() > 0) {
+            line(source, String.format(Locale.ROOT,
+                    "Underground: %.0f blocks of cover, sky light %d, insulation %.0f%%. Surface's year %.1f C, rock "
+                            + "%.1f C, pull %.0f%%, texture %+.1f C%s: underground %.1f C. Here %.1f C (outside "
+                            + "air %.1f C). Humidity %.0f%% (outside %.0f%%).",
+                    u.depth(), u.skylight(), 100 * u.insulation(), u.pull() >= 1 ? Double.NaN : u.annualMean(),
+                    u.rock(), 100 * u.pull(), u.noise(),
+                    u.cave() == null ? "" : String.format(Locale.ROOT, ", %s %+.1f C%s%s", u.cave().biome(),
+                            u.cave().offset(), u.cave().useMin() ? ", min " + u.cave().min() : "",
+                            u.cave().useMax() ? ", max " + u.cave().max() : ""),
+                    u.underground(), u.temperature(), u.outside(),
+                    100 * dev.brights0ng.enginesandempires.weather.climate.Underground.humidity(
+                            dev.brights0ng.enginesandempires.weather.climate.PersonClimate.humidity(level, at.x, at.z),
+                            u.insulation(), u.cave(),
+                            dev.brights0ng.enginesandempires.weather.rain.WeatherConfig.underground()),
+                    100 * dev.brights0ng.enginesandempires.weather.climate.PersonClimate.humidity(level, at.x, at.z)));
+        } else {
+            line(source, String.format(Locale.ROOT, "Underground: open air (cover %.0f, sky light %d).", u.depth(),
+                    u.skylight()));
+        }
         WindColumn w = Atmosphere.wind(level, at.x, at.z);
         if (w != null) {
             line(source, String.format(Locale.ROOT,

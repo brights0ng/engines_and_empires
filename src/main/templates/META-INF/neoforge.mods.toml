@@ -142,6 +142,15 @@ Core mod for the Engines and Empires modpack.
     ordering="NONE"
     side="BOTH"
 
+# Cold Sweat (optional). The core mod's air temperature replaces its biome, elevation, cave and season temperatures in
+# the Overworld (weather/climate/compat/ColdSweatCompat, hooked up only when it is installed). Built against 2.4.3.
+[[dependencies.${mod_id}]]
+    modId="cold_sweat"
+    type="optional"
+    versionRange="[2.4.3,)"
+    ordering="NONE"
+    side="BOTH"
+
 # Mixins. Currently one: it switches off vanilla's large terrain-noise ore veins (see NoiseGeneratorSettingsMixin).
 [[mixins]]
     config="${mod_id}.mixins.json"

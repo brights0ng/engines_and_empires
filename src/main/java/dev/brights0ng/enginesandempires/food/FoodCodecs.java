@@ -12,7 +12,8 @@ public final class FoodCodecs {
 
     public static final Codec<Cohort> COHORT = RecordCodecBuilder.create(instance -> instance.group(
             Codec.LONG.fieldOf("born").forGetter(Cohort::born),
-            Codec.INT.fieldOf("count").forGetter(Cohort::count)
+            Codec.INT.fieldOf("count").forGetter(Cohort::count),
+            Codec.BOOL.optionalFieldOf("frozen", false).forGetter(Cohort::frozen)
     ).apply(instance, Cohort::new));
 
     public static final Codec<FoodFreshness> FRESHNESS = RecordCodecBuilder.create(instance -> instance.group(
@@ -23,6 +24,7 @@ public final class FoodCodecs {
     public static final StreamCodec<ByteBuf, Cohort> COHORT_STREAM = StreamCodec.composite(
             ByteBufCodecs.VAR_LONG, Cohort::born,
             ByteBufCodecs.VAR_INT, Cohort::count,
+            ByteBufCodecs.BOOL, Cohort::frozen,
             Cohort::new);
 
     public static final StreamCodec<ByteBuf, FoodFreshness> FRESHNESS_STREAM = StreamCodec.composite(

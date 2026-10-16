@@ -12,6 +12,7 @@ import dev.brights0ng.enginesandempires.weather.climate.BiomeAdjust;
 import dev.brights0ng.enginesandempires.weather.climate.BiomeClimate;
 import dev.brights0ng.enginesandempires.weather.climate.Climate;
 import dev.brights0ng.enginesandempires.weather.climate.Temperature;
+import dev.brights0ng.enginesandempires.weather.heat.HeatField;
 import dev.brights0ng.enginesandempires.weather.rain.LocalWeather;
 import dev.brights0ng.enginesandempires.weather.rain.Precip;
 import dev.brights0ng.enginesandempires.weather.ships.ShipCover;
@@ -176,9 +177,80 @@ public final class SurfaceWeather {
                     falling = Precip.decide(t, 0, 0);
                 }
             }
-            visit(level, top, underCanopy, new Column(t, falling, here.strength(), sunny && !underShip, windX, windZ),
-                    random, true);
+            // Nearby fires, lava and ice change what the ground does, not what falls (8e-3)
+            visit(level, top, underCanopy, new Column(HeatField.apply(level, top, t), falling, here.strength(),
+                    sunny && !underShip, windX, windZ), random, true);
         }
+        sourceVisits(level, cp, random);
+    }
+
+    /** Sources a chunk's visit looks at, at most. */
+    private static final int SOURCES_PER_VISIT = 8;
+    /** Random places within reach of a source looked at per visit. */
+    private static final int SAMPLES_PER_SOURCE = 24;
+
+    /**
+     * Heat and cold sources at work (8e-4): around some of the chunk's sources, a few random places in reach are looked
+     * at, wherever they are (under a roof, in a room; the natural visits only reach what the sky sees). Where the source
+     * warms the air above freezing, snow, ice and glaze there melt; where it cools the air below freezing, still fresh
+     * water with air over it freezes by the shore-in rule (never the sea; flowing water is not a source block).
+     */
+    public static void sourceVisits(ServerLevel level, ChunkPos cp, RandomSource random) {
+        java.util.List<HeatField.Source> sources = HeatField.sources(level, cp.x, cp.z);
+        if (sources.isEmpty()) {
+            return;
+        }
+        int n = Math.min(sources.size(), SOURCES_PER_VISIT);
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        for (int i = 0; i < n; i++) {
+            HeatField.Source s = sources.size() <= SOURCES_PER_VISIT ? sources.get(i)
+                    : sources.get(random.nextInt(sources.size()));
+            int reach = (int) Math.ceil(s.variant().range());
+            for (int k = 0; k < SAMPLES_PER_SOURCE; k++) {
+                p.set(s.x() + random.nextInt(2 * reach + 1) - reach, s.y() + random.nextInt(2 * reach + 1) - reach,
+                        s.z() + random.nextInt(2 * reach + 1) - reach);
+                if (level.hasChunkAt(p) && p.getY() >= level.getMinBuildHeight() && p.getY() < level.getMaxBuildHeight()
+                        && !ShipCover.inPlot(level, new ChunkPos(p))) {
+                    sourceSample(level, p.immutable(), random);
+                }
+            }
+        }
+    }
+
+    /** One place near a source (see {@link #sourceVisits}). Public for the game tests. */
+    public static void sourceSample(ServerLevel level, BlockPos p, RandomSource random) {
+        BlockState s = level.getBlockState(p);
+        boolean snow = s.is(Blocks.SNOW);
+        boolean ice = s.is(Blocks.ICE);
+        boolean glaze = s.getBlock() instanceof GlazeBlock;
+        boolean water = s.is(Blocks.WATER) && s.getFluidState().isSource();
+        if (!(snow || ice || glaze || water)) {
+            return;
+        }
+        double tSea = seaLevelTemperature(level, p.getX() >> 4, p.getZ() >> 4);
+        if (!Double.isFinite(tSea)) {
+            return;
+        }
+        double outside = columnTemperature(tSea, level.getSeaLevel(), p.getY(), Climate.climateOf(level.getBiome(p)));
+        double local = HeatField.apply(level, p, outside);
+        if (local > outside && local > 0) {
+            // Warmed by a source. (Air that is warm on its own does not melt what is sheltered from the sky.)
+            Column c = new Column(local, null, 0, false, 0, 0);
+            if (snow) {
+                meltSnow(level, p, s, c, random);
+            } else if (ice && random.nextDouble() < SurfaceRules.thawChance(local, false)) {
+                thawIce(level, p);
+            } else if (glaze && random.nextDouble() < SurfaceRules.thawChance(local, false)) {
+                GlazeBlock.melt(level, p, s);
+            }
+        } else if (water && local < outside && local < 0 && level.getBlockState(p.above()).isAir()) {
+            freeze(level, p, s, new Column(local, null, 0, false, 0, 0), random, false);
+        }
+    }
+
+    private static void thawIce(ServerLevel level, BlockPos ice) {
+        level.setBlockAndUpdate(ice, IceBlock.meltsInto());
+        level.neighborChanged(ice, IceBlock.meltsInto().getBlock(), ice);
     }
 
     /** The air temperature at height {@code y} over a column whose chunk is {@code tSea} at sea level, C. */
@@ -235,12 +307,11 @@ public final class SurfaceWeather {
         } else if (c.t() > 0) {
             BlockPos ice = exposedIce(level, ground);
             if (ice != null && random.nextDouble() < SurfaceRules.thawChance(c.t(), c.wet())) {
-                level.setBlockAndUpdate(ice, IceBlock.meltsInto());
-                level.neighborChanged(ice, IceBlock.meltsInto().getBlock(), ice);
+                thawIce(level, ice);
             }
         } else if (atTop.isAir()) {
             // Water: freeze.
-            freeze(level, ground, below, c, random);
+            freeze(level, ground, below, c, random, true);
         }
 
         // Cauldrons and the like.
@@ -437,7 +508,8 @@ public final class SurfaceWeather {
         return null;
     }
 
-    private static void freeze(ServerLevel level, BlockPos water, BlockState state, Column c, RandomSource random) {
+    private static void freeze(ServerLevel level, BlockPos water, BlockState state, Column c, RandomSource random,
+                               boolean sea) {
         FluidState f = state.getFluidState();
         if (!state.is(Blocks.WATER) || f.getType() != Fluids.WATER || !f.isSource()
                 || level.getBrightness(LightLayer.BLOCK, water) >= 10) {
@@ -453,7 +525,7 @@ public final class SurfaceWeather {
         }
         double chance;
         if (level.getBiome(water).is(BiomeTags.IS_OCEAN)) {
-            chance = c.t() < SurfaceRules.SEA_FREEZE && edge ? SurfaceRules.seaFreezeChance(c.t(), true,
+            chance = sea && c.t() < SurfaceRules.SEA_FREEZE && edge ? SurfaceRules.seaFreezeChance(c.t(), true,
                     nearLand(level, water)) : 0;
         } else {
             chance = SurfaceRules.freshFreezeChance(c.t(), edge);

@@ -88,6 +88,16 @@ neoForge {
             server()
             programArgument '--nogui'
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            // Weather phase 8a: a headless climatology run on a world copy (-Peae.world=<folder under run/>
+            // -Peae.climatologyAuto="x,z;x,z" [-Peae.climatologyDays=72]); the server stops when it is done.
+            if (project.hasProperty('eae.world')) {
+                programArguments.addAll '--world', project.property('eae.world').toString()
+            }
+            ['eae.climatologyAuto', 'eae.climatologyDays', 'eae.legacy8b'].each { key ->
+                if (project.hasProperty(key)) {
+                    systemProperty key, project.property(key).toString()
+                }
+            }
         }
 
         // This run config launches GameTestServer and runs all registered gametests, then exits.
@@ -96,6 +106,12 @@ neoForge {
         gameTestServer {
             type = "gameTestServer"
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            // Weather phase 8a: the headless climatology year (gametest/ClimatologyDiagnosticRun), off unless asked for.
+            ['eae.climatologyDays', 'eae.climatologyX', 'eae.climatologyZ'].each { key ->
+                if (project.hasProperty(key)) {
+                    systemProperty key, project.property(key).toString()
+                }
+            }
         }
 
         data {
@@ -141,11 +157,19 @@ neoForge {
 // removed on the next launch.
 configurations {
     colonyRuntime
+    // Mods that must load from run/mods, like a real install, for the client run only: Sodium 0.8's Modrinth jar is a
+    // wrapper with the real mod nested inside, and on the dev classpath FML picks the empty wrapper (2026-10-12: Iris's
+    // Sodium mixins found no Sodium classes and the client died on launch).
+    shaderRuntime
 }
 def prepareColonyMods = tasks.register("prepareColonyMods", Sync) {
     from(configurations.colonyRuntime)
     from(fileTree("libs") { include "*.jar" })
     into("run/mods")
+    // run/mods is shared with prepareClientMods, which adds Iris and Sodium; Gradle doesn't notice the other task
+    // rewrote it and calls this one up to date, so the server and game test runs launched with Sodium and died on a
+    // missing LWJGL (2026-10-12). Always sync.
+    outputs.upToDateWhen { false }
 }
 
 // Standard client run: the MineColonies jars plus the jars at the top of libs/ (Serene Seasons and GlitchCore, which
@@ -153,8 +177,10 @@ def prepareColonyMods = tasks.register("prepareColonyMods", Sync) {
 // for them takes the libs/ jars back out. Only top-level jars are copied; subfolders of libs/ are ignored.
 def prepareClientMods = tasks.register("prepareClientMods", Sync) {
     from(configurations.colonyRuntime)
+    from(configurations.shaderRuntime)
     from(fileTree("libs") { include "*.jar" })
     into("run/mods")
+    outputs.upToDateWhen { false }
 }
 
 // Sets up a dependency configuration called 'localRuntime'.
@@ -222,6 +248,17 @@ dependencies {
 
     // Deeper and Darker: its mobs are in the deep rosters and the provoked_from_below tag. Runtime only, by id only.
     localRuntime("maven.modrinth:deeperdarker:${deeper_darker_version}")
+
+    // Cold Sweat (player temperature). Optional: the core mod's air temperature becomes its world temperature
+    // (weather phase 8d, weather/climate/compat/ColdSweatCompat, only hooked up when it is installed).
+    compileOnly("maven.modrinth:cold-sweat:${cold_sweat_version}")
+    localRuntime("maven.modrinth:cold-sweat:${cold_sweat_version}")
+
+    // Iris and Sodium: shader packs in the dev client (the pack ships them from Modrinth), loaded from run/mods (see
+    // shaderRuntime). The clouds compile against Iris (weather/cloud/client/IrisCompat), only touched when it's installed.
+    compileOnly("maven.modrinth:iris:${iris_version}") { transitive = false }
+    shaderRuntime("maven.modrinth:iris:${iris_version}") { transitive = false }
+    shaderRuntime("maven.modrinth:sodium:${sodium_version}") { transitive = false }
 
     // libs/ (git-ignored) holds Serene Seasons 10.1.0.9 and GlitchCore 2.1.0.2 (its library) for the client run.
     // The core mod compiles against Serene Seasons' API (weather/climate/compat) but only touches it when it is

@@ -57,9 +57,25 @@ class IceChestCoolingTest {
     }
 
     @Test
-    void ninetyPercentSlower() {
-        assertEquals(2700, IceChestCooling.youngerBy(3000, 0.9));
-        assertEquals(0, IceChestCooling.youngerBy(3000, 0));
+    void warmerAirMeltsTheIceFaster() {
+        // At 30 C (twice as fast) one ice lasts 1500 ticks
+        IceChestCooling.Result hot = IceChestCooling.runScaled(6000, 2, 0, 0, 1, ICE, true);
+        assertEquals(1500, hot.coldTicks());
+        assertEquals(1, hot.itemsUsed());
+        // At 10 C (half as fast) it lasts the whole 6000
+        IceChestCooling.Result cool = IceChestCooling.runScaled(6000, 0.5, 0, 0, 1, ICE, true);
+        assertEquals(6000, cool.coldTicks());
+        assertEquals(0, cool.coolingLeft());
+    }
+
+    @Test
+    void atFreezingNothingMeltsButItStaysCold() {
+        IceChestCooling.Result r = IceChestCooling.runScaled(100_000, 0, 0, 0, 2, ICE, true);
+        assertEquals(100_000, r.coldTicks());
+        assertEquals(0, r.itemsUsed());
+        assertEquals(0, IceChestCooling.meltFactor(-5, 0.3));
+        assertEquals(0, IceChestCooling.meltFactor(0, 0.25));
+        assertEquals(2, IceChestCooling.meltFactor(30, 2));
     }
 
     /** Bright's numbers: a block of ice 2.5 minutes, a stack just under 3 hours, a stack of blue ice just under 43 hours. */

@@ -31,6 +31,9 @@ public class EnginesAndEmpiresModClient {
         dev.brights0ng.enginesandempires.food.client.FoodClient.init();
         // The voxel cloud renderer: draws Project Atmosphere's clouds (a CLIENT config of its own)
         dev.brights0ng.enginesandempires.weather.cloud.client.CloudClient.init(modEventBus, container);
+        // The heat simulation's debug view (/eae heat show)
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
+                dev.brights0ng.enginesandempires.weather.heat.world.client.HeatViewClient::onRenderStage);
     }
 
     @SubscribeEvent

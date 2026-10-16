@@ -163,6 +163,18 @@ class RainModelTest {
     }
 
     @Test
+    void heightCoolingIsFiveDegreesPer100Blocks() {
+        // 5 C per 100 blocks is the config's default (WeatherConfig can't load in a plain unit test)
+        double scale = Temperature.scaleFor(5.0);
+        assertEquals(-5.0, Temperature.heightCorrection(63, 163, scale, 30), 1e-9, "100 blocks up");
+        assertEquals(-0.05 * (300 - 63), Temperature.heightCorrection(63, 300, scale, 30), 1e-9, "y=300: about 12 C colder");
+        assertEquals(-0.05 * (500 - 63), Temperature.heightCorrection(63, 500, scale, 30), 1e-9, "y=500: about 22 C colder");
+        assertEquals(0.0, Temperature.heightCorrection(63, 500, Temperature.scaleFor(0), 30), 1e-9, "0 turns it off");
+        assertEquals(1.0, Temperature.scaleFor(0.65), 1e-9, "a block as a metre");
+        assertEquals(5.0, Temperature.heightCorrection(63, -37, scale, 30), 1e-9, "warms at the same rate below sea level");
+    }
+
+    @Test
     void heightCoolingIsAtTheX02Scale() {
         assertEquals(-0.65 * 5, Temperature.heightCorrection(63, 163, 5, 30), 1e-9, "100 blocks up");
         assertEquals(-0.65, Temperature.heightCorrection(63, 163, 1, 30), 1e-9, "a block as a metre");

@@ -16,7 +16,9 @@ import dev.brights0ng.enginesandempires.weather.sim.SimMath;
  *   <li><b>Nimbostratus</b> rains steadily in moist air, harder where the deck is thick (a front's core).</li>
  *   <li><b>Altostratus</b>: light rain only from a thick deck in moist air (the last stretch before a warm front).</li>
  *   <li><b>Stratus and stratocumulus</b> drizzle only in nearly saturated air (Bright, 2026-10-06: drizzle counts as rain
- *       for gameplay).</li>
+ *       for gameplay), and only from a solid deck (cover over about half) holding enough water: bitterly cold air
+ *       (under ~5 mm of precipitable water) gives at most the odd flurry (weather phase 8b, 2026-10-14: a polar cold pool
+ *       under its inversion "snowed" in 60-70% of all hours).</li>
  * </ul>
  * The cloud's life still shapes it on every side ({@code CloudLife.Phase#precipitation}): nothing until it is well
  * formed, tapering as it dies.
@@ -59,11 +61,57 @@ public final class CloudRain {
             case NIMBOSTRATUS -> SimMath.smooth((rh - 0.55) / 0.2) * (0.6 + 0.4 * SimMath.clamp01(need.cover(t)));
             case ALTOSTRATUS -> SimMath.smooth((need.cover(t) - 0.5) / 0.3) * SimMath.smooth((rh - 0.65) / 0.15);
             // Drizzle; under a high's sinking air only a light one ("anticyclonic gloom").
-            case STRATUS -> SimMath.smooth((rhNow - 0.9) / 0.08) * (1 - 0.6 * need.subsidence());
-            case STRATOCUMULUS -> 0.8 * SimMath.smooth((rhNow - 0.85) / 0.1) * (1 - 0.6 * need.subsidence());
+            case STRATUS -> SimMath.smooth((rhNow - 0.9) / 0.08) * (1 - 0.6 * need.subsidence()) * drizzleDeck(t, need);
+            case STRATOCUMULUS -> 0.8 * SimMath.smooth((rhNow - 0.85) / 0.1) * (1 - 0.6 * need.subsidence())
+                    * drizzleDeck(t, need);
             default -> 0;
         };
     }
+
+    /**
+     * How much a stratus or stratocumulus deck can drizzle: a solid deck, with water in the air, that is thick enough
+     * (0-1).
+     */
+    static double drizzleDeck(CloudType t, CloudDiagnostics.Need need) {
+        return SimMath.smooth((need.cover(t) - 0.45) / 0.3) * SimMath.smooth((need.water() - 4) / 8)
+                * deckDepth(t, need);
+    }
+
+    /**
+     * How deep a low deck is, 0-1 (weather phase 8b follow-up, 2026-10-14; Bright chose a thickness proxy): drizzle
+     * needs a deck a few hundred metres thick, which takes either lift or a whole layer of near-saturated air. A deck
+     * that only forms because the night cools the ground (fog and thin night stratus under air whose day-mean humidity
+     * is well short of saturation) is a few tens of metres thick and doesn't drizzle (before: polar summer nights
+     * drizzled for ~8 hours each). Depth comes from:
+     * <ul>
+     *   <li>the day-mean humidity of the air mass ({@code need.rh()}, not the night's {@code rhNow}): from 90%,
+     *       full at 100% (just above the ground's boosted equilibrium, {@code Moisture.COLD_BOOST_CAP});</li>
+     *   <li>lift: fronts and comma heads, a low's convergence, upslope wind, air the field is wringing out: full from
+     *       0.3.</li>
+     * </ul>
+     */
+    static double deckDepth(CloudType t, CloudDiagnostics.Need need) {
+        if (LEGACY_8B) {
+            return 1;
+        }
+        // Fog decks (night cooling, warm air over cold sea) are thin whatever the air mass: they need lift to drizzle
+        // (round 3, 2026-10-14: summer sea fog over a cold coast's water cell drizzled ~100 h a summer).
+        double saturated = isFog(need.sourceOf(t)) ? 0 : SimMath.smooth((need.rh() - 0.90) / 0.1);
+        double lift = Math.max(Math.max(need.frontal(), need.convergence()),
+                Math.max(need.orographic(), need.wrung()));
+        return Math.max(saturated, SimMath.smooth(lift / 0.3));
+    }
+
+    /** Whether a low deck's cause makes it fog: radiation fog / night stratus, or advection (sea) fog. */
+    static boolean isFog(String source) {
+        return "stable humid air".equals(source) || "warm air over cool water".equals(source);
+    }
+
+    /**
+     * Debug only: {@code -Deae.legacy8b=true} restores the behaviour before the 8b follow-up (drizzle from any solid
+     * deck; centred terrain slopes), for before/after climatology runs from the same world copy.
+     */
+    public static final boolean LEGACY_8B = Boolean.getBoolean("eae.legacy8b");
 
     /** Whether this cumulus congestus is one of the ones that shower (about 60%, fixed by its id). */
     static boolean showers(SimCloud c) {

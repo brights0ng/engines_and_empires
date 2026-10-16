@@ -16,10 +16,21 @@ package dev.brights0ng.enginesandempires.weather.cloud.client;
  *   <li><b>Night:</b> a dim blue sky light and pale blue moonlight.</li>
  * </ul>
  * All by the sun's height {@code h}: the sine of its elevation (1 overhead, 0 on the horizon).
+ *
+ * <p>Stretched (2026-10-12, Bright: the clouds' sunset colours ended far sooner than the sky's; three times as long,
+ * and coming on sooner): the direct light's tables below are read at {@link #stretched} heights, the sun's elevation
+ * divided by {@link #STRETCH}, so every phase of it (gold, orange, red, the afterglow) lasts three times as long and
+ * starts three times as far from the horizon. The sky's light is not stretched: it follows vanilla's sky brightness.
  */
 public final class CloudColours {
 
-    /** The sun's height at which the afterglow is over (about 6 degrees below the horizon). */
+    /** How many times longer the direct light's low-sun colours last than in the tables. */
+    public static final double STRETCH = 3;
+
+    /**
+     * The stretched sun height at which the afterglow is over (about 6 degrees below the horizon in the tables, so
+     * about 17 degrees once stretched).
+     */
     public static final double AFTERGLOW_END = -0.1;
 
     /** Sun heights and the direct light's colour at each (times its strength against the sky's light). */
@@ -46,10 +57,11 @@ public final class CloudColours {
 
     /** The direct light's colour with the sun at height {@code h} (the moon's once the sun is well down). */
     public static double[] sun(double h) {
-        if (h <= AFTERGLOW_END) {
+        double s = stretched(h);
+        if (s <= AFTERGLOW_END) {
             return MOON.clone();
         }
-        return lerp(SUN_H, SUN_C, h);
+        return lerp(SUN_H, SUN_C, s);
     }
 
     /** The sky light's colour with the sun at height {@code h}. */
@@ -60,6 +72,11 @@ public final class CloudColours {
     /** The sun's height at vanilla's time of day {@code timeOfDay} (0 = noon). */
     public static double sunHeight(double timeOfDay) {
         return Math.cos(timeOfDay * Math.PI * 2);
+    }
+
+    /** The sun height {@code h} as the direct light's tables read it: the elevation divided by {@link #STRETCH}. */
+    public static double stretched(double h) {
+        return Math.sin(Math.asin(Math.max(-1, Math.min(1, h))) / STRETCH);
     }
 
     private static double[] lerp(double[] xs, double[][] cs, double x) {

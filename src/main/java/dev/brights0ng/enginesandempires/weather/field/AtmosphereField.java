@@ -40,6 +40,9 @@ public final class AtmosphereField {
     public static final int CELL = 512;
     public static final int SIZE = 16;
     public static final int TILE = CELL * SIZE;
+    /** Fine terrain samples per cell side (8b follow-up round 6): 128 blocks apart. */
+    public static final int FINE_PER_CELL = 4;
+    public static final int FINE_STEP = CELL / FINE_PER_CELL;
     /** Blocks per second of carry per m/s of wind. */
     public static final double ADVECTION = 0.4;
     /** The aloft level's normal offset from the surface: 1.5 km of standard cooling. */
@@ -116,7 +119,7 @@ public final class AtmosphereField {
         double[] c = refreshCell(tile, idx, env);
         tile.t[idx] = (float) c[0];
         tile.a[idx] = (float) (c[0] + ALOFT_OFFSET);
-        tile.q[idx] = (float) (Moisture.capacity(c[0]) * Moisture.targetHumidity((int) c[2], c[1]));
+        tile.q[idx] = (float) (Moisture.capacity(c[0]) * Moisture.targetHumidity((int) c[2], c[1], c[0]));
     }
 
     /** Updates cell {@code idx}'s stored normal (temperature, humidity, surface) from the climate; returns it. */
@@ -186,7 +189,7 @@ public final class AtmosphereField {
             double keep = Math.exp(-gap / (surface == 2 ? TAU_WATER : TAU_LAND));
             tile.t[idx] = (float) (base + (tile.t[idx] - base) * keep);
             tile.a[idx] = (float) (base + ALOFT_OFFSET + (tile.a[idx] - base - ALOFT_OFFSET) * aloftKeep);
-            double eq = Moisture.capacity(base) * Moisture.targetHumidity(surface, tile.humidity[idx]);
+            double eq = Moisture.capacity(base) * Moisture.targetHumidity(surface, tile.humidity[idx], base);
             double qKeep = Math.exp(-gap / Moisture.evaporationTicks(surface));
             tile.q[idx] = (float) (eq + (tile.q[idx] - eq) * qKeep);
             tile.p[idx] = (float) (tile.p[idx] * rainKeep);
@@ -367,11 +370,18 @@ public final class AtmosphereField {
                 double aNew = aDep + (aNormal + 0.6 * contact[0] - aDep) * push;
                 aNew += (aNormal - aNew) * Math.min(1, dt / TAU_ALOFT);
 
-                double cap = Moisture.capacity(tNew + env.heightCorrection(tile.elevationOr0(idx)));
-                double eq = cap * Moisture.targetHumidity(surface, biomeHumidity);
+                double airT = tNew + env.heightCorrection(tile.elevationOr0(idx));
+                double cap = Moisture.capacity(airT);
+                double eq = cap * Moisture.targetHumidity(surface, biomeHumidity, airT);
                 double qNew = qDep;
                 if (qNew < eq) {
-                    qNew += (eq - qNew) * Math.min(1, dt / Moisture.evaporationTicks(surface));
+                    // Over water the cell's normal stands in for the water's own temperature.
+                    qNew += (eq - qNew) * Math.min(1, dt / Moisture.evaporationTicks(surface, tNew, normal));
+                } else {
+                    // Air moister than its ground's equilibrium slowly dries back toward it (weather phase 8b: mixing
+                    // with drier air and sinking; without it, stagnant air far from the storm tracks cooled to
+                    // saturation and drizzled for months, and the tropical dry season never dried anything).
+                    qNew -= (qNew - eq) * Math.min(1, dt / Moisture.DRYING_TICKS);
                 }
                 double excess = Math.max(0, qNew - cap);
                 qNew -= excess;
@@ -433,6 +443,44 @@ public final class AtmosphereField {
         return tiles.containsKey(key(Math.floorDiv((int) Math.floor(x), TILE), Math.floorDiv((int) Math.floor(z), TILE)));
     }
 
+    /** How fast the ocean-effect's heating fades inland, blocks (real bands reach roughly 50-150 km: 160-480 blocks). */
+    static final double FETCH_FADE = 450;
+    /** How much warmer than the air open water must be before it builds showers downwind, C. */
+    static final double FETCH_THRESHOLD = 4;
+
+    /**
+     * How much warmer than air at {@code airT} (C) the open water upwind of land at (x, z) is, faded with distance
+     * inland, C (ocean-effect on the downwind shore, weather phase 8b): looks back along the surface wind ({@code wx},
+     * {@code wz}, m/s) one, two and three cells for water, and takes the strongest of {@code (water - air - 4 C)} times
+     * {@code exp(-distance / 450)}. 0 over water, in light winds (under 3 m/s) and away from water. The cell's normal
+     * stands for the water's temperature.
+     */
+    public double upwindWarmth(double x, double z, double wx, double wz, double airT) {
+        double speed = Math.hypot(wx, wz);
+        if (speed < 3) {
+            return 0;
+        }
+        double[] here = cellAt(x, z);
+        if (here != null && (int) here[6] == 2) {
+            return 0;
+        }
+        double ux = -wx / speed;
+        double uz = -wz / speed;
+        double best = 0;
+        for (int k = 1; k <= 3; k++) {
+            double d = k * CELL;
+            double[] c = cellAt(x + ux * d, z + uz * d);
+            if (c == null || (int) c[6] != 2) {
+                continue;
+            }
+            double warmth = c[4] - airT - FETCH_THRESHOLD;
+            if (warmth > 0) {
+                best = Math.max(best, warmth * Math.exp(-(d - CELL / 2.0) / FETCH_FADE));
+            }
+        }
+        return best;
+    }
+
     /**
      * The field cell containing (x, z), unblended: {t, a, q, p, base, humidity, surface, elevation (0 while unknown)};
      * null outside the tiles. (The cloud diagnostics read whole cells.)
@@ -447,6 +495,110 @@ public final class AtmosphereField {
         int idx = Math.floorMod(gk, SIZE) * SIZE + Math.floorMod(gi, SIZE);
         return new double[]{tile.t[idx], tile.a[idx], tile.q[idx], tile.p[idx], tile.base[idx], tile.humidity[idx],
                 tile.surface[idx], tile.elevationOr0(idx)};
+    }
+
+    /** Below this surface wind (m/s) there is no "upwind", and the terrain slope is the centred one. */
+    static final double SLOPE_WIND_MIN = 0.5;
+
+    /** How far upwind the fine terrain slope looks, blocks (round 6). */
+    static final double FINE_SLOPE_RUN = 256;
+    /** How far upwind lifted air is followed back to its lowest point, blocks (round 6). */
+    static final double CLIMB_REACH = 1024;
+
+    /** The fine terrain's elevation above sea level at (x, z), blocks, or NaN where unknown (round 6). */
+    public double fineElevation(double x, double z) {
+        int tx = Math.floorDiv((int) Math.floor(x), TILE);
+        int tz = Math.floorDiv((int) Math.floor(z), TILE);
+        FieldTile tile = tiles.get(key(tx, tz));
+        if (tile == null || tile.fine == null) {
+            return Double.NaN;
+        }
+        int side = SIZE * FINE_PER_CELL;
+        int i = (int) Math.floor((x - (double) tx * TILE) / FINE_STEP);
+        int k = (int) Math.floor((z - (double) tz * TILE) / FINE_STEP);
+        if (i < 0 || k < 0 || i >= side || k >= side) {
+            return Double.NaN;
+        }
+        float e = tile.fine[k * side + i];
+        return Float.isNaN(e) ? Double.NaN : e;
+    }
+
+    /**
+     * How far air the surface wind ({@code wx}, {@code wz}, m/s) brings to (x, z) has climbed, blocks (8b follow-up
+     * round 6, Bright: read the climb from the actual terrain): the ground here less the lowest ground along the wind's
+     * path over the last {@link #CLIMB_REACH} blocks, from the fine terrain. 0 going down or level; NaN in light winds
+     * or where the fine terrain isn't known yet (callers fall back to the cells).
+     */
+    public double climbFacing(double x, double z, double wx, double wz) {
+        double speed = Math.hypot(wx, wz);
+        if (speed < SLOPE_WIND_MIN) {
+            return Double.NaN;
+        }
+        double here = fineElevation(x, z);
+        if (Double.isNaN(here)) {
+            return Double.NaN;
+        }
+        double ux = wx / speed;
+        double uz = wz / speed;
+        double lowest = here;
+        for (double d = FINE_STEP; d <= CLIMB_REACH; d += FINE_STEP) {
+            double e = fineElevation(x - ux * d, z - uz * d);
+            if (Double.isNaN(e)) {
+                return Double.NaN;
+            }
+            lowest = Math.min(lowest, e);
+        }
+        return Math.max(0, here - lowest);
+    }
+
+    /**
+     * The air one cell upwind of (x, z) along the surface wind ({@code wx}, {@code wz}, m/s), as {@link #cellAt}, or
+     * null in light winds or where there is no cell (8b follow-up round 4: the air an upslope wind lifts).
+     */
+    public double[] upwindCell(double x, double z, double wx, double wz) {
+        double speed = Math.hypot(wx, wz);
+        if (speed < SLOPE_WIND_MIN) {
+            return null;
+        }
+        return cellAt(x - wx / speed * CELL, z - wz / speed * CELL);
+    }
+
+    /**
+     * The terrain slope the surface wind ({@code wx}, {@code wz}, m/s) meets at (x, z), blocks per block, {x, z}
+     * (8b follow-up, 2026-10-14): one-sided from the cell upwind, along the wind, so a peak (lower on both sides) gets
+     * the full climb from its windward neighbour and its lee side a descent. (Before, a centred difference across
+     * the neighbours either side cancelled out on peaks, which never got upslope lift and stayed dry.) In light winds
+     * the centred slope; {0, 0} where cells are missing.
+     */
+    public double[] slopeFacing(double x, double z, double wx, double wz) {
+        double[] here = cellAt(x, z);
+        if (here == null) {
+            return new double[]{0, 0};
+        }
+        double speed = Math.hypot(wx, wz);
+        if (speed >= SLOPE_WIND_MIN
+                && !dev.brights0ng.enginesandempires.weather.cloud.sim.CloudRain.LEGACY_8B) {
+            double ux = wx / speed;
+            double uz = wz / speed;
+            // Round 6: the real slope the wind meets here, from the fine terrain, where known.
+            double hereF = fineElevation(x, z);
+            double upF = fineElevation(x - ux * FINE_SLOPE_RUN, z - uz * FINE_SLOPE_RUN);
+            if (!Double.isNaN(hereF) && !Double.isNaN(upF)) {
+                double rise = (hereF - upF) / FINE_SLOPE_RUN;
+                return new double[]{ux * rise, uz * rise};
+            }
+            double[] up = cellAt(x - ux * CELL, z - uz * CELL);
+            if (up != null) {
+                double rise = (here[7] - up[7]) / CELL;
+                return new double[]{ux * rise, uz * rise};
+            }
+        }
+        double[] e = cellAt(x + CELL, z);
+        double[] w = cellAt(x - CELL, z);
+        double[] s = cellAt(x, z + CELL);
+        double[] n = cellAt(x, z - CELL);
+        return new double[]{e != null && w != null ? (e[7] - w[7]) / (2 * CELL) : 0,
+                s != null && n != null ? (s[7] - n[7]) / (2 * CELL) : 0};
     }
 
     private double neighbours(Var v, double cx, double cz, FieldEnv env) {
@@ -473,7 +625,8 @@ public final class AtmosphereField {
             double[] e = edge.get(cellKey);
             if (e == null) {
                 double[] c = env.climate((gi + 0.5) * CELL, (gk + 0.5) * CELL);
-                e = new double[]{c[0], c[0] + ALOFT_OFFSET, Moisture.capacity(c[0]) * Moisture.targetHumidity((int) c[2], c[1])};
+                e = new double[]{c[0], c[0] + ALOFT_OFFSET,
+                        Moisture.capacity(c[0]) * Moisture.targetHumidity((int) c[2], c[1], c[0])};
                 edge.put(cellKey, e);
             }
             return switch (v) {

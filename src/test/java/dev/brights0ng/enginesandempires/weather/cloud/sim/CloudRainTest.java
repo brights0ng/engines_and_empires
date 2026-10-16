@@ -27,10 +27,16 @@ class CloudRainTest {
     }
 
     static CloudDiagnostics.Need need(double rh, double lclMetres, CloudType t, double cover) {
+        return need(rh, lclMetres, t, cover, 15);
+    }
+
+    /** As above with {@code water} mm of precipitable water in the air. */
+    static CloudDiagnostics.Need need(double rh, double lclMetres, CloudType t, double cover, double water) {
         double[] layer = new double[CloudType.values().length];
         layer[t.ordinal()] = cover;
         double[] hint = new double[CloudType.values().length];
-        return new CloudDiagnostics.Need(layer, hint, null, 0, lclMetres, rh, 0, 0, Double.NaN, 0, "none", 0, 0, 0);
+        return new CloudDiagnostics.Need(layer, hint, null, 0, lclMetres, rh, 0, 0, Double.NaN, 0, "none", 0, 0, 0, 0,
+                water, new String[CloudType.values().length], "none");
     }
 
     @Test
@@ -47,6 +53,39 @@ class CloudRainTest {
                 need(0.9, 300, CloudType.ALTOSTRATUS, 0.3)), 1e-9, "a thin altostratus deck is dry");
         assertTrue(CloudRain.precipitation(cloud(CloudType.NIMBOSTRATUS, 5),
                 need(0.8, 500, CloudType.NIMBOSTRATUS, 0.9)) > 0.8, "a thick nimbostratus pours steadily");
+    }
+
+    /** Weather phase 8b (2026-10-14): drizzle needs a solid deck with water in it; polar stratus barely flurries. */
+    @Test
+    void drizzleNeedsASolidDeckWithWaterInIt() {
+        SimCloud st = cloud(CloudType.STRATUS, 2);
+        assertTrue(CloudRain.precipitation(st, need(0.99, 20, CloudType.STRATUS, 1, 15)) > 0.5, "temperate overcast");
+        assertTrue(CloudRain.precipitation(st, need(0.99, 20, CloudType.STRATUS, 0.35, 15)) < 0.05, "broken deck");
+        assertTrue(CloudRain.precipitation(st, need(0.99, 20, CloudType.STRATUS, 1, 3.5)) < 0.05,
+                "bitterly cold air holding 3.5 mm");
+        assertTrue(CloudRain.precipitation(st, need(0.99, 20, CloudType.STRATUS, 1, 7)) > 0.1, "cold but wetter: some");
+    }
+
+    /**
+     * 8b follow-up (2026-10-14): a night deck under air whose day-mean humidity is well short of saturation is fog,
+     * too thin to drizzle; the same deck with lift under it drizzles.
+     */
+    @Test
+    void thinNightStratusDoesNotDrizzle() {
+        SimCloud st = cloud(CloudType.STRATUS, 2);
+        assertTrue(CloudRain.precipitation(st, need(0.84, 0, CloudType.STRATUS, 1, 13)) < 0.02,
+                "night fog in polar summer air (mean RH 84%)");
+        double[] layer = new double[CloudType.values().length];
+        layer[CloudType.STRATUS.ordinal()] = 1;
+        CloudDiagnostics.Need lifted = new CloudDiagnostics.Need(layer, new double[CloudType.values().length], null, 0,
+                0, 0.84, 0, 0, Double.NaN, 0, "none", 0, 0.6, 0, 0, 13, new String[CloudType.values().length], "none");
+        assertTrue(CloudRain.precipitation(st, lifted) > 0.5, "the same deck over a low's converging air");
+        // Round 3: a fog deck under saturated air (sea fog) needs lift too.
+        String[] src = new String[CloudType.values().length];
+        src[CloudType.STRATUS.ordinal()] = "warm air over cool water";
+        CloudDiagnostics.Need seaFog = new CloudDiagnostics.Need(layer, new double[CloudType.values().length], null, 0,
+                0, 0.96, 0, 0, Double.NaN, 0, "none", 0, 0, 0, 0, 13, src, "none");
+        assertTrue(CloudRain.precipitation(st, seaFog) < 0.02, "sea fog in saturated air");
     }
 
     @Test

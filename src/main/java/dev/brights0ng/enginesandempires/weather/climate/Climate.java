@@ -62,13 +62,13 @@ public final class Climate {
      */
     public static Baseline.Sample sample(ServerLevel level, double x, double y, double z, BiomeClimate local,
                                          ClimateField.Regional regional) {
-        double season = ClimateCurves.season(SeasonSource.yearFraction(level));
+        double year = SeasonSource.yearFraction(level);
         double diurnal = ClimateCurves.diurnal(level.getDayTime());
         double height = Temperature.heightCorrection(level.getSeaLevel(), y);
         var sim = dev.brights0ng.enginesandempires.weather.sim.world.WeatherSim.of(level);
         double anomaly = sim == null ? 0 : sim.anomaly(x, z);
-        return Baseline.combine(regional, local, WeatherConfig.localBiomeWeight(), season, bandOffset(z), anomaly,
-                diurnal, height);
+        return Baseline.combine(regional, local, WeatherConfig.localBiomeWeight(), season(year, local),
+                bandOffset(z, year), anomaly, diurnal, height, ClimateCurves.tropicalWet(year));
     }
 
     /**
@@ -80,10 +80,37 @@ public final class Climate {
         ClimateField f = field(level);
         ClimateField.Regional regional = f.regional(x, z);
         BiomeClimate local = f.nearest(x, z);
-        double season = ClimateCurves.season(SeasonSource.yearFraction(level));
-        Baseline.Sample s = Baseline.combine(regional, local, WeatherConfig.localBiomeWeight(), season, bandOffset(z),
-                0, 0, 0);
+        double year = SeasonSource.yearFraction(level);
+        Baseline.Sample s = Baseline.combine(regional, local, WeatherConfig.localBiomeWeight(), season(year, local),
+                bandOffset(z, year), 0, 0, 0, ClimateCurves.tropicalWet(year));
         return new double[]{s.temperature(), s.humidity(), local.surface().ordinal()};
+    }
+
+    /**
+     * The season factor for a place whose ground is {@code local}'s at year position {@code year} (weather phase 8b):
+     * the sea's lagged curve over water, the land's elsewhere.
+     */
+    static double season(double year, BiomeClimate local) {
+        return local.surface() == BiomeClimate.Surface.WATER ? ClimateCurves.sea(year) : ClimateCurves.season(year);
+    }
+
+    /**
+     * The year's mean temperature at height {@code y} over (x, z), C (weather phase 8c, underground): no season, no
+     * day-night swing, no air masses, the climate band at its yearly average, and <b>never held at the always-frozen
+     * cap</b> (Bright, 2026-10-15: underground, frozen biomes use the mean they would have without it).
+     */
+    public static double annualMean(ServerLevel level, double x, double y, double z) {
+        BiomeClimate local = localClimate(level, x, z);
+        BiomeClimate thawed = local.frozen()
+                ? new BiomeClimate(local.mean(), local.swing(), local.humidity(), local.surface(), false) : local;
+        double height = Temperature.heightCorrection(level.getSeaLevel(), y);
+        return Baseline.combine(field(level).regional(x, z), thawed, WeatherConfig.localBiomeWeight(), 0,
+                bandOffset(z), 0, 0, height, 0).temperature();
+    }
+
+    /** The climate band's offset at {@code z} at year position {@code year}: stronger in winter (weather phase 8b). */
+    public static double bandOffset(double z, double year) {
+        return bandOffset(z) * ClimateCurves.bandScale(ClimateCurves.season(year));
     }
 
     /** The climate band's offset to the temperature at {@code z}, C (0 in biome mode). */

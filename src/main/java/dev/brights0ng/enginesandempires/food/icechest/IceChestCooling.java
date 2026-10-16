@@ -58,9 +58,33 @@ public final class IceChestCooling {
         return new Result(cold, left, max, used);
     }
 
-    /** How much younger food gets for {@code coldTicks} of cooling at {@code slowdown} (0.9 = spoils 90% slower). */
-    public static long youngerBy(long coldTicks, double slowdown) {
-        return Math.round(coldTicks * Math.max(0, Math.min(1, slowdown)));
+    /**
+     * {@link #run} where the ice melts {@code factor} times as fast as its listed time (food by temperature, 2026-10-15:
+     * twice as fast every 10 C warmer around the chest; 0 at or below freezing, when it doesn't melt at all). The cold
+     * ticks are real ticks.
+     */
+    public static Result runScaled(long elapsed, double factor, long coolingLeft, long currentMax, int iceCount,
+                                   long perItem, boolean hasFood) {
+        if (elapsed <= 0 || !hasFood) {
+            return new Result(0, coolingLeft, currentMax, 0);
+        }
+        if (!(factor > 0)) {
+            // Nothing melts: cold the whole time if there is any ice to be cold with
+            boolean cold = coolingLeft > 0 || (iceCount > 0 && perItem > 0);
+            return new Result(cold ? elapsed : 0, coolingLeft, currentMax, 0);
+        }
+        long scaled = (long) Math.ceil(elapsed * factor);
+        Result r = run(scaled, coolingLeft, currentMax, iceCount, perItem, true);
+        long cold = Math.min(elapsed, Math.round(r.coldTicks() / factor));
+        return new Result(cold, r.coolingLeft(), r.currentMax(), r.itemsUsed());
+    }
+
+    /** How fast ice melts with the air around the chest at {@code outside} C: the food rate there, none at 0 C or below. */
+    public static double meltFactor(double outside, double rateThere) {
+        if (!Double.isFinite(outside)) {
+            return 1;
+        }
+        return outside <= 0 ? 0 : rateThere;
     }
 
     private IceChestCooling() {

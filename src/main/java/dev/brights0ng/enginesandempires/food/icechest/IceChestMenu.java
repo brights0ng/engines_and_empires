@@ -31,7 +31,8 @@ public class IceChestMenu extends AbstractContainerMenu {
 
     /** The client's copy, made when the server opens the menu. */
     public IceChestMenu(int id, Inventory playerInventory) {
-        this(id, playerInventory, new IceChestInventory(null), new SimpleContainerData(2), ContainerLevelAccess.NULL, null);
+        this(id, playerInventory, new IceChestInventory(null), new SimpleContainerData(IceChestBlockEntity.DATA_COUNT),
+                ContainerLevelAccess.NULL, null);
     }
 
     public IceChestMenu(int id, Inventory playerInventory, IceChestBlockEntity chest) {
@@ -72,6 +73,25 @@ public class IceChestMenu extends AbstractContainerMenu {
     /** How long the ice now burning lasts in all, in seconds (0 when nothing is burning). */
     public int coolingMaxSeconds() {
         return data.get(1);
+    }
+
+    /** The air around the chest, C, or NaN if unknown. */
+    public double outsideC() {
+        return fromTenths(data.get(2));
+    }
+
+    /** Inside the chest, C (0 while it has ice), or NaN if unknown. */
+    public double insideC() {
+        return fromTenths(data.get(3));
+    }
+
+    /** How long all its ice lasts at the current melt rate, minutes; -1 if it doesn't melt here. */
+    public int iceMinutesLeft() {
+        return data.get(4);
+    }
+
+    private static double fromTenths(int v) {
+        return (short) v == IceChestBlockEntity.NO_TEMPERATURE ? Double.NaN : (short) v / 10.0;
     }
 
     @Override

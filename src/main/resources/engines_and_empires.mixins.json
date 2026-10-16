@@ -26,6 +26,7 @@
     "CloudWorksDebugDumpMixin",
     "SubLevelSilhouetteMixin",
     "BiomeTemperatureMixin",
+    "IceLightMeltMixin",
     "EntityGlazeFrictionMixin",
     "WeatherCheckMixin",
     "FireRainMixin",
@@ -40,13 +41,18 @@
     "ServerLevelLightningInvoker",
     "LevelStormLightMixin",
     "DaylightDetectorStormMixin",
+    "GameEventSectionGuardMixin",
     "compat.minecolonies.CitizenAIWeatherMixin",
     "compat.minecolonies.CitizenWanderWeatherMixin",
     "compat.minecolonies.AISkeletonAccessor",
     "compat.minecolonies.CraftingIdleWeatherMixin",
     "compat.minecolonies.CookSeatingWeatherMixin",
     "compat.minecolonies.LeisureSiteWeatherMixin",
-    "compat.minecolonies.ColonySoundWeatherMixin"
+    "compat.minecolonies.ColonySoundWeatherMixin",
+    "compat.coldsweat.HearthFuelAccessor",
+    "compat.coldsweat.HearthReplacedMixin",
+    "compat.coldsweat.HearthKinSmartMixin",
+    "compat.sable.PlotChunkAttachmentSaveMixin"
   ],
   "client": [
     "client.EncumberedTooltipMixin",

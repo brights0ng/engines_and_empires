@@ -28,6 +28,12 @@ import dev.brights0ng.enginesandempires.weather.sim.WeatherSystem;
  *       cumulonimbus where the air allows) right at the front, broken stratocumulus behind it.</li>
  *   <li><b>Occluded fronts:</b> a band of nimbostratus with altostratus either side.</li>
  *   <li><b>Converging air</b> near a low's centre: layered cloud, nimbostratus in a deep low.</li>
+ *   <li><b>A low's poleward-upstream side</b> (the "comma head", weather phase 8a, 2026-10-14): moist air wrapping
+ *       around the cold side of a mature or occluding low, rising over the cold air there: a broad deck of altostratus
+ *       and nimbostratus from near the centre out to most of the low's radius, strongest toward the poleward west
+ *       (where real comma heads curl), about three quarters as strong due poleward or due west, and none toward the
+ *       poleward east (the warm front's own leading cloud). This is where much of a real winter's widespread snow
+ *       falls.</li>
  *   <li><b>Terrain:</b> wind blowing up a slope ({@code wind . slope}); moist air capped by stratus or stratocumulus,
  *       very moist air (or air the field is already wringing out) by nimbostratus.</li>
  *   <li><b>Sun-heated ground</b> (convection): see instability.</li>
@@ -74,10 +80,40 @@ public final class CloudDiagnostics {
      * @param windSX    surface wind, m/s
      * @param windAX    aloft wind, m/s
      * @param heightCorrection how much warmer (negative: colder) the air at {@code elevation} is, C
+     * @param fetch     how much warmer than this air the open water just upwind is, faded with distance inland, C
+     *                  (ocean-effect on the downwind shore, weather phase 8b; 0 over water and away from coasts)
+     * @param upwindQ   precipitable water of the air one cell upwind, mm, the air the wind is pushing up any slope here
+     *                  (8b follow-up round 4); NaN when unknown
+     * @param climb     how far that air climbs from the upwind cell to here, in real metres ({@link #metresPerBlock});
+     *                  negative going down, NaN when unknown (round 5)
      */
     public record Air(double t, double a, double q, double p, double base, double humidity, int surface,
                       double elevation, double slopeX, double slopeZ, double windSX, double windSZ, double windAX,
-                      double windAZ, double heightCorrection) {
+                      double windAZ, double heightCorrection, double fetch, double upwindQ, double climb) {
+
+        /** Without the climb. */
+        public Air(double t, double a, double q, double p, double base, double humidity, int surface,
+                   double elevation, double slopeX, double slopeZ, double windSX, double windSZ, double windAX,
+                   double windAZ, double heightCorrection, double fetch, double upwindQ) {
+            this(t, a, q, p, base, humidity, surface, elevation, slopeX, slopeZ, windSX, windSZ, windAX, windAZ,
+                    heightCorrection, fetch, upwindQ, Double.NaN);
+        }
+
+        /** Without the upwind air. */
+        public Air(double t, double a, double q, double p, double base, double humidity, int surface,
+                   double elevation, double slopeX, double slopeZ, double windSX, double windSZ, double windAX,
+                   double windAZ, double heightCorrection, double fetch) {
+            this(t, a, q, p, base, humidity, surface, elevation, slopeX, slopeZ, windSX, windSZ, windAX, windAZ,
+                    heightCorrection, fetch, Double.NaN);
+        }
+
+        /** Without an upwind fetch. */
+        public Air(double t, double a, double q, double p, double base, double humidity, int surface,
+                   double elevation, double slopeX, double slopeZ, double windSX, double windSZ, double windAX,
+                   double windAZ, double heightCorrection) {
+            this(t, a, q, p, base, humidity, surface, elevation, slopeX, slopeZ, windSX, windSZ, windAX, windAZ,
+                    heightCorrection, 0);
+        }
     }
 
     /** The weather systems near the players, prepared once per spawner pass. */
@@ -86,7 +122,12 @@ public final class CloudDiagnostics {
                      double minX, double maxX, double minZ, double maxZ) {
         }
 
-        record Centre(boolean low, double x, double z, double radius, double strength) {
+        /**
+         * A system's centre: whether it is a low, where, its radius, its strength (0-1 of its peak), its turning
+         * ({@code +1} northern-style, cold side -Z; {@code -1} mirrored, cold side +Z) and how far through its life it
+         * is (0-1).
+         */
+        record Centre(boolean low, double x, double z, double radius, double strength, int hemisphere, double life) {
         }
 
         final List<Front> fronts = new ArrayList<>();
@@ -97,7 +138,8 @@ public final class CloudDiagnostics {
             Systems s = new Systems();
             for (WeatherSystem w : systems) {
                 double strength = SimMath.clamp01(w.strength() / Math.max(1e-6, w.peak));
-                s.centres.add(new Centre(w.kind == WeatherSystem.Kind.LOW, w.x, w.z, w.radius(), strength));
+                s.centres.add(new Centre(w.kind == WeatherSystem.Kind.LOW, w.x, w.z, w.radius(), strength,
+                        w.hemisphere, w.life()));
                 if (w.kind != WeatherSystem.Kind.LOW) {
                     continue;
                 }
@@ -203,14 +245,112 @@ public final class CloudDiagnostics {
      * and season factor {@code season} (-1 midwinter to +1 midsummer).
      */
     public static Need diagnose(double x, double z, Air air, Systems systems, long dayTime, double season) {
+        return diagnose(x, z, air, systems, dayTime, season, season);
+    }
+
+    /**
+     * How much warmer, per unit the sun leads the air's season, the ground makes the air near it than the air aloft
+     * (weather phase 8b): in spring the sun is strong while the air aloft is still cold, so the air is less stable; in
+     * autumn the reverse. C.
+     */
+    static final double SUN_LEAD = 3;
+
+    /**
+     * How much warmer very moist air near the ground effectively is than the air aloft from the heat its condensing
+     * water gives up (weather phase 8b, 2026-10-14), at most, C: from 28 mm of precipitable water, full by 48 mm. Tropical
+     * air builds thunderstorms on its own, day after day, until the dry season dries it out; temperate summers (20-30
+     * mm) barely feel it.
+     */
+    static final double LATENT = 4;
+
+    /**
+     * Organised tropical convection, 0-1 (8b follow-up, 2026-10-14; Bright: more storm coverage in the tropics): in
+     * moist, humid air, deep convection organises into clusters, so storms cover more of the sky and leave a raining
+     * anvil deck behind them (a large share of real tropical rain falls from these stratiform parts). From 22 mm of
+     * precipitable water (full by 32) and 65% humidity (full by 80%); humidity-gated so a hot dry season (much water,
+     * low humidity) gets none. Before, the game's wet-season tropics (28-33 mm at ~75%) rained on only ~10% of a spot
+     * in a storm-capable hour, and the savanna's wet season had been mostly stratus drizzle.
+     */
+    static double organised(double water, double rh) {
+        if (dev.brights0ng.enginesandempires.weather.cloud.sim.CloudRain.LEGACY_8B) {
+            return 0;
+        }
+        return SimMath.smooth((water - 22) / 10) * SimMath.smooth((rh - 0.65) / 0.15);
+    }
+
+    /**
+     * How much of the sky the anvil deck of organised thunderstorms covers at most (raises nimbostratus). Round 3 of
+     * the 8b follow-up (2026-10-14): 0.35 tripled the rainforest's wet season (39 → 129 h, target 25-60).
+     */
+    static final double ANVIL = 0.08;
+    /** How much more of the sky organised storms may fill (0.45 → 0.55; was 0.25 in round 2). */
+    static final double ORGANISED_COVER = 0.1;
+
+    /**
+     * How much air forced up a slope cools at full upslope lift (orographic 1), C (8b follow-up round 4, 2026-10-14).
+     * The wind pushes air from the cell upwind up to this one, and it cools as it rises: upslope cloud is decided from
+     * that lifted air's humidity, not the cell's own (peaks dry their own air toward a low biome equilibrium; their
+     * upslope hours averaged 57% humidity, short of the 75-85% upslope cloud needs). Generous for the height climbed,
+     * because the pack's terrain is low against real mountains.
+     */
+    static final double ASCENT_COOL = 6;
+
+    /** How far ahead of a warm front its rain shield reaches, in units of the low's scale L (round 5; was 600). */
+    static final double WARM_RAIN_AHEAD = 1000;
+
+    /**
+     * How fast lifted air cools per metre climbed, C (a moist-ish adiabatic rate; round 5). The metres come from the
+     * blocks climbed through {@link #metresPerBlock}.
+     */
+    static final double LIFT_LAPSE = 0.006;
+
+    /** The real height a world's highest mountains stand for, metres (round 5: a big range's peaks). */
+    public static final double REAL_PEAK_METRES = 4000;
+
+    /**
+     * Real metres one block of climb stands for in lifted air, for a world whose mountains reach {@code peakY} over a
+     * sea at {@code seaLevel} (round 5, Bright: exaggerate mountain lift, set by a configurable mountain-top y; vanilla
+     * 256, Tectonic 320): the world's mountain heights are stretched to real ones (Tectonic: ~16 m a block).
+     */
+    public static double metresPerBlock(double peakY, double seaLevel) {
+        return REAL_PEAK_METRES / Math.max(32, peakY - seaLevel);
+    }
+
+    /**
+     * The highest y the world's mountains reach, from the server config ({@code mountainPeakY}); the server sets it
+     * (forecasts and tests read it here, away from the config classes). Defaults to Tectonic's 320.
+     */
+    private static volatile int mountainPeakY = 320;
+
+    public static void setMountainPeakY(int y) {
+        mountainPeakY = y;
+    }
+
+    public static int mountainPeakY() {
+        return mountainPeakY;
+    }
+
+    /** Debug only: everything from the 8b follow-up off ({@code -Deae.legacy8b=true}). */
+    private static final boolean LEGACY = dev.brights0ng.enginesandempires.weather.cloud.sim.CloudRain.LEGACY_8B;
+
+    /** The cold front's own rain band at its strongest, sky cover of nimbostratus (round 4). */
+    static final double COLD_BAND = 0.8;
+
+    /**
+     * As {@link #diagnose(double, double, Air, Systems, long, double)} with the sun's strength through the year
+     * {@code sun} (-1 to +1) given apart from the air's season (weather phase 8b: the air lags the sun).
+     */
+    public static Need diagnose(double x, double z, Air air, Systems systems, long dayTime, double season,
+                                double sun) {
         double s = Double.isFinite(season) ? Math.max(-1, Math.min(1, season)) : 0;
+        double sunNow = Double.isFinite(sun) ? Math.max(-1, Math.min(1, sun)) : s;
         boolean water = air.surface() == 2;
         Layers b = new Layers();
         double[] layer = b.layer;
 
         // ---- humidity and condensation level
         double heating = water ? 0 : ClimateCurves.diurnal(dayTime) * ClimateCurves.diurnalRange(air.humidity())
-                * (1 + 0.35 * s);
+                * (1 + 0.35 * sunNow);
         double surfaceT = air.t() + heating;
         double groundT = surfaceT + air.heightCorrection();
         // The humidity now sets the cloud base; the day's mean humidity says how moist the air mass is.
@@ -242,16 +382,25 @@ public final class CloudDiagnostics {
                     if (Double.isNaN(warmAhead) || Math.abs(d) < Math.abs(warmAhead)) {
                         warmAhead = d;
                     }
-                    b.raise(CloudType.NIMBOSTRATUS, st * band(d, -300 * L, 600 * L, 200 * L)
+                    // The rain shield (round 5, 2026-10-14, Bright: wider frontal rain shields): nimbostratus reaches
+                    // ~1,000 L ahead (was 600), about 30% of the cloud shield as on real warm fronts.
+                    double nsAhead = LEGACY ? 600 : WARM_RAIN_AHEAD;
+                    double asFrom = LEGACY ? 300 : WARM_RAIN_AHEAD - 200;
+                    double asTo = LEGACY ? 1500 : 1800;
+                    double csFrom = LEGACY ? 1200 : 1500;
+                    double csTo = LEGACY ? 2400 : 2600;
+                    b.raise(CloudType.NIMBOSTRATUS, st * band(d, -300 * L, nsAhead * L, 200 * L)
                             * SimMath.smooth((rh - 0.45) / 0.2));
-                    b.raise(CloudType.ALTOSTRATUS, st * band(d, 300 * L, 1500 * L, 250 * L)
+                    b.raise(CloudType.ALTOSTRATUS, st * band(d, asFrom * L, asTo * L, 250 * L)
                             * SimMath.smooth((rh - 0.25) / 0.2));
-                    b.raise(CloudType.CIRROSTRATUS, st * band(d, 1200 * L, 2400 * L, 250 * L));
+                    b.raise(CloudType.CIRROSTRATUS, st * band(d, csFrom * L, csTo * L, 250 * L));
                     b.raise(CloudType.CIRRUS, 0.6 * st * band(d, 2000 * L, 3500 * L, 300 * L));
                     // The deck lowers as the front nears.
-                    hint[CloudType.ALTOSTRATUS.ordinal()] = SimMath.clamp01((d - 300 * L) / (1200 * L));
-                    hint[CloudType.CIRROSTRATUS.ordinal()] = SimMath.clamp01((d - 1200 * L) / (1200 * L));
-                    hint[CloudType.NIMBOSTRATUS.ordinal()] = SimMath.clamp01((d + 300 * L) / (900 * L));
+                    hint[CloudType.ALTOSTRATUS.ordinal()] = SimMath.clamp01((d - asFrom * L) / ((asTo - asFrom) * L));
+                    hint[CloudType.CIRROSTRATUS.ordinal()] = SimMath.clamp01((d - csFrom * L) / ((csTo - csFrom) * L));
+                    hint[CloudType.NIMBOSTRATUS.ordinal()] = SimMath.clamp01((d + 300 * L) / ((nsAhead + 300) * L));
+                    // The front's reach for "which front is this" stays as before (the cirrostratus edge moved, not
+                    // the front's influence).
                     double here = st * band(d, -300 * L, 2400 * L, 300 * L);
                     if (here > frontal) {
                         frontal = here;
@@ -268,6 +417,12 @@ public final class CloudDiagnostics {
                     b.raise(CloudType.ALTOSTRATUS, 0.4 * st * band(d, -900 * L, 300 * L, 200 * L)
                             * SimMath.smooth((rh - 0.35) / 0.2));
                     double here = Math.max(line, 0.55 * st * band(d, -2500 * L, -350 * L, 300 * L));
+                    // The front's own rain band (round 4: cold fronts rained in only ~8% of their passages, from
+                    // their line of showers alone): a narrow nimbostratus band at the front in moist air.
+                    if (!dev.brights0ng.enginesandempires.weather.cloud.sim.CloudRain.LEGACY_8B) {
+                        b.raise(CloudType.NIMBOSTRATUS, COLD_BAND * st * band(d, -200 * L, 250 * L, 120 * L)
+                                * SimMath.smooth((rh - 0.5) / 0.2));
+                    }
                     if (here > frontal) {
                         frontal = here;
                         front = "cold";
@@ -291,6 +446,7 @@ public final class CloudDiagnostics {
         }
         double convergence = 0;
         double subsidence = 0;
+        double comma = 0;
         for (Systems.Centre c : systems.centres) {
             double dx = x - c.x();
             double dz = z - c.z();
@@ -301,6 +457,7 @@ public final class CloudDiagnostics {
                 if (d2 < 9 * core * core) {
                     convergence = Math.max(convergence, c.strength() * Math.exp(-d2 / (core * core)));
                 }
+                comma = Math.max(comma, commaHead(c, dx, dz));
             } else if (d2 < 9 * r * r) {
                 subsidence = Math.max(subsidence, c.strength() * Math.exp(-d2 / (r * r)));
             }
@@ -317,19 +474,53 @@ public final class CloudDiagnostics {
             b.raise(CloudType.STRATOCUMULUS, 0.8 * convergence * SimMath.smooth((rh - 0.4) / 0.2));
             b.raise(CloudType.ALTOSTRATUS, 0.7 * convergence * moist);
         }
+        if (comma > 0.05) {
+            b.reason = "comma head";
+            b.raise(CloudType.NIMBOSTRATUS, comma * SimMath.smooth((rh - 0.5) / 0.2));
+            b.raise(CloudType.ALTOSTRATUS, 0.8 * comma * SimMath.smooth((rh - 0.35) / 0.2));
+            b.raise(CloudType.STRATOCUMULUS, 0.4 * comma * SimMath.smooth((rh - 0.45) / 0.2));
+            if (comma > frontal) {
+                frontal = comma;
+                front = "comma head";
+            }
+        }
+        if (frontal > 0) {
+            // A front's lift overrides a high's outer sinking (up to 0.4) but not its core (0.8 and more), easing
+            // between (weather phase 8a, 2026-10-14: winter highs' fringes thinned most fronts' decks to nothing; a
+            // high sitting right on a front still smothers it).
+            double fringe = 1 - SimMath.smooth((subsidence - 0.4) / 0.4);
+            subsidence *= 1 - SimMath.clamp01(frontal) * fringe;
+        }
 
         // ---- terrain
         double upslope = air.windSX() * air.slopeX() + air.windSZ() * air.slopeZ();
         double orographic = SimMath.clamp01(upslope / 2);
         double wrung = SimMath.clamp01(air.p() / 2);
+        // Upslope cloud forms in the air being lifted: the upwind air (or this cell's, whichever is moister) cooled as
+        // it climbs.
+        double rhLift = rh;
+        if (orographic > 0 && !dev.brights0ng.enginesandempires.weather.cloud.sim.CloudRain.LEGACY_8B) {
+            // Round 5: the cooling comes from the height actually climbed (blocks from the upwind cell, stretched to
+            // real metres) while the wind blows up the slope; without that, a fixed share of the lift.
+            double cool = Double.isFinite(air.climb())
+                    ? LIFT_LAPSE * Math.max(0, air.climb()) * SimMath.smooth(orographic / 0.15)
+                    : ASCENT_COOL * orographic;
+            double lifted = Moisture.capacity(air.t() + air.heightCorrection() - cool);
+            double q = Double.isFinite(air.upwindQ()) ? Math.max(air.q(), air.upwindQ()) : air.q();
+            rhLift = Math.max(rh, Math.min(1.2, q / lifted));
+        }
         if (orographic > 0.05) {
             b.reason = "upslope";
-            b.raise(CloudType.STRATOCUMULUS, orographic * SimMath.smooth((rh - 0.55) / 0.2));
-            b.raise(CloudType.STRATUS, 0.7 * orographic * SimMath.smooth((rh - 0.75) / 0.15));
+            // Round 6: once the wind is clearly climbing (full from 0.2), how much deck forms is set by how close to
+            // saturation the lifted air gets, not by how hard it climbs (a moderate slope in saturated air was only
+            // ever a 20% deck: 133 such hours a year on the mountain gave ~20 wet hours).
+            double climbing = LEGACY ? orographic : SimMath.smooth(orographic / 0.2);
+            b.raise(CloudType.STRATOCUMULUS, climbing * SimMath.smooth((rhLift - 0.55) / 0.2));
+            b.raise(CloudType.STRATUS, 0.7 * climbing * SimMath.smooth((rhLift - 0.75) / 0.15));
             // The field's wrung-out water counts as mountain rain only where the wind is actually climbing a slope
             // (2026-10-06: it also condenses where cold air cools moist air over flat ground, which isn't a deck).
             b.raise(CloudType.NIMBOSTRATUS, Math.max(wrung * SimMath.smooth(orographic / 0.3),
-                    orographic * SimMath.smooth((rh - 0.85) / 0.1)));
+                    climbing * SimMath.smooth((rhLift - 0.85) / 0.1)));
         }
         if (wrung > 0.05) {
             // Moist air cooled to saturation over flat ground or water: low stratus and fog, not a raining deck.
@@ -348,10 +539,22 @@ public final class CloudDiagnostics {
         // Convection follows the sun, not the air temperature (2026-10-06: the temperature stays above the day's mean
         // until 22:30, which kept cumulus forming after dusk). By day the sun's heating; at night the cooling.
         double solar = water ? 0 : ClimateCurves.solar(dayTime) * ClimateCurves.diurnalRange(air.humidity())
-                * (1 + 0.35 * s);
+                * (1 + 0.35 * sunNow);
         double sunHeating = solar > 0 ? solar * (1 - 0.8 * SimMath.clamp01(overcast)) : Math.min(0, heating);
         double effective = water ? Math.max(air.t(), air.base()) : air.t() + sunHeating;
-        double excess = effective - air.a() - NORMAL_LAPSE;
+        if (!water && air.fetch() > 0) {
+            // Ocean-effect on the downwind shore: air that crossed warmer open water arrives heated from below.
+            effective = Math.max(effective, air.t() + air.fetch());
+        }
+        // Over land by day, the sun leading (spring) or trailing (autumn) the air's season steepens or eases the lapse.
+        double lead = water ? 0 : SUN_LEAD * (sunNow - s) * ClimateCurves.solar(dayTime);
+        double org = organised(air.q(), rh);
+        // Latent heat from 8b: now also humidity-gated and from 22 mm (8b follow-up), so moist tropical air feels it
+        // and hot, dry-season air holding as much water at low humidity doesn't.
+        double latent = dev.brights0ng.enginesandempires.weather.cloud.sim.CloudRain.LEGACY_8B
+                ? LATENT * SimMath.smooth((air.q() - 28) / 20)
+                : LATENT * SimMath.smooth((air.q() - 22) / 16) * SimMath.smooth((rh - 0.65) / 0.15);
+        double excess = effective - air.a() - NORMAL_LAPSE + lead + latent;
         double calm = 1 - SimMath.smooth((Math.hypot(air.windSX(), air.windSZ()) - 3) / 4);
         if (excess < 0) {
             b.reason = "stable humid air";
@@ -370,10 +573,17 @@ public final class CloudDiagnostics {
         // Deep convection needs water as well as humidity (2026-10-06: cold air holds little, so it builds cumulus
         // and the odd towering cumulus, not thunderstorms): weak below 6 mm of precipitable water, full from 20.
         double waterFactor = SimMath.smooth((air.q() - 6) / 14);
+        // Ocean-effect on the shore (weather phase 8b): the warm water just upwind feeds the showers its own moisture,
+        // and air heated by the water, not the ground, keeps going through the night.
+        boolean fetchDriven = !water && air.fetch() > Math.max(0, sunHeating);
+        if (fetchDriven) {
+            waterFactor = Math.max(waterFactor, 0.6 * SimMath.smooth(air.fetch() / 8));
+        }
         double buoyancy = Math.max(0, Math.min(1.5, excess / 8)) * (0.4 + 0.6 * moistFactor);
         // Over land the night's inversion caps surface-based convection; the sea keeps its showers.
         if (!water) {
-            buoyancy *= ClimateCurves.landBuoyancy(dayTime);
+            double cap = ClimateCurves.landBuoyancy(dayTime);
+            buoyancy *= fetchDriven ? Math.max(cap, 0.85) : cap;
         }
         double instability = buoyancy * (0.35 + 0.65 * waterFactor);
         double forced = 1.2 * frontLift + 0.4 * convergence + 0.4 * orographic;
@@ -392,9 +602,17 @@ public final class CloudDiagnostics {
         double heapCover = 0;
         double frontLine = 0;
         if (heapType != null) {
-            heapCover = Math.min(0.45, 0.25 + 0.3 * instability) * SimMath.smooth((rh - 0.25) / 0.2);
+            // Organised tropical storms fill more of the sky (up to 0.7 instead of 0.45).
+            double o = heapType.ordinal() >= CloudType.CUMULUS_CONGESTUS.ordinal() ? org : 0;
+            heapCover = Math.min(0.45 + ORGANISED_COVER * o, 0.25 + 0.3 * instability + ORGANISED_COVER * o)
+                    * SimMath.smooth((rh - 0.25) / 0.2);
             // A front's line of storms fills its band; elsewhere convection is scattered.
             frontLine = 0.7 * frontLift * SimMath.smooth((rh - 0.4) / 0.2);
+            if (o > 0.05 && heapType.ordinal() >= CloudType.CUMULONIMBUS_CALVUS.ordinal()) {
+                // Their anvils spread into a raining deck.
+                b.reason = "storm anvil";
+                b.raise(CloudType.NIMBOSTRATUS, ANVIL * o);
+            }
         }
 
         // ---- highs thin everything (the deep, raining decks most); a nimbostratus fills the middle deck itself
@@ -428,7 +646,10 @@ public final class CloudDiagnostics {
             hint[CloudType.NIMBOSTRATUS.ordinal()] = lclHint(CloudType.NIMBOSTRATUS, lcl);
         }
         // The heating reported is the sun's (what drives convection), or the night's cooling.
-        return new Need(layer, hint, heapType, SimMath.clamp01(heapCover), lcl, Math.min(1, rh), instability, sunHeating,
+        // Where the wind lifts air up a slope, the rain and cloud base go by that lifted air (round 4).
+        double rhOut = Math.max(rh, rhLift);
+        double lclOut = Math.min(lcl, Math.max(0, 2500 * (1 - Math.min(1, rhLift))));
+        return new Need(layer, hint, heapType, SimMath.clamp01(heapCover), lclOut, Math.min(1, rhOut), instability, sunHeating,
                 warmAhead, frontal, front, orographic, convergence, subsidence, wrung, air.q(), b.source, heapSource);
     }
 
@@ -497,6 +718,27 @@ public final class CloudDiagnostics {
             return 1 - SimMath.smooth((v - hi) / edge);
         }
         return 1;
+    }
+
+    /**
+     * How strongly low {@code c}'s comma head covers a spot ({@code dx}, {@code dz}) from its centre, 0-1: the low's
+     * strength, times its stage (building from 15% to 40% of its life, fading after 85%), times its bearing (full
+     * toward the poleward west, about three quarters due poleward or due west, none toward the poleward east or
+     * equatorward), times its distance (rising over the first 30% of the radius, fading past 85%).
+     */
+    static double commaHead(Systems.Centre c, double dx, double dz) {
+        double d = Math.hypot(dx, dz);
+        double r = c.radius();
+        if (d < 1 || d > 1.3 * r) {
+            return 0;
+        }
+        // The axis points poleward-west: west is -X everywhere (weather comes from the west), poleward is -Z for a
+        // northern-style low and +Z for a mirrored one.
+        double axis = (-dx - c.hemisphere() * dz) / (Math.sqrt(2) * d);
+        double side = SimMath.smooth((axis - 0.3) / 0.6);
+        double reach = SimMath.smooth(d / (0.3 * r)) * (1 - SimMath.smooth((d - 0.85 * r) / (0.3 * r)));
+        double stage = SimMath.smooth((c.life() - 0.15) / 0.25) * (1 - SimMath.smooth((c.life() - 0.85) / 0.15));
+        return c.strength() * stage * side * reach;
     }
 
     /**
