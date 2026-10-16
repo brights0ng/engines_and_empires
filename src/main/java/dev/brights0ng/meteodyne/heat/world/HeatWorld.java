@@ -59,7 +59,7 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
  *
  * <ul>
  *   <li><b>Placed sources</b> (campfires, furnaces, burners...) are indexed per loaded chunk, from a scan when the
- *       chunk loads and from every block change after ({@code LevelChunkFrontierMixin}).</li>
+ *       chunk loads and from every block change after ({@code LevelChunkHeatMixin}).</li>
  *   <li><b>Natural sources</b> (lava, magma, fire) are looked for only near players and ships, and inside the boxes
  *       placed sources make (Bright's decisions 11 and 13).</li>
  *   <li><b>Plan</b> (once a second): the sources are grouped into regions ({@link HeatClusters}); a region whose box
@@ -192,7 +192,7 @@ public final class HeatWorld {
         }
     }
 
-    /** A block changed in a loaded chunk (from {@code LevelChunkFrontierMixin}; any thread). */
+    /** A block changed in a loaded chunk (from {@code LevelChunkHeatMixin}; any thread). */
     public static void onBlockChanged(LevelChunk chunk, BlockPos pos, BlockState before, BlockState after) {
         if (!(chunk.getLevel() instanceof ServerLevel level) || level.dimension() != Level.OVERWORLD) {
             return;

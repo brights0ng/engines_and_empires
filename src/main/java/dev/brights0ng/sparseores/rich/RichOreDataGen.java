@@ -5,86 +5,51 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
-import dev.brights0ng.enginesandempires.oregen.refining.RefiningDataGen;
-import dev.brights0ng.paradynelib.gametest.GameTestStructures;
-import dev.brights0ng.seismicsurveyance.SeismicContent;
-import dev.brights0ng.seismicsurveyance.SeismicDataGen;
-import dev.brights0ng.seismicsurveyance.SmartLoggerBlock;
-import dev.brights0ng.seismicsurveyance.ThumperFluidTags;
 import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.data.DataGenerator;
 import net.minecraft.data.PackOutput;
 import net.minecraft.data.loot.BlockLootSubProvider;
-import net.minecraft.data.loot.LootTableProvider;
+import net.minecraft.data.tags.IntrinsicHolderTagsProvider;
 import net.minecraft.data.tags.ItemTagsProvider;
 import net.minecraft.data.tags.TagsProvider;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.flag.FeatureFlags;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.storage.loot.LootTable;
-import net.minecraft.world.level.storage.loot.LootPool;
-import net.minecraft.world.level.storage.loot.entries.AlternativesEntry;
 import net.minecraft.world.level.storage.loot.entries.LootItem;
 import net.minecraft.world.level.storage.loot.functions.ApplyBonusCount;
 import net.minecraft.world.level.storage.loot.functions.LootItemFunction;
 import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
-import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
 import net.minecraft.world.level.storage.loot.providers.number.NumberProvider;
 import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
 import net.neoforged.neoforge.client.model.generators.BlockStateProvider;
 import net.neoforged.neoforge.client.model.generators.ConfiguredModel;
 import net.neoforged.neoforge.client.model.generators.ModelFile;
-import net.neoforged.neoforge.common.data.BlockTagsProvider;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
-import net.neoforged.neoforge.data.event.GatherDataEvent;
 
 /**
- * The mod's data generator. It generates the resources of the rich ore blocks from {@link RichOres}, so they cannot
- * drift from it: loot tables, block states, block and item models, and tags. The rich ore textures are not generated;
- * they live in {@code src/main/resources/assets/engines_and_empires/textures/block}.
+ * Sparse Ores' parts of the data generator. It generates the resources of the rich ore blocks from {@link RichOres}, so
+ * they cannot drift from it: loot tables, block states, block and item models, and tags. The rich ore textures are not
+ * generated; they live in {@code src/main/resources/assets/engines_and_empires/textures/block}.
  *
- * <p>It also carries the seismic survey's resources, since only one loot, block state and tag provider can exist. The
- * survey contributes its own models, recipes and textures through {@link SeismicDataGen}.
+ * <p>Until the split's step 2 gives each mod its own output, the mods write into one namespace and one folder, so one run
+ * can have only one loot table provider (its name is fixed), and only one block state and block tag provider (two would
+ * write the same {@code mineable/pickaxe} tag). The core's data generator puts those together from each mod's parts
+ * ({@code enginesandempires/datagen/SharedDataGen}, split seam S9); these are Sparse Ores'.
  *
  * <p>Run the {@code Data} run configuration to (re)generate everything into {@code src/generated/resources}.
  */
 public final class RichOreDataGen {
-
-    /** Registered on the mod event bus by the mod class. */
-    public static void gatherData(GatherDataEvent event) {
-        DataGenerator generator = event.getGenerator();
-        PackOutput output = generator.getPackOutput();
-        ExistingFileHelper existing = event.getExistingFileHelper();
-        CompletableFuture<HolderLookup.Provider> lookup = event.getLookupProvider();
-
-        SeismicDataGen.trackTextures(existing);
-        RefiningDataGen.trackTextures(existing);
-        generator.addProvider(event.includeServer(), new LootTableProvider(output, Set.of(),
-                List.of(new LootTableProvider.SubProviderEntry(Loot::new, LootContextParamSets.BLOCK),
-                        new LootTableProvider.SubProviderEntry(RefiningDataGen.GolemLoot::new, LootContextParamSets.ENTITY)),
-                lookup));
-        generator.addProvider(event.includeClient(), new States(output, existing));
-        BlockTagsGen blockTags = new BlockTagsGen(output, lookup, existing);
-        generator.addProvider(event.includeServer(), blockTags);
-        generator.addProvider(event.includeServer(), new ItemTagsGen(output, lookup, blockTags.contentsGetter(), existing));
-        generator.addProvider(event.includeServer(), new SeismicDataGen.Recipes(output, lookup));
-        generator.addProvider(event.includeServer(), new ThumperFluidTags(output, lookup, existing));
-        generator.addProvider(event.includeServer(), new GameTestStructures(output));
-        generator.addProvider(event.includeClient(), new SeismicDataGen.Textures(output));
-        generator.addProvider(event.includeServer(), new RefiningDataGen.Recipes(output));
-        generator.addProvider(event.includeClient(), new RefiningDataGen.Textures(output, existing));
-    }
 
     /**
      * Loot: with Silk Touch a rich block drops itself, exactly as its counterpart does. Otherwise it
@@ -94,9 +59,9 @@ public final class RichOreDataGen {
      * <p>The ordinary blocks of the ores in {@link RichOres#PACK_LOOT} get their loot table from the same entry, once
      * over, replacing vanilla's.
      */
-    private static final class Loot extends BlockLootSubProvider {
+    public static final class Loot extends BlockLootSubProvider {
 
-        Loot(HolderLookup.Provider registries) {
+        public Loot(HolderLookup.Provider registries) {
             super(Set.of(), FeatureFlags.REGISTRY.allFlags(), registries);
         }
 
@@ -109,36 +74,6 @@ public final class RichOreDataGen {
             for (Block block : packLootBlocks()) {
                 add(block, oreDrop(block, specOf(block), 1));
             }
-            for (Block block : SeismicContent.blocks()) {
-                dropSelf(block);
-            }
-            // The smart logger is four blocks of one; only its master quarter drops the desk.
-            add(SeismicContent.SMART_LOGGER.get(), createSinglePropConditionTable(SeismicContent.SMART_LOGGER.get(),
-                    SmartLoggerBlock.PART, SmartLoggerBlock.Part.FRONT_LEFT));
-            // Choked thumpers: Silk Touch gives the block (to be cooked clean); otherwise the iron block, and some of the
-            // andesite alloy (mechanical, up to the 2 in its casing) or copper sheets (combustive, up to the 4 in its tank and
-            // around its casing) it was made with.
-            add(SeismicContent.CHOKED_MECHANICAL_THUMPER.get(), chokedDrop(SeismicContent.CHOKED_MECHANICAL_THUMPER.get(),
-                    item("create:andesite_alloy"), 2));
-            add(SeismicContent.CHOKED_COMBUSTIVE_THUMPER.get(), chokedDrop(SeismicContent.CHOKED_COMBUSTIVE_THUMPER.get(),
-                    item("create:copper_sheet"), 4));
-        }
-
-        private LootTable.Builder chokedDrop(Block block, Item material, int most) {
-            return LootTable.lootTable()
-                    .withPool(LootPool.lootPool().setRolls(ConstantValue.exactly(1))
-                            .add(AlternativesEntry.alternatives(
-                                    LootItem.lootTableItem(block).when(hasSilkTouch()),
-                                    LootItem.lootTableItem(Items.IRON_BLOCK))))
-                    .withPool(LootPool.lootPool().setRolls(ConstantValue.exactly(1))
-                            .when(doesNotHaveSilkTouch())
-                            .add(LootItem.lootTableItem(material)
-                                    .apply(SetItemCountFunction.setCount(UniformGenerator.between(1, most)))));
-        }
-
-        private static Item item(String id) {
-            return BuiltInRegistries.ITEM.getOptional(ResourceLocation.parse(id))
-                    .orElseThrow(() -> new IllegalStateException("Item '" + id + "' does not exist. Is Create loaded?"));
         }
 
         /** Silk Touch gives the block; otherwise the spec's drop, {@code times} over, improved by Fortune. */
@@ -166,9 +101,6 @@ public final class RichOreDataGen {
             List<Block> known = new ArrayList<>();
             RichOreBlocks.all().forEach(known::add);
             known.addAll(packLootBlocks());
-            known.addAll(SeismicContent.blocks());
-            known.addAll(SeismicContent.chokedThumpers());
-            known.add(SeismicContent.SMART_LOGGER.get());
             return known;
         }
     }
@@ -208,23 +140,13 @@ public final class RichOreDataGen {
     }
 
     /** Block states and models: a plain cube with the block's own texture, for every state, and the same model as an item. */
-    private static final class States extends BlockStateProvider {
-
-        States(PackOutput output, ExistingFileHelper existing) {
-            super(output, SparseOres.MODID, existing);
-        }
-
-        @Override
-        protected void registerStatesAndModels() {
-            for (RichOres.Variant variant : RichOres.allVariants()) {
-                Block block = RichOreBlocks.block(variant.name());
-                ModelFile model = models().cubeAll(variant.name(), modLoc("block/" + variant.name()));
-                // Rich redstone ore has a lit state; it looks the same as the unlit one, as redstone ore does.
-                getVariantBuilder(block).forAllStates(state -> ConfiguredModel.builder().modelFile(model).build());
-                simpleBlockItem(block, model);
-            }
-            SeismicDataGen.registerModels(this);
-            RefiningDataGen.registerModels(this);
+    public static void registerModels(BlockStateProvider provider) {
+        for (RichOres.Variant variant : RichOres.allVariants()) {
+            Block block = RichOreBlocks.block(variant.name());
+            ModelFile model = provider.models().cubeAll(variant.name(), provider.modLoc("block/" + variant.name()));
+            // Rich redstone ore has a lit state; it looks the same as the unlit one, as redstone ore does.
+            provider.getVariantBuilder(block).forAllStates(state -> ConfiguredModel.builder().modelFile(model).build());
+            provider.simpleBlockItem(block, model);
         }
     }
 
@@ -251,45 +173,31 @@ public final class RichOreDataGen {
         return TagKey.create(Registries.ITEM, ResourceLocation.parse(id));
     }
 
-    /** Block tags: mineable with a pickaxe, the mining tier of the counterpart, and the ore tags. */
-    private static final class BlockTagsGen extends BlockTagsProvider {
-
-        BlockTagsGen(PackOutput output, CompletableFuture<HolderLookup.Provider> lookup, ExistingFileHelper existing) {
-            super(output, lookup, SparseOres.MODID, existing);
-        }
-
-        @Override
-        protected void addTags(HolderLookup.Provider provider) {
-            for (RichOres.Spec spec : RichOres.ALL) {
-                for (RichOres.Variant variant : spec.variants()) {
-                    Block block = RichOreBlocks.block(variant.name());
-                    tag(blockTag("minecraft:mineable/pickaxe")).add(block);
-                    switch (spec.tier()) {
-                        case STONE -> tag(blockTag("minecraft:needs_stone_tool")).add(block);
-                        case IRON -> tag(blockTag("minecraft:needs_iron_tool")).add(block);
-                        case NONE -> { }
-                    }
-                    for (String tag : oreTags(spec, variant)) {
-                        tag(blockTag(tag)).add(block);
-                    }
+    /**
+     * Block tags: mineable with a pickaxe, the mining tier of the counterpart, and the ore tags. {@code tag} is the block
+     * tag provider's own {@code tag}.
+     */
+    public static void addBlockTags(Function<TagKey<Block>, IntrinsicHolderTagsProvider.IntrinsicTagAppender<Block>> tag) {
+        for (RichOres.Spec spec : RichOres.ALL) {
+            for (RichOres.Variant variant : spec.variants()) {
+                Block block = RichOreBlocks.block(variant.name());
+                tag.apply(blockTag("minecraft:mineable/pickaxe")).add(block);
+                switch (spec.tier()) {
+                    case STONE -> tag.apply(blockTag("minecraft:needs_stone_tool")).add(block);
+                    case IRON -> tag.apply(blockTag("minecraft:needs_iron_tool")).add(block);
+                    case NONE -> { }
                 }
-            }
-            for (Block block : SeismicContent.blocks()) {
-                tag(blockTag("minecraft:mineable/pickaxe")).add(block);
-            }
-            // Not in blocks(): it drops nothing (breaking it drops the machine from its base), but mines like the rest.
-            tag(blockTag("minecraft:mineable/pickaxe")).add(SeismicContent.COMBUSTIVE_THUMPER_COLUMN.get());
-            tag(blockTag("minecraft:mineable/pickaxe")).add(SeismicContent.SMART_LOGGER.get());
-            for (Block block : SeismicContent.chokedThumpers()) {
-                tag(blockTag("minecraft:mineable/pickaxe")).add(block);
+                for (String t : oreTags(spec, variant)) {
+                    tag.apply(blockTag(t)).add(block);
+                }
             }
         }
     }
 
     /** Item tags: the rich blocks' items are in the same ore tags as their blocks. */
-    private static final class ItemTagsGen extends ItemTagsProvider {
+    public static final class ItemTagsGen extends ItemTagsProvider {
 
-        ItemTagsGen(PackOutput output, CompletableFuture<HolderLookup.Provider> lookup,
+        public ItemTagsGen(PackOutput output, CompletableFuture<HolderLookup.Provider> lookup,
                     CompletableFuture<TagsProvider.TagLookup<Block>> blockTags, ExistingFileHelper existing) {
             super(output, lookup, blockTags, SparseOres.MODID, existing);
         }

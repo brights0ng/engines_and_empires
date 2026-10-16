@@ -20,7 +20,7 @@ import java.util.Map;
  * vanilla's (or Create's). For the ores the pack cuts down, the loot table is the pack's own, generated from
  * this same table (see {@link #PACK_LOOT}), so the ordinary and rich blocks cannot drift apart:
  * <ul>
- *   <li>coal, diamond and nether quartz drop one chip ({@code refining.RefiningItems}) instead of a whole item;</li>
+ *   <li>coal, diamond and nether quartz drop one chip ({@code chips.ChipItems}) instead of a whole item;</li>
  *   <li>redstone, lapis and nether gold drop about a quarter of vanilla's amount.</li>
  * </ul>
  */

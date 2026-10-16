@@ -1,6 +1,5 @@
 package dev.brights0ng.seismicsurveyance;
 
-import dev.brights0ng.sparseores.worldgen.ReadingDeposits;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;

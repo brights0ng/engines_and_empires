@@ -3,6 +3,7 @@ package dev.brights0ng.enginesandempires.gametest;
 import java.util.List;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
+import dev.brights0ng.enginesandempires.weather.heat.compat.MachineHeatDrivers;
 import dev.brights0ng.meteodyne.heat.world.HeatDrivers;
 import dev.brights0ng.meteodyne.heat.world.HeatPowerData;
 import dev.brights0ng.meteodyne.heat.world.HeatRadiant;
@@ -115,7 +116,7 @@ public final class HeatPlayerGameTests {
     public static void enginesAreSourcesOnlyWhileRunning(GameTestHelper helper) {
         BuiltInRegistries.BLOCK.getOptional(ResourceLocation.parse("createdieselgenerators:diesel_engine")).ifPresent(b -> {
             List<HeatPowerData.Variant> driven = HeatTables.driven(b.defaultBlockState());
-            helper.assertTrue(driven.size() == 1 && driven.get(0).driver().equals(HeatDrivers.RUNNING)
+            helper.assertTrue(driven.size() == 1 && driven.get(0).driver().equals(MachineHeatDrivers.RUNNING)
                     && driven.get(0).power() == 0.8, "a diesel engine is driven by running: " + driven);
             BlockPos pos = new BlockPos(3, Y0, 3);
             helper.setBlock(pos, b.defaultBlockState());
@@ -137,7 +138,7 @@ public final class HeatPlayerGameTests {
         BlockState fire = burner.get().defaultBlockState();
         List<HeatPowerData.Variant> driven = HeatTables.driven(fire);
         helper.assertTrue(driven.size() == 1 && driven.get(0).power() == 1.0 && driven.get(0).radiant() == 0.5
-                && driven.get(0).driver().equals(HeatDrivers.HOT_AIR_BURNER), "a burner: one campfire, driven: " + driven);
+                && driven.get(0).driver().equals(MachineHeatDrivers.HOT_AIR_BURNER), "a burner: one campfire, driven: " + driven);
         for (var p : fire.getProperties()) {
             if (p.getName().equals("variant")) {
                 BlockState soul = setValue(fire, p, "soulful");

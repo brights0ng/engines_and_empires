@@ -6,7 +6,6 @@ import java.util.List;
 
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 
-import dev.brights0ng.sparseores.worldgen.ReadingDeposits;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;

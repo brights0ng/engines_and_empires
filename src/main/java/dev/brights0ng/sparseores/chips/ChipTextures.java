@@ -1,4 +1,4 @@
-package dev.brights0ng.sparseores.refining;
+package dev.brights0ng.sparseores.chips;
 
 import java.awt.image.BufferedImage;
 
@@ -19,12 +19,11 @@ public final class ChipTextures {
             "..####..",
             "...#....",
     };
-    // Public since split step 1b, only because the core's RefiningTest (another package now) checks the chip shape.
-    public static final int LEFT = 4;
-    public static final int TOP = 5;
+    static final int LEFT = 4;
+    static final int TOP = 5;
 
     /** How much the rim is darkened: its colour is multiplied by this. */
-    public static final double RIM_SHADE = 0.6;
+    static final double RIM_SHADE = 0.6;
 
     /**
      * Cuts a chip out of a 16x16 item texture. Each shard pixel takes the item's pixel at the same place; where the item
@@ -57,12 +56,12 @@ public final class ChipTextures {
         return chip;
     }
 
-    public static boolean inShape(int x, int y) {
+    static boolean inShape(int x, int y) {
         return y >= 0 && y < SHAPE.length && x >= 0 && x < SHAPE[y].length() && SHAPE[y].charAt(x) == '#';
     }
 
     /** A shard pixel with an empty neighbour above, below, left or right. */
-    public static boolean onRim(int x, int y) {
+    static boolean onRim(int x, int y) {
         return !inShape(x - 1, y) || !inShape(x + 1, y) || !inShape(x, y - 1) || !inShape(x, y + 1);
     }
 
@@ -89,7 +88,7 @@ public final class ChipTextures {
         return 0xFF000000 | (int) (r / n) << 16 | (int) (g / n) << 8 | (int) (b / n);
     }
 
-    public static int shade(int argb, double factor) {
+    static int shade(int argb, double factor) {
         int r = (int) (((argb >> 16) & 0xFF) * factor);
         int g = (int) (((argb >> 8) & 0xFF) * factor);
         int b = (int) ((argb & 0xFF) * factor);

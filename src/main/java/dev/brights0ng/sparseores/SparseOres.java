@@ -4,8 +4,9 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
+import dev.brights0ng.sparseores.chips.ChipDataGen;
+import dev.brights0ng.sparseores.chips.ChipItems;
 import dev.brights0ng.sparseores.rich.RichOreBlocks;
-import dev.brights0ng.sparseores.rich.RichOreDataGen;
 import dev.brights0ng.sparseores.worldgen.OreWorldgen;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
@@ -32,8 +33,13 @@ public final class SparseOres {
         // The ore worldgen feature type (the data files under data/engines_and_empires/ put it to use)
         OreWorldgen.register(modEventBus);
 
-        // The rich ore blocks and items, and the data generator that makes their loot, models and tags
+        // The rich ore blocks and items. Their loot, models and tags come from RichOreDataGen's parts, which the core's
+        // data generator puts together with the other mods' until each mod has its own output (split step 2).
         RichOreBlocks.register(modEventBus);
-        modEventBus.addListener(RichOreDataGen::gatherData);
+
+        // The chips (coal, diamond, quartz): what those ores drop instead of a whole item, and their recipes, fuel value
+        // and textures
+        ChipItems.register(modEventBus);
+        modEventBus.addListener(ChipDataGen::gatherData);
     }
 }

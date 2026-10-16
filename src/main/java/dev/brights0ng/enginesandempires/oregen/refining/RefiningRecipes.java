@@ -9,11 +9,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
+import dev.brights0ng.sparseores.chips.Chips;
 import dev.brights0ng.sparseores.rich.RichOres;
 
 /**
- * Every recipe the pack adds or replaces for ore refining, and the coal chip's burn time, built as plain JSON from
- * {@link Refining}. It needs no running game, so unit tests check it; {@link RefiningDataGen} writes it out.
+ * Every recipe the pack adds or replaces for ore refining, built as plain JSON from {@link Refining}. It needs no running
+ * game, so unit tests check it; {@link RefiningDataGen} writes it out. The chips' own recipes and fuel value are Sparse
+ * Ores' ({@code sparseores/chips/ChipDataGen}).
  *
  * <p>Recipes that replace vanilla's or Create's are written under <em>their</em> ids (for example
  * {@code minecraft:iron_ingot_from_smelting_raw_iron}), so the pack's file is loaded instead of theirs. This mod loads
@@ -36,16 +38,7 @@ public final class RefiningRecipes {
         metals(recipe);
         ordinaryOres(recipe);
         richOres(recipe);
-        chips(recipe);
         otherSources(recipe);
-
-        JsonObject coalChip = new JsonObject();
-        coalChip.addProperty("burn_time", Refining.COAL_CHIP_BURN_TIME);
-        JsonObject values = new JsonObject();
-        values.add(MODID + ":coal_chip", coalChip);
-        JsonObject fuels = new JsonObject();
-        fuels.add("values", values);
-        files.put("neoforge/data_maps/item/furnace_fuels.json", fuels);
         return files;
     }
 
@@ -123,24 +116,6 @@ public final class RefiningRecipes {
         }
     }
 
-    /** Four chips craft back into the whole item. */
-    private static void chips(BiConsumer<String, JsonObject> recipe) {
-        for (Refining.Chip chip : Refining.CHIPS) {
-            JsonObject json = new JsonObject();
-            json.addProperty("type", "minecraft:crafting_shaped");
-            json.addProperty("category", "misc");
-            JsonObject key = new JsonObject();
-            key.add("#", item(MODID + ":" + chip.name()));
-            json.add("key", key);
-            JsonArray pattern = new JsonArray();
-            pattern.add("##");
-            pattern.add("##");
-            json.add("pattern", pattern);
-            json.add("result", stack(chip.item(), 1));
-            recipe.accept(MODID + ":" + path(chip.item()) + "_from_chips", json);
-        }
-    }
-
     /**
      * Create's washing recipes that make metal out of plain sand and gravel, cut like raw ore. Soul sand's quartz
      * becomes quartz chips; everything else they give is kept.
@@ -159,7 +134,7 @@ public final class RefiningRecipes {
         // Create gives four quartz an eighth of the time: half a quartz, or two chips, on average.
         JsonArray soulSand = new JsonArray();
         soulSand.add(result(MODID + ":quartz_chip", 1,
-                Refining.otherSourceChance(4 * 0.125 * Refining.CHIPS_PER_ITEM)));
+                Refining.otherSourceChance(4 * 0.125 * Chips.CHIPS_PER_ITEM)));
         soulSand.add(result("minecraft:gold_nugget", 1, Refining.otherSourceChance(0.02)));
         recipe.accept("create:splashing/soul_sand", processing("create:splashing", "minecraft:soul_sand", soulSand, 0));
     }

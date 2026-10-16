@@ -4,12 +4,17 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
+import dev.brights0ng.enginesandempires.datagen.SharedDataGen;
 import dev.brights0ng.enginesandempires.food.compat.AppleSkinCompat;
 import dev.brights0ng.enginesandempires.food.compat.DietCompat;
+import dev.brights0ng.enginesandempires.frontier.guard.MineColoniesGuardSource;
+import dev.brights0ng.enginesandempires.frontier.incursion.CreateLoudMachines;
+import dev.brights0ng.enginesandempires.oregen.refining.RefiningDataGen;
 import dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatCompat;
+import dev.brights0ng.enginesandempires.weather.climate.compat.SereneSeasonsCompat;
+import dev.brights0ng.enginesandempires.weather.heat.compat.MachineHeatDrivers;
 import dev.brights0ng.enginesandempires.weight.WeightDataMaps;
 import dev.brights0ng.enginesandempires.weight.WeightReport;
-import dev.brights0ng.sparseores.refining.RefiningItems;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -34,8 +39,9 @@ public final class EnginesAndEmpires {
     }
 
     public static void init(IEventBus modEventBus, ModContainer modContainer) {
-        // The chips (coal, diamond, quartz): what those ores drop now instead of a whole item
-        RefiningItems.register(modEventBus);
+        // Refining's recipes; and the data providers the mods share until each has its own output
+        modEventBus.addListener(RefiningDataGen::gatherData);
+        modEventBus.addListener(SharedDataGen::gatherData);
 
         // Item carry weights: the pack's weight data map, which Encumbered is made to read (see EncumberedWeightMixin),
         // and a log of the items no weight group covers yet
@@ -47,7 +53,17 @@ public final class EnginesAndEmpires {
         // Diet: spoiled food feeds its groups less, death resets them to 25% (only if Diet is installed)
         DietCompat.registerIfLoaded();
 
+        // Engines and hot air burners are heat sources while they run (their heat_power entries name these drivers)
+        MachineHeatDrivers.register();
+
         // Cold Sweat: the pack's air temperature becomes its world temperature in the Overworld (only if Cold Sweat is installed)
         ColdSweatCompat.registerIfLoaded(modEventBus);
+        // Serene Seasons: its calendar runs Meteodyne's year in place of the built-in one (only if Serene Seasons is installed)
+        SereneSeasonsCompat.registerIfLoaded();
+
+        // MineColonies: colonists working a guard job count as Frontier's guards (only if MineColonies is installed)
+        MineColoniesGuardSource.registerIfLoaded();
+        // Create's machines run (for Frontier's loud machines) while they turn
+        CreateLoudMachines.register();
     }
 }
