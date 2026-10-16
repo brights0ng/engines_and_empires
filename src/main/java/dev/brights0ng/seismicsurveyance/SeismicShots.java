@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import dev.brights0ng.frontier.deep.Deep;
-import dev.brights0ng.frontier.deep.ShotSource;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import dev.brights0ng.sparseores.Realm;
 import net.minecraft.core.BlockPos;
@@ -18,6 +16,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.NeoForge;
 
 /**
  * Makes a vibration in the ground and lights up the geophones that hear it.
@@ -63,16 +62,16 @@ public final class SeismicShots {
 
     /**
      * A thumper's head landing on the strike plate beneath it, carrying as far as {@code range}. Besides the survey, the
-     * shot sets off what lives below ({@link Deep}): sculk, mobs coming up, disturbance and, through its echoes, stirred
-     * deposits. That happens whether or not any geophone is listening, so it is started here, before {@link #fire} (which
-     * does nothing with nobody listening).
+     * shot is announced ({@link ThumpEvent}) for what lives below to hear (Frontier's Deep: sculk, mobs coming up,
+     * disturbance and, through its echoes, stirred deposits). That happens whether or not any geophone is listening, so
+     * it is posted here, before {@link #fire} (which does nothing with nobody listening).
      */
     public static void thump(ServerLevel level, BlockPos pos, BlockState plateState, int range, ShotSource source) {
         Vec3 centre = pos.getCenter();
         level.playSound(null, pos, SoundEvents.ANVIL_LAND, SoundSource.BLOCKS, 1.2F, 0.6F);
         level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, plateState),
                 centre.x, pos.getY() + 1.05, centre.z, 24, 0.5, 0.02, 0.5, 0.12);
-        Deep.of(level).onThump(pos, source, range);
+        NeoForge.EVENT_BUS.post(new ThumpEvent(level, pos, source, range));
         fire(level, centre, range, source);
     }
 
@@ -124,8 +123,11 @@ public final class SeismicShots {
         for (DepositFinder.Sighting sighting : scan.result().sightings()) {
             echoers.add(DepositEchoes.of(sighting.resolved()));
         }
-        // The deposits it bounced off are stirred (the ore you just found is what wakes up).
-        Deep.of(level).onEchoes(shot, echoers);
+        // A thumper shot's echoes are announced (EchoesEvent): the Deep stirs the deposits they bounced off (the ore you
+        // just found is what wakes up).
+        if (shot != null) {
+            NeoForge.EVENT_BUS.post(new EchoesEvent(level, shot, echoers));
+        }
         List<SeismicWave.Receiver> receivers = new ArrayList<>();
         for (GeophoneRegistry.Entry geophone : geophones) {
             Vec3 spike = geophone.position();

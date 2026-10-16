@@ -14,7 +14,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 
 /**
- * Where thumping calls up an incursion (see {@link Disturbance}): a (lesser) thumper incursion against the thumpers around
+ * Where thumping calls up an incursion (see {@code Disturbance}): a (lesser) thumper incursion against the thumpers around
  * the shot, with a rumble and a line for the players nearby. The latest calls are kept for the debug command and tests.
  */
 public final class ThumperIncursions {

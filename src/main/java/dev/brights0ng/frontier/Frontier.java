@@ -6,6 +6,7 @@ import com.mojang.logging.LogUtils;
 
 import dev.brights0ng.frontier.FrontierConfig;
 import dev.brights0ng.frontier.FrontierContent;
+import dev.brights0ng.frontier.seismic.FrontierSeismic;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -32,5 +33,7 @@ public final class Frontier {
         // Frontier: how civilised each part of the world is. Its settings are per world (a SERVER config).
         FrontierContent.register(modEventBus);
         modContainer.registerConfig(ModConfig.Type.SERVER, FrontierConfig.SPEC);
+        // Seismic Surveyance's thumpers: what their shots set off below (only if Seismic Surveyance is installed)
+        FrontierSeismic.registerIfLoaded();
     }
 }

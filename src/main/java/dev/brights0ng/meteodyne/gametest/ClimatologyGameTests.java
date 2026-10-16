@@ -5,6 +5,7 @@ import java.util.List;
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.climate.SeasonSource;
 import dev.brights0ng.meteodyne.forecast.Climatology;
+import dev.brights0ng.meteodyne.rain.WeatherConfig;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -52,6 +53,17 @@ public final class ClimatologyGameTests {
         helper.assertTrue(all.contains(" C (lows "), "with a season summary:\n" + all);
         Meteodyne.LOGGER.info("Climatology after a 2-day run:\n{}", all);
         Climatology.clearSpots();
+        helper.succeed();
+    }
+
+    /** The game test server runs without seasons (GameTestCalendar), so no climate test moves with the time of day. */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "weather_no_seasons")
+    public static void theGameTestServerHasNoSeasons(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        helper.assertFalse(WeatherConfig.calendar().enabled(), "the built-in calendar is off");
+        helper.assertFalse(SeasonSource.overridden(), "no climatology run is going");
+        helper.assertFalse(SeasonSource.available(), "no seasons: no provider, no calendar");
+        helper.assertTrue(Double.isNaN(SeasonSource.yearFraction(level)), "no year fraction: " + SeasonSource.yearFraction(level));
         helper.succeed();
     }
 

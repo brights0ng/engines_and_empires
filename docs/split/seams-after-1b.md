@@ -23,32 +23,40 @@ S5, S8, for 1c-B) and the same 10 gated ones. S13 and S14 had no rows here: they
 Simulated, Aeronautics, Diesel Generators) from Meteodyne's `HeatDrivers` and Frontier's `LoudMachines`
 (`df9873a`, `b216f1b`).
 
+**Step 1c-B (S1-S3, S5-S8):** the last 21 forbidden rows and the 10 gated ones ticked below; every row is now done, and
+`check_split.py` reports 0 forbidden and 0 gated references (and none to `EnginesAndEmpiresMod` outside the core). The
+library's `Services` and its `TemperatureProvider`, `WindProvider` and `StormProvider` carry S1-S3; Seismic Surveyance's
+`ThumpEvent`/`EchoesEvent` and Frontier's gated `frontier.seismic` package (`Deep`, `Disturbance`, `FrontierSeismic`,
+`DeepCommand`, `SeismicThumpers`, `FrontierDeepGameTests`) carry S5-S7, with Frontier's `ThumperAccess` for S6; Seismic
+Surveyance's client `MapLayer` carries S8, with the core's `TierOverlay` registered as a layer. `ShotSource` now lives in
+Seismic Surveyance, so the per-mod file counts show it missing from Frontier (as planned by S5).
+
 ## Forbidden edges (36)
 
 | Done | Seam | From mod | To mod | From file | References |
 |---|---|---|---|---|---|
-| [ ] | S1 | simple_spoilage | meteodyne | `simplespoilage/FoodTemperature.java` | `meteodyne/WeatherOwnership.java` |
-| [ ] | S1 | simple_spoilage | meteodyne | `simplespoilage/FoodTemperature.java` | `meteodyne/climate/Baseline.java` |
-| [ ] | S1 | simple_spoilage | meteodyne | `simplespoilage/FoodTemperature.java` | `meteodyne/climate/Climate.java` |
-| [ ] | S1 | simple_spoilage | meteodyne | `simplespoilage/FoodTemperature.java` | `meteodyne/climate/Temperature.java` |
-| [ ] | S1 | simple_spoilage | meteodyne | `simplespoilage/FoodTemperature.java` | `meteodyne/climate/UndergroundProbe.java` |
-| [ ] | S1 | simple_spoilage | meteodyne | `simplespoilage/FoodTemperature.java` | `meteodyne/heat/world/HeatWorld.java` |
-| [ ] | S1 | simple_spoilage | meteodyne | `simplespoilage/FoodTemperature.java` | `meteodyne/rain/WeatherConfig.java` |
-| [ ] | S2 | paradyne_lib | meteodyne | `paradynelib/wind/WindCommand.java` | `meteodyne/wind/WindSources.java` |
-| [ ] | S2 | paradyne_lib | meteodyne | `paradynelib/wind/WindShips.java` | `meteodyne/wind/WindSources.java` |
-| [ ] | S3 | frontier | meteodyne | `frontier/spawn/FrontierDarkness.java` | `meteodyne/WeatherOwnership.java` |
-| [ ] | S3 | frontier | meteodyne | `frontier/spawn/FrontierDarkness.java` | `meteodyne/rain/WeatherQueries.java` |
-| [ ] | S3 | frontier | meteodyne | `frontier/spawn/FrontierDarkness.java` | `meteodyne/sky/StormLight.java` |
+| [x] `ab862e4` | S1 | simple_spoilage | meteodyne | `simplespoilage/FoodTemperature.java` | `meteodyne/WeatherOwnership.java` |
+| [x] `ab862e4` | S1 | simple_spoilage | meteodyne | `simplespoilage/FoodTemperature.java` | `meteodyne/climate/Baseline.java` |
+| [x] `ab862e4` | S1 | simple_spoilage | meteodyne | `simplespoilage/FoodTemperature.java` | `meteodyne/climate/Climate.java` |
+| [x] `ab862e4` | S1 | simple_spoilage | meteodyne | `simplespoilage/FoodTemperature.java` | `meteodyne/climate/Temperature.java` |
+| [x] `ab862e4` | S1 | simple_spoilage | meteodyne | `simplespoilage/FoodTemperature.java` | `meteodyne/climate/UndergroundProbe.java` |
+| [x] `ab862e4` | S1 | simple_spoilage | meteodyne | `simplespoilage/FoodTemperature.java` | `meteodyne/heat/world/HeatWorld.java` |
+| [x] `ab862e4` | S1 | simple_spoilage | meteodyne | `simplespoilage/FoodTemperature.java` | `meteodyne/rain/WeatherConfig.java` |
+| [x] `b5d989c` | S2 | paradyne_lib | meteodyne | `paradynelib/wind/WindCommand.java` | `meteodyne/wind/WindSources.java` |
+| [x] `b5d989c` | S2 | paradyne_lib | meteodyne | `paradynelib/wind/WindShips.java` | `meteodyne/wind/WindSources.java` |
+| [x] `83401c8` | S3 | frontier | meteodyne | `frontier/spawn/FrontierDarkness.java` | `meteodyne/WeatherOwnership.java` |
+| [x] `83401c8` | S3 | frontier | meteodyne | `frontier/spawn/FrontierDarkness.java` | `meteodyne/rain/WeatherQueries.java` |
+| [x] `83401c8` | S3 | frontier | meteodyne | `frontier/spawn/FrontierDarkness.java` | `meteodyne/sky/StormLight.java` |
 | [x] `c9356be` | S4 | frontier | meteodyne | `frontier/mixin/LevelChunkFrontierMixin.java` | `meteodyne/heat/world/HeatWorld.java` |
-| [ ] | S5 | seismic_surveyance | frontier | `seismicsurveyance/CombustiveThumperBlockEntity.java` | `frontier/deep/ShotSource.java` |
-| [ ] | S5 | seismic_surveyance | frontier | `seismicsurveyance/SeismicShots.java` | `frontier/deep/Deep.java` |
-| [ ] | S5 | seismic_surveyance | frontier | `seismicsurveyance/SeismicShots.java` | `frontier/deep/ShotSource.java` |
-| [ ] | S8 | seismic_surveyance | engines_and_empires | `seismicsurveyance/client/PrdItemRenderer.java` | `enginesandempires/geophone/client/TierOverlay.java` |
-| [ ] | S8 | seismic_surveyance | frontier | `seismicsurveyance/client/PrdItemRenderer.java` | `frontier/map/TierGrid.java` |
-| [ ] | S8 | seismic_surveyance | frontier | `seismicsurveyance/client/PrdItemRenderer.java` | `frontier/map/TierMapPayloads.java` |
-| [ ] | S8 | seismic_surveyance | engines_and_empires | `seismicsurveyance/client/SmartLoggerRenderer.java` | `enginesandempires/geophone/client/TierOverlay.java` |
-| [ ] | S8 | seismic_surveyance | frontier | `seismicsurveyance/client/SmartLoggerRenderer.java` | `frontier/map/TierGrid.java` |
-| [ ] | S8 | seismic_surveyance | frontier | `seismicsurveyance/client/SmartLoggerRenderer.java` | `frontier/map/TierMapPayloads.java` |
+| [x] `6252945` | S5 | seismic_surveyance | frontier | `seismicsurveyance/CombustiveThumperBlockEntity.java` | `frontier/deep/ShotSource.java` |
+| [x] `6252945` | S5 | seismic_surveyance | frontier | `seismicsurveyance/SeismicShots.java` | `frontier/deep/Deep.java` |
+| [x] `6252945` | S5 | seismic_surveyance | frontier | `seismicsurveyance/SeismicShots.java` | `frontier/deep/ShotSource.java` |
+| [x] `d44550b` | S8 | seismic_surveyance | engines_and_empires | `seismicsurveyance/client/PrdItemRenderer.java` | `enginesandempires/geophone/client/TierOverlay.java` |
+| [x] `d44550b` | S8 | seismic_surveyance | frontier | `seismicsurveyance/client/PrdItemRenderer.java` | `frontier/map/TierGrid.java` |
+| [x] `d44550b` | S8 | seismic_surveyance | frontier | `seismicsurveyance/client/PrdItemRenderer.java` | `frontier/map/TierMapPayloads.java` |
+| [x] `d44550b` | S8 | seismic_surveyance | engines_and_empires | `seismicsurveyance/client/SmartLoggerRenderer.java` | `enginesandempires/geophone/client/TierOverlay.java` |
+| [x] `d44550b` | S8 | seismic_surveyance | frontier | `seismicsurveyance/client/SmartLoggerRenderer.java` | `frontier/map/TierGrid.java` |
+| [x] `d44550b` | S8 | seismic_surveyance | frontier | `seismicsurveyance/client/SmartLoggerRenderer.java` | `frontier/map/TierMapPayloads.java` |
 | [x] `fb98004` | S9 | sparse_ores | seismic_surveyance | `sparseores/debug/DepositCommand.java` | `seismicsurveyance/DepositFinder.java` |
 | [x] `fb98004` | S9 | sparse_ores | seismic_surveyance | `sparseores/debug/DepositCommand.java` | `seismicsurveyance/DepositScanner.java` |
 | [x] `fb98004` | S9 | sparse_ores | seismic_surveyance | `sparseores/debug/DepositCommand.java` | `seismicsurveyance/SeismicShots.java` |
@@ -68,13 +76,13 @@ Simulated, Aeronautics, Diesel Generators) from Meteodyne's `HeatDrivers` and Fr
 
 | Done | Seam | From mod | To mod | From file | References |
 |---|---|---|---|---|---|
-| [ ] | S6 | frontier | seismic_surveyance | `frontier/incursion/Incursion.java` | `seismicsurveyance/ChokedThumpers.java` |
-| [ ] | S6 | frontier | seismic_surveyance | `frontier/incursion/Incursions.java` | `seismicsurveyance/ChokedThumpers.java` |
-| [ ] | S7 | frontier | seismic_surveyance | `frontier/deep/Deep.java` | `seismicsurveyance/DepositEchoes.java` |
-| [ ] | S7 | frontier | seismic_surveyance | `frontier/deep/Deep.java` | `seismicsurveyance/DepositFinder.java` |
-| [ ] | S7 | frontier | seismic_surveyance | `frontier/deep/Deep.java` | `seismicsurveyance/DepositScanner.java` |
-| [ ] | S7 | frontier | seismic_surveyance | `frontier/deep/Deep.java` | `seismicsurveyance/SeismicWave.java` |
-| [ ] | S7 | frontier | seismic_surveyance | `frontier/deep/Deep.java` | `seismicsurveyance/WaveModel.java` |
-| [ ] | S7 | frontier | sparse_ores | `frontier/deep/Deep.java` | `sparseores/Realm.java` |
-| [ ] | S7 | frontier | seismic_surveyance | `frontier/gametest/FrontierDeepGameTests.java` | `seismicsurveyance/SeismicWave.java` |
-| [ ] | S7 | frontier | seismic_surveyance | `frontier/gametest/FrontierDeepGameTests.java` | `seismicsurveyance/WaveModel.java` |
+| [x] `bd09f40` | S6 | frontier | seismic_surveyance | `frontier/incursion/Incursion.java` | `seismicsurveyance/ChokedThumpers.java` |
+| [x] `bd09f40` | S6 | frontier | seismic_surveyance | `frontier/incursion/Incursions.java` | `seismicsurveyance/ChokedThumpers.java` |
+| [x] `6252945` | S7 | frontier | seismic_surveyance | `frontier/deep/Deep.java` | `seismicsurveyance/DepositEchoes.java` |
+| [x] `6252945` | S7 | frontier | seismic_surveyance | `frontier/deep/Deep.java` | `seismicsurveyance/DepositFinder.java` |
+| [x] `6252945` | S7 | frontier | seismic_surveyance | `frontier/deep/Deep.java` | `seismicsurveyance/DepositScanner.java` |
+| [x] `6252945` | S7 | frontier | seismic_surveyance | `frontier/deep/Deep.java` | `seismicsurveyance/SeismicWave.java` |
+| [x] `6252945` | S7 | frontier | seismic_surveyance | `frontier/deep/Deep.java` | `seismicsurveyance/WaveModel.java` |
+| [x] `6252945` | S7 | frontier | sparse_ores | `frontier/deep/Deep.java` | `sparseores/Realm.java` |
+| [x] `6252945` | S7 | frontier | seismic_surveyance | `frontier/gametest/FrontierDeepGameTests.java` | `seismicsurveyance/SeismicWave.java` |
+| [x] `6252945` | S7 | frontier | seismic_surveyance | `frontier/gametest/FrontierDeepGameTests.java` | `seismicsurveyance/WaveModel.java` |

@@ -1,4 +1,4 @@
-package dev.brights0ng.frontier.deep;
+package dev.brights0ng.seismicsurveyance;
 
 /** What made a thumper shot, which decides what it sets off. */
 public enum ShotSource {

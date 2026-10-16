@@ -6,7 +6,7 @@ import java.util.Map;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
-import dev.brights0ng.meteodyne.wind.WindSources;
+import dev.brights0ng.paradynelib.services.WindProvider;
 import dev.ryanhcode.sable.api.physics.mass.MassData;
 import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
 import dev.ryanhcode.sable.companion.math.BoundingBox3ic;
@@ -66,7 +66,7 @@ public final class WindShips {
             checkShelter(level, subLevel, ship, worldCom, params);
         }
 
-        WindColumn column = WindSources.column(level, worldCom.x, worldCom.z);
+        WindColumn column = WindProvider.get().column(level, worldCom.x, worldCom.z);
         if (column == null) {
             ship.speed = 0;
             return worldCom;
