@@ -2,9 +2,9 @@ package dev.brights0ng.enginesandempires.geophone;
 
 import java.util.Arrays;
 
-import dev.brights0ng.enginesandempires.oregen.Deposit;
-import dev.brights0ng.enginesandempires.oregen.DepositBody;
-import dev.brights0ng.enginesandempires.oregen.ResolvedDeposit;
+import dev.brights0ng.sparseores.Deposit;
+import dev.brights0ng.sparseores.DepositBody;
+import dev.brights0ng.sparseores.ResolvedDeposit;
 
 /**
  * Turns a deposit into what a vibration bounces off: the centres of its ore blocks. Every ore block of the

@@ -6,8 +6,8 @@ import java.util.Set;
 
 import dev.brights0ng.enginesandempires.frontier.deep.Deep;
 import dev.brights0ng.enginesandempires.frontier.deep.ShotSource;
-import dev.brights0ng.enginesandempires.oregen.Realm;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
+import dev.brights0ng.sparseores.Realm;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
