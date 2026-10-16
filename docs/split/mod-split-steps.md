@@ -113,6 +113,7 @@ Tasks:
 6. **S6:** Frontier `ThumperAccess` interface; `frontier.seismic` implements it over `ChokedThumpers`; `Incursion`/`Incursions` depend only on the interface.
 7. **S7:** confirm `Deep` and its Seismic/Sparse Ores imports sit only in `frontier.seismic`.
 8. **S8:** Seismic `MapLayer` client extension point; move `TierOverlay` to core and register it; `PrdItemRenderer`/`SmartLoggerRenderer` iterate registered layers.
+9. **Decisions from Bright (from the 1c-A review):** (a) The Create blaze burner heat entry is a core machine entry, not a Meteodyne heat source; make sure nothing in Meteodyne code or data references it. (b) Pin `useBuiltinCalendar=false` for the game-test run so climate tests never move with the time of day. First report in the PR what `false` does (no seasons, or a fixed calendar?) and that all 202 still pass with it pinned; if any need the built-in calendar, stop and ask. (c) Restore the lang key `engines_and_empires.configuration.title` with the text "Engines and Empires" so NeoForge's config screen shows the real name. (d) The core compat package names from 1c-A are accepted as `<mod>.compat.<othermod>`.
 Acceptance: full check green; `seams-after-1b.md` is empty (every row struck with the commit that fixed it); a unit test per provider default; `FrontierDeepGameTests` passes through the event path.
 Out of scope: architecture test, Gradle.
 
