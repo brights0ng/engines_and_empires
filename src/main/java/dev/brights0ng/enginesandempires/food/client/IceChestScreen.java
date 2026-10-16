@@ -3,7 +3,6 @@ package dev.brights0ng.enginesandempires.food.client;
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.brights0ng.enginesandempires.food.SpoilageConfig;
 import dev.brights0ng.enginesandempires.food.icechest.IceChestInventory;
 import dev.brights0ng.enginesandempires.food.icechest.IceChestMenu;
 import net.minecraft.ChatFormatting;
@@ -16,7 +15,8 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * The ice chest's screen: vanilla's dispenser background for the 3x3 of food, with the ice slot added on the left and a
- * cooling gauge beside it (hover it for how long the ice will last).
+ * cooling gauge beside it. Hovering the gauge shows the temperature inside and outside the chest and how long its ice
+ * lasts at the current melt rate (food by temperature, 2026-10-15).
  */
 public class IceChestScreen extends AbstractContainerScreen<IceChestMenu> {
 
@@ -61,20 +61,35 @@ public class IceChestScreen extends AbstractContainerScreen<IceChestMenu> {
 
     private List<Component> gaugeTooltip() {
         List<Component> lines = new ArrayList<>();
-        int left = menu.coolingLeftSeconds();
-        lines.add(left > 0
-                ? Component.translatable("gui.engines_and_empires.ice_chest.cooling", time(left))
-                : Component.translatable("gui.engines_and_empires.ice_chest.not_cooling"));
-        ItemStack ice = menu.getSlot(0).getItem();
-        long perItem = IceChestInventory.coolingTicks(ice);
-        if (perItem > 0) {
-            lines.add(Component.translatable("gui.engines_and_empires.ice_chest.in_slot", time(perItem * ice.getCount() / 20))
+        double inside = menu.insideC();
+        double outside = menu.outsideC();
+        boolean cold = menu.coolingLeftSeconds() > 0 || (menu.iceMinutesLeft() < 0 && hasIce());
+        lines.add(cold
+                ? Component.translatable("gui.engines_and_empires.ice_chest.inside_frozen", celsius(0))
+                        .withStyle(ChatFormatting.AQUA)
+                : Component.translatable("gui.engines_and_empires.ice_chest.inside", celsius(inside)));
+        lines.add(Component.translatable("gui.engines_and_empires.ice_chest.outside", celsius(outside)));
+        int minutes = menu.iceMinutesLeft();
+        if (minutes < 0) {
+            lines.add(Component.translatable("gui.engines_and_empires.ice_chest.no_melt").withStyle(ChatFormatting.GRAY));
+        } else if (minutes == 0 && !hasIce()) {
+            lines.add(Component.translatable("gui.engines_and_empires.ice_chest.no_ice").withStyle(ChatFormatting.GRAY));
+        } else {
+            lines.add(Component.translatable("gui.engines_and_empires.ice_chest.ice_lasts", time(minutes * 60L))
                     .withStyle(ChatFormatting.GRAY));
         }
-        lines.add(Component.translatable("gui.engines_and_empires.ice_chest.slowdown",
-                Math.round(SpoilageConfig.iceChestSlowdown() * 100)).withStyle(ChatFormatting.AQUA));
         lines.add(Component.translatable("gui.engines_and_empires.ice_chest.needs_food").withStyle(ChatFormatting.DARK_GRAY));
         return lines;
+    }
+
+    private boolean hasIce() {
+        ItemStack ice = menu.getSlot(0).getItem();
+        return menu.coolingLeftSeconds() > 0 || (!ice.isEmpty() && IceChestInventory.coolingTicks(ice) > 0);
+    }
+
+    /** A temperature as "12.3 C", or "?" if unknown. */
+    static String celsius(double c) {
+        return Double.isFinite(c) ? String.format("%.1f C", c) : "?";
     }
 
     /** Seconds as "h:mm:ss", or "m:ss" under an hour. */

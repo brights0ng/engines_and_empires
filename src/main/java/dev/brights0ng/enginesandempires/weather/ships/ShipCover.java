@@ -99,13 +99,22 @@ public final class ShipCover {
      * a lightning strike's fire on the deck it hit (weather phase 6b).
      */
     public static BlockPos plotAt(Level level, double x, double y, double z) {
+        Vec3 p = plotPoint(level, x, y, z);
+        return p == null ? null : BlockPos.containing(p);
+    }
+
+    /**
+     * The point in a ship's own grid at world point (x, y, z), or null if no ship's bounds hold it (the heat
+     * simulation's rooms aboard, weather phase 8f-5).
+     */
+    public static Vec3 plotPoint(Level level, double x, double y, double z) {
         BoundingBox3dc point = new BoundingBox3d(x - 0.01, y - 0.01, z - 0.01, x + 0.01, y + 0.01, z + 0.01);
         for (SubLevel ship : Sable.HELPER.getAllIntersecting(level, point)) {
             if (ship.isRemoved()) {
                 continue;
             }
             Vector3d p = ship.logicalPose().transformPositionInverse(new Vector3d(x, y, z));
-            return BlockPos.containing(p.x, p.y, p.z);
+            return new Vec3(p.x, p.y, p.z);
         }
         return null;
     }
@@ -252,6 +261,63 @@ public final class ShipCover {
         return s.blocksMotion() || !s.getFluidState().isEmpty();
     }
 
+    /** Whether any ship's bounds come within {@code radius} blocks (a cube) of (x, y, z). */
+    public static boolean near(Level level, double x, double y, double z, double radius) {
+        BoundingBox3d box = new BoundingBox3d(x - radius, y - radius, z - radius, x + radius, y + radius, z + radius);
+        for (SubLevel ship : Sable.HELPER.getAllIntersecting(level, box)) {
+            if (!ship.isRemoved()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private ShipCover() {
+    }
+
+    /**
+     * The worst of {@code classify} over the ship blocks met along the world ray from (x, y, z) in the unit direction
+     * (dx, dy, dz), from {@code from} to {@code reach} blocks out (weather phase 8e-2, the sun's ray). {@code classify}
+     * says what a block does: 0 nothing, 1 partly, 2 stops the ray (which ends the search). The ray is walked in the
+     * world and each ship's block asked in its own frame, as {@link #top} does for a column.
+     */
+    public static int rayObstruction(Level level, double x, double y, double z, double dx, double dy, double dz,
+                                     double from, double reach, java.util.function.ToIntFunction<BlockState> classify) {
+        double ex = x + dx * reach;
+        double ey = y + dy * reach;
+        double ez = z + dz * reach;
+        BoundingBox3d box = new BoundingBox3d(Math.min(x, ex) - 0.5, Math.min(y, ey) - 0.5, Math.min(z, ez) - 0.5,
+                Math.max(x, ex) + 0.5, Math.max(y, ey) + 0.5, Math.max(z, ez) + 0.5);
+        int worst = 0;
+        LevelAccelerator acc = null;
+        Vector3d p = new Vector3d();
+        BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+        for (SubLevel ship : Sable.HELPER.getAllIntersecting(level, box)) {
+            if (ship.isRemoved()) {
+                continue;
+            }
+            if (acc == null) {
+                acc = new LevelAccelerator(level);
+            }
+            BoundingBox3dc b = ship.boundingBox();
+            Pose3dc pose = ship.logicalPose();
+            for (double t = from; t <= reach; t += STEP) {
+                double px = x + dx * t;
+                double py = y + dy * t;
+                double pz = z + dz * t;
+                if (px < b.minX() || px > b.maxX() || py < b.minY() || py > b.maxY() || pz < b.minZ() || pz > b.maxZ()) {
+                    continue;
+                }
+                pose.transformPositionInverse(p.set(px, py, pz));
+                int c = classify.applyAsInt(acc.getBlockState(m.set(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z))));
+                if (c > worst) {
+                    worst = c;
+                    if (worst >= 2) {
+                        return worst;
+                    }
+                }
+            }
+        }
+        return worst;
     }
 }

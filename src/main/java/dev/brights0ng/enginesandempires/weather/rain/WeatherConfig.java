@@ -11,7 +11,8 @@ public final class WeatherConfig {
     public static final String FILE_NAME = "engines_and_empires-weather-server.toml";
 
     /** Defaults, also used before the config loads (and in tests). */
-    public static final double DEFAULT_HEIGHT_COOLING_SCALE = 5.0;
+    /** Air cooling with height, C per 100 blocks (2026-10-15, Bright: 5, the pack's x0.2 scale of the standard 1). */
+    public static final double DEFAULT_HEIGHT_COOLING_PER_100 = 5.0;
     public static final double DEFAULT_MAX_HEIGHT_COOLING = 30.0;
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
@@ -20,16 +21,113 @@ public final class WeatherConfig {
         BUILDER.comment("Air temperature.").push("temperature");
     }
 
-    public static final ModConfigSpec.DoubleValue HEIGHT_COOLING_SCALE = BUILDER
-            .comment("How much faster air cools with height than the standard atmosphere with a block taken as a",
-                    "metre (0.65 C per 100 blocks). 5 matches the pack's x0.2 scale (a block is 5 m), so mountains",
-                    "get snowcaps; 1 is a block as a metre; 0 turns height cooling off.",
-                    "Rain or snow, snow piling up and ice all follow it.")
-            .defineInRange("heightCoolingScale", DEFAULT_HEIGHT_COOLING_SCALE, 0.0, 20.0);
+    public static final ModConfigSpec.DoubleValue HEIGHT_COOLING_PER_100 = BUILDER
+            .comment("How much colder the air gets 100 blocks above sea level, C (and warmer 100 blocks below, up to",
+                    "14 C). 5 is the pack's x0.2 scale of the standard atmosphere (about 1 C per 100 m): 12 C colder",
+                    "at y=300, 22 C colder at y=500. 0.65 is a block taken as a metre; 0 turns height cooling off.",
+                    "Rain or snow, snow piling up, ice, ships high in the clouds and what people feel all follow it.")
+            .defineInRange("heightCoolingPer100Blocks", DEFAULT_HEIGHT_COOLING_PER_100, 0.0, 20.0);
 
     public static final ModConfigSpec.DoubleValue MAX_HEIGHT_COOLING = BUILDER
             .comment("The most height can cool the air, in degrees C.")
             .defineInRange("maxHeightCooling", DEFAULT_MAX_HEIGHT_COOLING, 0.0, 100.0);
+
+    /** Default highest y the world's mountains reach (Tectonic's 320; vanilla's is 256). */
+    public static final int DEFAULT_MOUNTAIN_PEAK_Y = 320;
+
+    public static final ModConfigSpec.IntValue MOUNTAIN_PEAK_Y = BUILDER
+            .comment("The highest y the world's mountains reach (vanilla 256, Tectonic 320). Doesn't change terrain;",
+                    "the weather stretches the world's mountains to real ones (peaks of about 4,000 m) when air is",
+                    "pushed up a slope, so it cools and makes cloud, rain and snow as on real windward slopes.")
+            .defineInRange("mountainPeakY", DEFAULT_MOUNTAIN_PEAK_Y, 96, 2032);
+
+    static {
+        BUILDER.comment("Underground (weather phase 8c). Under cover the air gives way to the rock's temperature: the",
+                "surface's year-round mean down to bandTop, then a pull toward bandTemperature through the band, then",
+                "one gradient to bedrockTemperature at the bottom of the world. Sky light lets outside air into cave",
+                "mouths.").push("underground");
+    }
+
+    public static final ModConfigSpec.DoubleValue UG_EASE_DEPTH = BUILDER
+            .comment("Blocks of cover over which the outside air (day and night, seasons, fronts) gives way to the",
+                    "underground temperature.")
+            .defineInRange("easeDepth", 20.0, 0.0, 128.0);
+
+    public static final ModConfigSpec.DoubleValue UG_BAND_TOP = BUILDER
+            .comment("y where the surface's year-round mean starts giving way to bandTemperature.")
+            .defineInRange("bandTop", 40.0, -2032.0, 2032.0);
+
+    public static final ModConfigSpec.DoubleValue UG_BAND_BOTTOM = BUILDER
+            .comment("y where the rock is bandTemperature everywhere and the gradient to bedrock begins.")
+            .defineInRange("bandBottom", 0.0, -2032.0, 2032.0);
+
+    public static final ModConfigSpec.DoubleValue UG_BAND_TEMPERATURE = BUILDER
+            .comment("The rock's temperature at bandBottom, C.")
+            .defineInRange("bandTemperature", 21.0, -50.0, 100.0);
+
+    public static final ModConfigSpec.DoubleValue UG_BEDROCK_TEMPERATURE = BUILDER
+            .comment("The rock's temperature at the bottom of the world, C.")
+            .defineInRange("bedrockTemperature", 45.0, -50.0, 150.0);
+
+    public static final ModConfigSpec.DoubleValue UG_NOISE_AMPLITUDE = BUILDER
+            .comment("Strength of the rock temperature's texture, C (in full below bandBottom, growing through the",
+                    "band). 0 turns it off.")
+            .defineInRange("noiseAmplitude", 3.0, 0.0, 20.0);
+
+    public static final ModConfigSpec.DoubleValue UG_NOISE_SCALE = BUILDER
+            .comment("Size of the texture's warmer and cooler pockets, blocks.")
+            .defineInRange("noiseScale", 50.0, 4.0, 1024.0);
+
+    public static final ModConfigSpec.DoubleValue UG_HUMIDITY = BUILDER
+            .comment("Relative humidity (0-1) of the air under cover, the same everywhere, reached by the same",
+                    "insulation as the temperature. It feeds the heat index (a starting value, to be tuned in play).")
+            .defineInRange("humidity", 0.6, 0.0, 1.0);
+
+    public static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> UG_CAVE_BIOMES = BUILDER
+            .comment("Cave biome rules: biome;offset=C;useMin=true|false;min=C;useMax=true|false;max=C;humidity=0-1",
+                    "offset is added to the underground temperature; the caps that are on hold the result anywhere",
+                    "in that biome under cover; humidity (optional) replaces the flat underground humidity there.",
+                    "Modded biomes work by id.")
+            .defineListAllowEmpty("caveBiomes",
+                    dev.brights0ng.enginesandempires.weather.climate.Underground.Settings.DEFAULT_CAVES,
+                    () -> "minecraft:lush_caves;offset=0",
+                    dev.brights0ng.enginesandempires.weather.climate.Underground.CaveRule::valid);
+
+    static {
+        BUILDER.pop();
+    }
+
+    static {
+        BUILDER.comment("How the air feels (weather phase 8e-2): wind chill in cold wind, heat index in humid heat, and",
+                "the warmth of direct sun. These move what Cold Sweat sees, not the air temperature rain, snow",
+                "and ice follow.").push("apparent");
+    }
+
+    public static final ModConfigSpec.DoubleValue APPARENT_SCALE = BUILDER
+            .comment("Multiplies wind chill and heat index (1 is the real formulas; 0 turns both off).")
+            .defineInRange("scale", 1.0, 0.0, 5.0);
+
+    public static final ModConfigSpec.BooleanValue APPARENT_CAP_ENABLED = BUILDER
+            .comment("Whether wind chill and heat index are each limited to 'cap' degrees.")
+            .define("capEnabled", false);
+
+    public static final ModConfigSpec.DoubleValue APPARENT_CAP = BUILDER
+            .comment("The most wind chill can take off, and heat index put on, C, when 'capEnabled' is on.")
+            .defineInRange("cap", 15.0, 0.0, 60.0);
+
+    public static final ModConfigSpec.DoubleValue SUN_WARMTH_MAX = BUILDER
+            .comment("How much warmer it feels in full sun at noon under a clear sky, C (the NWS's figure for the",
+                    "heat index is up to 8). Smaller when the sun is low, a quarter behind glass or leaves, less",
+                    "through cloud, none in shade or at night. 0 turns sun warmth off.")
+            .defineInRange("sunWarmth", 8.0, 0.0, 30.0);
+
+    public static final ModConfigSpec.IntValue SUN_BLOCK_REACH = BUILDER
+            .comment("How far toward the sun, in blocks, blocks (and ships) can shade a person. Clouds have no limit.")
+            .defineInRange("sunBlockReach", 96, 8, 512);
+
+    static {
+        BUILDER.pop();
+    }
 
     static {
         BUILDER.pop().comment("The climate baseline: what is normal anywhere before weather (see",
@@ -232,10 +330,87 @@ public final class WeatherConfig {
         BUILDER.pop();
     }
 
+    static {
+        BUILDER.comment("The heat simulation (weather phase 8f): fires, furnaces, lava and coolers warming or cooling the",
+                "air of rooms and of the open air close by, felt by players. Overworld only.").push("heat");
+    }
+
+    public static final ModConfigSpec.BooleanValue HEAT_ENABLED = BUILDER
+            .comment("Whether the heat simulation runs.")
+            .define("enabled", true);
+
+    public static final ModConfigSpec.DoubleValue HEAT_BUDGET = BUILDER
+            .comment("CPU cores the simulation may use on average (its own threads, not the server thread). When it",
+                    "needs more, rooms are stepped less often in longer steps: warming stays on time, a little coarser.")
+            .defineInRange("budgetCores", 0.25, 0.01, 4.0);
+
+    public static final ModConfigSpec.IntValue HEAT_THREADS = BUILDER
+            .comment("Threads the simulation runs on.")
+            .defineInRange("threads", 1, 1, 4);
+
+    public static final ModConfigSpec.DoubleValue HEAT_NEAR_STEP = BUILDER
+            .comment("Seconds between steps of a region a player or ship is in or near.")
+            .defineInRange("nearStepSeconds", 1.0, 0.25, 10.0);
+
+    public static final ModConfigSpec.DoubleValue HEAT_FAR_STEP = BUILDER
+            .comment("Seconds between steps of a region nobody is near (a loaded base elsewhere).")
+            .defineInRange("farStepSeconds", 10.0, 1.0, 60.0);
+
+    public static final ModConfigSpec.IntValue HEAT_NATURAL_REACH = BUILDER
+            .comment("Natural sources (lava, magma, fire) take part only within this many blocks of a player or ship,",
+                    "or inside a region a placed source keeps going.")
+            .defineInRange("naturalReach", 32, 8, 128);
+
+    public static final ModConfigSpec.IntValue HEAT_MARGIN = BUILDER
+            .comment("Blocks of air and walls simulated around a group of sources.")
+            .defineInRange("margin", 12, 4, 32);
+
+    public static final ModConfigSpec.IntValue HEAT_MAX_SIZE = BUILDER
+            .comment("The most blocks a region spans along any axis; bigger groups are split into several regions.")
+            .defineInRange("maxSize", 48, 16, 96);
+
+    static {
+        BUILDER.pop();
+    }
+
+    /** The heat simulation's settings (defaults before the config loads). */
+    public static dev.brights0ng.enginesandempires.weather.heat.world.HeatSettings heat() {
+        if (!SPEC.isLoaded()) {
+            return dev.brights0ng.enginesandempires.weather.heat.world.HeatSettings.DEFAULT;
+        }
+        return new dev.brights0ng.enginesandempires.weather.heat.world.HeatSettings(HEAT_ENABLED.get(), HEAT_BUDGET.get(),
+                HEAT_THREADS.get(), HEAT_NEAR_STEP.get(), HEAT_FAR_STEP.get(), HEAT_NATURAL_REACH.get(),
+                HEAT_MARGIN.get(), HEAT_MAX_SIZE.get());
+    }
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
+    /** The height cooling, C per 100 blocks. */
+    public static double heightCoolingPer100() {
+        return SPEC.isLoaded() ? HEIGHT_COOLING_PER_100.get() : DEFAULT_HEIGHT_COOLING_PER_100;
+    }
+
+    /** Wind chill and heat index: the multiplier and the optional cap. */
+    public static dev.brights0ng.enginesandempires.weather.climate.Apparent.Settings apparent() {
+        return SPEC.isLoaded()
+                ? new dev.brights0ng.enginesandempires.weather.climate.Apparent.Settings(APPARENT_SCALE.get(),
+                        APPARENT_CAP_ENABLED.get(), APPARENT_CAP.get())
+                : dev.brights0ng.enginesandempires.weather.climate.Apparent.Settings.DEFAULT;
+    }
+
+    /** The most sun can warm a person, C (full sun, high sun, nothing in the way). */
+    public static double sunWarmthMax() {
+        return SPEC.isLoaded() ? SUN_WARMTH_MAX.get() : 8.0;
+    }
+
+    /** How far toward the sun blocks and ships can shade a person, blocks. */
+    public static int sunBlockReach() {
+        return SPEC.isLoaded() ? SUN_BLOCK_REACH.get() : 96;
+    }
+
+    /** The height cooling as a multiple of the standard atmosphere's (what {@code Temperature.heightCorrection} takes). */
     public static double heightCoolingScale() {
-        return SPEC.isLoaded() ? HEIGHT_COOLING_SCALE.get() : DEFAULT_HEIGHT_COOLING_SCALE;
+        return dev.brights0ng.enginesandempires.weather.climate.Temperature.scaleFor(heightCoolingPer100());
     }
 
     public static double maxHeightCooling() {
@@ -326,6 +501,31 @@ public final class WeatherConfig {
 
     public static boolean cloudAudit() {
         return SPEC.isLoaded() && CLOUD_AUDIT.get();
+    }
+
+    /** The highest y the world's mountains reach (round 5 of the 8b follow-up). */
+    public static int mountainPeakY() {
+        return SPEC.isLoaded() ? MOUNTAIN_PEAK_Y.get() : DEFAULT_MOUNTAIN_PEAK_Y;
+    }
+
+    private static java.util.List<? extends String> cavesSeen;
+    private static dev.brights0ng.enginesandempires.weather.climate.Underground.Settings undergroundCached;
+
+    /** The underground temperature settings (phase 8c); cave entries re-parsed only when they change. */
+    public static dev.brights0ng.enginesandempires.weather.climate.Underground.Settings underground() {
+        if (!SPEC.isLoaded()) {
+            return dev.brights0ng.enginesandempires.weather.climate.Underground.Settings.DEFAULT;
+        }
+        java.util.List<? extends String> caves = UG_CAVE_BIOMES.get();
+        var cached = undergroundCached;
+        var settings = new dev.brights0ng.enginesandempires.weather.climate.Underground.Settings(UG_EASE_DEPTH.get(),
+                UG_BAND_TOP.get(), UG_BAND_BOTTOM.get(), UG_BAND_TEMPERATURE.get(), UG_BEDROCK_TEMPERATURE.get(),
+                UG_NOISE_AMPLITUDE.get(), UG_NOISE_SCALE.get(), UG_HUMIDITY.get(),
+                cached != null && caves.equals(cavesSeen) ? cached.caves()
+                        : dev.brights0ng.enginesandempires.weather.climate.Underground.Settings.caves(caves));
+        cavesSeen = caves;
+        undergroundCached = settings;
+        return settings;
     }
 
     private WeatherConfig() {

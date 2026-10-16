@@ -44,6 +44,22 @@ public final class WeatherQueries {
         return at != null && LocalWeather.at(level, at.x, at.y, at.z).thundering() && noShipOver(level, at);
     }
 
+    /**
+     * What is falling on {@code pos} itself, of any kind (rain, snow, sleet, hail): {@link LocalWeather.Here#NONE}
+     * when it is roofed over by the world or a ship. Vanilla's {@link #isRainingAt} rules, but not only rain (8e-1:
+     * what soaks a person).
+     */
+    public static LocalWeather.Here precipitationAt(Level level, BlockPos pos) {
+        if (LocalWeather.clouds(level).isEmpty()) {
+            return LocalWeather.Here.NONE;
+        }
+        Vec3 at = where(level, pos);
+        if (at == null || !noShipOver(level, at)) {
+            return LocalWeather.Here.NONE;
+        }
+        return LocalWeather.at(level, at.x, at.y, at.z);
+    }
+
     /** What is falling on the open air above (x, y, z): at the top of the column if that is higher. */
     public static LocalWeather.Here overhead(Level level, double x, double y, double z) {
         int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(x), (int) Math.floor(z));

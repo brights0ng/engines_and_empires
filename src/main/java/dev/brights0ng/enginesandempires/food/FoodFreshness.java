@@ -1,9 +1,9 @@
 package dev.brights0ng.enginesandempires.food;
 
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * What a food stack's units are made of: its {@link Cohort}s, and which one is on {@code top} (the one that is eaten, and
@@ -19,6 +19,10 @@ import java.util.Map;
  * </ul>
  * Stages depend on the time, so two cohorts that are in different stages now can share one later; {@link #settle} merges
  * them. Every operation here returns a settled value.
+ *
+ * <p>Frozen units (food by temperature, 2026-10-15) keep cohorts of their own beside the thawed ones of the same stage
+ * (a frozen and a thawed group of fresh bread stay apart), so a stack holds at most eight cohorts; their order is by
+ * stage, thawed before frozen.
  *
  * <p>Plain Java on purpose (no Minecraft types), so it can be unit tested.
  */
@@ -60,27 +64,32 @@ public record FoodFreshness(List<Cohort> cohorts, int top) {
      * no empty cohorts, and the top still on the stage it was on.
      */
     public FoodFreshness settle(long now, SpoilTimes times) {
-        FoodStage topStage = null;
+        int topKey = -1;
         if (top != 0 && cohorts.get(top).count() > 0) {
-            topStage = times.stage(now - cohorts.get(top).born());
+            topKey = key(cohorts.get(top), now, times);
         }
-        Map<FoodStage, Cohort> byStage = new EnumMap<>(FoodStage.class);
+        Map<Integer, Cohort> byKey = new TreeMap<>();
         for (Cohort cohort : cohorts) {
             if (cohort.count() <= 0) {
                 continue;
             }
-            byStage.merge(times.stage(now - cohort.born()), cohort,
-                    (a, b) -> new Cohort(Math.min(a.born(), b.born()), a.count() + b.count()));
+            byKey.merge(key(cohort, now, times), cohort,
+                    (a, b) -> new Cohort(Math.min(a.born(), b.born()), a.count() + b.count(), a.frozen()));
         }
-        List<Cohort> settled = new ArrayList<>(byStage.size());
+        List<Cohort> settled = new ArrayList<>(byKey.size());
         int newTop = 0;
-        for (Map.Entry<FoodStage, Cohort> entry : byStage.entrySet()) {
-            if (entry.getKey() == topStage) {
+        for (Map.Entry<Integer, Cohort> entry : byKey.entrySet()) {
+            if (entry.getKey() == topKey) {
                 newTop = settled.size();
             }
             settled.add(entry.getValue());
         }
         return new FoodFreshness(settled, newTop);
+    }
+
+    /** A cohort's group at {@code now}: its stage, then whether it is frozen (thawed first). */
+    static int key(Cohort cohort, long now, SpoilTimes times) {
+        return times.stage(now - cohort.born()).ordinal() * 2 + (cohort.frozen() ? 1 : 0);
     }
 
     /** The result of taking units off a stack: what was taken, and what is left. */
@@ -103,14 +112,14 @@ public record FoodFreshness(List<Cohort> cohorts, int top) {
             left[i] = source.get(i).count();
         }
         List<Cohort> taken = new ArrayList<>();
-        FoodStage takenTop = null;
+        int takenTop = -1;
         int need = n;
         for (int step = 0; step < size && need > 0; step++) {
             int i = (settled.top + step) % size;
             int take = Math.min(need, left[i]);
             if (take > 0) {
                 if (taken.isEmpty() && settled.top != 0) {
-                    takenTop = times.stage(now - source.get(i).born());
+                    takenTop = key(source.get(i), now, times);
                 }
                 taken.add(source.get(i).withCount(take));
                 left[i] -= take;
@@ -126,13 +135,13 @@ public record FoodFreshness(List<Cohort> cohorts, int top) {
                 new FoodFreshness(rest, settled.top).settle(now, times));
     }
 
-    /** This settled value with {@code stage}'s cohort on top, or unchanged when the stage is null or not here. */
-    private FoodFreshness withTopStage(FoodStage stage, long now, SpoilTimes times) {
-        if (stage == null) {
+    /** This settled value with the cohort of group {@code key} on top, or unchanged when it is -1 or not here. */
+    private FoodFreshness withTopStage(int key, long now, SpoilTimes times) {
+        if (key < 0) {
             return this;
         }
         for (int i = 0; i < cohorts.size(); i++) {
-            if (times.stage(now - cohorts.get(i).born()) == stage) {
+            if (key(cohorts.get(i), now, times) == key) {
                 return new FoodFreshness(cohorts, i);
             }
         }
@@ -203,7 +212,7 @@ public record FoodFreshness(List<Cohort> cohorts, int top) {
     public FoodFreshness aged(long ticks) {
         List<Cohort> out = new ArrayList<>(cohorts.size());
         for (Cohort cohort : cohorts) {
-            out.add(new Cohort(cohort.born() - ticks, cohort.count()));
+            out.add(cohort.withBorn(cohort.born() - ticks));
         }
         return new FoodFreshness(out, top);
     }
@@ -213,7 +222,7 @@ public record FoodFreshness(List<Cohort> cohorts, int top) {
         long latestBorn = now - minAge;
         List<Cohort> out = new ArrayList<>(cohorts.size());
         for (Cohort cohort : cohorts) {
-            out.add(new Cohort(Math.min(cohort.born(), latestBorn), cohort.count()));
+            out.add(cohort.withBorn(Math.min(cohort.born(), latestBorn)));
         }
         return new FoodFreshness(out, top).settle(now, times);
     }

@@ -77,15 +77,51 @@ public final class SpoilageConfig {
             EATING.put(stage, new StageValues(food, saturation, effects, nutrition));
         }
         BUILDER.pop();
-        BUILDER.comment("The ice chest: food inside spoils slower while it has ice burning.").push("iceChest");
+        BUILDER.comment("Food by temperature (2026-10-15): food ages faster where it is warm and slower where it is cool,",
+                "frozen food nearly stops, and thawing costs part of a stage. Containers, players, items on the ground and",
+                "Create belts and depots, by the air and room temperature where they are.").push("temperature");
     }
 
-    public static final ModConfigSpec.DoubleValue ICE_CHEST_SLOWDOWN = BUILDER
-            .comment("How much slower food spoils while the chest is cooling: 0.9 = 90% slower (a 6-day stage lasts 60 days).")
-            .defineInRange("slowdown", 0.9, 0.0, 1.0);
+    public static final ModConfigSpec.BooleanValue CLIMATE_ENABLED = BUILDER
+            .comment("Whether temperature changes how fast food spoils (off: the clock alone, as before).")
+            .define("enabled", true);
+
+    public static final ModConfigSpec.DoubleValue CLIMATE_REFERENCE = BUILDER
+            .comment("The temperature, C, food spoils at the speed the stage lengths above give.")
+            .defineInRange("referenceC", FoodClimate.Rules.DEFAULTS.reference(), -50.0, 100.0);
+
+    public static final ModConfigSpec.DoubleValue CLIMATE_DOUBLING = BUILDER
+            .comment("How many C warmer doubles the speed (and as many cooler halves it).")
+            .defineInRange("doublingC", FoodClimate.Rules.DEFAULTS.doubling(), 1.0, 100.0);
+
+    public static final ModConfigSpec.DoubleValue CLIMATE_FROZEN_RATE = BUILDER
+            .comment("How fast frozen food spoils, relative to the reference speed.")
+            .defineInRange("frozenRate", FoodClimate.Rules.DEFAULTS.frozenRate(), 0.0, 1.0);
+
+    public static final ModConfigSpec.DoubleValue CLIMATE_FREEZE_BELOW = BUILDER
+            .comment("Food freezes below this temperature, C.")
+            .defineInRange("freezeBelowC", FoodClimate.Rules.DEFAULTS.freezeBelow(), -100.0, 100.0);
+
+    public static final ModConfigSpec.DoubleValue CLIMATE_THAW_ABOVE = BUILDER
+            .comment("Frozen food thaws above this temperature, C (between the two it keeps its state).")
+            .defineInRange("thawAboveC", FoodClimate.Rules.DEFAULTS.thawAbove(), -100.0, 100.0);
+
+    public static final ModConfigSpec.DoubleValue CLIMATE_THAW_PENALTY = BUILDER
+            .comment("How much of a stage a thaw ages food by.")
+            .defineInRange("thawPenaltyStages", FoodClimate.Rules.DEFAULTS.thawPenalty(), 0.0, 3.0);
+
+    public static final ModConfigSpec.IntValue CLIMATE_SWEEP_SECONDS = BUILDER
+            .comment("How often, in seconds, the food in loaded places has its temperature applied.")
+            .defineInRange("sweepSeconds", 60, 5, 3600);
+
+    static {
+        BUILDER.pop();
+        BUILDER.comment("The ice chest: keeps the food inside at 0 C (frozen) while it has ice; the ice melts faster where",
+                "it is warmer (twice as fast every doublingC above referenceC, not at all at 0 C or below).").push("iceChest");
+    }
 
     public static final ModConfigSpec.IntValue ICE_TICKS = BUILDER
-            .comment("How long one block of ice cools the chest, in ticks (20 = one second). 3000 = 2.5 minutes.")
+            .comment("How long one block of ice cools the chest at referenceC, in ticks (20 = one second). 3000 = 2.5 minutes.")
             .defineInRange("iceTicks", (int) dev.brights0ng.enginesandempires.food.icechest.Coolants.DEFAULT_ICE_TICKS, 1, Integer.MAX_VALUE);
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> COOLANTS = BUILDER
@@ -100,8 +136,23 @@ public final class SpoilageConfig {
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 
-    public static double iceChestSlowdown() {
-        return SPEC.isLoaded() ? ICE_CHEST_SLOWDOWN.get() : 0.9;
+    /** Whether temperature changes how fast food spoils. */
+    public static boolean climateEnabled() {
+        return !SPEC.isLoaded() || CLIMATE_ENABLED.get();
+    }
+
+    /** The temperature rules now in force. */
+    public static FoodClimate.Rules climate() {
+        if (!SPEC.isLoaded()) {
+            return FoodClimate.Rules.DEFAULTS;
+        }
+        return new FoodClimate.Rules(CLIMATE_REFERENCE.get(), CLIMATE_DOUBLING.get(), CLIMATE_FROZEN_RATE.get(),
+                CLIMATE_FREEZE_BELOW.get(), CLIMATE_THAW_ABOVE.get(), CLIMATE_THAW_PENALTY.get());
+    }
+
+    /** Ticks between temperature sweeps. */
+    public static int sweepTicks() {
+        return (SPEC.isLoaded() ? CLIMATE_SWEEP_SECONDS.get() : 60) * 20;
     }
 
     /** Every coolant item id to how many ticks one of it lasts. */

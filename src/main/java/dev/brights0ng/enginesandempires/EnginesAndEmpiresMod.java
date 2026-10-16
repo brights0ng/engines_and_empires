@@ -69,10 +69,16 @@ public class EnginesAndEmpiresMod {
         // Weather: the climate baseline (biome climates in a data map), temperature, and rain and snow under the pack's
         // clouds (a SERVER config of its own)
         modEventBus.addListener(dev.brights0ng.enginesandempires.weather.climate.ClimateDataMaps::register);
+        // Local heat and cold from fires, lava, ice and the like (a block data map) for snow, ice and water
+        modEventBus.addListener(dev.brights0ng.enginesandempires.weather.heat.HeatField::register);
+        // The heat simulation (rooms and air warmed by fires, furnaces, lava): its data maps and chunk data
+        dev.brights0ng.enginesandempires.weather.heat.world.HeatContent.register(modEventBus);
         modContainer.registerConfig(ModConfig.Type.SERVER, dev.brights0ng.enginesandempires.weather.rain.WeatherConfig.SPEC,
                 dev.brights0ng.enginesandempires.weather.rain.WeatherConfig.FILE_NAME);
         // Weather on the ground: glaze (freezing rain's ice layer) and the crops hail knocks back
         dev.brights0ng.enginesandempires.weather.surface.SurfaceContent.register(modEventBus);
+        // Cold Sweat: the pack's air temperature becomes its world temperature in the Overworld (only if Cold Sweat is installed)
+        dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatCompat.registerIfLoaded(modEventBus);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {

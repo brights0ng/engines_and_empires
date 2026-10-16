@@ -7,6 +7,8 @@ package dev.brights0ng.enginesandempires.weather.cloud.client;
  * (sunset light is strong, and coloured by {@link CloudColours}), and goes on lighting the clouds from below for a
  * short afterglow once it has set, fading out by {@link CloudColours#AFTERGLOW_END}; then the moon fades in. The
  * light never jumps from one to the other.
+ * The afterglow's timing is stretched like the colours ({@link CloudColours#stretched}, 2026-10-12); the moon then
+ * fades in over about 9 degrees of the sun's fall, as before the stretch.
  *
  * @param x        toward the light, unit vector
  * @param strength 1 for a high sun, {@link #MOON} for a high moon, 0 at the horizon
@@ -16,26 +18,32 @@ public record CloudLight(double x, double y, double z, double strength) {
     /** The moon's strength, as a share of the sun's. */
     public static final double MOON = 0.6;
 
+    /** The stretched sun heights over which the moon fades in after the afterglow (about 9 degrees of real fall). */
+    private static final double MOON_FADE = 0.05;
+
     /** The light at vanilla's time of day {@code timeOfDay} (0-1, 0 = noon, as {@code Level.getTimeOfDay}). */
     public static CloudLight at(double timeOfDay) {
         double a = timeOfDay * Math.PI * 2;
         double sx = -Math.sin(a);
         double sy = Math.cos(a);
+        double s = CloudColours.stretched(sy);
         // A little toward +z, so the light isn't exactly along x at the horizon and lights some faces from the side.
         double sz = 0.18;
         double end = CloudColours.AFTERGLOW_END;
-        if (sy >= end) {
+        if (s >= end) {
             // Full down to the horizon, then fading through the afterglow: the sun below the horizon lights the
-            // clouds from underneath. (Its angle below the horizon is exaggerated 5x, so the undersides catch it.)
-            return of(sx, sy >= 0 ? sy : sy * 5, sz, smooth((sy - end) / -end));
+            // clouds from underneath. (Its stretched angle below the horizon is exaggerated 5x, so the undersides
+            // catch it.)
+            return of(sx, sy >= 0 ? sy : s * 5, sz, smooth((s - end) / -end));
         }
-        return of(-sx, -sy, -sz, MOON * smooth((end - sy) / 0.15));
+        return of(-sx, -sy, -sz, MOON * smooth((end - s) / MOON_FADE));
     }
 
     /** The light's strength with the sun at height {@code sy} (sine of its elevation), as {@link #at} has it. */
     public static double strengthForHeight(double sy) {
         double end = CloudColours.AFTERGLOW_END;
-        return sy >= end ? smooth((sy - end) / -end) : MOON * smooth((end - sy) / 0.15);
+        double s = CloudColours.stretched(sy);
+        return s >= end ? smooth((s - end) / -end) : MOON * smooth((end - s) / MOON_FADE);
     }
 
     /**

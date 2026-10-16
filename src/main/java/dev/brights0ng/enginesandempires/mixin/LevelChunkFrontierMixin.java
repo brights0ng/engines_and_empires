@@ -16,7 +16,8 @@ import net.minecraft.world.level.chunk.LevelChunk;
 /**
  * Tells Frontier about every block change in a loaded chunk, so it can keep count of anchor blocks (beds, lanterns,
  * workstations). Block place and break events would miss explosions, pistons, {@code /fill} and Create contraptions
- * assembling and disassembling; everything goes through here.
+ * assembling and disassembling; everything goes through here. The heat simulation (weather phase 8f-2) hears of every
+ * change here too: its source index and its regions' blocks.
  *
  * <p>{@code setBlockState} returns the block that was there before, or null if nothing changed.
  */
@@ -31,6 +32,7 @@ public abstract class LevelChunkFrontierMixin {
             return;
         }
         LevelChunk chunk = (LevelChunk) (Object) this;
+        dev.brights0ng.enginesandempires.weather.heat.world.HeatWorld.onBlockChanged(chunk, pos, before, state);
         FrontierLevel frontier = FrontierLevels.of(chunk.getLevel());
         if (frontier != null) {
             frontier.onBlockChanged(chunk, pos, before, state);

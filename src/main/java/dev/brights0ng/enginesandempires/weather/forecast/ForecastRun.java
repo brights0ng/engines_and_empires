@@ -6,8 +6,11 @@ import java.util.Locale;
 
 import dev.brights0ng.enginesandempires.weather.climate.ClimateCurves;
 import dev.brights0ng.enginesandempires.weather.climate.Temperature;
+import dev.brights0ng.enginesandempires.weather.cloud.CloudScale;
 import dev.brights0ng.enginesandempires.weather.cloud.CloudType;
 import dev.brights0ng.enginesandempires.weather.cloud.sim.CloudDiagnostics;
+import dev.brights0ng.enginesandempires.weather.cloud.sim.CloudRain;
+import dev.brights0ng.enginesandempires.weather.rain.RainModel;
 import dev.brights0ng.enginesandempires.weather.field.AirMassContact;
 import dev.brights0ng.enginesandempires.weather.field.AtmosphereField;
 import dev.brights0ng.enginesandempires.weather.field.FieldEnv;
@@ -70,6 +73,7 @@ public final class ForecastRun {
             long step = Math.min(dt, end - t);
             long next = t + step;
             double season = season(s, next);
+            systems.setTropicalWet(ClimateCurves.tropicalWet(year(s, next)));
             systems.step(next, step, season, anchors, (x, z) -> true, null);
             field.step(step, env(s, systems.systems(), jet, next, season));
             t = next;
@@ -137,11 +141,20 @@ public final class ForecastRun {
 
     /** The season factor at simulation time {@code t}. */
     static double season(ForecastSnapshot s, long t) {
+        return ClimateCurves.season(year(s, t));
+    }
+
+    /** The sun's strength through the year at simulation time {@code t} (weather phase 8b). */
+    static double sun(ForecastSnapshot s, long t) {
+        return ClimateCurves.sun(year(s, t));
+    }
+
+    /** Where in the year simulation time {@code t} falls (NaN without seasons). */
+    static double year(ForecastSnapshot s, long t) {
         if (!Double.isFinite(s.yearFraction())) {
-            return 0;
+            return Double.NaN;
         }
-        double year = s.yearFraction() + (s.yearTicks() > 0 ? (double) (t - s.time()) / s.yearTicks() : 0);
-        return ClimateCurves.season(year);
+        return s.yearFraction() + (s.yearTicks() > 0 ? (double) (t - s.time()) / s.yearTicks() : 0);
     }
 
     /** Minecraft day time at simulation time {@code t}. */
@@ -183,6 +196,7 @@ public final class ForecastRun {
     private static Observation read(ForecastSnapshot s, long t, int[] spots, boolean probe) {
         List<WeatherSystem> list = s.systems().systems();
         double season = season(s, t);
+        double sun = sun(s, t);
         long dayTime = dayTime(s, t);
         double seconds = t / 20.0;
         PressureField.Snapshot pressure = PressureField.Snapshot.of(list);
@@ -191,11 +205,11 @@ public final class ForecastRun {
         ForecastChance.Point[] points = new ForecastChance.Point[spots.length];
         for (int j = 0; j < spots.length; j++) {
             double[] p = ForecastGrid.spot(s.product(), s.x(), s.z(), spots[j]);
-            points[j] = point(s, env, list, diag, p[0], p[1], dayTime, season);
+            points[j] = point(s, env, list, diag, p[0], p[1], dayTime, season, sun);
         }
         double[] w = PressureField.wind(pressure, s.systems().jet(), s.x(), s.z(), seconds, season, s.seed());
         return new Observation(t, points, w[0], w[1], pressure.pressure(s.x(), s.z()),
-                probe ? probe(s, env, diag, dayTime, season, points[points.length / 2]) : null);
+                probe ? probe(s, env, diag, dayTime, season, sun, points[points.length / 2]) : null);
     }
 
     /**
@@ -205,17 +219,18 @@ public final class ForecastRun {
     public static double lensGroundT(ForecastSnapshot s, double x, double z, long dayTime) {
         List<WeatherSystem> list = s.systems().systems();
         double season = season(s, s.time());
+        double sun = sun(s, s.time());
         FieldEnv env = env(s, list, s.systems().jet(), s.time(), season);
         CloudDiagnostics.Air air = air(s, env, x, z);
-        return air.t() + heating(air, dayTime, season) + air.heightCorrection();
+        return air.t() + heating(air, dayTime, sun) + air.heightCorrection();
     }
 
     /** The trace's detail at the region's centre. */
     private static Probe probe(ForecastSnapshot s, FieldEnv env, CloudDiagnostics.Systems diag, long dayTime,
-                               double season, ForecastChance.Point centre) {
+                               double season, double sun, ForecastChance.Point centre) {
         CloudDiagnostics.Air air = air(s, env, s.x(), s.z());
-        CloudDiagnostics.Need need = CloudDiagnostics.diagnose(s.x(), s.z(), air, diag, dayTime, season);
-        double groundT = air.t() + heating(air, dayTime, season) + air.heightCorrection();
+        CloudDiagnostics.Need need = CloudDiagnostics.diagnose(s.x(), s.z(), air, diag, dayTime, season, sun);
+        double groundT = air.t() + heating(air, dayTime, sun) + air.heightCorrection();
         String sources = need.sourceOf(CloudType.STRATUS) + "/" + need.sourceOf(CloudType.STRATOCUMULUS) + "/"
                 + need.sourceOf(CloudType.NIMBOSTRATUS);
         return new Probe(air.t(), groundT, air.q(), 1 - need.lclMetres() / 2500, need.cover(CloudType.STRATUS),
@@ -223,14 +238,74 @@ public final class ForecastRun {
                 need.heapType() == null ? "" : need.heapType().id, centre.wet(), sources);
     }
 
+    /**
+     * The full cloud diagnosis at (x, z) at simulation time {@code t}, as the lens builds it (debug: the climatology
+     * trace, phase 8a). {@code inField} is whether the snapshot's field holds a cell there (otherwise the air is the
+     * climate's normal).
+     */
+    public record Diagnosis(CloudDiagnostics.Need need, CloudDiagnostics.Air air, double groundT, boolean inField) {
+    }
+
+    /** See {@link Diagnosis}. */
+    public static Diagnosis diagnose(ForecastSnapshot s, long t, double x, double z) {
+        List<WeatherSystem> list = s.systems().systems();
+        double season = season(s, t);
+        double sun = sun(s, t);
+        long dayTime = dayTime(s, t);
+        FieldEnv env = env(s, list, s.systems().jet(), t, season);
+        CloudDiagnostics.Air air = air(s, env, x, z);
+        CloudDiagnostics.Need need = CloudDiagnostics.diagnose(x, z, air, CloudDiagnostics.Systems.of(list), dayTime,
+                season, sun);
+        double groundT = air.t() + heating(air, dayTime, sun) + air.heightCorrection();
+        return new Diagnosis(need, air, groundT, s.field().cellAt(x, z) != null);
+    }
+
+    /**
+     * How many thunderstorms are expected within {@code radius} blocks of (px, pz) at time {@code t} (8b follow-up,
+     * 2026-10-14: the climatology's "thunder heard"). The disc is read on a grid {@code spacing} apart; at each reading
+     * whose heap clouds are raining thunderstorms, the storms in its patch ({@code spacing}²) are its heap cover times
+     * the patch, over one storm cloud's area (the type's radius at {@link CloudScale#SCALE}).
+     */
+    public static double stormsWithin(ForecastSnapshot s, long t, double px, double pz, double radius, double spacing) {
+        List<WeatherSystem> list = s.systems().systems();
+        double season = season(s, t);
+        double sun = sun(s, t);
+        long dayTime = dayTime(s, t);
+        FieldEnv env = env(s, list, s.systems().jet(), t, season);
+        CloudDiagnostics.Systems diag = CloudDiagnostics.Systems.of(list);
+        int n = (int) Math.ceil(radius / spacing);
+        double storms = 0;
+        for (int k = -n; k <= n; k++) {
+            for (int i = -n; i <= n; i++) {
+                double dx = i * spacing;
+                double dz = k * spacing;
+                if (dx * dx + dz * dz > radius * radius) {
+                    continue;
+                }
+                double x = px + dx;
+                double z = pz + dz;
+                CloudDiagnostics.Air air = air(s, env, x, z);
+                CloudDiagnostics.Need need = CloudDiagnostics.diagnose(x, z, air, diag, dayTime, season, sun);
+                CloudType heap = need.heapType();
+                if (heap == null || !heap.thunder || need.heapCover() <= 0
+                        || CloudRain.precipitation(heap, need, true) * heap.rain.peak() <= RainModel.MIN) {
+                    continue;
+                }
+                double r = heap.radius * CloudScale.SCALE;
+                storms += need.heapCover() * spacing * spacing / (Math.PI * r * r);
+            }
+        }
+        return storms;
+    }
+
     /** The weather at one spot. */
     private static ForecastChance.Point point(ForecastSnapshot s, FieldEnv env, List<WeatherSystem> systems,
                                               CloudDiagnostics.Systems diag, double x, double z, long dayTime,
-                                              double season) {
+                                              double season, double sun) {
         AtmosphereField field = s.field();
         CloudDiagnostics.Air air = air(s, env, x, z);
-        CloudDiagnostics.Need need = CloudDiagnostics.diagnose(x, z, air, diag, dayTime, season);
-        double heating = heating(air, dayTime, season);
+        CloudDiagnostics.Need need = CloudDiagnostics.diagnose(x, z, air, diag, dayTime, season, sun);
+        double heating = heating(air, dayTime, sun);
         double groundT = air.t() + heating + air.heightCorrection();
         double melt = 0;
         double cold = 0;
@@ -245,12 +320,15 @@ public final class ForecastRun {
         return ForecastChance.point(need, groundT, melt, cold, air.humidity());
     }
 
-    /** The day's warming (or night's cooling) of the surface air, C: none over water, as the diagnostics. */
-    static double heating(CloudDiagnostics.Air air, long dayTime, double season) {
+    /**
+     * The day's warming (or night's cooling) of the surface air, C: none over water, as the diagnostics; stronger with
+     * a stronger sun ({@code sun}, -1 to +1).
+     */
+    static double heating(CloudDiagnostics.Air air, long dayTime, double sun) {
         if (air.surface() == 2) {
             return 0;
         }
-        double s = Math.max(-1, Math.min(1, season));
+        double s = Math.max(-1, Math.min(1, sun));
         return ClimateCurves.diurnal(dayTime) * ClimateCurves.diurnalRange(air.humidity()) * (1 + 0.35 * s);
     }
 
@@ -263,16 +341,18 @@ public final class ForecastRun {
             return new CloudDiagnostics.Air(normal[0], normal[0] + AtmosphereField.ALOFT_OFFSET, 5, 0, normal[0],
                     normal[1], (int) normal[2], 0, 0, 0, 0, 0, 0, 0, 0);
         }
-        double cell = AtmosphereField.CELL;
-        double[] e = field.cellAt(x + cell, z);
-        double[] w = field.cellAt(x - cell, z);
-        double[] so = field.cellAt(x, z + cell);
-        double[] no = field.cellAt(x, z - cell);
-        double slopeX = e != null && w != null ? (e[7] - w[7]) / (2 * cell) : 0;
-        double slopeZ = so != null && no != null ? (so[7] - no[7]) / (2 * cell) : 0;
         double[] wind = env.wind(x, z);
-        return new CloudDiagnostics.Air(c[0], c[1], c[2], c[3], c[4], c[5], (int) c[6], c[7], slopeX, slopeZ,
-                wind[0], wind[1], wind[2], wind[3], env.heightCorrection(c[7]));
+        double[] slope = field.slopeFacing(x, z, wind[0], wind[1]);
+        double[] up = field.upwindCell(x, z, wind[0], wind[1]);
+        double blocks = field.climbFacing(x, z, wind[0], wind[1]);
+        if (Double.isNaN(blocks) && up != null) {
+            blocks = c[7] - up[7];
+        }
+        double climb = Double.isNaN(blocks) ? Double.NaN
+                : blocks * CloudDiagnostics.metresPerBlock(CloudDiagnostics.mountainPeakY(), s.seaLevel());
+        return new CloudDiagnostics.Air(c[0], c[1], c[2], c[3], c[4], c[5], (int) c[6], c[7], slope[0], slope[1],
+                wind[0], wind[1], wind[2], wind[3], env.heightCorrection(c[7]),
+                field.upwindWarmth(x, z, wind[0], wind[1], c[0]), up == null ? Double.NaN : up[2], climb);
     }
 
     /** The field's environment at simulation time {@code t}, built purely from the forecast's own state. */

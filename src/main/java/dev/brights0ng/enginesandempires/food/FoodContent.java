@@ -43,6 +43,14 @@ public final class FoodContent {
     public static final Supplier<DataComponentType<FoodFreshness>> FRESHNESS = COMPONENTS.registerComponentType("food_freshness",
             builder -> builder.persistent(FoodCodecs.FRESHNESS).networkSynchronized(FoodCodecs.FRESHNESS_STREAM.cast()));
 
+    /**
+     * The game tick a food stack's temperature was last applied to (food by temperature, 2026-10-15; see
+     * {@link FoodClimateSweep}). Like the freshness, it doesn't keep food stacks apart.
+     */
+    public static final Supplier<DataComponentType<Long>> CLIMATE_MARK = COMPONENTS.registerComponentType("food_climate",
+            builder -> builder.persistent(com.mojang.serialization.Codec.LONG)
+                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_LONG.cast()));
+
     /** The ice chest: a barrel framed in iron and lined with wool, that keeps food 90% longer while it has ice. */
     public static final DeferredBlock<IceChestBlock> ICE_CHEST = BLOCKS.register("ice_chest",
             () -> new IceChestBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.BARREL).strength(3.0F, 6.0F)));

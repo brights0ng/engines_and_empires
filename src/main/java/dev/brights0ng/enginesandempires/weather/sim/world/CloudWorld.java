@@ -103,11 +103,14 @@ public final class CloudWorld {
 
     /** What the clouds need from the world, now. */
     public static CloudSim.Env env(ServerLevel level, WeatherSim sim) {
+        // The mountain height for lifted air (round 5), for this pass and for forecasts run off the server thread.
+        CloudDiagnostics.setMountainPeakY(WeatherConfig.mountainPeakY());
         AtmosphereField field = sim.field();
         PressureField.Snapshot snapshot = sim.snapshot();
         CloudDiagnostics.Systems systems = CloudDiagnostics.Systems.of(sim.systems());
         double seconds = sim.seconds();
         double season = sim.cachedSeason();
+        double sun = sim.cachedSun();
         long seed = sim.seed();
         int sea = level.getSeaLevel();
         long dayTime = level.getDayTime();
@@ -119,16 +122,19 @@ public final class CloudWorld {
                     // Outside the field (shouldn't happen near players): dry, neutral air makes no cloud.
                     return new CloudDiagnostics.Air(10, 0.25, 0, 0, 10, 0.3, 0, 0, 0, 0, 0, 0, 0, 0, 0);
                 }
-                double cell = AtmosphereField.CELL;
-                double[] e = field.cellAt(x + cell, z);
-                double[] w = field.cellAt(x - cell, z);
-                double[] s = field.cellAt(x, z + cell);
-                double[] n = field.cellAt(x, z - cell);
-                double slopeX = e != null && w != null ? (e[7] - w[7]) / (2 * cell) : 0;
-                double slopeZ = s != null && n != null ? (s[7] - n[7]) / (2 * cell) : 0;
                 double[] wind = wind(x, z);
-                return new CloudDiagnostics.Air(c[0], c[1], c[2], c[3], c[4], c[5], (int) c[6], c[7], slopeX, slopeZ,
-                        wind[0], wind[1], wind[2], wind[3], Temperature.heightCorrection(sea, sea + c[7]));
+                double[] slope = field.slopeFacing(x, z, wind[0], wind[1]);
+                double[] up = field.upwindCell(x, z, wind[0], wind[1]);
+                // Round 6: the climb from the real terrain along the wind; the cells while it isn't known yet.
+                double blocks = field.climbFacing(x, z, wind[0], wind[1]);
+                if (Double.isNaN(blocks) && up != null) {
+                    blocks = c[7] - up[7];
+                }
+                double climb = Double.isNaN(blocks) ? Double.NaN
+                        : blocks * CloudDiagnostics.metresPerBlock(CloudDiagnostics.mountainPeakY(), sea);
+                return new CloudDiagnostics.Air(c[0], c[1], c[2], c[3], c[4], c[5], (int) c[6], c[7], slope[0], slope[1],
+                        wind[0], wind[1], wind[2], wind[3], Temperature.heightCorrection(sea, sea + c[7]),
+                        field.upwindWarmth(x, z, wind[0], wind[1], c[0]), up == null ? Double.NaN : up[2], climb);
             }
 
             @Override
@@ -154,6 +160,11 @@ public final class CloudWorld {
             @Override
             public double season() {
                 return season;
+            }
+
+            @Override
+            public double sun() {
+                return sun;
             }
 
             @Override
@@ -277,7 +288,7 @@ public final class CloudWorld {
             return null;
         }
         CloudSim.Env env = env(level, sim);
-        return CloudDiagnostics.diagnose(x, z, env.air(x, z), env.systems(), env.dayTime(), env.season());
+        return CloudDiagnostics.diagnose(x, z, env.air(x, z), env.systems(), env.dayTime(), env.season(), env.sun());
     }
 
     /** Spawns a mature cloud of {@code type} at (x, z) (debug). */

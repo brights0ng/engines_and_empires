@@ -67,6 +67,8 @@ public final class StormShade {
         private final double time;
         private final Map<Long, List<CloudShape>> buckets = new HashMap<>();
         private final boolean empty;
+        private double minBase = Double.POSITIVE_INFINITY;
+        private double maxTop = Double.NEGATIVE_INFINITY;
 
         public Index(List<CloudShape> shapes, double time) {
             this.time = time;
@@ -76,6 +78,8 @@ public final class StormShade {
                     continue;
                 }
                 any = true;
+                minBase = Math.min(minBase, c.baseY());
+                maxTop = Math.max(maxTop, c.topY());
                 double r = reach(c);
                 double x = c.xAt(time);
                 double z = c.zAt(time);
@@ -98,6 +102,15 @@ public final class StormShade {
 
         public boolean isEmpty() {
             return empty;
+        }
+
+        /** The lowest cloud base and the highest top among the clouds, world y. */
+        public double minBase() {
+            return minBase;
+        }
+
+        public double maxTop() {
+            return maxTop;
         }
 
         List<CloudShape> near(double x, double z) {
@@ -163,6 +176,66 @@ public final class StormShade {
         double cover = 1 - Math.exp(-depth);
         double g = 1 - Math.exp(-gloom);
         return new double[] {cover, 1 - (1 - g) * (1 - COVER_GLOOM * cover)};
+    }
+
+    /** Blocks between samples along a slanted ray, and the most samples (a ray to the cloud tops at a low sun). */
+    static final double RAY_STEP = 24;
+    static final int RAY_SAMPLES = 400;
+
+    /**
+     * The optical depth along a ray from (x, y, z) toward the unit direction (dx, dy, dz), through every cloud
+     * (weather phase 8e-2, the sun's warmth): the same model as {@link #column} (uniform through a cloud's height,
+     * fading smoothly over the outer half of its radius, plus the anvil's thin slab at the top) integrated along the
+     * slant instead of straight up, so a vertical ray gives {@code column}'s depth. 0 when the ray points down or
+     * sideways, or there are no clouds. The sunlight that gets through is {@code exp(-depth)}.
+     */
+    public static double opticalDepthAlong(Index index, double x, double y, double z, double dx, double dy, double dz) {
+        if (index.isEmpty() || dy < 0.02) {
+            return 0;
+        }
+        double yLo = Math.max(y, index.minBase());
+        double yHi = index.maxTop();
+        if (yLo >= yHi) {
+            return 0;
+        }
+        double t0 = (yLo - y) / dy;
+        double t1 = (yHi - y) / dy;
+        int n = (int) Math.max(1, Math.min(RAY_SAMPLES, Math.ceil((t1 - t0) / RAY_STEP)));
+        double step = (t1 - t0) / n;
+        double depth = 0;
+        for (int i = 0; i < n; i++) {
+            double t = t0 + (i + 0.5) * step;
+            depth += step * extinction(index, x + dx * t, y + dy * t, z + dz * t);
+        }
+        return depth;
+    }
+
+    /** Optical depth per block of path at a point in the sky (0 outside every cloud). */
+    static double extinction(Index index, double x, double y, double z) {
+        double sum = 0;
+        for (CloudShape c : index.near(x, z)) {
+            double thick = Math.max(0, c.topY() - c.baseY());
+            if (y < c.baseY() || y > c.topY()) {
+                continue;
+            }
+            double dx = x - c.xAt(index.time());
+            double dz = z - c.zAt(index.time());
+            double d = Math.sqrt(dx * dx + dz * dz);
+            double body = Math.max(1, c.radius());
+            double pb = profile(d / body);
+            if (pb > 0) {
+                double dens = c.effectiveDensity() * (0.5 + 0.5 * c.effectiveCoverage());
+                sum += dens * pb / DEPTH_SCALE;
+            }
+            if (c.anvilStrength() > 0 && y >= c.topY() - thick * ANVIL_DEPTH) {
+                double anvilLife = Math.max(0, Math.min(1, c.growth() * (1 - c.anvilDecay())));
+                double pa = profile(d / (body * (1 + 1.2 * c.anvilStrength())));
+                if (pa > 0 && anvilLife > 0) {
+                    sum += c.density() * pa * anvilLife * c.anvilStrength() / DEPTH_SCALE;
+                }
+            }
+        }
+        return sum;
     }
 
     /** How far a cloud's shade reaches from its centre, blocks. */

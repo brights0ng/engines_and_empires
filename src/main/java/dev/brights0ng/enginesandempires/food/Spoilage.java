@@ -129,6 +129,70 @@ public final class Spoilage {
 
     // ---- Hooks for ItemStackMixin ----
 
+    // ---- Temperature (2026-10-15) ----
+
+    /** The tick a stack's temperature was last applied to, or -1 for never. */
+    public static long climateMark(ItemStack stack) {
+        Long mark = stack.get(FoodContent.CLIMATE_MARK.get());
+        return mark == null ? -1 : mark;
+    }
+
+    /**
+     * Applies where a food stack is to it (see {@link FoodClimate}): the time since its mark at {@code celsius}, or, if that
+     * is longer than {@code catchUpTicks} (it sat somewhere nobody saw: an unloaded chunk), at {@code catchUp}'s
+     * temperature instead; then marks it now. A stack never marked takes no time, but freezes (or thaws) by where it is.
+     * Returns whether it changed.
+     *
+     * @param forceFrozen kept frozen whatever the temperature (the ice chest's ice)
+     */
+    public static boolean applyClimate(ItemStack stack, long now, double celsius, java.util.function.DoubleSupplier catchUp,
+                                       long catchUpTicks, boolean forceFrozen) {
+        if (!isSpoilable(stack) || now < 0) {
+            return false;
+        }
+        boolean changed = normalize(stack);
+        long mark = climateMark(stack);
+        if (mark < 0 || now >= mark) {
+            long elapsed = mark < 0 ? 0 : now - mark;
+            double t = elapsed > catchUpTicks ? catchUp.getAsDouble() : celsius;
+            FoodFreshness before = view(stack, now);
+            FoodFreshness after = FoodClimate.apply(before, now, elapsed, t, forceFrozen, SpoilageConfig.climate(), times());
+            if (!after.equals(before)) {
+                write(stack, after);
+                changed = true;
+            }
+        }
+        if (mark != now) {
+            stack.set(FoodContent.CLIMATE_MARK.get(), now);
+            changed = true;
+        }
+        return changed;
+    }
+
+    /**
+     * Ages a food stack by {@code ticks} at {@code celsius} (or frozen), without reading or moving its mark (the ice chest
+     * splits a stretch between its cold and warm parts). Returns whether it changed.
+     */
+    public static boolean ageAt(ItemStack stack, long now, long ticks, double celsius, boolean forceFrozen) {
+        if (!isSpoilable(stack) || stored(stack) == null || now < 0) {
+            return false;
+        }
+        FoodFreshness before = view(stack, now);
+        FoodFreshness after = FoodClimate.apply(before, now, ticks, celsius, forceFrozen, SpoilageConfig.climate(), times());
+        if (after.equals(before)) {
+            return false;
+        }
+        write(stack, after);
+        return true;
+    }
+
+    /** Marks a food stack's temperature as applied up to {@code now}. */
+    public static void markClimate(ItemStack stack, long now) {
+        if (isSpoilable(stack) && now >= 0) {
+            stack.set(FoodContent.CLIMATE_MARK.get(), now);
+        }
+    }
+
     /**
      * {@code ItemStack.setCount}: a count change nothing else has accounted for. Taken units come off the freshest, added
      * ones join the stalest (see the class notes). Hooked places settle the freshness before the count changes, so by the
@@ -237,7 +301,8 @@ public final class Spoilage {
 
     private static DataComponentPatch withoutFreshness(ItemStack stack) {
         DataComponentType<FoodFreshness> type = type();
-        return stack.getComponentsPatch().forget(t -> t == type);
+        DataComponentType<Long> mark = FoodContent.CLIMATE_MARK.get();
+        return stack.getComponentsPatch().forget(t -> t == type || t == mark);
     }
 
     /** Which food a stack is, for the ledger: food stacks that would stack together share a kind. Null for anything else. */

@@ -151,8 +151,8 @@ public final class WeatherMapBuilder {
                             + air.sample(AtmosphereField.Var.R, x, z, env));
                 } else {
                     // Outside the field the air is at its normal: the ground's equilibrium humidity.
-                    double rh = Moisture.targetHumidity(local.surface().ordinal(), sample.humidity());
                     double normal = sample.temperature() - sample.diurnal() - sample.anomaly();
+                    double rh = Moisture.targetHumidity(local.surface().ordinal(), sample.humidity(), normal);
                     moisture[idx] = (float) (Moisture.capacity(normal) * rh);
                     relative[idx] = (float) rh;
                 }

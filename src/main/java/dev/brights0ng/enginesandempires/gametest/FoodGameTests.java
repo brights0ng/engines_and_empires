@@ -474,26 +474,74 @@ public final class FoodGameTests {
         return (dev.brights0ng.enginesandempires.food.icechest.IceChestBlockEntity) helper.getBlockEntity(pos);
     }
 
-    /** One block of ice keeps food 90% fresher for its 2.5 minutes, then is gone. */
-    @GameTest(template = SCRATCH)
+    /** Batch for the tests that set the temperature food sees (it's global while set). */
+    private static final String TEMPERATURE = "food_temperature";
+
+    /**
+     * At 20 C one block of ice keeps food frozen at 0 C for its 2.5 minutes (aging at the frozen rate), then is gone and
+     * the food thaws, which costs half a stage (food by temperature, 2026-10-15).
+     */
+    @GameTest(template = SCRATCH, batch = TEMPERATURE)
     public static void iceChestSlowsSpoiling(GameTestHelper helper) {
+        dev.brights0ng.enginesandempires.food.FoodTemperature.setOverride(20, 20);
+        try {
         var chest = iceChest(helper);
         long t0 = SpoilClock.now();
         chest.settleAt(t0);
         chest.inventory().insertItem(0, new ItemStack(Items.ICE), false);
-        chest.inventory().insertItem(1, bread(5, freshAge()), false);
+        chest.inventory().insertItem(1, bread(5, staleAge()), false);
         long born = Spoilage.stored(chest.inventory().getStackInSlot(1)).cohorts().get(0).born();
-        // Ten minutes later: the ice cooled for 3000 ticks of it
+        chest.settleAt(t0 + 1000);
+        Cohort cold = Spoilage.stored(chest.inventory().getStackInSlot(1)).cohorts().get(0);
+        helper.assertTrue(cold.frozen(), "frozen while the ice lasts");
+        helper.assertTrue(cold.born() - born == 950, "1000 ticks frozen age it 50: " + (cold.born() - born));
+        // Five minutes on: the ice lasted 3000 ticks, then the bread thawed at 20 C
         chest.settleAt(t0 + 6000);
-        long bornAfter = Spoilage.stored(chest.inventory().getStackInSlot(1)).cohorts().get(0).born();
-        helper.assertTrue(bornAfter - born == 2700, "the bread should be 2700 ticks younger, is " + (bornAfter - born));
+        Cohort after = Spoilage.stored(chest.inventory().getStackInSlot(1)).cohorts().get(0);
+        long halfStage = (times().freshTicks() + times().ripeTicks() + times().staleTicks()) / 6;
+        helper.assertFalse(after.frozen(), "thawed once the ice is gone");
+        helper.assertTrue(after.born() - born == 2850 - halfStage,
+                "frozen 3000 ticks, then the thaw: " + (after.born() - born) + ", expected " + (2850 - halfStage));
         helper.assertTrue(chest.inventory().getStackInSlot(0).isEmpty(), "the ice should be used up");
         helper.assertFalse(chest.isCooling(), "nothing should be burning");
+        } finally {
+            dev.brights0ng.enginesandempires.food.FoodTemperature.clearOverride();
+        }
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    /** At 30 C the ice melts twice as fast; at 0 C or below not at all, and the food stays frozen. */
+    @GameTest(template = SCRATCH, batch = TEMPERATURE)
+    public static void iceChestMeltsByTheAirAroundIt(GameTestHelper helper) {
+        try {
+            dev.brights0ng.enginesandempires.food.FoodTemperature.setOverride(30, 30);
+            var chest = iceChest(helper);
+            long t0 = SpoilClock.now();
+            chest.settleAt(t0);
+            chest.inventory().insertItem(0, new ItemStack(Items.ICE, 2), false);
+            chest.inventory().insertItem(1, bread(1, freshAge()), false);
+            chest.settleAt(t0 + 3000);
+            helper.assertTrue(chest.inventory().getStackInSlot(0).isEmpty() && !chest.isCooling(),
+                    "two ice at 30 C last 3000 ticks");
+
+            dev.brights0ng.enginesandempires.food.FoodTemperature.setOverride(-5, -5);
+            chest.inventory().insertItem(0, new ItemStack(Items.ICE, 2), false);
+            chest.settleAt(t0 + 3001);
+            chest.settleAt(t0 + 100_000);
+            helper.assertTrue(chest.inventory().getStackInSlot(0).getCount() == 2, "no melting at -5 C");
+            helper.assertTrue(chest.isCold(), "but cold");
+            helper.assertTrue(Spoilage.stored(chest.inventory().getStackInSlot(1)).cohorts().get(0).frozen(), "food frozen");
+            helper.assertTrue(chest.data.get(4) == -1, "the gauge says it won't melt");
+        } finally {
+            dev.brights0ng.enginesandempires.food.FoodTemperature.clearOverride();
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = SCRATCH, batch = TEMPERATURE)
     public static void iceChestBurnsIceOneAtATime(GameTestHelper helper) {
+        dev.brights0ng.enginesandempires.food.FoodTemperature.setOverride(20, 20);
+        try {
         var chest = iceChest(helper);
         long t0 = SpoilClock.now();
         chest.settleAt(t0);
@@ -502,10 +550,13 @@ public final class FoodGameTests {
         chest.settleAt(t0 + 15000);
         helper.assertTrue(chest.inventory().getStackInSlot(0).getCount() == 1, "the second packed ice should be burning, so one left");
         helper.assertTrue(chest.isCooling(), "ice should still be burning");
+        } finally {
+            dev.brights0ng.enginesandempires.food.FoodTemperature.clearOverride();
+        }
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(template = SCRATCH, batch = TEMPERATURE)
     public static void iceChestDoesNotMeltWithoutFood(GameTestHelper helper) {
         var chest = iceChest(helper);
         long t0 = SpoilClock.now();

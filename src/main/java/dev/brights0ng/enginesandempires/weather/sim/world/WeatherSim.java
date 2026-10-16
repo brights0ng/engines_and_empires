@@ -87,6 +87,8 @@ public final class WeatherSim {
     private PressureField.Snapshot snapshot = PressureField.Snapshot.of(List.of());
     /** The season factor as of the last systems step. */
     private double cachedSeason;
+    /** The sun's strength as of the last systems step (weather phase 8b). */
+    private double cachedSun;
     /** The field environment of the last systems step, for the tiles stepped over the following ticks. */
     private FieldEnv stepEnv;
     /** Active tiles still to be stepped in this {@value #STEP}-tick window. */
@@ -99,6 +101,8 @@ public final class WeatherSim {
     private int windowsLogged;
     /** Whether the cells around the field have their climate normals cached (stepping waits until they do). */
     private boolean edgesWarm;
+    /** Extra places the weather runs around as if a player stood there (phase 8a: climatology spots). Not saved. */
+    private List<SystemsSim.Anchor> extraAnchors = List.of();
 
     private WeatherSim(ServerLevel level) {
         this.level = level;
@@ -209,10 +213,12 @@ public final class WeatherSim {
         }
         SplittableRandom nudges = live ? new SplittableRandom(SimMath.hash(level.getSeed(), 0x11D6EL, time)) : null;
         double season = season();
+        sim.setTropicalWet(ClimateCurves.tropicalWet(SeasonSource.yearFraction(level)));
         sim.step(time, dt, season, anchors, (x, z) -> covered(x, z, time), nudges);
         data.nextId = sim.nextId();
         snapshot = PressureField.Snapshot.of(data.systems);
         cachedSeason = season;
+        cachedSun = ClimateCurves.sun(SeasonSource.yearFraction(level));
 
         FieldEnv env = env(time, season);
         for (SystemsSim.Anchor a : anchors) {
@@ -345,6 +351,29 @@ public final class WeatherSim {
         }
     }
 
+    /**
+     * Refreshes every field cell's stored climate normal at once, and the cells around the field (phase 8a: the
+     * climatology run moves the season far faster than the round-robin refresh keeps up with).
+     */
+    public void refreshAllNormals() {
+        if (stepping || data.field.tiles().isEmpty()) {
+            return;
+        }
+        stepping = true;
+        try {
+            FieldEnv env = readEnv();
+            int cells = AtmosphereField.SIZE * AtmosphereField.SIZE;
+            for (FieldTile tile : new ArrayList<>(data.field.tiles().values())) {
+                for (int cell = 0; cell < cells; cell++) {
+                    AtmosphereField.refreshCell(tile, cell, env);
+                }
+            }
+            data.field.clearEdgeCache();
+        } finally {
+            stepping = false;
+        }
+    }
+
     /** Builds waiting field tiles at the climate's normal, until {@code budget} nanoseconds after {@code start}. */
     private void buildTiles(long start, long budget) {
         if (building == null && pendingTiles.isEmpty()) {
@@ -405,6 +434,20 @@ public final class WeatherSim {
                 }
             }
         }
+        // Then the finer terrain the upslope lift reads (8b follow-up round 6), once every cell height is known.
+        int side = AtmosphereField.SIZE * AtmosphereField.FINE_PER_CELL;
+        for (FieldTile tile : new ArrayList<>(data.field.tiles().values())) {
+            for (int idx = 0; idx < tile.fine.length; idx++) {
+                if (!Float.isNaN(tile.fine[idx])) {
+                    continue;
+                }
+                tile.fine[idx] = (float) TerrainHeights.elevation(terrain, (int) Math.floor(tile.fineX(idx % side)),
+                        (int) Math.floor(tile.fineZ(idx / side)), minY, maxY, sea);
+                if (System.nanoTime() - start > budget) {
+                    return;
+                }
+            }
+        }
     }
 
     private void spinUp() {
@@ -443,6 +486,7 @@ public final class WeatherSim {
         for (ServerPlayer p : level.players()) {
             out.add(new SystemsSim.Anchor(p.getX(), p.getZ()));
         }
+        out.addAll(extraAnchors);
         if (out.isEmpty() && !data.spunUp) {
             BlockPos spawn = level.getSharedSpawnPos();
             out.add(new SystemsSim.Anchor(spawn.getX(), spawn.getZ()));
@@ -512,6 +556,11 @@ public final class WeatherSim {
         return cachedSeason;
     }
 
+    /** The sun's strength through the year as of the last systems step, -1 to +1 (weather phase 8b). */
+    public double cachedSun() {
+        return cachedSun;
+    }
+
     /** Field time over the last {@value #STEP}-tick window, milliseconds: {total, most in one tick}. */
     public double[] fieldWindowMillis() {
         return new double[]{lastWindowNanos / 1e6, lastWindowMaxNanos / 1e6};
@@ -539,6 +588,38 @@ public final class WeatherSim {
     /** The clouds (phase 4a). */
     public dev.brights0ng.enginesandempires.weather.cloud.sim.CloudSim cloudSim() {
         return data.clouds;
+    }
+
+    /**
+     * Makes the weather run around (x, z) points as if players stood there, besides the real players (phase 8a: the
+     * climatology run's spots); an empty list goes back to players only. Not saved.
+     */
+    public void setExtraAnchors(List<double[]> points) {
+        List<SystemsSim.Anchor> list = new ArrayList<>();
+        for (double[] p : points) {
+            list.add(new SystemsSim.Anchor(p[0], p[1]));
+        }
+        extraAnchors = List.copyOf(list);
+    }
+
+    /**
+     * Builds every field tile the players and extra anchors need right now, instead of a few milliseconds per tick
+     * (phase 8a: the climatology run steps hours per tick, far faster than live tile building keeps up with; without
+     * this, spots away from existing tiles read the climate's normal air for weeks of the run).
+     */
+    public void buildFieldNow() {
+        if (stepping) {
+            return;
+        }
+        for (SystemsSim.Anchor a : anchors()) {
+            pendingTiles.addAll(data.field.touch(a.x(), a.z(), params.zoneRadius(), time(), 0));
+        }
+        boolean built = building != null || !pendingTiles.isEmpty();
+        buildTiles(System.nanoTime(), Long.MAX_VALUE);
+        if (built) {
+            // New tiles' terrain heights too (otherwise they read as sea level: no height cooling).
+            workOutTerrain(System.nanoTime(), Long.MAX_VALUE);
+        }
     }
 
     /** Marks the saved weather as changed. */

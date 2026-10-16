@@ -42,7 +42,8 @@ public class CloudDiagnosticsTest {
         CloudDiagnostics.Air moist = air(12, 0.8, 0, 0);
         StringBuilder sb = new StringBuilder("ahead of the warm front:");
         CloudType[] expected = new CloudType[6];
-        double[] distances = {3000, 2600, 1800, 900, 200, -200};
+        // Round 5: the rain shield reaches ~1,000 ahead, so altostratus is read at 1,300 (was 900).
+        double[] distances = {3000, 2600, 1800, 1300, 200, -200};
         for (int i = 0; i < distances.length; i++) {
             // North is ahead (the cold side) for a northern-style low.
             CloudDiagnostics.Need n = CloudDiagnostics.diagnose(mid[0], mid[1] - distances[i], moist, systems, NOON, 0);
@@ -91,6 +92,9 @@ public class CloudDiagnosticsTest {
         assertTrue(at.heapType().ordinal() >= CloudType.CUMULUS_CONGESTUS.ordinal(), "towering: " + at.heapType());
         assertTrue(at.heapCover() > 0.3);
         assertTrue(away.heapType() == null || away.heapCover() < at.heapCover(), "not away from it");
+        // 8b follow-up round 4: and its own rain band.
+        assertTrue(at.cover(CloudType.NIMBOSTRATUS) > 0.3, "a rain band at the front: " + at.describe());
+        assertTrue(CloudRain.precipitation(CloudType.NIMBOSTRATUS, at, false) > 0.3, "that rains");
     }
 
     @Test
@@ -262,5 +266,186 @@ public class CloudDiagnosticsTest {
         System.out.printf("cold air aloft over land: 18:30 I %.2f (%s), 00:00 I %.2f (%s)%n", evening.instability(),
                 evening.describe(), midnight.instability(), midnight.describe());
         assertTrue(midnight.instability() < 0.5 * evening.instability());
+    }
+
+    /** Weather phase 8a (2026-10-14): winter highs' outer sinking thinned most fronts' decks to nothing. */
+    @Test
+    void aFrontOverridesAHighsFringe() {
+        WeatherSystem low = matureLow();
+        double[] mid = FrontGeometry.of(low).stream().filter(f -> f.type() == FrontGeometry.Type.WARM).findFirst()
+                .orElseThrow().points().get(3);
+        // A high whose outer sinking reaches the warm front: about a third of its strength there.
+        WeatherSystem high = new WeatherSystem(3, WeatherSystem.Kind.HIGH, mid[0], mid[1] - 7000, 0, 1, 50_000,
+                120_000, 14, 7000, false);
+        CloudDiagnostics.Need highOnly = CloudDiagnostics.diagnose(mid[0], mid[1] - 200, air(12, 0.8, 0, 0),
+                CloudDiagnostics.Systems.of(List.of(high)), NOON, 0);
+        CloudDiagnostics.Need both = CloudDiagnostics.diagnose(mid[0], mid[1] - 200, air(12, 0.8, 0, 0),
+                CloudDiagnostics.Systems.of(List.of(low, high)), NOON, 0);
+        CloudDiagnostics.Need frontOnly = CloudDiagnostics.diagnose(mid[0], mid[1] - 200, air(12, 0.8, 0, 0),
+                CloudDiagnostics.Systems.of(List.of(low)), NOON, 0);
+        System.out.printf("front under a high's fringe: sinking %.2f (high alone %.2f), ns %.2f (front alone %.2f)%n",
+                both.subsidence(), highOnly.subsidence(), both.cover(CloudType.NIMBOSTRATUS),
+                frontOnly.cover(CloudType.NIMBOSTRATUS));
+        assertTrue(highOnly.subsidence() > 0.2 && highOnly.subsidence() < 0.6, "a fringe: " + highOnly.subsidence());
+        assertTrue(both.subsidence() < 0.6 * highOnly.subsidence(), "the front's lift cancels most of it");
+        assertTrue(both.cover(CloudType.NIMBOSTRATUS) > 0.6 * frontOnly.cover(CloudType.NIMBOSTRATUS),
+                "the deck survives: " + both.describe());
+    }
+
+    /** Weather phase 8a (2026-10-14): winter lows passed by with nothing falling on their poleward side. */
+    @Test
+    void aMatureLowRainsOnItsPolewardSide() {
+        WeatherSystem low = matureLow();
+        CloudDiagnostics.Systems systems = CloudDiagnostics.Systems.of(List.of(low));
+        double r = low.radius();
+        CloudDiagnostics.Air moist = air(2, 0.75, 0, 0);
+        // Northern-style low: poleward is -Z, west -X.
+        double o = 0.55 * r / Math.sqrt(2);
+        CloudDiagnostics.Need north = CloudDiagnostics.diagnose(-o, -o, moist, systems, NIGHT, -1);
+        System.out.println("comma head:" + north.describe() + " from " + north.sourceOf(CloudType.NIMBOSTRATUS));
+        assertTrue(north.cover(CloudType.NIMBOSTRATUS) > 0.4, north.describe());
+        assertEquals("comma head", north.front());
+        assertTrue(CloudRain.precipitation(CloudType.NIMBOSTRATUS, north, false) > 0.3, "and it rains (or snows)");
+        // Mirrored low: its comma head is on the +Z side.
+        WeatherSystem mirrored = new WeatherSystem(2, WeatherSystem.Kind.LOW, 0, 0, 1, -1, 35_000, 100_000, 26, 4500,
+                false);
+        CloudDiagnostics.Systems mirror = CloudDiagnostics.Systems.of(List.of(mirrored));
+        assertTrue(CloudDiagnostics.diagnose(-o, o, moist, mirror, NIGHT, -1).cover(CloudType.NIMBOSTRATUS) > 0.4);
+        // Dry air: no deck.
+        assertTrue(CloudDiagnostics.diagnose(-o, -o, air(2, 0.3, 0, 0), systems, NIGHT, -1)
+                .cover(CloudType.NIMBOSTRATUS) < 0.05);
+    }
+
+    @Test
+    void theCommaHeadBelongsToGrownLowsOnTheirColdSide() {
+        CloudDiagnostics.Systems.Centre mature = new CloudDiagnostics.Systems.Centre(true, 0, 0, 4500, 1, 1, 0.5);
+        CloudDiagnostics.Systems.Centre wave = new CloudDiagnostics.Systems.Centre(true, 0, 0, 4500, 1, 1, 0.08);
+        CloudDiagnostics.Systems.Centre dying = new CloudDiagnostics.Systems.Centre(true, 0, 0, 4500, 1, 1, 0.99);
+        double o = 2500 / Math.sqrt(2);
+        assertEquals(1, CloudDiagnostics.commaHead(mature, -o, -o), 1e-6, "full toward the poleward west");
+        double north = CloudDiagnostics.commaHead(mature, 0, -2500);
+        double west = CloudDiagnostics.commaHead(mature, -2500, 0);
+        assertTrue(north > 0.6 && north < 0.9 && Math.abs(north - west) < 1e-9, "due poleward or west: " + north);
+        assertTrue(CloudDiagnostics.commaHead(mature, o, -o) < 1e-6, "none toward the poleward east (warm front)");
+        assertTrue(CloudDiagnostics.commaHead(mature, 0, 2500) < 1e-6, "none on the equatorward side");
+        assertTrue(CloudDiagnostics.commaHead(mature, -70, -70) < 0.1, "not at the very centre (the core's own job)");
+        assertTrue(CloudDiagnostics.commaHead(mature, -6000, -6000) < 1e-6, "not beyond the low");
+        assertTrue(CloudDiagnostics.commaHead(wave, -o, -o) < 0.05, "a young wave has none yet");
+        assertTrue(CloudDiagnostics.commaHead(dying, -o, -o) < 0.05, "a dying low has lost it");
+    }
+
+    /** Weather phase 8b (2026-10-14): spring sun on still-cold air is unstable; the autumn sun on warm air settles it. */
+    @Test
+    void theSpringSunUnsettlesTheAirAndTheAutumnSunCalmsIt() {
+        CloudDiagnostics.Air mild = air(10, 0.7, 0, 0);
+        // Same air, same land season factor; only the sun differs (spring: sun ahead; autumn: behind).
+        CloudDiagnostics.Need spring = CloudDiagnostics.diagnose(0, 0, mild, CloudDiagnostics.Systems.NONE, NOON, 0, 0.7);
+        CloudDiagnostics.Need autumn = CloudDiagnostics.diagnose(0, 0, mild, CloudDiagnostics.Systems.NONE, NOON, 0, -0.7);
+        CloudDiagnostics.Need even = CloudDiagnostics.diagnose(0, 0, mild, CloudDiagnostics.Systems.NONE, NOON, 0);
+        System.out.printf("instability: spring %.2f, even %.2f, autumn %.2f%n", spring.instability(),
+                even.instability(), autumn.instability());
+        assertTrue(spring.instability() > even.instability() + 0.1, "spring is less stable");
+        assertTrue(autumn.instability() < even.instability() - 0.1, "autumn is more settled");
+        // At night the lead does nothing (it works through the sun's heating).
+        CloudDiagnostics.Need springNight = CloudDiagnostics.diagnose(0, 0, mild, CloudDiagnostics.Systems.NONE, NIGHT,
+                0, 0.7);
+        CloudDiagnostics.Need evenNight = CloudDiagnostics.diagnose(0, 0, mild, CloudDiagnostics.Systems.NONE, NIGHT, 0);
+        assertEquals(evenNight.instability(), springNight.instability(), 0.15);
+    }
+
+    /** Weather phase 8b: cold air off warmer water brings snow showers onto the downwind shore. */
+    @Test
+    void coldAirOffWarmWaterSnowsOnTheShore() {
+        // -8 C air over land in a cold winter afternoon, aloft at its normal offset, humid; 10 C of upwind warmth.
+        CloudDiagnostics.Air inland = new CloudDiagnostics.Air(-8, -8 - 9.75, 0.8 * Moisture.capacity(-8), 0, -8, 0.6,
+                0, 10, 0, 0, 8, 0, 12, 0, 0);
+        CloudDiagnostics.Air shore = new CloudDiagnostics.Air(-8, -8 - 9.75, 0.8 * Moisture.capacity(-8), 0, -8, 0.6,
+                0, 10, 0, 0, 8, 0, 12, 0, 0, 10);
+        CloudDiagnostics.Need away = CloudDiagnostics.diagnose(0, 0, inland, CloudDiagnostics.Systems.NONE, NIGHT, -1);
+        CloudDiagnostics.Need lee = CloudDiagnostics.diagnose(0, 0, shore, CloudDiagnostics.Systems.NONE, NIGHT, -1);
+        System.out.println("shore:" + lee.describe() + " vs inland:" + away.describe());
+        assertTrue(lee.instability() > away.instability() + 0.3, "heated from below");
+        assertNotNull(lee.heapType(), "showers build on the shore: " + lee.describe());
+        assertTrue(lee.heapType().ordinal() >= CloudType.CUMULUS_MEDIOCRIS.ordinal(), lee.describe());
+    }
+
+    /** Weather phase 8b (2026-10-14): very moist tropical air builds storms on its own; drier air doesn't. */
+    @Test
+    void veryMoistAirBuildsStormsOnItsOwn() {
+        // 28 C, aloft at its normal offset, humid; tropical (45 mm) against temperate (22 mm) water at the same rh.
+        CloudDiagnostics.Air tropical = new CloudDiagnostics.Air(28, 28 - 9.75, 45, 0, 28, 0.9, 0, 10, 0, 0, 2, 0, 4, 0, 0);
+        CloudDiagnostics.Air temperate = new CloudDiagnostics.Air(28, 28 - 9.75, 22, 0, 28, 0.9, 0, 10, 0, 0, 2, 0, 4, 0, 0);
+        CloudDiagnostics.Need wet = CloudDiagnostics.diagnose(0, 0, tropical, CloudDiagnostics.Systems.NONE, NOON, 0);
+        CloudDiagnostics.Need dry = CloudDiagnostics.diagnose(0, 0, temperate, CloudDiagnostics.Systems.NONE, NOON, 0);
+        System.out.println("tropical:" + wet.describe() + " | temperate:" + dry.describe());
+        assertTrue(wet.instability() > dry.instability() + 0.3, "the moist air's own heat makes it unstable");
+        assertNotNull(wet.heapType(), wet.describe());
+        assertTrue(wet.heapType().ordinal() >= CloudType.CUMULUS_CONGESTUS.ordinal(), "towering: " + wet.describe());
+    }
+
+    /**
+     * 8b follow-up (2026-10-14): wet-season tropical air organises its storms (more of the sky, a raining anvil deck);
+     * hot dry-season air holding as much water at low humidity doesn't.
+     */
+    @Test
+    void wetSeasonStormsOrganise() {
+        assertTrue(CloudDiagnostics.organised(31, 0.78) > 0.9, "wet-season savanna air");
+        assertEquals(0, CloudDiagnostics.organised(30, 0.5), 1e-9, "hot dry-season air");
+        assertEquals(0, CloudDiagnostics.organised(18, 0.85), 1e-9, "humid temperate air");
+        // 23 C at 78% (31 mm) with cold air aloft: storms.
+        CloudDiagnostics.Air wetSeason = new CloudDiagnostics.Air(23, 23 - 9.75 - 3, 0.78 * Moisture.capacity(23), 0, 23,
+                0.6, 0, 10, 0, 0, 2, 0, 4, 0, 0);
+        CloudDiagnostics.Need n = CloudDiagnostics.diagnose(0, 0, wetSeason, CloudDiagnostics.Systems.NONE, AFTERNOON, 0);
+        System.out.println("wet season:" + n.describe());
+        assertNotNull(n.heapType(), n.describe());
+        assertTrue(n.heapType().ordinal() >= CloudType.CUMULONIMBUS_CALVUS.ordinal(), n.describe());
+        assertTrue(n.heapCover() > 0.47, "organised storms fill more of the sky: " + n.heapCover());
+        assertTrue(n.cover(CloudType.NIMBOSTRATUS) > 0.05, "and leave a raining anvil: " + n.describe());
+        assertEquals("storm anvil", n.sourceOf(CloudType.NIMBOSTRATUS));
+    }
+
+    /**
+     * 8b follow-up round 4: upslope cloud forms in the air the wind lifts (moist air from upwind, cooled as it
+     * climbs), not the peak's own dry air.
+     */
+    @Test
+    void upslopeCloudFormsInTheLiftedAir() {
+        double hc = -2.7;
+        double peakQ = 0.57 * Moisture.capacity(10 + hc);
+        double upwindQ = 0.8 * Moisture.capacity(13);
+        // Wind 5 m/s up a slope of 0.16: orographic lift 0.4.
+        CloudDiagnostics.Air lifted = new CloudDiagnostics.Air(10, 0.25, peakQ, 0, 10, 0.3, 0, 120, 0.16, 0, 5, 0, 10,
+                0, hc, 0, upwindQ);
+        CloudDiagnostics.Air ownOnly = new CloudDiagnostics.Air(10, 0.25, peakQ, 0, 10, 0.3, 0, 120, 0.16, 0, 5, 0, 10,
+                0, hc, 0, Double.NaN);
+        CloudDiagnostics.Need wet = CloudDiagnostics.diagnose(0, 0, lifted, CloudDiagnostics.Systems.NONE, NIGHT, 0);
+        CloudDiagnostics.Need dry = CloudDiagnostics.diagnose(0, 0, ownOnly, CloudDiagnostics.Systems.NONE, NIGHT, 0);
+        System.out.println("upslope, lifted:" + wet.describe() + " | own air:" + dry.describe());
+        assertTrue(wet.cover(CloudType.NIMBOSTRATUS) > 0.3, "moist upwind air lifted rains on the slope: " + wet.describe());
+        assertTrue(CloudRain.precipitation(CloudType.NIMBOSTRATUS, wet, false) > 0.5, "and it rains");
+        assertTrue(dry.cover(CloudType.NIMBOSTRATUS) < 0.05, "the peak's own dry air alone doesn't: " + dry.describe());
+    }
+
+    /**
+     * Round 5: the lifted air cools by the height it climbs, stretched by the world's mountain height (Tectonic's 320:
+     * ~16 m a block). 60 blocks of climb in a Tectonic world is ~930 m, ~5.6 C: 72% air saturates.
+     */
+    @Test
+    void liftedAirCoolsByTheHeightItClimbs() {
+        assertEquals(4000.0 / 257, CloudDiagnostics.metresPerBlock(320, 63), 1e-9);
+        assertTrue(CloudDiagnostics.metresPerBlock(256, 63) > CloudDiagnostics.metresPerBlock(320, 63),
+                "lower worlds stretch more");
+        double hc = -2.7;
+        double q = 0.72 * Moisture.capacity(10 + hc);
+        double climb = 60 * CloudDiagnostics.metresPerBlock(320, 63);
+        CloudDiagnostics.Air climbing = new CloudDiagnostics.Air(10, 0.25, q, 0, 10, 0.3, 0, 120, 0.16, 0, 5, 0, 10,
+                0, hc, 0, Double.NaN, climb);
+        CloudDiagnostics.Air level = new CloudDiagnostics.Air(10, 0.25, q, 0, 10, 0.3, 0, 120, 0.16, 0, 5, 0, 10,
+                0, hc, 0, Double.NaN, 0);
+        CloudDiagnostics.Need up = CloudDiagnostics.diagnose(0, 0, climbing, CloudDiagnostics.Systems.NONE, NIGHT, 0);
+        CloudDiagnostics.Need flat = CloudDiagnostics.diagnose(0, 0, level, CloudDiagnostics.Systems.NONE, NIGHT, 0);
+        System.out.println("climbing:" + up.describe() + " | no climb:" + flat.describe());
+        assertTrue(up.cover(CloudType.NIMBOSTRATUS) > 0.2, "rain on the climb: " + up.describe());
+        assertTrue(flat.cover(CloudType.NIMBOSTRATUS) < 0.05, "none without it: " + flat.describe());
     }
 }

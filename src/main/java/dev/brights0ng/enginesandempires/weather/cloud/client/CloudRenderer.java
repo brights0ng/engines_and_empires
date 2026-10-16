@@ -33,6 +33,12 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  * <p>Vanilla's far clip plane is only 4x the render distance (768 blocks at 12 chunks), so while the renderer is on the
  * game's projection reaches out to the cloud draw distance instead (see {@code GameRendererCloudDepthMixin}). Depth
  * precision is set almost entirely by the near plane, so terrain doesn't lose any.
+ *
+ * <p>With an Iris shader pack on (2026-10-12), everything is drawn later instead, right after the translucent blocks
+ * (where vanilla clouds go, give or take): by then the pack's deferred passes have run, so its ambient occlusion and
+ * terrain fog never see the clouds (with them drawn after solid blocks, Complementary darkened every inner corner and
+ * fogged them as terrain). The fogged-terrain depth trick is left out then: the pack draws its own fog. See
+ * {@link IrisCompat} for how our shaders get past Iris.
  */
 public final class CloudRenderer {
 
@@ -85,20 +91,29 @@ public final class CloudRenderer {
         float partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
         double time = level.getGameTime() + partial;
         Vec3 camera = event.getCamera().getPosition();
+        boolean shaders = IrisCompat.packInUse();
         if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_SOLID_BLOCKS) {
-            if (active(level)) {
+            if (active(level) && !shaders) {
                 // Terrain the fog has fully hidden mustn't hide the clouds behind it.
                 FoggedTerrainDepth.apply(event.getModelViewMatrix(), event.getProjectionMatrix());
-                drawClouds(level, event.getModelViewMatrix(), event.getProjectionMatrix(), event.getFrustum(), camera,
-                        time, partial);
-                // The see-through high clouds, over the voxel clouds' depth.
-                CloudVeilRenderer.render(event.getModelViewMatrix(), event.getProjectionMatrix(), camera, partial);
-                // Wisps last: translucent, blended over the clouds.
-                CloudWispRenderer.render(event.getModelViewMatrix(), event.getProjectionMatrix(), camera, time);
+                drawAll(level, event, camera, time, partial);
             }
         } else if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
+            if (active(level) && shaders) {
+                drawAll(level, event, camera, time, partial);
+            }
             CloudOutlines.render(camera, time);
         }
+    }
+
+    private static void drawAll(ClientLevel level, RenderLevelStageEvent event, Vec3 camera, double time,
+                                float partial) {
+        drawClouds(level, event.getModelViewMatrix(), event.getProjectionMatrix(), event.getFrustum(), camera, time,
+                partial);
+        // The see-through high clouds, over the voxel clouds' depth.
+        CloudVeilRenderer.render(event.getModelViewMatrix(), event.getProjectionMatrix(), camera, partial);
+        // Wisps last: translucent, blended over the clouds.
+        CloudWispRenderer.render(event.getModelViewMatrix(), event.getProjectionMatrix(), camera, time);
     }
 
     private static void drawClouds(ClientLevel level, Matrix4f modelView, Matrix4f projection, Frustum frustum,
@@ -157,6 +172,7 @@ public final class CloudRenderer {
         RenderSystem.disableCull();
         shader.setDefaultUniforms(VertexFormat.Mode.QUADS, modelView, projection, Minecraft.getInstance().getWindow());
         shader.apply();
+        IrisCompat.afterApply();
         for (CloudMeshes.Drawable d : CloudMeshes.drawables(time)) {
             double x = d.x();
             double z = d.z();
@@ -183,6 +199,7 @@ public final class CloudRenderer {
         }
         VertexBuffer.unbind();
         shader.clear();
+        IrisCompat.afterClear();
         RenderSystem.enableCull();
     }
 

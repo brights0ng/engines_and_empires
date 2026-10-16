@@ -14,10 +14,17 @@ import net.minecraft.server.level.ServerLevel;
  * fronts).
  *
  * <h2>Height cooling</h2>
- * The standard atmosphere cools 0.0065 C per metre of height. At the pack's x0.2 scale a block stands for 5 m, so the
- * server config's scale (default 5) gives 0.0325 C per block above sea level, cooling capped at
- * {@code maxHeightCooling} (default 30 C); below sea level the air warms at the same rate, capped at
- * {@link #MAX_WARMING}. (Bright, 2026-10-04: x0.2, to be toned down if Tectonic's mountains get too much snow.)
+ * The standard atmosphere cools 0.0065 C per metre of height. The server config gives the cooling directly, C per 100
+ * blocks (default 5, Bright 2026-10-15: the pack's x0.2 scale, so 0.05 C per block above sea level: 12 C colder at
+ * y=300, 22 C at y=500), capped at {@code maxHeightCooling} (default 30 C); below sea level the air warms at the same
+ * rate, capped at {@link #MAX_WARMING}. (Was 3.25 C per 100 blocks from 2026-10-04; to be toned down if Tectonic's
+ * mountains get too much snow.) The functions here take the cooling as a multiple of the standard atmosphere's
+ * ({@link #scaleFor}).
+ *
+ * <h2>Underground (phase 8c, 2026-10-15)</h2>
+ * {@link #at} adds {@link Underground} on top: under cover the air eases to the year's mean and warms with depth, with
+ * cave biome rules. Only {@link #at} does this; the forecast, the field, the map and the climatology tool read
+ * {@link Climate#sample} at the surface and are unchanged.
  */
 public final class Temperature {
 
@@ -25,6 +32,11 @@ public final class Temperature {
     public static final double LAPSE_PER_METRE = 0.0065;
     /** The most the air warms below sea level, C. */
     public static final double MAX_WARMING = 14;
+
+    /** The cooling as a multiple of the standard atmosphere's 0.0065 C per block, for {@code per100} C per 100 blocks. */
+    public static double scaleFor(double per100) {
+        return per100 / (100 * LAPSE_PER_METRE);
+    }
 
     /** How much warmer (negative: colder) than at sea level the air is at height {@code y}, C. */
     public static double heightCorrection(int seaLevel, double y, double scale, double maxCooling) {
@@ -37,9 +49,15 @@ public final class Temperature {
         return heightCorrection(seaLevel, y, WeatherConfig.heightCoolingScale(), WeatherConfig.maxHeightCooling());
     }
 
-    /** The air temperature at {@code pos}, C. */
+    /** The air temperature at {@code pos}, C, underground included. */
     public static double at(ServerLevel level, BlockPos pos) {
-        return Climate.sample(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5).temperature();
+        return reading(level, pos).temperature();
+    }
+
+    /** {@link #at} with every underground part, for the debug readout. */
+    public static Underground.Reading reading(ServerLevel level, BlockPos pos) {
+        double outside = Climate.sample(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5).temperature();
+        return UndergroundProbe.read(level, pos, outside);
     }
 
     /** The air temperature at sea level over (x, z), C (what the client sync's grid carries). */

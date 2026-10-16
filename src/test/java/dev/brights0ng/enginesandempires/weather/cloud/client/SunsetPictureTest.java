@@ -37,6 +37,17 @@ class SunsetPictureTest {
         assertTrue(low[0] > low[1] && low[1] > low[2], "a low sun is warm: " + low[0] + " " + low[1] + " " + low[2]);
     }
 
+    /** 2026-10-12 (Bright: three times as long): the colour at three times an elevation is the table's colour there. */
+    @Test
+    void theSunsetColoursLastThreeTimesAsLong() {
+        for (double deg : new double[]{-5, -2, 1, 4, 8, 15}) {
+            double h = Math.sin(Math.toRadians(deg)), h3 = Math.sin(Math.toRadians(deg * 3));
+            assertEquals(h, CloudColours.stretched(h3), 1e-9, "at " + deg + " degrees");
+        }
+        double[] at25 = CloudColours.sun(Math.sin(Math.toRadians(25)));
+        assertTrue(at25[0] > at25[2] * 1.6, "still warm with the sun 25 degrees up");
+    }
+
     @Test
     void theLightNeverJumps() {
         CloudLight prev = CloudLight.at(0);
@@ -58,7 +69,7 @@ class SunsetPictureTest {
     @Test
     void sunsetStrips() throws Exception {
         File dir = new File("build/cloud-pictures/sunset");
-        double[] heights = {0.6, 0.17, 0.06, 0.0, -0.05, -0.09, -0.4};
+        double[] heights = {0.9, 0.48, 0.18, 0.0, -0.15, -0.27, -0.6};
         for (int view = 0; view < 2; view++) {
             CloudSnapshot snap = new CloudSnapshot();
             CloudShape c = CumulusSnapshotTest.sample(CloudType.CUMULUS_MEDIOCRIS, 1.0, 280, 3, 0);

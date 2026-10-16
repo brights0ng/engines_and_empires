@@ -157,10 +157,12 @@ public final class CloudVeilRenderer {
         RenderSystem.disableCull();
         shader.setDefaultUniforms(VertexFormat.Mode.QUADS, modelView, projection, Minecraft.getInstance().getWindow());
         shader.apply();
+        IrisCompat.afterApply();
         buffer.bind();
         buffer.draw();
         VertexBuffer.unbind();
         shader.clear();
+        IrisCompat.afterClear();
         RenderSystem.enableCull();
         RenderSystem.depthMask(true);
         RenderSystem.disableBlend();

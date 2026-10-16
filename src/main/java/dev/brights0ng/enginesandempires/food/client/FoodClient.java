@@ -72,6 +72,9 @@ public final class FoodClient {
             Cohort cohort = cohorts.get((view.top() + step) % cohorts.size());
             FoodStage stage = times.stage(now - cohort.born());
             Component name = Component.translatable("tooltip.engines_and_empires.food." + stage.id());
+            if (cohort.frozen()) {
+                name = Component.translatable("tooltip.engines_and_empires.food.frozen", name);
+            }
             String key = step == 0 && cohorts.size() > 1 ? "tooltip.engines_and_empires.food.top" : "tooltip.engines_and_empires.food.group";
             lines.add(at + step, Component.translatable(key, name, cohort.count()).withStyle(colour(stage)));
         }
@@ -118,8 +121,12 @@ public final class FoodClient {
             return name;
         }
         FoodStage stage = Spoilage.times().stage(now - top.born());
-        MutableComponent tail = Component.translatable("hud.engines_and_empires.food.top",
-                Component.translatable("tooltip.engines_and_empires.food." + stage.id()), top.count()).withStyle(colour(stage));
+        Component stageName = Component.translatable("tooltip.engines_and_empires.food." + stage.id());
+        if (top.frozen()) {
+            stageName = Component.translatable("tooltip.engines_and_empires.food.frozen", stageName);
+        }
+        MutableComponent tail = Component.translatable("hud.engines_and_empires.food.top", stageName, top.count())
+                .withStyle(colour(stage));
         return Component.empty().append(name).append(" ").append(tail);
     }
 

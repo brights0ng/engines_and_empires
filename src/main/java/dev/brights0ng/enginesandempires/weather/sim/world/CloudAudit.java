@@ -123,7 +123,7 @@ public final class CloudAudit {
             double pz = p.getZ();
             CloudDiagnostics.Air air = env.air(px, pz);
             CloudDiagnostics.Need need = CloudDiagnostics.diagnose(px, pz, air, env.systems(), env.dayTime(),
-                    env.season());
+                    env.season(), env.sun());
             line(String.format(Locale.ROOT, "  player %s at %.0f %.0f (y %.0f): air %.1f C (aloft %.1f), %.1f mm, "
                             + "rh %.2f, surface %d, elevation %.0f | wanted:%s | lift: %s front %.2f, low centre %.2f, "
                             + "upslope %.2f, cooled %.2f, sinking %.2f, instability %.2f (%s)",
@@ -153,7 +153,7 @@ public final class CloudAudit {
                 }
                 CloudDiagnostics.Air ca = env.air(cx, cz);
                 CloudDiagnostics.Need cn = CloudDiagnostics.diagnose(cx, cz, ca, env.systems(), env.dayTime(),
-                        env.season());
+                        env.season(), env.sun());
                 for (CloudChecks.Problem pr : CloudChecks.check(c, cn, ca, now)) {
                     problems.computeIfAbsent(pr.code(), k -> new ArrayList<>()).add(String.format(Locale.ROOT,
                             "%s at %+.0f %+.0f (cause: %s): %s", c.type.id, cx - px, cz - pz, c.cause, pr.reason()));
