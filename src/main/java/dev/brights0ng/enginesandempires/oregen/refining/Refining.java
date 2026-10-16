@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import dev.brights0ng.sparseores.chips.Chips;
 import dev.brights0ng.sparseores.rich.RichOres;
 
 /**
@@ -18,7 +19,7 @@ import dev.brights0ng.sparseores.rich.RichOres;
  *       one more nugget, so a Create line beats the furnace. Crushing an ore block keeps Create's numbers, which were
  *       already better than mining it.</li>
  *   <li><b>Chips</b> (coal, diamond, nether quartz). These ores drop a single item, so they drop a chip instead, a
- *       {@link #CHIPS_PER_ITEM quarter} of one.</li>
+ *       {@link Chips#CHIPS_PER_ITEM quarter} of one.</li>
  *   <li><b>Group drops</b> (redstone, lapis, nether gold). These drop several items, so they simply drop fewer (see
  *       {@link RichOres}).</li>
  *   <li><b>Emerald</b> is left alone: villagers set its value.</li>
@@ -42,14 +43,8 @@ public final class Refining {
     /** The chance of one more nugget when washing crushed ore. */
     public static final double WASH_BONUS_CHANCE = 0.5;
 
-    /** Chips that craft into one whole item. */
-    public static final int CHIPS_PER_ITEM = 4;
-
     /** How much other sources of metal keep (iron golems, washing gravel, red sand and soul sand): the same as raw ore. */
     public static final double OTHER_SOURCES = NUGGETS_PER_RAW / 9.0;
-
-    /** Burn time of a coal chip, in ticks: a quarter of coal's. */
-    public static final int COAL_CHIP_BURN_TIME = 1600 / CHIPS_PER_ITEM;
 
     /** Create's crushing wheels turn a stone-type ore block into this many crushed ores on average (1 + 75% of 1). */
     public static final double CREATE_CRUSHED_PER_STONE_ORE = 1.75;
@@ -214,15 +209,6 @@ public final class Refining {
                     "minecraft:clay_ball", 0.5, 0.7, false),
             new Metal("zinc", "zinc", "create:raw_zinc", "create:crushed_raw_zinc", "create:zinc_nugget",
                     "minecraft:gunpowder", 0.25, 0.7, true));
-
-    /** A chip, and the whole item four of them craft into. */
-    public record Chip(String name, String item) {
-    }
-
-    public static final List<Chip> CHIPS = List.of(
-            new Chip("coal_chip", "minecraft:coal"),
-            new Chip("diamond_chip", "minecraft:diamond"),
-            new Chip("quartz_chip", "minecraft:quartz"));
 
     /** The ore with this id. */
     public static Ore ore(String oreId) {

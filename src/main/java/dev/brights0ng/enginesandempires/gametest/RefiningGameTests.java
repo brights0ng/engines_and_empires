@@ -9,7 +9,7 @@ import com.simibubi.create.content.processing.recipe.ProcessingRecipe;
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.oregen.refining.BoreheadCrushing;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
-import dev.brights0ng.sparseores.refining.RefiningItems;
+import dev.brights0ng.sparseores.chips.ChipItems;
 import dev.brights0ng.sparseores.rich.RichOreBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -48,7 +48,7 @@ public final class RefiningGameTests {
         ItemStack blasted = cook(helper, RecipeType.BLASTING, Items.DEEPSLATE_IRON_ORE);
         helper.assertTrue(blasted.is(Items.IRON_NUGGET) && blasted.getCount() == 2, "deepslate iron ore blasted into " + blasted);
         ItemStack coal = cook(helper, RecipeType.SMELTING, Items.COAL_ORE);
-        helper.assertTrue(coal.is(RefiningItems.chip("coal_chip")) && coal.getCount() == 1, "coal ore smelted into " + coal);
+        helper.assertTrue(coal.is(ChipItems.chip("coal_chip")) && coal.getCount() == 1, "coal ore smelted into " + coal);
         ItemStack richIron = cook(helper, RecipeType.SMELTING, RichOreBlocks.block("rich_iron_ore").asItem());
         helper.assertTrue(richIron.is(Items.IRON_NUGGET) && richIron.getCount() == 10, "rich iron ore smelted into " + richIron);
         helper.succeed();
@@ -75,14 +75,14 @@ public final class RefiningGameTests {
 
     @GameTest(template = SCRATCH)
     public static void cutOresDropChipsAndLess(GameTestHelper helper) {
-        assertDrops(helper, Blocks.COAL_ORE, RefiningItems.chip("coal_chip"), 1, 1);
-        assertDrops(helper, Blocks.DEEPSLATE_DIAMOND_ORE, RefiningItems.chip("diamond_chip"), 1, 1);
-        assertDrops(helper, Blocks.NETHER_QUARTZ_ORE, RefiningItems.chip("quartz_chip"), 1, 1);
+        assertDrops(helper, Blocks.COAL_ORE, ChipItems.chip("coal_chip"), 1, 1);
+        assertDrops(helper, Blocks.DEEPSLATE_DIAMOND_ORE, ChipItems.chip("diamond_chip"), 1, 1);
+        assertDrops(helper, Blocks.NETHER_QUARTZ_ORE, ChipItems.chip("quartz_chip"), 1, 1);
         assertDrops(helper, Blocks.REDSTONE_ORE, Items.REDSTONE, 1, 1);
         assertDrops(helper, Blocks.LAPIS_ORE, Items.LAPIS_LAZULI, 1, 2);
         assertDrops(helper, Blocks.NETHER_GOLD_ORE, Items.GOLD_NUGGET, 1, 1);
         assertDrops(helper, Blocks.IRON_ORE, Items.RAW_IRON, 1, 1);
-        assertDrops(helper, RichOreBlocks.block("rich_coal_ore"), RefiningItems.chip("coal_chip"), 5, 5);
+        assertDrops(helper, RichOreBlocks.block("rich_coal_ore"), ChipItems.chip("coal_chip"), 5, 5);
         helper.succeed();
     }
 
@@ -97,7 +97,7 @@ public final class RefiningGameTests {
         helper.assertTrue(rich != null && count(rich, item("create:crushed_raw_iron")) >= 8, "rich iron ore gave " + rich);
 
         List<ItemStack> coal = BoreheadCrushing.crush(level, Blocks.DEEPSLATE_COAL_ORE.defaultBlockState());
-        helper.assertTrue(coal != null && count(coal, RefiningItems.chip("coal_chip")) >= 2, "deepslate coal ore gave " + coal);
+        helper.assertTrue(coal != null && count(coal, ChipItems.chip("coal_chip")) >= 2, "deepslate coal ore gave " + coal);
 
         helper.assertTrue(BoreheadCrushing.crush(level, Blocks.STONE.defaultBlockState()) == null, "stone should drop as normal");
         helper.assertTrue(BoreheadCrushing.crush(level, Blocks.GRAVEL.defaultBlockState()) == null, "gravel should drop as normal");

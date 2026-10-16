@@ -8,6 +8,7 @@ import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.oregen.refining.RefiningDataGen;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import dev.brights0ng.seismicsurveyance.SeismicDataGen;
+import dev.brights0ng.sparseores.chips.ChipDataGen;
 import dev.brights0ng.sparseores.rich.RichOreDataGen;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.data.DataGenerator;
@@ -23,8 +24,8 @@ import net.neoforged.neoforge.data.event.GatherDataEvent;
  * The data generator's shared providers (split seam S9). Until the split's step 2 gives each mod its own output, every
  * mod writes into this jar's one namespace and folder, so a run can have only one loot table provider (its name is
  * fixed) and one block state and one block tag provider (two would write the same {@code mineable/pickaxe} tag). The
- * core, which may see every mod, puts them together here from each mod's parts: Sparse Ores' ({@link RichOreDataGen}),
- * Seismic Surveyance's ({@link SeismicDataGen}) and its own ({@link RefiningDataGen}). Each mod adds its other providers
+ * core, which may see every mod, puts them together here from each mod's parts: Sparse Ores' ({@link RichOreDataGen},
+ * {@link ChipDataGen}), Seismic Surveyance's ({@link SeismicDataGen}) and its own ({@link RefiningDataGen}). Each mod adds its other providers
  * from its own data generator. The library's empty game test structure is written here too.
  *
  * <p>Run the {@code Data} run configuration to (re)generate everything into {@code src/generated/resources}.
@@ -62,7 +63,7 @@ public final class SharedDataGen {
         protected void registerStatesAndModels() {
             RichOreDataGen.registerModels(this);
             SeismicDataGen.registerModels(this);
-            RefiningDataGen.registerModels(this);
+            ChipDataGen.registerModels(this);
         }
     }
 
