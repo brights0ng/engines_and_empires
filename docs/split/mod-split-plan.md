@@ -22,11 +22,13 @@ Status: **plan settled, nothing built.** Every question from v2 is answered (sec
 | Paradyne Lib | `paradyne_lib` | `dev.brights0ng.paradynelib` | NeoForge | Sable |
 | Sable Fixes | `sable_fixes` | `dev.brights0ng.sablefixes` | Sable | |
 | Sparse Ores | `sparse_ores` | `dev.brights0ng.sparseores` | lib | Create (zinc ore is found by block id only; load after it when present) |
-| Seismic Surveyance | `seismic_surveyance` | `dev.brights0ng.seismicsurveyance` | lib, Sparse Ores, **Create** (brings Flywheel and Catnip) | Create: Diesel Generators, Sable |
+| Seismic Surveyance | `seismic_surveyance` | `dev.brights0ng.seismicsurveyance` | lib, Sparse Ores, **Create** (brings Flywheel and Catnip) | Create: Diesel Generators |
 | Meteodyne | `meteodyne` | `dev.brights0ng.meteodyne` | lib | Sable, Iris |
 | Frontier | `frontier` | `dev.brights0ng.frontier` | lib, Deeper and Darker (Bright, after 2d) | Seismic Surveyance (through one gated package) |
 | Simple Spoilage | `simple_spoilage` | `dev.brights0ng.simplespoilage` | lib | Sable (ship holds, through the lib) |
-| Engines and Empires | `engines_and_empires` | `dev.brights0ng.enginesandempires` | lib, the six feature mods, Sable, Create, Simulated/Aeronautics/Offroad, Encumbered | Cold Sweat, MineColonies, Serene Seasons, AppleSkin, Diet, Guard Villagers, Born in Chaos, Naturalist |
+| Engines and Empires | `engines_and_empires` | `dev.brights0ng.enginesandempires` | lib, the five required feature mods (Sparse Ores, Seismic Surveyance, Meteodyne, Frontier, Simple Spoilage), Sable, Create, Simulated/Aeronautics/Offroad, Encumbered | Cold Sweat, MineColonies, Serene Seasons, AppleSkin, Diet, Guard Villagers, Born in Chaos, Naturalist |
+
+Sable Fixes is not required by the core: the dev aggregator loads it with the other mods (`loadMod`) and `buildAll` collects its jar, but no mod of ours depends on it.
 
 Compile-time graph (must stay acyclic): lib <- Sparse Ores <- Seismic <- (gated) Frontier; lib <- Meteodyne; lib <- Simple Spoilage; everything <- core. Sable Fixes stands outside it. Seismic and Sparse Ores never reference Frontier.
 

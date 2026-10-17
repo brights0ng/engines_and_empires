@@ -20,7 +20,7 @@ Optional outside mods (Sable, Cold Sweat, MineColonies, Serene Seasons, Iris, Ap
 `pack/`, anything for the Modrinth profile, `tools/profiling`, `run/`. Do not delete tests to make things pass. Do not weaken assertions.
 
 ## Commands
-Full check (baseline now 1041 unit tests with 2 skipped, 211/211 game tests, after steps 1a-1d): `./gradlew compileJava compileTestJava test runGameTestServer`
+Full check: `./gradlew compileJava compileTestJava test runGameTestServer`. Baseline after split step 4: 1049 unit tests (2 skipped), 215/215 aggregate game tests, and every bare run green (Frontier 13, Meteodyne 67, lib 3, Sable Fixes 2, Seismic 15, Spoilage 34, Sparse Ores 2). That is step 3's 1048/214, plus step 4's two `LootCutsTest` tests and `PackOreDropsGameTests`, minus `ConfigTitleTest`.
 Cold compile ~9 min, warm ~5 min, game tests ~3 min on 2 cores / 7 GB. Run in the background and poll; do not run two Gradle builds at once.
 If Maven Central answers 429, use the mirror workaround in `docs/split/baseline.md` (kept outside the repo).
 A client boot under `xvfb-run` with software graphics (see `docs/split/build-layout.md`) is a valid crash-on-boot check in the cloud. Anything visual (rendering, shaders, GUIs, the PRD model and maps) cannot be tested there; say so rather than guess.

@@ -34,7 +34,14 @@ Outside mods for the full set (the versions the repo builds against):
 - Optional, add them for the full test: Cold Sweat 2.4.3, MineColonies (and its libraries), AppleSkin 3.0.9, Diet - AppleSeed Edition 3.0.2 (with CloudWorks API), Guard Villagers 2.4.12, Create Diesel Generators 1.3.15.
 - Only for the sections that name them: Iris 1.8.14-beta.1 with Sodium 0.8.12 (section 3), Serene Seasons 10.1.0.9 with GlitchCore (section 7).
 
-### 0.3 How to read the log
+### 0.3 Running from the IDE (dev client)
+If you launch the dev client from a checkout instead of a pack copy (sections that need a real client, such as 3 and 4, can be run this way):
+- **Reload the Gradle projects** (IntelliJ: Gradle tool window, "Reload All Gradle Projects") after pulling the split, so the IDE sees the eight mod projects and regenerates their run configurations.
+- **Delete the stale pre-split run configurations** (Run > Edit Configurations): any run left from the single-mod build. They point at the old layout and miss the new mods' folders.
+- **Use the root project's `runClient`** (the root project's client run configuration, or `./gradlew :runClient`). It loads every mod of the family. The other projects' runs are bare game test and data runs, with only that mod and what it requires.
+- Since split step 4 the run configurations' prepare step builds every mod's classes and resources first, so a fresh checkout launches without a prior build (before, it failed with "contained no existing paths: sable-fixes/build/classes/java/main").
+
+### 0.4 How to read the log
 Every step below can be checked in `logs/latest.log` of the copy. Search it for `ERROR` and `WARN` after each step. Noise that is **not ours** and is not a failure (all seen in the cloud runs): `CloudWorks-RecipeParser` lines (a template that fails to parse, "No template for type=..."), `createdieselgenerators:blocks/andesite_girder_strut` "Unknown registry key", "Ambiguity between arguments [teleport, ...]", "Reference map '...refmap.json' ... could not be read" for other people's mods, and the sound-device error on a machine with no audio. Anything that names one of our mods, our packages (`dev.brights0ng...`) or one of our mixin configs is a failure to report.
 
 Commands below need cheats on (permission level 2). In a world: `/gamemode creative`, `/time set day`.
@@ -48,7 +55,7 @@ Commands below need cheats on (permission level 2). In a world: `/gamemode creat
 | 1.1 | Start the copy with all eight jars plus the needed outside mods. | The game reaches the main menu. | A red "Mod loading has failed" screen, a crash report, or the game exits. |
 | 1.2 | Open **Mods**. | Eight entries of ours, with the versions in 0.2, each showing licence "All Rights Reserved". Frontier, Meteodyne, Paradyne Lib, Simple Spoilage and the core show their descriptions. | An entry is missing, a version is wrong, a name shows as a raw key, or you see two copies of one mod. |
 | 1.3 | Create a new world (creative, cheats on) and join it. | You spawn normally. No error toast. | Disconnect, freeze, or an error screen on joining. |
-| 1.4 | Open `logs/latest.log`, search `ERROR`. | Only the outside noise listed in 0.3. | Any error naming our mods, "Mixin apply failed", "Mixin transformation ... failed", "InjectionError", or a `missing translation`/raw `item.xxx`-style name in the creative tab. |
+| 1.4 | Open `logs/latest.log`, search `ERROR`. | Only the outside noise listed in 0.4. | Any error naming our mods, "Mixin apply failed", "Mixin transformation ... failed", "InjectionError", or a `missing translation`/raw `item.xxx`-style name in the creative tab. |
 | 1.5 | Open the creative tab **Seismic Surveyance** and the Search tab; type `rich`, `chip`, `ice chest`. | Our items and blocks appear with names and pictures: Sledgehammer, Andesite and Brass Geophone, Wind-up Reader, Logbook, Portable Record Display, Smart Logger, Strike Plate, thumpers; Rich ore blocks and the chips; Ice Chest. | A purple-and-black checkerboard model, an empty icon, or a raw key as a name. (The thumpers, the Smart Logger and the PRD borrow Create's textures, so a checkerboard on them is worth special notice.) |
 | 1.6 | Quit and look at `config/` (and `saves/<world>/serverconfig/`). | Files named `paradyne_lib-wind-server.toml`, `meteodyne-weather-server.toml`, `meteodyne-clouds-client.toml`, `frontier-server.toml`, `simple_spoilage-server.toml`. | A file with the old name (`engines_and_empires-*.toml`) or a missing one. |
 | 1.7 | Quit, start again, rejoin the same world. | Same world loads with no new errors. | Data lost, errors that only appear on the second load. |
