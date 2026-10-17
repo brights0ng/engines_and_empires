@@ -2,11 +2,9 @@
 # for Sable, a sable package). One per line: path under a project's src/main/java | outside mod key | one-line reason.
 # Keep it short: every line is a debt the slicing steps should pay off. Stale lines fail the test.
 
-# Core: optional-mod code that predates the compat-package rule. MineColoniesGuards is reached only through
-# MineColoniesGuardSource, registered when MineColonies is loaded (S12); the integration game tests run in the full dev
-# runtime, where the mods are present. Moving them into compat packages is a placement call for step 2f.
-dev/brights0ng/enginesandempires/frontier/guard/MineColoniesGuards.java | minecolonies | S12 left it in frontier.guard; reached only via MineColoniesGuardSource after ModList.isLoaded; compat.minecolonies move pending (2f)
-dev/brights0ng/enginesandempires/gametest/ColdSweatGameTests.java | coldsweat | core integration game test; asserts Cold Sweat is in the dev runtime, so it needs gating before any run without it (2f)
-dev/brights0ng/enginesandempires/gametest/DietGameTests.java | diet | core integration game test; asserts Diet is in the dev runtime, so it needs gating before any run without it (2f)
-dev/brights0ng/enginesandempires/gametest/HeatPlayerGameTests.java | coldsweat | core integration game test (plan section 10); its Cold Sweat case passes trivially without Cold Sweat
-dev/brights0ng/enginesandempires/gametest/WeatherChecksGameTests.java | minecolonies | core integration game test (plan section 10); its MineColonies case passes trivially without MineColonies
+# Core: the plan's integration game tests (plan section 10), which run in the full dev runtime. Each names its optional
+# mod only inside the one test that needs it, which first asks ModList.isLoaded and passes trivially without the mod;
+# the rest of each class needs only the family. Moving either into a compat package would put tests of Meteodyne's own
+# behaviour there, so they stay (split step 2f).
+dev/brights0ng/enginesandempires/gametest/HeatPlayerGameTests.java | coldsweat | core integration game test (plan section 10); only its hearth test names Cold Sweat, after ModList.isLoaded, and passes trivially without it
+dev/brights0ng/enginesandempires/gametest/WeatherChecksGameTests.java | minecolonies | core integration game test (plan section 10); only its mixin-target test names MineColonies classes, after ModList.isLoaded, and passes trivially without it

@@ -10,8 +10,6 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import net.neoforged.neoforge.client.gui.ConfigurationScreen;
-import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 
 // This class will not load on dedicated servers. Accessing client side code from here is safe.
 @Mod(value = EnginesAndEmpires.MODID, dist = Dist.CLIENT)
@@ -19,10 +17,8 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 @EventBusSubscriber(modid = EnginesAndEmpires.MODID, value = Dist.CLIENT)
 public class EnginesAndEmpiresModClient {
     public EnginesAndEmpiresModClient(IEventBus modEventBus, ModContainer container) {
-        // Allows NeoForge to create a config screen for this mod's configs.
-        // The config screen is accessed by going to the Mods screen > clicking on your mod > clicking on config.
-        // Do not forget to add translations for your config options to the en_us.json file.
-        container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+        // No config screen: the core has no config of its own since split step 2d (each mod of the family registers
+        // its own screen), so NeoForge's would be empty (dropped in split step 2f).
         // Frontier's tiers and incursions on the survey's maps (the smart logger and the portable record display)
         MapLayers.register(TierOverlay.INSTANCE);
     }

@@ -175,8 +175,8 @@ dependencies {
     localRuntime("maven.modrinth:diet-appleseed-edition:${diet_version}")
     localRuntime("maven.modrinth:cloudworks-api:${cloudworks_version}")
 
-    // MineColonies: its guards count toward Civilized land (frontier/guard/MineColoniesGuards, loaded only when it is
-    // present). It and the four libraries it needs, straight from CurseForge by file id; see gradle.properties.
+    // MineColonies: its guards count toward Civilized land (frontier/guard/compat/MineColoniesGuards, loaded only when it
+    // is present). It and the four libraries it needs, straight from CurseForge by file id; see gradle.properties.
     compileOnly("curse.maven:minecolonies-245506:${minecolonies_file}")
     colonyRuntime("curse.maven:minecolonies-245506:${minecolonies_file}")
     colonyRuntime("curse.maven:structurize-298744:${structurize_file}")
@@ -187,8 +187,9 @@ dependencies {
     // Guard Villagers: its guards are in the guards tag. Only needed at runtime (we refer to it by id only).
     localRuntime("maven.modrinth:guard-villagers:${guard_villagers_version}")
 
-    // Deeper and Darker: its mobs are in the deep rosters and the provoked_from_below tag. Runtime only, by id only.
-    localRuntime("maven.modrinth:deeperdarker:${deeper_darker_version}")
+    // Deeper and Darker: Frontier requires it (its mobs are in the deep rosters and the provoked_from_below tag, by id
+    // only) and declares it; these runs load it from there, as they load Frontier (split step 2f).
+    localRuntime(project(path: ':frontier', configuration: 'requiredRuntimeElements'))
 
     // Cold Sweat (player temperature). Optional: the core mod's air temperature becomes its world temperature
     // (weather phase 8d, weather/climate/compat/ColdSweatCompat, only hooked up when it is installed).

@@ -39,6 +39,8 @@ public final class SparseOresDataGen {
         generator.addProvider(event.includeServer(), new LootTableProvider(output, Set.of(),
                 List.of(new LootTableProvider.SubProviderEntry(RichOreDataGen.Loot::new, LootContextParamSets.BLOCK)),
                 lookup));
+        // Rich zinc ore's tables, with a condition on Create (a provider of its own: the one above writes no conditions)
+        generator.addProvider(event.includeServer(), new RichOreDataGen.OtherModsLoot(output, lookup));
         generator.addProvider(event.includeClient(), new States(output, existing));
         BlockTags blockTags = new BlockTags(output, lookup, existing);
         generator.addProvider(event.includeServer(), blockTags);

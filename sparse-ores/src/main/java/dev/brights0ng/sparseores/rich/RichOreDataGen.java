@@ -1,22 +1,30 @@
 package dev.brights0ng.sparseores.rich;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+
+import com.mojang.serialization.Codec;
 
 import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.data.CachedOutput;
+import net.minecraft.data.DataProvider;
 import net.minecraft.data.PackOutput;
 import net.minecraft.data.loot.BlockLootSubProvider;
 import net.minecraft.data.tags.IntrinsicHolderTagsProvider;
 import net.minecraft.data.tags.ItemTagsProvider;
 import net.minecraft.data.tags.TagsProvider;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.flag.FeatureFlags;
@@ -29,12 +37,16 @@ import net.minecraft.world.level.storage.loot.entries.LootItem;
 import net.minecraft.world.level.storage.loot.functions.ApplyBonusCount;
 import net.minecraft.world.level.storage.loot.functions.LootItemFunction;
 import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
 import net.minecraft.world.level.storage.loot.providers.number.NumberProvider;
 import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
 import net.neoforged.neoforge.client.model.generators.BlockStateProvider;
 import net.neoforged.neoforge.client.model.generators.ConfiguredModel;
 import net.neoforged.neoforge.client.model.generators.ModelFile;
+import net.neoforged.neoforge.common.conditions.ConditionalOps;
+import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
+import net.neoforged.neoforge.common.conditions.WithConditions;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
 
 /**
@@ -44,38 +56,27 @@ import net.neoforged.neoforge.common.data.ExistingFileHelper;
  *
  * <p>A run can have only one loot table provider (its name is fixed), and only one block state and block tag provider
  * (two would write the same files), so {@code SparseOresDataGen} puts those together from these parts and the chips'.
+ * The pack's loot tables for the ordinary blocks of the ores it cuts ({@link RichOres#PACK_LOOT}) are the core's since
+ * split step 2f (its loot cuts), built with {@link OreLoot} from the same table.
  *
  * <p>Run Sparse Ores' {@code data} run to (re)generate everything into {@code sparse-ores/src/generated/resources}.
  */
 public final class RichOreDataGen {
 
     /**
-     * Loot: with Silk Touch a rich block drops itself, exactly as its counterpart does. Otherwise it
-     * drops what its counterpart drops, {@link RichOres#RICHNESS} times over (a count of 1 becomes 5, a
-     * range of 2-5 becomes 10-25), and Fortune improves that with the same formula the counterpart uses.
-     *
-     * <p>The ordinary blocks of the ores in {@link RichOres#PACK_LOOT} get their loot table from the same entry, once
-     * over, replacing vanilla's.
+     * The loot of an ore block: with Silk Touch it drops itself; otherwise it drops what its {@link RichOres} entry says,
+     * some number of times over, and Fortune improves that with the same formula the ordinary block uses. The rich ores'
+     * tables ({@link Loot}) and the pack's cut ordinary ones (the core's loot cuts, since split step 2f) are built with
+     * it, from the same entry, so the two cannot drift apart.
      */
-    public static final class Loot extends BlockLootSubProvider {
+    public abstract static class OreLoot extends BlockLootSubProvider {
 
-        public Loot(HolderLookup.Provider registries) {
+        protected OreLoot(HolderLookup.Provider registries) {
             super(Set.of(), FeatureFlags.REGISTRY.allFlags(), registries);
         }
 
-        @Override
-        protected void generate() {
-            for (RichOres.Variant variant : RichOres.allVariants()) {
-                Block block = RichOreBlocks.block(variant.name());
-                add(block, oreDrop(block, RichOres.forOre(oreOf(variant)), RichOres.RICHNESS));
-            }
-            for (Block block : packLootBlocks()) {
-                add(block, oreDrop(block, specOf(block), 1));
-            }
-        }
-
         /** Silk Touch gives the block; otherwise the spec's drop, {@code times} over, improved by Fortune. */
-        private LootTable.Builder oreDrop(Block block, RichOres.Spec spec, int times) {
+        protected LootTable.Builder oreDrop(Block block, RichOres.Spec spec, int times) {
             Item drop = BuiltInRegistries.ITEM.getOptional(ResourceLocation.parse(spec.drop()))
                     .orElseThrow(() -> new IllegalStateException("Item '" + spec.drop() + "' does not exist. "
                             + "Is the mod that adds it loaded?"));
@@ -93,38 +94,105 @@ public final class RichOreDataGen {
                             .apply(SetItemCountFunction.setCount(count))
                             .apply(bonus)));
         }
+    }
+
+    /**
+     * Loot of the rich ores: what the counterpart drops, {@link RichOres#RICHNESS} times over (a count of 1 becomes 5, a
+     * range of 2-5 becomes 10-25). One instance covers either the rich ores of vanilla's ores, for the loot table
+     * provider, or those of other mods' ores (rich zinc ore, from Create's), for {@link OtherModsLoot}, which writes them
+     * with a condition on that mod.
+     */
+    public static final class Loot extends OreLoot {
+
+        private final boolean otherMods;
+
+        public Loot(HolderLookup.Provider registries) {
+            this(registries, false);
+        }
+
+        Loot(HolderLookup.Provider registries, boolean otherMods) {
+            super(registries);
+            this.otherMods = otherMods;
+        }
+
+        @Override
+        protected void generate() {
+            for (RichOres.Variant variant : variants()) {
+                Block block = RichOreBlocks.block(variant.name());
+                add(block, oreDrop(block, RichOres.forOre(oreOf(variant)), RichOres.RICHNESS));
+            }
+        }
 
         @Override
         protected Iterable<Block> getKnownBlocks() {
             List<Block> known = new ArrayList<>();
-            RichOreBlocks.all().forEach(known::add);
-            known.addAll(packLootBlocks());
+            for (RichOres.Variant variant : variants()) {
+                known.add(RichOreBlocks.block(variant.name()));
+            }
             return known;
         }
-    }
 
-    /** The ordinary (vanilla) ore blocks whose loot tables the pack replaces. */
-    private static List<Block> packLootBlocks() {
-        List<Block> blocks = new ArrayList<>();
-        for (String oreId : RichOres.PACK_LOOT) {
-            for (RichOres.Variant variant : RichOres.forOre(oreId).variants()) {
-                blocks.add(BuiltInRegistries.BLOCK.get(ResourceLocation.parse(variant.counterpart())));
-            }
-        }
-        return blocks;
-    }
-
-    /** The entry of the ore an ordinary block belongs to. */
-    private static RichOres.Spec specOf(Block block) {
-        String id = BuiltInRegistries.BLOCK.getKey(block).toString();
-        for (RichOres.Spec spec : RichOres.ALL) {
-            for (RichOres.Variant variant : spec.variants()) {
-                if (variant.counterpart().equals(id)) {
-                    return spec;
+        private List<RichOres.Variant> variants() {
+            List<RichOres.Variant> variants = new ArrayList<>();
+            for (RichOres.Variant variant : RichOres.allVariants()) {
+                if (otherModOf(variant) != null == otherMods) {
+                    variants.add(variant);
                 }
             }
+            return variants;
         }
-        throw new IllegalStateException("No ore owns " + id);
+    }
+
+    /**
+     * The loot tables of the rich ores of other mods' ores (rich zinc ore, from Create's), each written with a
+     * {@code neoforge:mod_loaded} condition on that mod. Such a block is only registered with its mod (see
+     * {@link RichOreBlocks}), and its table names that mod's drop ({@code create:raw_zinc}), so without the mod the game
+     * would log a parse error for it; with the condition it skips the table quietly (split step 2f). The loot table
+     * provider writes tables without conditions, and a run can have only one of it, hence this provider of its own.
+     */
+    public static final class OtherModsLoot implements DataProvider {
+
+        private final PackOutput.PathProvider paths;
+        private final CompletableFuture<HolderLookup.Provider> lookup;
+
+        public OtherModsLoot(PackOutput output, CompletableFuture<HolderLookup.Provider> lookup) {
+            this.paths = output.createRegistryElementsPathProvider(Registries.LOOT_TABLE);
+            this.lookup = lookup;
+        }
+
+        @Override
+        public CompletableFuture<?> run(CachedOutput cache) {
+            return lookup.thenCompose(registries -> {
+                Codec<Optional<WithConditions<LootTable>>> codec =
+                        ConditionalOps.createConditionalCodecWithConditions(LootTable.DIRECT_CODEC);
+                Map<ResourceKey<LootTable>, String> mods = new HashMap<>();
+                for (RichOres.Variant variant : RichOres.allVariants()) {
+                    if (otherModOf(variant) != null) {
+                        mods.put(RichOreBlocks.block(variant.name()).getLootTable(), otherModOf(variant));
+                    }
+                }
+                List<CompletableFuture<?>> writes = new ArrayList<>();
+                new Loot(registries, true).generate((key, builder) -> {
+                    String mod = mods.get(key);
+                    LootTable table = builder.setRandomSequence(key.location()).setParamSet(LootContextParamSets.BLOCK).build();
+                    writes.add(DataProvider.saveStable(cache, registries, codec,
+                            Optional.of(new WithConditions<>(List.of(new ModLoadedCondition(mod)), table)),
+                            paths.json(key.location())));
+                });
+                return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new));
+            });
+        }
+
+        @Override
+        public String getName() {
+            return "Rich ores of other mods' ores: loot tables";
+        }
+    }
+
+    /** The mod whose ore a rich block copies, or null for one of vanilla's ores. */
+    private static String otherModOf(RichOres.Variant variant) {
+        String namespace = ResourceLocation.parse(variant.counterpart()).getNamespace();
+        return namespace.equals(ResourceLocation.DEFAULT_NAMESPACE) ? null : namespace;
     }
 
     /** The ore a rich block belongs to. */
@@ -198,7 +266,7 @@ public final class RichOreDataGen {
      * {@code minecraft:mineable/pickaxe}, in a game without Create. The item tags copy these entries as they are.
      */
     private static void addTo(IntrinsicHolderTagsProvider.IntrinsicTagAppender<Block> tag, Block block, RichOres.Variant variant) {
-        if (ResourceLocation.parse(variant.counterpart()).getNamespace().equals(ResourceLocation.DEFAULT_NAMESPACE)) {
+        if (otherModOf(variant) == null) {
             tag.add(block);
         } else {
             tag.addOptional(BuiltInRegistries.BLOCK.getKey(block));
