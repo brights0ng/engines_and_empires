@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Set;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
+import dev.brights0ng.enginesandempires.oregen.refining.LootCuts;
 import dev.brights0ng.enginesandempires.oregen.refining.RefiningDataGen;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.data.DataGenerator;
@@ -32,7 +33,8 @@ public final class SharedDataGen {
         PackOutput output = generator.getPackOutput();
 
         generator.addProvider(event.includeServer(), new LootTableProvider(output, Set.of(),
-                List.of(new LootTableProvider.SubProviderEntry(RefiningDataGen.GolemLoot::new, LootContextParamSets.ENTITY)),
+                List.of(new LootTableProvider.SubProviderEntry(RefiningDataGen.GolemLoot::new, LootContextParamSets.ENTITY),
+                        new LootTableProvider.SubProviderEntry(LootCuts::new, LootContextParamSets.BLOCK)),
                 event.getLookupProvider()));
         generator.addProvider(event.includeServer(), new GameTestStructures(output, EnginesAndEmpires.MODID));
     }
