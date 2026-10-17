@@ -9,7 +9,7 @@ import dev.brights0ng.meteodyne.ships.ShipWeather;
 import dev.brights0ng.meteodyne.surface.GlazeBlock;
 import dev.brights0ng.meteodyne.surface.HailDamage;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
-import dev.brights0ng.paradynelib.ships.ShipCover;
+import dev.brights0ng.paradynelib.sable.ships.ShipCover;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.BoundingBox3dc;

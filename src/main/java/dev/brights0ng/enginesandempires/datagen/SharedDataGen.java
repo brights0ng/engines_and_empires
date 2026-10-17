@@ -26,7 +26,8 @@ import net.neoforged.neoforge.data.event.GatherDataEvent;
  * fixed) and one block state and one block tag provider (two would write the same {@code mineable/pickaxe} tag). The
  * core, which may see every mod, puts them together here from each mod's parts: Sparse Ores' ({@link RichOreDataGen},
  * {@link ChipDataGen}), Seismic Surveyance's ({@link SeismicDataGen}) and its own ({@link RefiningDataGen}). Each mod adds its other providers
- * from its own data generator. The library's empty game test structure is written here too.
+ * from its own data generator. The empty game test structure, in this jar's namespace, is
+ * written here too (the library writes its own, in its own data run).
  *
  * <p>Run the {@code Data} run configuration to (re)generate everything into {@code src/generated/resources}.
  */
@@ -49,7 +50,7 @@ public final class SharedDataGen {
         generator.addProvider(event.includeServer(), blockTags);
         generator.addProvider(event.includeServer(),
                 new RichOreDataGen.ItemTagsGen(output, lookup, blockTags.contentsGetter(), existing));
-        generator.addProvider(event.includeServer(), new GameTestStructures(output));
+        generator.addProvider(event.includeServer(), new GameTestStructures(output, EnginesAndEmpires.MODID));
     }
 
     /** Block states, block models and item models. */

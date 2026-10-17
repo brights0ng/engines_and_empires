@@ -8,7 +8,7 @@ import dev.brights0ng.meteodyne.climate.SunLight;
 import dev.brights0ng.meteodyne.climate.SunWarmth;
 import dev.brights0ng.paradynelib.heat.air.AirParams;
 import dev.brights0ng.paradynelib.heat.air.Radiant;
-import dev.brights0ng.paradynelib.ships.ShipCover;
+import dev.brights0ng.paradynelib.sable.ships.ShipCover;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.FluidTags;

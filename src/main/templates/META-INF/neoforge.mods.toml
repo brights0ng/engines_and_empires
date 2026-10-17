@@ -89,6 +89,14 @@ Core mod for the Engines and Empires modpack.
     ordering="NONE"
     side="BOTH"
 
+# Paradyne Lib, the family's library (split step 2b: a mod of its own). Loads first, as it did when the core called it.
+[[dependencies.${mod_id}]]
+    modId="paradyne_lib"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
 # Create. The pack is built on it, and the ore system looks up Create's blocks (zinc ore) by id. Rich zinc ore
 # copies Create's zinc ore when it is registered, so this mod must load AFTER Create.
 [[dependencies.${mod_id}]]
@@ -153,10 +161,7 @@ Core mod for the Engines and Empires modpack.
 
 # Mixins: one config per future mod (split step 1b), each with a plugin that applies a mixin only when the mod it
 # targets is loaded. Listed so that mixins on a shared target (Monster, ItemEntity) keep their old relative order.
-[[mixins]]
-    config="paradyne_lib.mixins.json"
-[[mixins]]
-    config="sable_fixes.mixins.json"
+# Paradyne Lib and Sable Fixes register their own configs in their own metadata (step 2b).
 [[mixins]]
     config="sparse_ores.mixins.json"
 [[mixins]]

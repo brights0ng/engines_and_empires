@@ -10,7 +10,7 @@ import dev.brights0ng.meteodyne.WeatherOwnership;
 import dev.brights0ng.meteodyne.rain.LocalWeather;
 import dev.brights0ng.meteodyne.rain.Precip;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
-import dev.brights0ng.paradynelib.ships.ShipCover;
+import dev.brights0ng.paradynelib.sable.ships.ShipCover;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
