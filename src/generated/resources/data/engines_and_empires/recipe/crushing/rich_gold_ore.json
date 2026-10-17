@@ -2,7 +2,7 @@
   "type": "create:crushing",
   "ingredients": [
     {
-      "item": "engines_and_empires:rich_gold_ore"
+      "item": "sparse_ores:rich_gold_ore"
     }
   ],
   "processing_time": 250,

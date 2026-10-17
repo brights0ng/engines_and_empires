@@ -92,10 +92,10 @@ class RefiningTest {
     void silkTouchedOreBlocksSmeltLikeTheirDrops() {
         assertCooking("minecraft/recipe/iron_ingot_from_smelting_deepslate_iron_ore.json", "minecraft:iron_nugget", 2);
         assertCooking("minecraft/recipe/copper_ingot_from_smelting_copper_ore.json", "create:copper_nugget", 7);
-        assertCooking("minecraft/recipe/coal_from_blasting_coal_ore.json", "engines_and_empires:coal_chip", 1);
-        assertCooking("minecraft/recipe/diamond_from_smelting_deepslate_diamond_ore.json", "engines_and_empires:diamond_chip", 1);
-        assertCooking("minecraft/recipe/quartz.json", "engines_and_empires:quartz_chip", 1);
-        assertCooking("minecraft/recipe/quartz_from_blasting.json", "engines_and_empires:quartz_chip", 1);
+        assertCooking("minecraft/recipe/coal_from_blasting_coal_ore.json", "sparse_ores:coal_chip", 1);
+        assertCooking("minecraft/recipe/diamond_from_smelting_deepslate_diamond_ore.json", "sparse_ores:diamond_chip", 1);
+        assertCooking("minecraft/recipe/quartz.json", "sparse_ores:quartz_chip", 1);
+        assertCooking("minecraft/recipe/quartz_from_blasting.json", "sparse_ores:quartz_chip", 1);
         assertCooking("minecraft/recipe/gold_ingot_from_smelting_nether_gold_ore.json", "minecraft:gold_nugget", 1);
         // Create's zinc ore recipe no longer matches the rich zinc ores through #c:ores/zinc.
         JsonObject zinc = file("create/recipe/smelting/zinc_ingot_from_ore.json");
@@ -114,9 +114,9 @@ class RefiningTest {
 
     @Test
     void crushingChipAndGroupOresKeepsTheCreateLead() {
-        assertEquals(2.2, mean(crushing("create/recipe/crushing/coal_ore.json"), "engines_and_empires:coal_chip"), 1e-9);
-        assertEquals(2.8, mean(crushing("create/recipe/crushing/deepslate_diamond_ore.json"), "engines_and_empires:diamond_chip"), 1e-9);
-        assertEquals(2.8, mean(crushing("create/recipe/crushing/nether_quartz_ore.json"), "engines_and_empires:quartz_chip"), 1e-9);
+        assertEquals(2.2, mean(crushing("create/recipe/crushing/coal_ore.json"), "sparse_ores:coal_chip"), 1e-9);
+        assertEquals(2.8, mean(crushing("create/recipe/crushing/deepslate_diamond_ore.json"), "sparse_ores:diamond_chip"), 1e-9);
+        assertEquals(2.8, mean(crushing("create/recipe/crushing/nether_quartz_ore.json"), "sparse_ores:quartz_chip"), 1e-9);
         assertEquals(2.2, mean(crushing("create/recipe/crushing/redstone_ore.json"), "minecraft:redstone"), 1e-9);
         assertEquals(3.3, mean(crushing("create/recipe/crushing/lapis_ore.json"), "minecraft:lapis_lazuli"), 1e-9);
         assertEquals(4.2, mean(crushing("create/recipe/crushing/deepslate_lapis_ore.json"), "minecraft:lapis_lazuli"), 1e-9);

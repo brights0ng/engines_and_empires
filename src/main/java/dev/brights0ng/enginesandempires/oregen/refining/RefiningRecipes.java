@@ -9,6 +9,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
+import dev.brights0ng.sparseores.SparseOres;
 import dev.brights0ng.sparseores.chips.Chips;
 import dev.brights0ng.sparseores.rich.RichOres;
 
@@ -105,7 +106,7 @@ public final class RefiningRecipes {
     private static void richOres(BiConsumer<String, JsonObject> recipe) {
         for (Refining.Ore ore : Refining.ORES) {
             for (RichOres.Variant variant : ore.spec().variants()) {
-                String rich = MODID + ":" + variant.name();
+                String rich = SparseOres.MODID + ":" + variant.name();
                 for (boolean blasting : new boolean[] {false, true}) {
                     recipe.accept(MODID + ":" + (blasting ? "blasting" : "smelting") + "/" + variant.name(),
                             cooking(blasting, item(rich), ore.furnaceItem(), ore.furnaceCount() * RichOres.RICHNESS,
@@ -133,7 +134,7 @@ public final class RefiningRecipes {
 
         // Create gives four quartz an eighth of the time: half a quartz, or two chips, on average.
         JsonArray soulSand = new JsonArray();
-        soulSand.add(result(MODID + ":quartz_chip", 1,
+        soulSand.add(result(SparseOres.MODID + ":quartz_chip", 1,
                 Refining.otherSourceChance(4 * 0.125 * Chips.CHIPS_PER_ITEM)));
         soulSand.add(result("minecraft:gold_nugget", 1, Refining.otherSourceChance(0.02)));
         recipe.accept("create:splashing/soul_sand", processing("create:splashing", "minecraft:soul_sand", soulSand, 0));
@@ -144,7 +145,7 @@ public final class RefiningRecipes {
     /** A crushing recipe for one ore block, {@code times} as rich as the ordinary block. */
     private static JsonObject crushing(Refining.Ore ore, RichOres.Variant variant, int times) {
         boolean deep = variant.ground() != RichOres.Ground.STONE;
-        String input = times == 1 ? variant.counterpart() : MODID + ":" + variant.name();
+        String input = times == 1 ? variant.counterpart() : SparseOres.MODID + ":" + variant.name();
         JsonArray results = new JsonArray();
         addAmount(results, ore.crushedItem(), Refining.Amount.of(ore.crushedMean(deep) * times));
         if (times == 1) {

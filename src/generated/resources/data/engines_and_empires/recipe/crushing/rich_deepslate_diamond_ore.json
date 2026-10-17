@@ -2,18 +2,18 @@
   "type": "create:crushing",
   "ingredients": [
     {
-      "item": "engines_and_empires:rich_deepslate_diamond_ore"
+      "item": "sparse_ores:rich_deepslate_diamond_ore"
     }
   ],
   "processing_time": 450,
   "results": [
     {
       "count": 14,
-      "id": "engines_and_empires:diamond_chip"
+      "id": "sparse_ores:diamond_chip"
     },
     {
       "chance": 0.05,
-      "id": "engines_and_empires:diamond_chip"
+      "id": "sparse_ores:diamond_chip"
     },
     {
       "count": 3,

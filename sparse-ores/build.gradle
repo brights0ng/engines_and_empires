@@ -1,0 +1,35 @@
+plugins {
+    id 'eae.mod-conventions'
+}
+
+requireMod(':paradyne-lib')
+
+// Create is optional (plan section 2) and nothing here compiles against it: zinc deposits find Create's zinc ore by
+// block id, and rich zinc ore, a copy of it that drops Create's raw zinc, is only registered when Create is loaded
+// (rich/RichOreBlocks). So the bare game test run goes without Create, but the data run loads it, or the generated
+// files would leave rich zinc ore out. The data run gets a source set of its own for that: no sources, and a runtime
+// classpath of Create and what it needs (Sparse Ores and the library come in through the mods {} block as usual).
+sourceSets {
+    datagen
+}
+
+dependencies {
+    // JUnit comes from the convention plugin. The chip tests read the recipes the mod builds as JSON (Minecraft ships
+    // this same Gson), as the core's refining tests do.
+    testImplementation 'com.google.code.gson:gson:2.10.1'
+
+    // The same Create artifacts as the root's runs load. See https://wiki.createmod.net/developers/depend-on-create/neoforge-1.21.1
+    datagenRuntimeOnly("com.simibubi.create:create-${minecraft_version}:${create_version}:slim") { transitive = false }
+    datagenRuntimeOnly("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
+    datagenRuntimeOnly("dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}")
+    datagenRuntimeOnly("com.tterrag.registrate:Registrate:${registrate_version}")
+}
+
+neoForge {
+    addModdingDependenciesTo(sourceSets.datagen)
+    runs {
+        data {
+            sourceSet = sourceSets.datagen
+        }
+    }
+}

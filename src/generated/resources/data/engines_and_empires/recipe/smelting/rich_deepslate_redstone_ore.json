@@ -4,7 +4,7 @@
   "cookingtime": 200,
   "experience": 0.7,
   "ingredient": {
-    "item": "engines_and_empires:rich_deepslate_redstone_ore"
+    "item": "sparse_ores:rich_deepslate_redstone_ore"
   },
   "result": {
     "count": 5,

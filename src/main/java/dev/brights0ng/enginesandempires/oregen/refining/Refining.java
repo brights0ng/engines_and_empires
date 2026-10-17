@@ -178,7 +178,7 @@ public final class Refining {
     }
 
     public static final List<Ore> ORES = List.of(
-            new Ore("coal", Kind.CHIP, "engines_and_empires:coal_chip", "engines_and_empires:coal_chip", 150, 300, 1, 0.1),
+            new Ore("coal", Kind.CHIP, "sparse_ores:coal_chip", "sparse_ores:coal_chip", 150, 300, 1, 0.1),
             new Ore("iron", Kind.METAL, "minecraft:iron_nugget", "create:crushed_raw_iron", 250, 350, 1, 0.7),
             new Ore("copper", Kind.METAL, "create:copper_nugget", "create:crushed_raw_copper", 250, 350, 1, 0.7),
             new Ore("zinc", Kind.METAL, "create:zinc_nugget", "create:crushed_raw_zinc", 250, 350, 1, 1.0),
@@ -186,9 +186,9 @@ public final class Refining {
             new Ore("lapis", Kind.GROUP, "minecraft:lapis_lazuli", "minecraft:lapis_lazuli", 250, 350, 1, 0.2),
             new Ore("gold", Kind.METAL, "minecraft:gold_nugget", "create:crushed_raw_gold", 250, 350, 2, 1.0),
             new Ore("emerald", Kind.KEPT, "minecraft:emerald", "minecraft:emerald", 350, 450, 1, 1.0),
-            new Ore("diamond", Kind.CHIP, "engines_and_empires:diamond_chip", "engines_and_empires:diamond_chip", 350, 450, 1, 1.0),
+            new Ore("diamond", Kind.CHIP, "sparse_ores:diamond_chip", "sparse_ores:diamond_chip", 350, 450, 1, 1.0),
             new Ore("nether_gold", Kind.GROUP, "minecraft:gold_nugget", "minecraft:gold_nugget", 350, 350, 1, 1.0),
-            new Ore("nether_quartz", Kind.CHIP, "engines_and_empires:quartz_chip", "engines_and_empires:quartz_chip", 350, 350, 1, 0.2));
+            new Ore("nether_quartz", Kind.CHIP, "sparse_ores:quartz_chip", "sparse_ores:quartz_chip", 350, 350, 1, 0.2));
 
     /**
      * A metal: its raw ore, crushed ore and nugget, and what washing its crushed ore gives besides nuggets (kept as

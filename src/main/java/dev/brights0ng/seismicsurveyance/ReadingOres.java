@@ -1,12 +1,13 @@
 package dev.brights0ng.seismicsurveyance;
 
+import dev.brights0ng.sparseores.SparseOres;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 
 /**
  * How a reading's ore is shown: its name, and the colour it is marked in. The colours are the brass geophone's, so a deposit
  * that lit a geophone salmon is marked salmon on the smart logger's map too. A reading that does not know its ore (one taken
- * before that was kept) is called "Unknown ore" and marked grey.
+ * before that was kept) is called "Unknown ore" and marked grey. The names are Sparse Ores' ({@code sparse_ores.ore.<ore>}).
  */
 public final class ReadingOres {
 
@@ -16,8 +17,8 @@ public final class ReadingOres {
     /** The ore's name, such as "Iron". */
     public static MutableComponent name(String ore) {
         return ore == null || ore.isEmpty()
-                ? Component.translatable("engines_and_empires.ore.unknown")
-                : Component.translatable("engines_and_empires.ore." + ore);
+                ? Component.translatable(SparseOres.MODID + ".ore.unknown")
+                : Component.translatable(SparseOres.MODID + ".ore." + ore);
     }
 
     /** The ore's colour, as opaque ARGB. */
