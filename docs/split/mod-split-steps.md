@@ -156,3 +156,4 @@ Cloud: from a clean checkout run `buildAll`, list every jar with its `mods.toml`
 
 ### Step 4: tidy (1 session)
 Old-doc path map (old `claude/*.md` paths to new ones, written to `docs/split/path-map.md`), delete `docs/split` leftovers that are only scaffolding, update `CLAUDE.md` to the final layout, remove the `split` branch conventions. Bright reviews before merge.
+Also in step 4: update stale `/eae weather|heat|clouds|wind` mentions in comments, javadoc and config descriptions (found after 2c in `WindCommand`, `MeteodyneClient`, `StormSleep`, `CloudClient`, `CloudConfig`) to the real `/meteodyne ...` commands.
