@@ -1,0 +1,10 @@
+{
+  "values": [
+    "sparse_ores:rich_iron_ore",
+    "sparse_ores:rich_deepslate_iron_ore",
+    "sparse_ores:rich_copper_ore",
+    "sparse_ores:rich_deepslate_copper_ore",
+    "sparse_ores:rich_lapis_ore",
+    "sparse_ores:rich_deepslate_lapis_ore"
+  ]
+}

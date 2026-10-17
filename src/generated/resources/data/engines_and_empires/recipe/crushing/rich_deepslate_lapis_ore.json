@@ -2,7 +2,7 @@
   "type": "create:crushing",
   "ingredients": [
     {
-      "item": "engines_and_empires:rich_deepslate_lapis_ore"
+      "item": "sparse_ores:rich_deepslate_lapis_ore"
     }
   ],
   "processing_time": 350,

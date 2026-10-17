@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "sparse_ores:block/rich_emerald_ore"
+    }
+  }
+}
