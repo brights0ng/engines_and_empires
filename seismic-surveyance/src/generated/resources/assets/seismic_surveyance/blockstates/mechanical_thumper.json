@@ -1,0 +1,11 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "seismic_surveyance:block/mechanical_thumper_housing",
+      "y": 90
+    },
+    "axis=z": {
+      "model": "seismic_surveyance:block/mechanical_thumper_housing"
+    }
+  }
+}

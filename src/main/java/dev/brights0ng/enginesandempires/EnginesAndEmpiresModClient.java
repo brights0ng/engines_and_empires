@@ -2,7 +2,6 @@ package dev.brights0ng.enginesandempires;
 
 import net.minecraft.client.Minecraft;
 import dev.brights0ng.enginesandempires.geophone.client.TierOverlay;
-import dev.brights0ng.seismicsurveyance.SeismicSurveyanceClient;
 import dev.brights0ng.seismicsurveyance.client.MapLayers;
 import dev.brights0ng.simplespoilage.SimpleSpoilageClient;
 import net.neoforged.api.distmarker.Dist;
@@ -25,8 +24,8 @@ public class EnginesAndEmpiresModClient {
         // The config screen is accessed by going to the Mods screen > clicking on your mod > clicking on config.
         // Do not forget to add translations for your config options to the en_us.json file.
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
-        // Each future mod's client-side registration, in the order they ran before the split
-        SeismicSurveyanceClient.init(modEventBus, container);
+        // Each future mod's client-side registration, in the order they ran before the split (Seismic Surveyance has its
+        // own client entry point since split step 2e)
         SimpleSpoilageClient.init(modEventBus, container);
 
         // Frontier's tiers and incursions on the survey's maps (the smart logger and the portable record display)

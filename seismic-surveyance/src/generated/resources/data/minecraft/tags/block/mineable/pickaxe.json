@@ -1,0 +1,11 @@
+{
+  "values": [
+    "seismic_surveyance:strike_plate",
+    "seismic_surveyance:mechanical_thumper",
+    "seismic_surveyance:combustive_thumper",
+    "seismic_surveyance:combustive_thumper_column",
+    "seismic_surveyance:smart_logger",
+    "seismic_surveyance:choked_mechanical_thumper",
+    "seismic_surveyance:choked_combustive_thumper"
+  ]
+}
