@@ -8,6 +8,7 @@ import org.joml.Vector3dc;
 
 import dev.brights0ng.paradynelib.services.WindProvider;
 import dev.brights0ng.paradynelib.wind.Shelter;
+import dev.brights0ng.paradynelib.wind.ShelterProbe;
 import dev.brights0ng.paradynelib.wind.WindBlend;
 import dev.brights0ng.paradynelib.wind.WindColumn;
 import dev.brights0ng.paradynelib.wind.WindParams;

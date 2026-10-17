@@ -1,6 +1,6 @@
 package dev.brights0ng.meteodyne.rain;
 
-import dev.brights0ng.paradynelib.sable.ships.ShipCover;
+import dev.brights0ng.meteodyne.ships.Ships;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -94,7 +94,7 @@ public final class WeatherQueries {
 
     /** Where {@code pos} really is: its centre, or for a ship's block, where the ship is (null if unknown). */
     private static Vec3 inWorld(Level level, BlockPos pos) {
-        return ShipCover.inPlot(level, pos) ? ShipCover.worldCentre(level, pos) : Vec3.atCenterOf(pos);
+        return Ships.get().inPlot(level, pos) ? Ships.get().worldCentre(level, pos) : Vec3.atCenterOf(pos);
     }
 
     /**
@@ -102,8 +102,8 @@ public final class WeatherQueries {
      * block is asked where the ship is.
      */
     private static Vec3 where(Level level, BlockPos pos) {
-        if (ShipCover.inPlot(level, pos)) {
-            Vec3 w = ShipCover.worldCentre(level, pos);
+        if (Ships.get().inPlot(level, pos)) {
+            Vec3 w = Ships.get().worldCentre(level, pos);
             if (w == null) {
                 return null;
             }
@@ -116,7 +116,7 @@ public final class WeatherQueries {
 
     /** No ship over the spot (asked last: it is the dearest test, and rarely needed). */
     private static boolean noShipOver(Level level, Vec3 at) {
-        return !ShipCover.covered(level, at.x, at.y + 0.5, at.z);
+        return !Ships.get().covered(level, at.x, at.y + 0.5, at.z);
     }
 
     /** Vanilla's test: the sky can be seen and nothing that stops rain is above. */

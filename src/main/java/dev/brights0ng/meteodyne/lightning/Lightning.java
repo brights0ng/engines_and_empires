@@ -11,9 +11,8 @@ import dev.brights0ng.meteodyne.cloud.CloudScale;
 import dev.brights0ng.meteodyne.cloud.sim.SimCloud;
 import dev.brights0ng.meteodyne.mixin.ServerLevelLightningInvoker;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
+import dev.brights0ng.meteodyne.ships.Ships;
 import dev.brights0ng.meteodyne.sim.world.WeatherSim;
-import dev.brights0ng.paradynelib.sable.ships.ShipCover;
-import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -161,7 +160,7 @@ public final class Lightning {
      * a living thing around the column. Public for the game tests.
      */
     public static Strike groundTarget(ServerLevel level, double x, double y, double z, double radius) {
-        ShipCover.Area ships = ShipCover.area(level, x - radius, z - radius, x + radius, z + radius);
+        Ships.Cover ships = Ships.get().area(level, x - radius, z - radius, x + radius, z + radius);
         List<LightningModel.Column> columns = new ArrayList<>();
         List<Boolean> onShip = new ArrayList<>();
         int r = (int) Math.ceil(radius);
@@ -185,9 +184,8 @@ public final class Lightning {
         }
         // Each ship's own nearest strike point too: a small ship can sit between sampled columns, and a column on
         // the very edge of a ship's block can miss it at large coordinates.
-        for (SubLevel s : ships.ships()) {
-            Vec3 p = ShipCover.strikePoint(level, s, x, z);
-            if (p == null || p.y >= y || Math.hypot(p.x - x, p.z - z) > radius
+        for (Vec3 p : ships.strikePoints(x, z)) {
+            if (p.y >= y || Math.hypot(p.x - x, p.z - z) > radius
                     || !level.isPositionEntityTicking(BlockPos.containing(p))) {
                 continue;
             }
@@ -216,7 +214,7 @@ public final class Lightning {
             return new Strike(Vec3.atBottomCenterOf(vanilla), null, false);
         }
         Vec3 at = new Vec3(best.x(), best.height(), best.z());
-        return new Strike(at, ShipCover.plotAt(level, at.x, at.y + 0.05, at.z), false);
+        return new Strike(at, Ships.get().plotAt(level, at.x, at.y + 0.05, at.z), false);
     }
 
     /**
@@ -235,15 +233,16 @@ public final class Lightning {
                 best = new Strike(e.position(), null, false);
             }
         }
-        for (SubLevel ship : ShipCover.shipsIn(level, box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ)) {
-            Vec3 at = ShipCover.strikePoint(level, ship, x, z);
-            if (at == null || at.y < bottom || at.y > top) {
+        List<Vec3> onShips = Ships.get().strikePointsIn(level, box.minX, box.minY, box.minZ, box.maxX, box.maxY,
+                box.maxZ, x, z);
+        for (Vec3 at : onShips) {
+            if (at.y < bottom || at.y > top) {
                 continue;
             }
             double d = at.distanceToSqr(x, y, z);
             if (d < bestD && level.isPositionEntityTicking(BlockPos.containing(at))) {
                 bestD = d;
-                best = new Strike(at, ShipCover.plotAt(level, at.x, at.y + 0.05, at.z), false);
+                best = new Strike(at, Ships.get().plotAt(level, at.x, at.y + 0.05, at.z), false);
             }
         }
         return best;
@@ -289,7 +288,7 @@ public final class Lightning {
     private static void deckFire(ServerLevel level, BlockPos pos) {
         Difficulty d = level.getDifficulty();
         if (!level.getGameRules().getBoolean(GameRules.RULE_DOFIRETICK) || (d != Difficulty.NORMAL && d != Difficulty.HARD)
-                || !ShipCover.inPlot(level, pos)) {
+                || !Ships.get().inPlot(level, pos)) {
             return;
         }
         light(level, pos);

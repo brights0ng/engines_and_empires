@@ -1,9 +1,11 @@
-package dev.brights0ng.paradynelib.sable.wind;
+package dev.brights0ng.paradynelib.wind;
 
-import dev.brights0ng.paradynelib.wind.Shelter;
-import dev.ryanhcode.sable.physics.chunk.VoxelNeighborhoodState;
+import it.unimi.dsi.fastutil.objects.Reference2BooleanMap;
+import it.unimi.dsi.fastutil.objects.Reference2BooleanOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.piston.MovingPistonBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -13,6 +15,10 @@ import net.minecraft.world.level.block.state.BlockState;
  *
  * <p>The box is a physics object's world bounds. Its own blocks live in Sable's plot, not at those world positions, so
  * they never block its probes. Probes stop in unloaded chunks and count as open there; nothing is loaded.
+ *
+ * <p>A block meets a probe when it is solid the way Sable's physics counts it ({@link #isSolid}). The probe needs no
+ * Sable of its own (split step 2c): Meteodyne measures a person's and a room's shelter with it whether Sable is loaded
+ * or not.
  */
 public final class ShelterProbe {
 
@@ -88,11 +94,29 @@ public final class ShelterProbe {
                 return 0;
             }
             BlockState state = level.getBlockState(pos);
-            if (!state.isAir() && VoxelNeighborhoodState.isSolid(level, pos, state)) {
+            if (isSolid(level, state)) {
                 return 1;
             }
         }
         return 0;
+    }
+
+    /** Solid blocks by state, worked out once each (states are shared, so identity is enough). */
+    private static final Reference2BooleanMap<BlockState> SOLID = new Reference2BooleanOpenHashMap<>();
+
+    /**
+     * Whether a block stops a probe: not air, and a moving piston or anything with a collision shape. The same rule,
+     * and the same cache by state, as Sable's {@code VoxelNeighborhoodState.isSolid}, which the probe used before
+     * split step 2c, so shelter measures exactly as it did with Sable.
+     */
+    static boolean isSolid(BlockGetter level, BlockState state) {
+        if (SOLID.containsKey(state)) {
+            return SOLID.getBoolean(state);
+        }
+        boolean solid = !state.isAir() && (state.getBlock() instanceof MovingPistonBlock
+                || !state.getCollisionShape(level, BlockPos.ZERO).isEmpty());
+        SOLID.put(state, solid);
+        return solid;
     }
 
     private ShelterProbe() {

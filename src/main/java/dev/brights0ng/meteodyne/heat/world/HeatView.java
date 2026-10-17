@@ -155,13 +155,13 @@ public final class HeatView {
             double minX = b[0], minY = b[1], minZ = b[2], maxX = b[3] + 1, maxY = b[4] + 1, maxZ = b[5] + 1;
             if (r.ship() != null) {
                 // A ship's region (8f-5): by where the ship is in the world
-                var wb = r.ship().boundingBox();
-                minX = wb.minX();
-                minY = wb.minY();
-                minZ = wb.minZ();
-                maxX = wb.maxX();
-                maxY = wb.maxY();
-                maxZ = wb.maxZ();
+                var wb = HeatShips.get().worldBounds(r.ship());
+                minX = wb.minX;
+                minY = wb.minY;
+                minZ = wb.minZ;
+                maxX = wb.maxX;
+                maxY = wb.maxY;
+                maxZ = wb.maxZ;
             }
             double dx = Math.max(0, Math.max(minX - at.x, at.x - maxX));
             double dy = Math.max(0, Math.max(minY - at.y, at.y - maxY));

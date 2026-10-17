@@ -11,18 +11,13 @@ import dev.brights0ng.meteodyne.lightning.LightningPayload;
 import dev.brights0ng.meteodyne.sim.world.CloudWorld;
 import dev.brights0ng.meteodyne.sim.world.WeatherSim;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
-import dev.brights0ng.paradynelib.sable.ships.ShipCover;
-import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
-import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -30,7 +25,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /**
  * Weather phase 6b: where lightning goes. A ground strike takes the tallest thing near the spot under its flash (a
  * pillar, a ship's deck); an in-cloud flash takes a flier inside the cloud within reach; a storm's flash comes out as
- * a payload, with a real bolt where it struck.
+ * a payload, with a real bolt where it struck. The ship case needs Sable: {@code ShipLightningGameTests}.
  */
 @GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
@@ -41,7 +36,7 @@ public final class LightningGameTests {
     @GameTest(template = SCRATCH, batch = "lightning_pillar")
     public static void theTallestThingNearbyTakesTheStrike(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        ShipWeatherGameTests.openSky(helper);
+        GameTestSky.openSky(helper);
         for (int y = 1; y <= 20; y++) {
             helper.setBlock(new BlockPos(6, y, 6), Blocks.STONE);
         }
@@ -56,43 +51,10 @@ public final class LightningGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH, batch = "lightning_ship", timeoutTicks = 60)
-    public static void aShipAboveTheGroundTakesTheStrike(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        ShipWeatherGameTests.openSky(helper);
-        ServerSubLevel ship = ShipWeatherGameTests.spawnBlock(helper, 4.5, 14, 4.5, Blocks.OAK_PLANKS.defaultBlockState());
-        helper.runAfterDelay(3, () -> {
-            try {
-                BoundingBox3dc box = ship.boundingBox();
-                double cx = (box.minX() + box.maxX()) / 2;
-                double cz = (box.minZ() + box.maxZ()) / 2;
-                Lightning.Strike strike = Lightning.groundTarget(level, cx, box.maxY() + 100, cz, 16);
-                helper.assertTrue(strike != null, "a strike");
-                helper.assertFalse(strike.terrain(), "on the ship, not the ground: " + strike + "; box " + box
-                        + ", ship top " + ShipCover.top(level, cx, cz, -1000) + ", area top "
-                        + ShipCover.area(level, cx - 16, cz - 16, cx + 16, cz + 16).top((int) Math.floor(cx),
-                        (int) Math.floor(cz)) + ", ground " + level.getHeight(
-                        net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(cx),
-                        (int) Math.floor(cz)));
-                helper.assertTrue(Math.abs(strike.at().y - box.maxY()) < 0.2,
-                        "on the deck: " + strike.at().y + " vs " + box.maxY());
-                helper.assertTrue(strike.deckFire() != null && ShipCover.inPlot(level, strike.deckFire()),
-                        "its fire goes on the deck in the ship's grid: " + strike.deckFire());
-                Lightning.strike(level, strike);
-                boolean bolt = !level.getEntitiesOfClass(LightningBolt.class, new AABB(strike.at(), strike.at())
-                        .inflate(2)).isEmpty();
-                helper.assertTrue(bolt, "a bolt where it struck");
-            } finally {
-                ShipWeatherGameTests.remove(level, ship);
-            }
-            helper.succeed();
-        });
-    }
-
     @GameTest(template = SCRATCH, batch = "lightning_sky")
     public static void aFlierInsideTheCloudIsHit(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        ShipWeatherGameTests.openSky(helper);
+        GameTestSky.openSky(helper);
         Pig pig = EntityType.PIG.create(level);
         helper.assertTrue(pig != null, "a pig");
         pig.setNoAi(true);

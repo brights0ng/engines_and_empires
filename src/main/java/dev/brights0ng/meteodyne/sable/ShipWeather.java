@@ -1,4 +1,4 @@
-package dev.brights0ng.meteodyne.ships;
+package dev.brights0ng.meteodyne.sable;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -6,7 +6,6 @@ import java.util.Map;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
-import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.WeatherOwnership;
 import dev.brights0ng.meteodyne.climate.Temperature;
 import dev.brights0ng.meteodyne.rain.LocalWeather;
@@ -33,8 +32,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 
 /**
@@ -54,8 +51,9 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
  *       tag (vanilla snow is in it already; glaze is added).</li>
  * </ul>
  * Only ships within {@link #PLAYER_RANGE} blocks of a player are visited.
+ *
+ * <p>Its level tick listener is added by {@link MeteodyneSable}, only when Sable is loaded.
  */
-@EventBusSubscriber(modid = Meteodyne.MODID)
 public final class ShipWeather {
 
     /** Steeper than this (degrees from level) and a deck collects nothing (Bright, 2026-10-08: 45). */
@@ -76,7 +74,6 @@ public final class ShipWeather {
 
     private static final Map<SubLevel, State> STATES = new IdentityHashMap<>();
 
-    @SubscribeEvent
     static void onLevelTick(LevelTickEvent.Post event) {
         if (!(event.getLevel() instanceof ServerLevel level) || !WeatherOwnership.owns(level)) {
             return;

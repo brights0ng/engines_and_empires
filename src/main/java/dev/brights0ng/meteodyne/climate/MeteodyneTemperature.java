@@ -3,7 +3,7 @@ package dev.brights0ng.meteodyne.climate;
 import dev.brights0ng.meteodyne.WeatherOwnership;
 import dev.brights0ng.meteodyne.heat.world.HeatWorld;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
-import dev.brights0ng.paradynelib.sable.ships.ShipCover;
+import dev.brights0ng.meteodyne.ships.Ships;
 import dev.brights0ng.paradynelib.services.TemperatureProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -24,8 +24,8 @@ public final class MeteodyneTemperature implements TemperatureProvider {
         if (!WeatherOwnership.owns(level)) {
             return Double.NaN;
         }
-        if (ShipCover.inPlot(level, pos)) {
-            Vec3 w = ShipCover.worldCentre(level, pos);
+        if (Ships.get().inPlot(level, pos)) {
+            Vec3 w = Ships.get().worldCentre(level, pos);
             if (w == null) {
                 return Double.NaN;
             }
@@ -49,8 +49,8 @@ public final class MeteodyneTemperature implements TemperatureProvider {
         if (!WeatherOwnership.owns(level)) {
             return Double.NaN;
         }
-        if (ShipCover.inPlot(level, pos)) {
-            Vec3 w = ShipCover.worldCentre(level, pos);
+        if (Ships.get().inPlot(level, pos)) {
+            Vec3 w = Ships.get().worldCentre(level, pos);
             if (w == null) {
                 return Double.NaN;
             }

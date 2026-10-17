@@ -11,11 +11,11 @@ import dev.brights0ng.meteodyne.field.Moisture;
 import dev.brights0ng.meteodyne.heat.world.HeatRadiant;
 import dev.brights0ng.meteodyne.heat.world.HeatWorld;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
+import dev.brights0ng.meteodyne.ships.Ships;
 import dev.brights0ng.meteodyne.sim.world.WeatherSim;
 import dev.brights0ng.meteodyne.wind.WindSources;
-import dev.brights0ng.paradynelib.sable.ships.ShipCover;
-import dev.brights0ng.paradynelib.sable.wind.ShelterProbe;
 import dev.brights0ng.paradynelib.wind.Shelter;
+import dev.brights0ng.paradynelib.wind.ShelterProbe;
 import dev.brights0ng.paradynelib.wind.WindBlend;
 import dev.brights0ng.paradynelib.wind.WindColumn;
 import dev.brights0ng.paradynelib.wind.WindConfig;
@@ -121,10 +121,10 @@ public final class PersonClimate {
         if (heat != null && WeatherConfig.heat().enabled()) {
             Vec3 body = at.add(0, BODY_MIDDLE, 0);
             // Where the body is in a ship's own grid, if it is aboard one (or the player is kept in its plot)
-            boolean keptInPlot = ShipCover.inPlot(level, player.blockPosition());
+            boolean keptInPlot = Ships.get().inPlot(level, player.blockPosition());
             Vec3 plotBody = keptInPlot
                     ? player.position().add(0, BODY_MIDDLE, 0)
-                    : ShipCover.plotPoint(level, body.x, body.y, body.z);
+                    : Ships.get().plotPoint(level, body.x, body.y, body.z);
             room = heat.roomAt(keptInPlot ? plotBody : body);
             radiant = HeatRadiant.at(level, body, plotBody);
         }
@@ -147,8 +147,8 @@ public final class PersonClimate {
     /** Where the person is in the world (a person on a ship is looked up through the ship's pose). */
     static Vec3 worldPosition(ServerLevel level, Player player) {
         BlockPos feet = player.blockPosition();
-        if (ShipCover.inPlot(level, feet)) {
-            Vec3 w = ShipCover.worldCentre(level, feet);
+        if (Ships.get().inPlot(level, feet)) {
+            Vec3 w = Ships.get().worldCentre(level, feet);
             if (w != null) {
                 return new Vec3(w.x, w.y + (player.getY() - (feet.getY() + 0.5)), w.z);
             }
@@ -184,7 +184,7 @@ public final class PersonClimate {
         ShelterProbe.measure(level, at.x - HALF_WIDTH, at.y, at.z - HALF_WIDTH, at.x + HALF_WIDTH, at.y + HEIGHT,
                 at.z + HALF_WIDTH, params.sideReach(), params.roofReach(), coverage);
         int reach = Math.max(params.sideReach(), params.roofReach());
-        if (ShipCover.near(level, at.x, at.y + HEIGHT / 2, at.z, reach)) {
+        if (Ships.get().near(level, at.x, at.y + HEIGHT / 2, at.z, reach)) {
             double[] ships = shipCoverage(level, at, params);
             for (int i = 0; i < Shelter.FACES; i++) {
                 coverage[i] = 1 - (1 - coverage[i]) * (1 - ships[i]);
@@ -212,7 +212,7 @@ public final class PersonClimate {
 
     private static double blocked(ServerLevel level, double x, double y, double z, double dx, double dy, double dz,
                                   int reach) {
-        return ShipCover.rayObstruction(level, x, y, z, dx, dy, dz, 0.3, reach, PersonClimate::windClass) >= 2 ? 1 : 0;
+        return Ships.get().rayObstruction(level, x, y, z, dx, dy, dz, 0.3, reach, PersonClimate::windClass) >= 2 ? 1 : 0;
     }
 
     /** What a ship block does to wind: solid ones stop it (2), the rest let it by (0). */

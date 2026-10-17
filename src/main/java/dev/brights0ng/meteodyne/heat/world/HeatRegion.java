@@ -113,8 +113,11 @@ public final class HeatRegion {
     boolean removed;
     /** Whether a player or ship was near at the last plan. */
     boolean near;
-    /** The ship whose plot it is in (8f-5), or null for the world. Main thread. */
-    dev.ryanhcode.sable.sublevel.SubLevel ship;
+    /**
+     * The ship whose plot it is in (8f-5), or null for the world: Sable's sub-level, kept as an opaque handle so this
+     * class loads without Sable ({@link HeatShips}). Main thread.
+     */
+    Object ship;
     /** Whether its ship sits under a world roof (a hangar), so it has no open-sky cells. */
     boolean roofed;
     long lastNanos;
@@ -159,8 +162,8 @@ public final class HeatRegion {
         return published;
     }
 
-    /** The ship it is on (8f-5), or null for the world. */
-    public dev.ryanhcode.sable.sublevel.SubLevel ship() {
+    /** The ship it is on (8f-5), or null for the world (an opaque handle; see {@link HeatShips}). */
+    public Object ship() {
         return ship;
     }
 
