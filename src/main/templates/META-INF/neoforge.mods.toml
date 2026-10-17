@@ -149,6 +149,32 @@ Core mod for the Engines and Empires modpack.
     ordering="AFTER"
     side="BOTH"
 
+# Sable (ships as sub-levels; plan decision 3: required by the core). The core tunes it for the pack (its heavy block
+# tag) and the family's ship weather, wind and heat run on it.
+[[dependencies.${mod_id}]]
+    modId="sable"
+    type="required"
+    versionRange="${sable_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+# Create Aeronautics' core module, Simulated. Its machines are heat sources and loud machines in the core's data maps.
+[[dependencies.${mod_id}]]
+    modId="simulated"
+    type="required"
+    versionRange="${simulated_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+# Create Aeronautics' flight module. Its engines and hot air burners are heat sources and loud machines in the core's
+# data maps.
+[[dependencies.${mod_id}]]
+    modId="aeronautics"
+    type="required"
+    versionRange="${simulated_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
 # Create Aeronautics' Offroad module. The ore system changes what its borehead bearing's rock cutting wheels drop.
 [[dependencies.${mod_id}]]
     modId="offroad"
@@ -190,6 +216,52 @@ Core mod for the Engines and Empires modpack.
     modId="cold_sweat"
     type="optional"
     versionRange="[2.4.3,)"
+    ordering="NONE"
+    side="BOTH"
+
+# MineColonies (optional). Its colonists follow the local weather (the compat.minecolonies mixins, applied only when it
+# is installed), and its guards count as Frontier's guards (frontier/guard/compat/MineColoniesGuardSource). Built against
+# 1.1.1397.
+[[dependencies.${mod_id}]]
+    modId="minecolonies"
+    type="optional"
+    versionRange="[1.1,)"
+    ordering="NONE"
+    side="BOTH"
+
+# Serene Seasons (optional). Its calendar runs Meteodyne's year in place of the built-in one
+# (weather/climate/compat/SereneSeasonsCompat, hooked up only when it is installed). Built against 10.1.0.9.
+[[dependencies.${mod_id}]]
+    modId="sereneseasons"
+    type="optional"
+    versionRange="[10.1,)"
+    ordering="NONE"
+    side="BOTH"
+
+# Guard Villagers (optional). Its guards are in Frontier's guards tag (data/frontier/tags/entity_type/guards.json, an
+# optional entry), by id only.
+[[dependencies.${mod_id}]]
+    modId="guardvillagers"
+    type="optional"
+    versionRange="[2.4,)"
+    ordering="NONE"
+    side="BOTH"
+
+# Born in Chaos (optional; plan section 2). The pack's datapack is to name its mobs in Frontier's rosters and tags, by
+# id only.
+[[dependencies.${mod_id}]]
+    modId="born_in_chaos_v1"
+    type="optional"
+    versionRange="[0,)"
+    ordering="NONE"
+    side="BOTH"
+
+# Naturalist (optional; plan section 2). The pack's datapack is to name its mobs in Frontier's rosters and tags, by id
+# only.
+[[dependencies.${mod_id}]]
+    modId="naturalist"
+    type="optional"
+    versionRange="[0,)"
     ordering="NONE"
     side="BOTH"
 
