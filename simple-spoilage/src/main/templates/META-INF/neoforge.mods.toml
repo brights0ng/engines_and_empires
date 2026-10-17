@@ -1,0 +1,49 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="brights0ng"
+description='''
+${mod_description}
+'''
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Paradyne Lib, the family's library: the temperature food sees (its TemperatureProvider; Meteodyne answers in the pack)
+# and the game test structure.
+[[dependencies.${mod_id}]]
+    modId="paradyne_lib"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Sable (optional). With it, food in ships' holds ages like food anywhere else (the sable sub-package, reached only
+# when it is loaded).
+[[dependencies.${mod_id}]]
+    modId="sable"
+    type="optional"
+    versionRange="${sable_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Mixins: Simple Spoilage's own, all on vanilla and NeoForge classes; the config's plugin would skip any whose target
+# mod is absent.
+[[mixins]]
+    config="simple_spoilage.mixins.json"
