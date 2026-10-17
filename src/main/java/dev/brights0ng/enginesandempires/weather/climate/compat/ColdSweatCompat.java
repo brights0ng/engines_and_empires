@@ -18,6 +18,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 
 /**
  * Cold Sweat's world temperature, from the pack's climate (weather phase 8d, {@code claude/weather-backbone-phase8d.md};
@@ -63,7 +64,13 @@ public final class ColdSweatCompat {
     public static void registerIfLoaded(IEventBus modEventBus) {
         if (ModList.get().isLoaded(MOD_ID)) {
             Hook.register(modEventBus);
+            modEventBus.addListener(ColdSweatCompat::registerGameTests);
         }
+    }
+
+    /** Its game tests, which need Cold Sweat (split step 2f). */
+    private static void registerGameTests(RegisterGameTestsEvent event) {
+        event.register(ColdSweatGameTests.class);
     }
 
     /** Degrees C as Cold Sweat's units. */

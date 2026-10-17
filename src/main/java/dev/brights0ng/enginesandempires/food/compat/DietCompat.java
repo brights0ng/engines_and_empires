@@ -21,8 +21,10 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 
@@ -54,10 +56,16 @@ public final class DietCompat {
     public static final int HUNGER_DECAY = 2500;
 
     /** Hooks into Diet if it is present. Safe to call either way. */
-    public static void registerIfLoaded() {
+    public static void registerIfLoaded(IEventBus modEventBus) {
         if (ModList.get().isLoaded(MOD_ID)) {
             Hook.register();
+            modEventBus.addListener(DietCompat::registerGameTests);
         }
+    }
+
+    /** Its game tests, which need Diet (split step 2f). */
+    private static void registerGameTests(RegisterGameTestsEvent event) {
+        event.register(DietGameTests.class);
     }
 
     /** Kept separate so that Diet's classes are only looked up once it is known to be there. */

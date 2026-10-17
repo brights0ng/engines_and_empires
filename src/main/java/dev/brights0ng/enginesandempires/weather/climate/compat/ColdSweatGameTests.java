@@ -1,4 +1,4 @@
-package dev.brights0ng.enginesandempires.gametest;
+package dev.brights0ng.enginesandempires.weather.climate.compat;
 
 import java.util.List;
 import java.util.UUID;
@@ -7,9 +7,6 @@ import com.mojang.authlib.GameProfile;
 import com.momosoftworks.coldsweat.api.event.core.init.DefaultTempModifiersEvent;
 import com.momosoftworks.coldsweat.api.temperature.modifier.TempModifier;
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
-import dev.brights0ng.enginesandempires.weather.climate.compat.ClimateTempModifier;
-import dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatCompat;
-import dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatWater;
 import dev.brights0ng.meteodyne.climate.Temperature;
 import dev.brights0ng.meteodyne.rain.LocalWeather;
 import dev.brights0ng.meteodyne.rain.Precip;
@@ -24,14 +21,16 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * Weather phase 8d: Cold Sweat's world temperature from the pack's climate ({@code weather/climate/compat/ColdSweatCompat}).
- * The dev runs always have Cold Sweat.
+ * Weather phase 8d: Cold Sweat's world temperature from the pack's climate ({@link ColdSweatCompat}). The dev runs always
+ * have Cold Sweat.
+ *
+ * <p>Needs Cold Sweat, which the core has only optionally: not a {@code @GameTestHolder} (NeoForge would load every
+ * holder, Cold Sweat or not), but registered by {@link ColdSweatCompat} when Cold Sweat is loaded (split step 2f), as
+ * Frontier's Deep tests are. Each test names its template's namespace itself.
  */
-@GameTestHolder(EnginesAndEmpires.MODID)
 @PrefixGameTestTemplate(false)
 public final class ColdSweatGameTests {
 
@@ -56,7 +55,7 @@ public final class ColdSweatGameTests {
         return event.getModifiers(WORLD).stream().map(TempModifier::getID).map(String::valueOf).toList();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void coldSweatIsLoaded(GameTestHelper helper) {
         helper.assertTrue(net.neoforged.fml.ModList.get().isLoaded(ColdSweatCompat.MOD_ID), "Cold Sweat should be in the dev runtime");
         helper.assertTrue(com.momosoftworks.coldsweat.api.registry.TempModifierRegistry.containsKey(ColdSweatCompat.CLIMATE_ID),
@@ -64,7 +63,7 @@ public final class ColdSweatGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void theOverworldGetsTheClimateInPlaceOfColdSweatsWorldTerms(GameTestHelper helper) {
         List<String> ids = worldStack(player(helper));
         String climate = ColdSweatCompat.CLIMATE_ID.toString();
@@ -78,7 +77,7 @@ public final class ColdSweatGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void otherDimensionsAreUntouched(GameTestHelper helper) {
         ServerLevel nether = helper.getLevel().getServer().getLevel(Level.NETHER);
         helper.assertTrue(nether != null, "the test server should have the Nether");
@@ -88,7 +87,7 @@ public final class ColdSweatGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void theModifierReadsThePacksAirTemperature(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Player player = player(helper);
@@ -111,7 +110,7 @@ public final class ColdSweatGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void aBlockQueryDummyGetsOnlyTheAir(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Player dummy = com.momosoftworks.coldsweat.util.world.WorldHelper.getDummyPlayer(level);
@@ -122,7 +121,7 @@ public final class ColdSweatGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void everyDifficultyHasTheSameComfortRange(GameTestHelper helper) {
         for (com.momosoftworks.coldsweat.config.ConfigSettings.Difficulty difficulty
                 : com.momosoftworks.coldsweat.config.ConfigSettings.Difficulty.values()) {
@@ -154,7 +153,7 @@ public final class ColdSweatGameTests {
                 mod -> mod instanceof com.momosoftworks.coldsweat.api.temperature.modifier.WaterTempModifier);
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void rainSoaksAPersonAtColdSweatsSpeed(GameTestHelper helper) {
         Player player = player(helper);
         dry(player);
@@ -168,7 +167,7 @@ public final class ColdSweatGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void drizzleAndSleetSoakAQuarterAsFast(GameTestHelper helper) {
         Player player = player(helper);
         double speed = com.momosoftworks.coldsweat.config.ConfigSettings.RAIN_SOAK_SPEED.get();
@@ -188,7 +187,7 @@ public final class ColdSweatGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void nothingFallingLeavesAPersonDry(GameTestHelper helper) {
         Player player = player(helper);
         dry(player);
@@ -198,7 +197,7 @@ public final class ColdSweatGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void rainSoaksOnlyDownToTheCap(GameTestHelper helper) {
         Player player = player(helper);
         dry(player);
@@ -211,7 +210,7 @@ public final class ColdSweatGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void freezingIsForcedOffWhateverTheConfigSays(GameTestHelper helper) {
         var holder = com.momosoftworks.coldsweat.config.ConfigSettings.USE_CUSTOM_WATER_FREEZE_BEHAVIOR;
         holder.set(true);
@@ -221,7 +220,7 @@ public final class ColdSweatGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void lightDoesNotMeltIceWherePackOwnsTheWeather(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         helper.assertTrue(dev.brights0ng.meteodyne.WeatherOwnership.owns(level), "the test level is the pack's weather");

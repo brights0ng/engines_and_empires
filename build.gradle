@@ -175,8 +175,8 @@ dependencies {
     localRuntime("maven.modrinth:diet-appleseed-edition:${diet_version}")
     localRuntime("maven.modrinth:cloudworks-api:${cloudworks_version}")
 
-    // MineColonies: its guards count toward Civilized land (frontier/guard/MineColoniesGuards, loaded only when it is
-    // present). It and the four libraries it needs, straight from CurseForge by file id; see gradle.properties.
+    // MineColonies: its guards count toward Civilized land (frontier/guard/compat/MineColoniesGuards, loaded only when it
+    // is present). It and the four libraries it needs, straight from CurseForge by file id; see gradle.properties.
     compileOnly("curse.maven:minecolonies-245506:${minecolonies_file}")
     colonyRuntime("curse.maven:minecolonies-245506:${minecolonies_file}")
     colonyRuntime("curse.maven:structurize-298744:${structurize_file}")
