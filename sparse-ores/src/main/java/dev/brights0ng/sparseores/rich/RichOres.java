@@ -17,9 +17,10 @@ import java.util.Map;
  *
  * <p>Every count and value below mirrors the ordinary block as vanilla (or Create) has it: drop counts and
  * fortune formulas from its loot table, experience from its block class, mining tier from its tags. So without
- * anything else installed a rich block drops five times what its vanilla counterpart drops (split step 4). A
- * pack that changes an ordinary ore's drop changes its rich block's too, from the same builder
- * ({@code RichOreDataGen.OreLoot}): the Engines and Empires core does that with its loot cuts.
+ * anything else installed a rich block drops five times what its vanilla counterpart drops (split step 4), with one
+ * rule on top: coal, diamond and nether quartz drop chips instead of whole items, one from the ordinary block and five
+ * from the rich one ({@code Chips.chipped}). A pack that changes an ordinary ore's drop changes its rich block's too,
+ * from the same builder ({@code RichOreDataGen.OreLoot}): the Engines and Empires core does that with its loot cuts.
  */
 public final class RichOres {
 

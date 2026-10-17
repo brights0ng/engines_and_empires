@@ -17,12 +17,17 @@ import com.google.common.hash.Hashing;
 import com.google.gson.JsonObject;
 
 import dev.brights0ng.sparseores.SparseOres;
+import dev.brights0ng.sparseores.rich.RichOreDataGen;
+import dev.brights0ng.sparseores.rich.RichOres;
 import net.minecraft.Util;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.CachedOutput;
 import net.minecraft.data.DataProvider;
 import net.minecraft.data.PackOutput;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackType;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.client.model.generators.BlockStateProvider;
 import net.neoforged.neoforge.client.model.generators.ModelProvider;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
@@ -32,7 +37,7 @@ import net.neoforged.neoforge.data.event.GatherDataEvent;
  * The data generator's providers for the chips (moved from the core's refining in split seam S15): the files of
  * {@link ChipRecipes} (the 2x2 recipes and the coal chip's burn time), and the chips' textures, drawn by
  * {@link ChipTextures}. Their item models go into Sparse Ores' one block state provider ({@link #registerModels},
- * {@code SparseOresDataGen}).
+ * {@code SparseOresDataGen}), and the ordinary chip ores' loot ({@link OrdinaryLoot}) into its one loot table provider.
  */
 public final class ChipDataGen {
 
@@ -45,6 +50,47 @@ public final class ChipDataGen {
         trackTextures(existing);
         event.getGenerator().addProvider(event.includeServer(), new Files(output));
         event.getGenerator().addProvider(event.includeClient(), new Textures(output, existing));
+    }
+
+    /**
+     * The loot tables of the ordinary chip ores (vanilla's coal, deepslate coal, diamond, deepslate diamond and nether
+     * quartz ores), under vanilla's ids so they replace vanilla's: one chip for each whole item vanilla's table drops
+     * ({@link Chips#chipped}), Fortune and Silk Touch as vanilla has them, through {@link ChipDropFunction}, which gives
+     * the whole item back when the server config switches chip drops off. Moved from the core's loot cuts (Bright's
+     * option A after split step 4): the chip drops are Sparse Ores' own. A pack that cuts other ores' drops replaces those
+     * tables on top, as the core does.
+     */
+    public static final class OrdinaryLoot extends RichOreDataGen.OreLoot {
+
+        public OrdinaryLoot(HolderLookup.Provider registries) {
+            super(registries);
+        }
+
+        @Override
+        protected void generate() {
+            for (RichOres.Spec spec : Chips.ores()) {
+                for (RichOres.Variant variant : spec.variants()) {
+                    Block ordinary = ordinary(variant);
+                    add(ordinary, oreDrop(ordinary, Chips.chipped(spec), 1, () -> ChipDropFunction.INSTANCE));
+                }
+            }
+        }
+
+        @Override
+        protected Iterable<Block> getKnownBlocks() {
+            List<Block> blocks = new ArrayList<>();
+            for (RichOres.Spec spec : Chips.ores()) {
+                for (RichOres.Variant variant : spec.variants()) {
+                    blocks.add(ordinary(variant));
+                }
+            }
+            return blocks;
+        }
+
+        /** The ordinary (vanilla) block a rich block copies. */
+        private static Block ordinary(RichOres.Variant variant) {
+            return BuiltInRegistries.BLOCK.get(ResourceLocation.parse(variant.counterpart()));
+        }
     }
 
     /** Writes {@link ChipRecipes#files()}. */

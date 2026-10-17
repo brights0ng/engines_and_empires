@@ -1,6 +1,7 @@
 package dev.brights0ng.enginesandempires.oregen.refining;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -14,12 +15,13 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import dev.brights0ng.sparseores.chips.Chips;
 import dev.brights0ng.sparseores.rich.RichOres;
 
 /**
  * The pack's loot cuts ({@link LootCuts}), generated from Sparse Ores' {@link RichOres} table (Sparse Ores' until split
  * step 2f): the ordinary blocks' tables since 2f, and the rich blocks' since step 4, when Sparse Ores' own rich ores went
- * to vanilla's drops five times over.
+ * to vanilla's drops five times over. Since step 4b only the group drops: the chip ores' tables are Sparse Ores' own.
  */
 class LootCutsTest {
 
@@ -90,11 +92,41 @@ class LootCutsTest {
         assertEquals("minecraft:emerald", Refining.packSpec("emerald").drop());
     }
 
+    /**
+     * The chip ores (coal, diamond, nether quartz) drop chips by Sparse Ores' own rule since split step 4b, so the core
+     * cuts none of them and writes none of their tables: the pack's drops of them are Sparse Ores' tables, which the core's
+     * game test {@code PackOreDropsGameTests} pins at the amounts the core's tables had.
+     */
+    @Test
+    void theChipOresTablesAreSparseOresNotTheCores() throws IOException {
+        for (RichOres.Spec spec : Chips.ores()) {
+            assertNull(Refining.cutOf(spec.oreId()), spec.oreId() + " is not one of the core's cuts");
+            for (RichOres.Variant variant : spec.variants()) {
+                for (String resource : List.of(
+                        "data/minecraft/loot_table/blocks/" + variant.counterpart().substring("minecraft:".length()) + ".json",
+                        "data/sparse_ores/loot_table/blocks/" + variant.name() + ".json")) {
+                    assertNotNull(LootCutsTest.class.getClassLoader().getResource(resource), "Sparse Ores has " + resource);
+                    assertFalse(coresOwn(resource), "the core still writes " + resource + " (run the Data run configuration)");
+                }
+            }
+        }
+    }
+
     private static String read(String resource) throws IOException {
         try (InputStream in = LootCutsTest.class.getResourceAsStream(resource)) {
             assertNotNull(in, "missing resource " + resource + " (run the Data run configuration)");
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
+    }
+
+    /** Whether the core's resources folder has a copy of this resource (a file, not in a jar). */
+    private static boolean coresOwn(String resource) throws IOException {
+        for (URL url : Collections.list(LootCutsTest.class.getClassLoader().getResources(resource))) {
+            if (url.getProtocol().equals("file")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

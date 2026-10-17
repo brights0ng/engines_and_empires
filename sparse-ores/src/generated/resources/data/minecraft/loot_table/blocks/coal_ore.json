@@ -26,7 +26,7 @@
                   }
                 }
               ],
-              "name": "minecraft:deepslate_diamond_ore"
+              "name": "minecraft:coal_ore"
             },
             {
               "type": "minecraft:item",
@@ -42,10 +42,13 @@
                   "function": "minecraft:apply_bonus"
                 },
                 {
+                  "function": "sparse_ores:chip_drop"
+                },
+                {
                   "function": "minecraft:explosion_decay"
                 }
               ],
-              "name": "sparse_ores:diamond_chip"
+              "name": "sparse_ores:coal_chip"
             }
           ]
         }
@@ -53,5 +56,5 @@
       "rolls": 1.0
     }
   ],
-  "random_sequence": "minecraft:blocks/deepslate_diamond_ore"
+  "random_sequence": "minecraft:blocks/coal_ore"
 }

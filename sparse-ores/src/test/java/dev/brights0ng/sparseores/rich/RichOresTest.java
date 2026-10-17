@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import dev.brights0ng.sparseores.OreType;
 import dev.brights0ng.sparseores.OreTypes;
 import dev.brights0ng.sparseores.Realm;
+import dev.brights0ng.sparseores.chips.Chips;
 
 class RichOresTest {
 
@@ -204,10 +205,14 @@ class RichOresTest {
         }
     }
 
-    /** The generated loot tables really say what the table says: silk touch, the drop, five times the count, the fortune formula. */
+    /**
+     * The generated loot tables really say what the table says: silk touch, the drop, five times the count, the fortune
+     * formula. The drop is vanilla's, except that the chip ores drop chips (split step 4b): five coal chips, not five coal.
+     */
     @Test
     void generatedLootTablesDropFiveTimesTheOrdinaryAmount() throws IOException {
-        for (RichOres.Spec spec : RichOres.ALL) {
+        for (RichOres.Spec vanilla : RichOres.ALL) {
+            RichOres.Spec spec = Chips.chipped(vanilla);
             for (RichOres.Variant variant : spec.variants()) {
                 String loot = read("/data/sparse_ores/loot_table/blocks/" + variant.name() + ".json");
                 String label = variant.name();
@@ -222,8 +227,14 @@ class RichOresTest {
                 }
                 String formula = spec.bonus() == RichOres.Bonus.UNIFORM ? "minecraft:uniform_bonus_count" : "minecraft:ore_drops";
                 assertTrue(loot.contains(formula), label + " fortune formula");
+                assertFalse(loot.contains("sparse_ores:chip_drop"), label + ": rich ores drop chips whatever the config says");
+                if (!spec.equals(vanilla)) {
+                    assertFalse(loot.contains("\"name\": \"" + vanilla.drop() + "\""), label + " drops chips, not " + vanilla.drop());
+                }
             }
         }
+        assertEquals("sparse_ores:coal_chip", Chips.chipped(RichOres.forOre("coal")).drop());
+        assertEquals(5, Chips.chipped(RichOres.forOre("diamond")).richMaxDrop());
     }
 
     @Test
