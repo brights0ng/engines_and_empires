@@ -18,8 +18,9 @@ import dev.brights0ng.sparseores.rich.RichOres;
  *       nuggets instead of an ingot. Washing crushed ore gives the same plus a {@link #WASH_BONUS_CHANCE} chance of
  *       one more nugget, so a Create line beats the furnace. Crushing an ore block keeps Create's numbers, which were
  *       already better than mining it.</li>
- *   <li><b>Chips</b> (coal, diamond, nether quartz). These ores drop a single item, so they drop a chip instead, a
- *       {@link Chips#CHIPS_PER_ITEM quarter} of one.</li>
+ *   <li><b>Chips</b> (coal, diamond, nether quartz). These ores drop a single item, so Sparse Ores has them drop a
+ *       chip instead, a {@link Chips#CHIPS_PER_ITEM quarter} of one ({@link Chips#chipped}; its own rule since split
+ *       step 4b). The pack refines them by the chip: the furnace and crushing give chips.</li>
  *   <li><b>Group drops</b> (redstone, lapis, nether gold). These drop several items, so they simply drop fewer (see
  *       {@link LootCuts}).</li>
  *   <li><b>Emerald</b> is left alone: villagers set its value.</li>
@@ -174,17 +175,16 @@ public final class Refining {
     }
 
     /**
-     * The ores whose drops the pack cuts (chips and group drops). The others (iron, copper, zinc, gold, emerald) keep
-     * their original loot tables: the pack cuts metals down in the furnace and the washer instead, and leaves emeralds
-     * alone. Sparse Ores' {@link RichOres} entries hold vanilla's drops (split step 4), so these are the pack's.
+     * The ores whose drops the pack cuts: the group drops. The chip ores (coal, diamond, nether quartz) are not cut here:
+     * Sparse Ores itself has them drop one chip, and five from a rich block (split step 4b, Bright's option A; until
+     * then these cuts held them too). The others (iron, copper, zinc, gold, emerald) keep their original loot tables:
+     * the pack cuts metals down in the furnace and the washer instead, and leaves emeralds alone. Sparse Ores'
+     * {@link RichOres} entries hold vanilla's drops (split step 4), so these are the pack's.
      */
     public static final List<Cut> CUTS = List.of(
-            new Cut("coal", "sparse_ores:coal_chip", 1, 1),
             new Cut("redstone", "minecraft:redstone", 1, 1),
             new Cut("lapis", "minecraft:lapis_lazuli", 1, 2),
-            new Cut("diamond", "sparse_ores:diamond_chip", 1, 1),
-            new Cut("nether_gold", "minecraft:gold_nugget", 1, 1),
-            new Cut("nether_quartz", "sparse_ores:quartz_chip", 1, 1));
+            new Cut("nether_gold", "minecraft:gold_nugget", 1, 1));
 
     /** The loot cut of an ore, or null if the pack leaves its drop alone. */
     public static Cut cutOf(String oreId) {
@@ -196,9 +196,12 @@ public final class Refining {
         return null;
     }
 
-    /** What an ore's ordinary block drops in the pack: its {@link RichOres} entry, with the cut drop if the pack cuts it. */
+    /**
+     * What an ore's ordinary block drops in the pack: what it drops in Sparse Ores (its {@link RichOres} entry, in chips
+     * for the chip ores, {@link Chips#chipped}), with the cut drop if the pack cuts it.
+     */
     public static RichOres.Spec packSpec(String oreId) {
-        RichOres.Spec spec = RichOres.forOre(oreId);
+        RichOres.Spec spec = Chips.chipped(RichOres.forOre(oreId));
         Cut cut = cutOf(oreId);
         return cut == null ? spec : spec.withDrop(cut.drop(), cut.minDrop(), cut.maxDrop());
     }

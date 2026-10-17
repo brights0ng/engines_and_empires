@@ -1,13 +1,17 @@
 package dev.brights0ng.sparseores.chips;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -15,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+
+import dev.brights0ng.sparseores.rich.RichOres;
 
 /** The chips' rules, recipes and textures (moved with the chips from the core's {@code RefiningTest}, split seam S15). */
 class ChipsTest {
@@ -38,6 +44,72 @@ class ChipsTest {
         }
         assertEquals(400, file("neoforge/data_maps/item/furnace_fuels.json").getAsJsonObject("values")
                 .getAsJsonObject("sparse_ores:coal_chip").get("burn_time").getAsInt());
+    }
+
+    /**
+     * Sparse Ores' own chip rule (split step 4b, Bright's option A): coal, diamond and nether quartz drop one chip for
+     * each whole item vanilla drops, everything else about the drop kept; every other ore keeps vanilla's drop.
+     */
+    @Test
+    void coalDiamondAndQuartzOresDropOneChipAndNothingElseDoes() {
+        List<String> chipOres = new ArrayList<>();
+        for (RichOres.Spec spec : Chips.ores()) {
+            chipOres.add(spec.oreId());
+        }
+        assertEquals(List.of("coal", "diamond", "nether_quartz"), chipOres);
+        for (RichOres.Spec vanilla : RichOres.ALL) {
+            RichOres.Spec chipped = Chips.chipped(vanilla);
+            if (chipOres.contains(vanilla.oreId())) {
+                Chips.Chip chip = Chips.forItem(vanilla.drop());
+                assertEquals(chip.id(), chipped.drop(), vanilla.oreId());
+                assertEquals(1, chipped.minDrop(), vanilla.oreId());
+                assertEquals(1, chipped.maxDrop(), vanilla.oreId());
+                assertEquals(5, chipped.richMinDrop(), vanilla.oreId());
+                assertEquals(5, chipped.richMaxDrop(), vanilla.oreId());
+                assertEquals(vanilla.withDrop(chip.id(), vanilla.minDrop(), vanilla.maxDrop()), chipped, vanilla.oreId());
+            } else {
+                assertEquals(vanilla, chipped, vanilla.oreId());
+            }
+        }
+        assertEquals("sparse_ores:quartz_chip", Chips.forItem("minecraft:quartz").id());
+        assertEquals("minecraft:diamond", Chips.forChipId("sparse_ores:diamond_chip").item());
+        assertNull(Chips.forItem("minecraft:emerald"));
+        assertNull(Chips.forChipId("minecraft:coal"));
+    }
+
+    /**
+     * Sparse Ores replaces the loot tables of vanilla's five chip ore blocks: Silk Touch gives the block, otherwise one
+     * chip with Fortune's ore formula, through the {@code sparse_ores:chip_drop} function the config switch works by.
+     * Only those five: every other ordinary ore keeps vanilla's table. If this fails, run the Data run configuration.
+     */
+    @Test
+    void theOrdinaryChipOresLootTablesDropOneChip() throws IOException {
+        int tables = 0;
+        for (RichOres.Spec spec : Chips.ores()) {
+            Chips.Chip chip = Chips.forItem(spec.drop());
+            for (RichOres.Variant variant : spec.variants()) {
+                String block = variant.counterpart().substring("minecraft:".length());
+                String loot = read("/data/minecraft/loot_table/blocks/" + block + ".json");
+                assertTrue(loot.contains("\"name\": \"" + chip.id() + "\""), block + " drops its chip");
+                assertFalse(loot.contains("\"name\": \"" + chip.item() + "\""), block + " drops no whole " + chip.item());
+                assertTrue(loot.contains("\"name\": \"" + variant.counterpart() + "\""), block + " silk touch");
+                assertTrue(loot.contains("minecraft:silk_touch"), block + " silk touch");
+                assertTrue(loot.contains("\"count\": 1.0"), block + " count");
+                assertTrue(loot.contains("minecraft:ore_drops"), block + " fortune formula");
+                assertTrue(loot.contains("minecraft:explosion_decay"), block + " explosion decay");
+                assertTrue(loot.contains("\"function\": \"sparse_ores:chip_drop\""), block + " goes through the config switch");
+                tables++;
+            }
+        }
+        assertEquals(5, tables);
+        for (RichOres.Spec spec : RichOres.ALL) {
+            if (Chips.forItem(spec.drop()) == null) {
+                for (RichOres.Variant variant : spec.variants()) {
+                    String path = "/data/" + variant.counterpart().replace(":", "/loot_table/blocks/") + ".json";
+                    assertNull(ChipsTest.class.getResource(path), spec.oreId() + " keeps its own mod's table: " + path);
+                }
+            }
+        }
     }
 
     /** What the data generator wrote is what the rules say today. If this fails, run the Data run configuration. */
@@ -79,6 +151,13 @@ class ChipsTest {
             }
         }
         assertTrue(opaque > 20 && opaque < 60, "a chip is small: " + opaque + " pixels");
+    }
+
+    private static String read(String resource) throws IOException {
+        try (InputStream in = ChipsTest.class.getResourceAsStream(resource)) {
+            assertNotNull(in, "missing resource " + resource + " (run the Data run configuration)");
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 
     private static JsonObject file(String path) {

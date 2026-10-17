@@ -45,7 +45,7 @@
                   "function": "minecraft:explosion_decay"
                 }
               ],
-              "name": "minecraft:quartz"
+              "name": "sparse_ores:quartz_chip"
             }
           ]
         }

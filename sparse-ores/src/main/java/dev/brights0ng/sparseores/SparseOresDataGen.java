@@ -21,7 +21,7 @@ import net.neoforged.neoforge.data.event.GatherDataEvent;
  * Sparse Ores' data generator, beyond the chips' recipes and textures ({@link ChipDataGen#gatherData}): the providers a
  * run may have only one of (one loot table provider, as its name is fixed; one block state and one block tag provider,
  * as two would write the same files), put together from the rich ores' parts ({@link RichOreDataGen}) and the chips'
- * models, and the empty structure its game tests build on. Until split step 2e the core's {@code SharedDataGen} put
+ * models and ordinary ores' loot, and the empty structure its game tests build on. Until split step 2e the core's {@code SharedDataGen} put
  * these parts together with the other mods' in the core's one output.
  *
  * <p>Run Sparse Ores' {@code data} run ({@code ./gradlew :sparse-ores:runData}) to (re)generate everything into
@@ -37,7 +37,8 @@ public final class SparseOresDataGen {
         CompletableFuture<HolderLookup.Provider> lookup = event.getLookupProvider();
 
         generator.addProvider(event.includeServer(), new LootTableProvider(output, Set.of(),
-                List.of(new LootTableProvider.SubProviderEntry(RichOreDataGen.Loot::new, LootContextParamSets.BLOCK)),
+                List.of(new LootTableProvider.SubProviderEntry(RichOreDataGen.Loot::new, LootContextParamSets.BLOCK),
+                        new LootTableProvider.SubProviderEntry(ChipDataGen.OrdinaryLoot::new, LootContextParamSets.BLOCK)),
                 lookup));
         // Rich zinc ore's tables, with a condition on Create (a provider of its own: the one above writes no conditions)
         generator.addProvider(event.includeServer(), new RichOreDataGen.OtherModsLoot(output, lookup));

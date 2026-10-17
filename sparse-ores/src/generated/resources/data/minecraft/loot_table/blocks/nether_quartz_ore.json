@@ -26,14 +26,14 @@
                   }
                 }
               ],
-              "name": "sparse_ores:rich_diamond_ore"
+              "name": "minecraft:nether_quartz_ore"
             },
             {
               "type": "minecraft:item",
               "functions": [
                 {
                   "add": false,
-                  "count": 5.0,
+                  "count": 1.0,
                   "function": "minecraft:set_count"
                 },
                 {
@@ -42,10 +42,13 @@
                   "function": "minecraft:apply_bonus"
                 },
                 {
+                  "function": "sparse_ores:chip_drop"
+                },
+                {
                   "function": "minecraft:explosion_decay"
                 }
               ],
-              "name": "sparse_ores:diamond_chip"
+              "name": "sparse_ores:quartz_chip"
             }
           ]
         }
@@ -53,5 +56,5 @@
       "rolls": 1.0
     }
   ],
-  "random_sequence": "sparse_ores:blocks/rich_diamond_ore"
+  "random_sequence": "minecraft:blocks/nether_quartz_ore"
 }
