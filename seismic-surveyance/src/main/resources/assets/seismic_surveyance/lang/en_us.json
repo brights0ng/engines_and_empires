@@ -91,7 +91,7 @@
   "gui.seismic_surveyance.portable_record_display.button.clear": "CLEAR",
   "gui.seismic_surveyance.portable_record_display.button.eject": "EJECT",
   "key.seismic_surveyance.prd_look": "Look around (Portable Record Display)",
-  "key.categories.seismic_surveyance": "Engines and Empires",
+  "key.categories.seismic_surveyance": "Seismic Surveyance",
   "item.seismic_surveyance.portable_record_display": "Portable Record Display",
   "container.seismic_surveyance.portable_record_display": "PRD Records",
   "gui.seismic_surveyance.portable_record_display.short": "PRD",
@@ -100,5 +100,5 @@
   "seismic_surveyance.smart_logger.scale": "Map: %s x %s blocks (zoom %s)",
   "seismic_surveyance.smart_logger.pointing": "Pointing at: %s, %s",
   "seismic_surveyance.smart_logger.position": "At: %s, %s, %s",
-  "itemGroup.seismic_surveyance.seismology": "Engines and Empires: Seismology"
+  "itemGroup.seismic_surveyance.seismology": "Seismic Surveyance"
 }
