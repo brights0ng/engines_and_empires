@@ -21,7 +21,7 @@ import dev.brights0ng.sparseores.rich.RichOres;
  *   <li><b>Chips</b> (coal, diamond, nether quartz). These ores drop a single item, so they drop a chip instead, a
  *       {@link Chips#CHIPS_PER_ITEM quarter} of one.</li>
  *   <li><b>Group drops</b> (redstone, lapis, nether gold). These drop several items, so they simply drop fewer (see
- *       {@link RichOres}).</li>
+ *       {@link LootCuts}).</li>
  *   <li><b>Emerald</b> is left alone: villagers set its value.</li>
  * </ul>
  *
@@ -123,9 +123,9 @@ public final class Refining {
     public record Ore(String oreId, Kind kind, String furnaceItem, String crushedItem, int stoneTime, int deepTime,
                       int xpNuggets, double smeltXp) {
 
-        /** The ore's entry in {@link RichOres}, which holds what its ordinary block drops. */
+        /** The ore's entry in {@link RichOres}, with what its ordinary block drops in the pack ({@link #packSpec}). */
         public RichOres.Spec spec() {
-            return RichOres.forOre(oreId);
+            return packSpec(oreId);
         }
 
         /** What the ordinary ore block drops on average when mined without Fortune. */
@@ -164,6 +164,43 @@ public final class Refining {
         public int crushingTime(boolean deep) {
             return deep ? deepTime : stoneTime;
         }
+    }
+
+    /**
+     * One loot cut: an ore (its id in {@link RichOres}) and what its ordinary block drops in the pack, before Fortune.
+     * Its rich block drops {@link RichOres#RICHNESS} times that ({@link LootCuts} writes both tables).
+     */
+    public record Cut(String oreId, String drop, int minDrop, int maxDrop) {
+    }
+
+    /**
+     * The ores whose drops the pack cuts (chips and group drops). The others (iron, copper, zinc, gold, emerald) keep
+     * their original loot tables: the pack cuts metals down in the furnace and the washer instead, and leaves emeralds
+     * alone. Sparse Ores' {@link RichOres} entries hold vanilla's drops (split step 4), so these are the pack's.
+     */
+    public static final List<Cut> CUTS = List.of(
+            new Cut("coal", "sparse_ores:coal_chip", 1, 1),
+            new Cut("redstone", "minecraft:redstone", 1, 1),
+            new Cut("lapis", "minecraft:lapis_lazuli", 1, 2),
+            new Cut("diamond", "sparse_ores:diamond_chip", 1, 1),
+            new Cut("nether_gold", "minecraft:gold_nugget", 1, 1),
+            new Cut("nether_quartz", "sparse_ores:quartz_chip", 1, 1));
+
+    /** The loot cut of an ore, or null if the pack leaves its drop alone. */
+    public static Cut cutOf(String oreId) {
+        for (Cut cut : CUTS) {
+            if (cut.oreId().equals(oreId)) {
+                return cut;
+            }
+        }
+        return null;
+    }
+
+    /** What an ore's ordinary block drops in the pack: its {@link RichOres} entry, with the cut drop if the pack cuts it. */
+    public static RichOres.Spec packSpec(String oreId) {
+        RichOres.Spec spec = RichOres.forOre(oreId);
+        Cut cut = cutOf(oreId);
+        return cut == null ? spec : spec.withDrop(cut.drop(), cut.minDrop(), cut.maxDrop());
     }
 
     /** Create's own crushing output for the ores the pack does not override: {stone, deepslate} averages. */

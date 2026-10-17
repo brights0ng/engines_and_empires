@@ -15,14 +15,11 @@ import java.util.Map;
  * are registered in {@code RichOreBlocks}, and their loot tables, models and tags are generated from
  * this table by {@code RichOreDataGen}, so a fact is only ever written down once.
  *
- * <p>Every count and value below mirrors the ordinary block: drop counts and fortune formulas from its
- * loot table, experience from its block class, mining tier from its tags. For most ores the loot table is
- * vanilla's (or Create's). For the ores the pack cuts down, the loot table is the pack's own, generated from
- * this same table (see {@link #PACK_LOOT}), so the ordinary and rich blocks cannot drift apart:
- * <ul>
- *   <li>coal, diamond and nether quartz drop one chip ({@code chips.ChipItems}) instead of a whole item;</li>
- *   <li>redstone, lapis and nether gold drop about a quarter of vanilla's amount.</li>
- * </ul>
+ * <p>Every count and value below mirrors the ordinary block as vanilla (or Create) has it: drop counts and
+ * fortune formulas from its loot table, experience from its block class, mining tier from its tags. So without
+ * anything else installed a rich block drops five times what its vanilla counterpart drops (split step 4). A
+ * pack that changes an ordinary ore's drop changes its rich block's too, from the same builder
+ * ({@code RichOreDataGen.OreLoot}): the Engines and Empires core does that with its loot cuts.
  */
 public final class RichOres {
 
@@ -71,7 +68,7 @@ public final class RichOres {
      * @param oreId      the ore's id in {@code OreTypes}
      * @param stone      id of the ordinary block in stone-type rock (or the only block, for nether ores)
      * @param deepslate  id of the ordinary deepslate block, or null if the ore has none
-     * @param drop       id of the item the ordinary block drops
+     * @param drop       id of the item the ordinary block drops (vanilla's or Create's loot table)
      * @param minDrop    fewest of that item the ordinary block drops, before Fortune
      * @param maxDrop    most it drops, before Fortune
      * @param bonus      how Fortune improves the drop
@@ -93,6 +90,15 @@ public final class RichOres {
             if (minXp < 0 || maxXp < minXp) {
                 throw new IllegalArgumentException("need 0 <= minXp <= maxXp for " + oreId);
             }
+        }
+
+        /**
+         * This entry with another drop for the ordinary block, everything else kept: how a pack that changes an ordinary
+         * ore's drop describes it, so its rich block follows ({@link #RICHNESS} times the new drop).
+         */
+        public Spec withDrop(String drop, int minDrop, int maxDrop) {
+            return new Spec(oreId, stone, deepslate, drop, minDrop, maxDrop, bonus, minXp, maxXp, tier, redstone,
+                    metalTag, vanillaTag);
         }
 
         /** Fewest of the drop item a rich block gives, before Fortune. */
@@ -143,7 +149,7 @@ public final class RichOres {
      * rich crystal deposits use ordinary amethyst.
      */
     public static final List<Spec> ALL = List.of(
-            spec("coal", "minecraft:coal_ore", "minecraft:deepslate_coal_ore", "sparse_ores:coal_chip", 1, 1,
+            spec("coal", "minecraft:coal_ore", "minecraft:deepslate_coal_ore", "minecraft:coal", 1, 1,
                     Bonus.ORE_DROPS, 0, 2, Tier.NONE, false, "coal", "minecraft:coal_ores"),
             spec("iron", "minecraft:iron_ore", "minecraft:deepslate_iron_ore", "minecraft:raw_iron", 1, 1,
                     Bonus.ORE_DROPS, 0, 0, Tier.STONE, false, "iron", "minecraft:iron_ores"),
@@ -151,27 +157,20 @@ public final class RichOres {
                     Bonus.ORE_DROPS, 0, 0, Tier.STONE, false, "copper", "minecraft:copper_ores"),
             spec("zinc", "create:zinc_ore", "create:deepslate_zinc_ore", "create:raw_zinc", 1, 1,
                     Bonus.ORE_DROPS, 0, 0, Tier.IRON, false, "zinc", null),
-            spec("redstone", "minecraft:redstone_ore", "minecraft:deepslate_redstone_ore", "minecraft:redstone", 1, 1,
+            spec("redstone", "minecraft:redstone_ore", "minecraft:deepslate_redstone_ore", "minecraft:redstone", 4, 5,
                     Bonus.UNIFORM, 0, 0, Tier.IRON, true, "redstone", "minecraft:redstone_ores"),
-            spec("lapis", "minecraft:lapis_ore", "minecraft:deepslate_lapis_ore", "minecraft:lapis_lazuli", 1, 2,
+            spec("lapis", "minecraft:lapis_ore", "minecraft:deepslate_lapis_ore", "minecraft:lapis_lazuli", 4, 9,
                     Bonus.ORE_DROPS, 2, 5, Tier.STONE, false, "lapis", "minecraft:lapis_ores"),
             spec("gold", "minecraft:gold_ore", "minecraft:deepslate_gold_ore", "minecraft:raw_gold", 1, 1,
                     Bonus.ORE_DROPS, 0, 0, Tier.IRON, false, "gold", "minecraft:gold_ores"),
             spec("emerald", "minecraft:emerald_ore", "minecraft:deepslate_emerald_ore", "minecraft:emerald", 1, 1,
                     Bonus.ORE_DROPS, 3, 7, Tier.IRON, false, "emerald", "minecraft:emerald_ores"),
-            spec("diamond", "minecraft:diamond_ore", "minecraft:deepslate_diamond_ore", "sparse_ores:diamond_chip", 1, 1,
+            spec("diamond", "minecraft:diamond_ore", "minecraft:deepslate_diamond_ore", "minecraft:diamond", 1, 1,
                     Bonus.ORE_DROPS, 3, 7, Tier.IRON, false, "diamond", "minecraft:diamond_ores"),
-            spec("nether_gold", "minecraft:nether_gold_ore", null, "minecraft:gold_nugget", 1, 1,
+            spec("nether_gold", "minecraft:nether_gold_ore", null, "minecraft:gold_nugget", 2, 6,
                     Bonus.ORE_DROPS, 0, 1, Tier.NONE, false, "gold", "minecraft:gold_ores"),
-            spec("nether_quartz", "minecraft:nether_quartz_ore", null, "sparse_ores:quartz_chip", 1, 1,
+            spec("nether_quartz", "minecraft:nether_quartz_ore", null, "minecraft:quartz", 1, 1,
                     Bonus.ORE_DROPS, 2, 5, Tier.NONE, false, "quartz", null));
-
-    /**
-     * The ores whose ordinary blocks get the pack's own loot table, generated from {@link #ALL}, because their drop
-     * differs from vanilla's. The others (iron, copper, zinc, gold, emerald) keep their original loot tables: the pack
-     * cuts metals down in the furnace and the washer instead, and leaves emeralds alone.
-     */
-    public static final List<String> PACK_LOOT = List.of("coal", "redstone", "lapis", "diamond", "nether_gold", "nether_quartz");
 
     private static final Map<String, Spec> BY_ORE = new HashMap<>();
 

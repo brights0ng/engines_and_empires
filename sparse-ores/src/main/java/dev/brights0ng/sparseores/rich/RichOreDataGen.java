@@ -56,8 +56,9 @@ import net.neoforged.neoforge.common.data.ExistingFileHelper;
  *
  * <p>A run can have only one loot table provider (its name is fixed), and only one block state and block tag provider
  * (two would write the same files), so {@code SparseOresDataGen} puts those together from these parts and the chips'.
- * The pack's loot tables for the ordinary blocks of the ores it cuts ({@link RichOres#PACK_LOOT}) are the core's since
- * split step 2f (its loot cuts), built with {@link OreLoot} from the same table.
+ * The rich ores drop what their vanilla counterparts drop, {@link RichOres#RICHNESS} times over (split step 4). The pack
+ * cuts some ores' drops in the core (its loot cuts), which builds both the ordinary and the rich blocks' tables with
+ * {@link OreLoot}, so the two still cannot drift apart.
  *
  * <p>Run Sparse Ores' {@code data} run to (re)generate everything into {@code sparse-ores/src/generated/resources}.
  */
@@ -66,8 +67,8 @@ public final class RichOreDataGen {
     /**
      * The loot of an ore block: with Silk Touch it drops itself; otherwise it drops what its {@link RichOres} entry says,
      * some number of times over, and Fortune improves that with the same formula the ordinary block uses. The rich ores'
-     * tables ({@link Loot}) and the pack's cut ordinary ones (the core's loot cuts, since split step 2f) are built with
-     * it, from the same entry, so the two cannot drift apart.
+     * tables ({@link Loot}) and the pack's cut ones, ordinary and rich (the core's loot cuts, since split steps 2f and 4),
+     * are built with it, each pair from the same entry, so the two cannot drift apart.
      */
     public abstract static class OreLoot extends BlockLootSubProvider {
 
