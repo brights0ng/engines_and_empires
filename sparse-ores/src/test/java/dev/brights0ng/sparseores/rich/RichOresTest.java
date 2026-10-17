@@ -73,22 +73,23 @@ class RichOresTest {
             assertEquals(spec.minDrop() * 5, spec.richMinDrop(), spec.oreId());
             assertEquals(spec.maxDrop() * 5, spec.richMaxDrop(), spec.oreId());
         }
-        // Spot checks: vanilla's loot for the ores the pack leaves alone, the pack's own for the ones it cuts.
+        // Spot checks: vanilla's (and Create's) loot for every ore, since split step 4. The pack's cut amounts are the
+        // core's loot cuts (the core's LootCutsTest checks them as this test did before).
         assertEquals(5, RichOres.forOre("iron").richMinDrop());
         assertEquals(5, RichOres.forOre("iron").richMaxDrop());
         assertEquals(10, RichOres.forOre("copper").richMinDrop());   // copper ore drops 2-5
         assertEquals(25, RichOres.forOre("copper").richMaxDrop());
-        assertEquals(5, RichOres.forOre("lapis").richMinDrop());     // the pack's lapis ore drops 1-2
-        assertEquals(10, RichOres.forOre("lapis").richMaxDrop());
-        assertEquals(5, RichOres.forOre("redstone").richMinDrop());  // the pack's redstone ore drops 1
-        assertEquals(5, RichOres.forOre("redstone").richMaxDrop());
-        assertEquals(5, RichOres.forOre("nether_gold").richMinDrop()); // the pack's nether gold ore drops 1 nugget
-        assertEquals(5, RichOres.forOre("nether_gold").richMaxDrop());
+        assertEquals(20, RichOres.forOre("lapis").richMinDrop());    // lapis ore drops 4-9
+        assertEquals(45, RichOres.forOre("lapis").richMaxDrop());
+        assertEquals(20, RichOres.forOre("redstone").richMinDrop()); // redstone ore drops 4-5
+        assertEquals(25, RichOres.forOre("redstone").richMaxDrop());
+        assertEquals(10, RichOres.forOre("nether_gold").richMinDrop()); // nether gold ore drops 2-6 nuggets
+        assertEquals(30, RichOres.forOre("nether_gold").richMaxDrop());
         assertEquals("minecraft:raw_iron", RichOres.forOre("iron").drop());
         assertEquals("create:raw_zinc", RichOres.forOre("zinc").drop());
-        assertEquals("sparse_ores:coal_chip", RichOres.forOre("coal").drop());
-        assertEquals("sparse_ores:diamond_chip", RichOres.forOre("diamond").drop());
-        assertEquals("sparse_ores:quartz_chip", RichOres.forOre("nether_quartz").drop());
+        assertEquals("minecraft:coal", RichOres.forOre("coal").drop());
+        assertEquals("minecraft:diamond", RichOres.forOre("diamond").drop());
+        assertEquals("minecraft:quartz", RichOres.forOre("nether_quartz").drop());
         assertEquals("minecraft:emerald", RichOres.forOre("emerald").drop());
     }
 
