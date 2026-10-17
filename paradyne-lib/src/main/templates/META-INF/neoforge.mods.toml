@@ -1,0 +1,39 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="brights0ng"
+description='''
+${mod_description}
+'''
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Sable (optional). With it, the weather's wind pushes its physics objects and ships count as cover (the sable
+# sub-packages, reached only when it is loaded).
+[[dependencies.${mod_id}]]
+    modId="sable"
+    type="optional"
+    versionRange="${sable_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Mixins: one, on Sable's physics; the config's plugin applies it only when Sable is loaded.
+[[mixins]]
+    config="paradyne_lib.mixins.json"

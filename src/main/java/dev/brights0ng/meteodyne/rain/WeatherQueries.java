@@ -1,6 +1,6 @@
 package dev.brights0ng.meteodyne.rain;
 
-import dev.brights0ng.paradynelib.ships.ShipCover;
+import dev.brights0ng.paradynelib.sable.ships.ShipCover;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;

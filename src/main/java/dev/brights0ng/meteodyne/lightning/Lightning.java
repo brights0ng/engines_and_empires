@@ -12,7 +12,7 @@ import dev.brights0ng.meteodyne.cloud.sim.SimCloud;
 import dev.brights0ng.meteodyne.mixin.ServerLevelLightningInvoker;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
 import dev.brights0ng.meteodyne.sim.world.WeatherSim;
-import dev.brights0ng.paradynelib.ships.ShipCover;
+import dev.brights0ng.paradynelib.sable.ships.ShipCover;
 import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;

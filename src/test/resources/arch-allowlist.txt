@@ -1,5 +1,5 @@
 # Justified exceptions to ArchitectureTest rule (c): an optional outside mod mentioned outside a compat package (or,
-# for Sable, a sable package). One per line: path under src/main/java | outside mod key | one-line reason.
+# for Sable, a sable package). One per line: path under a project's src/main/java | outside mod key | one-line reason.
 # Keep it short: every line is a debt the slicing steps should pay off. Stale lines fail the test.
 
 # Core: optional-mod code that predates the compat-package rule. MineColoniesGuards is reached only through
@@ -24,15 +24,6 @@ dev/brights0ng/meteodyne/heat/world/client/HeatViewClient.java | sable | debug h
 dev/brights0ng/meteodyne/lightning/Lightning.java | sable | lightning strikes on ships; sable sub-package split is step 2c
 dev/brights0ng/meteodyne/mixin/EntityGlazeFrictionMixin.java | sable | glaze friction on ships; plugin gating or sable sub-package is step 2c
 dev/brights0ng/meteodyne/ships/ShipWeather.java | sable | plan section 4: ShipWeather is Meteodyne's behind Sable; package rename to sable is step 2c
-
-# Paradyne Lib: plan section 6 puts these in a Sable-gated sub-package in step 2b.
-dev/brights0ng/paradynelib/mixin/SubLevelSilhouetteMixin.java | sable | plan section 6 Sable part; already plugin-gated on Sable (1b); sub-package move is step 2b
-dev/brights0ng/paradynelib/ships/ShipCover.java | sable | plan section 6: ShipCover is Sable-gated lib code; sub-package move is step 2b
-dev/brights0ng/paradynelib/wind/ShelterProbe.java | sable | plan section 6 lists it among the wind Sable parts; sub-package move is step 2b
-dev/brights0ng/paradynelib/wind/WindCommand.java | sable | plan section 6 lists it among the wind Sable parts; sub-package move is step 2b
-dev/brights0ng/paradynelib/wind/WindContent.java | sable | plan section 6 lists it among the wind Sable parts; sub-package move is step 2b
-dev/brights0ng/paradynelib/wind/WindPhysics.java | sable | plan section 6 lists it among the wind Sable parts; sub-package move is step 2b
-dev/brights0ng/paradynelib/wind/WindShips.java | sable | plan section 6 lists it among the wind Sable parts; sub-package move is step 2b
 
 # Simple Spoilage.
 dev/brights0ng/simplespoilage/FoodClimateSweep.java | sable | ship holds (plan section 2: Sable optional through the lib); gating is step 2d

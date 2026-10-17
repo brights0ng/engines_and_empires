@@ -4,7 +4,7 @@ import dev.brights0ng.meteodyne.WeatherOwnership;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
 import dev.brights0ng.meteodyne.sky.StormLight;
 import dev.brights0ng.meteodyne.sky.StormShade;
-import dev.brights0ng.paradynelib.ships.ShipCover;
+import dev.brights0ng.paradynelib.sable.ships.ShipCover;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
