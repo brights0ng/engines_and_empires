@@ -97,6 +97,15 @@ Core mod for the Engines and Empires modpack.
     ordering="AFTER"
     side="BOTH"
 
+# Meteodyne (clouds, weather, temperature; split step 2c: a mod of its own). The core's compat (Cold Sweat, Serene
+# Seasons, MineColonies, the machines' heat) hooks into it, so it loads first.
+[[dependencies.${mod_id}]]
+    modId="meteodyne"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
 # Create. The pack is built on it, and the ore system looks up Create's blocks (zinc ore) by id. Rich zinc ore
 # copies Create's zinc ore when it is registered, so this mod must load AFTER Create.
 [[dependencies.${mod_id}]]
@@ -161,15 +170,13 @@ Core mod for the Engines and Empires modpack.
 
 # Mixins: one config per future mod (split step 1b), each with a plugin that applies a mixin only when the mod it
 # targets is loaded. Listed so that mixins on a shared target (Monster, ItemEntity) keep their old relative order.
-# Paradyne Lib and Sable Fixes register their own configs in their own metadata (step 2b).
+# Paradyne Lib and Sable Fixes (step 2b) and Meteodyne (step 2c) register their own configs in their own metadata.
 [[mixins]]
     config="sparse_ores.mixins.json"
 [[mixins]]
     config="frontier.mixins.json"
 [[mixins]]
     config="simple_spoilage.mixins.json"
-[[mixins]]
-    config="meteodyne.mixins.json"
 [[mixins]]
     config="${mod_id}.mixins.json"
 

@@ -1,0 +1,57 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="brights0ng"
+description='''
+${mod_description}
+'''
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Paradyne Lib, the family's library: the wind's shelter and blending, the air and heat solver, the services the other
+# mods ask the weather through.
+[[dependencies.${mod_id}]]
+    modId="paradyne_lib"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Sable (optional). With it, ships are cover from the sky, their rooms warm and cool, and weather lands on their decks
+# (the sable sub-package, reached only when it is loaded).
+[[dependencies.${mod_id}]]
+    modId="sable"
+    type="optional"
+    versionRange="${sable_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Iris (optional). With a shader pack on, the clouds' own shaders still draw (compat/iris/IrisCompat, only touched when
+# it is installed).
+[[dependencies.${mod_id}]]
+    modId="iris"
+    type="optional"
+    versionRange="[1.8,)"
+    ordering="NONE"
+    side="CLIENT"
+
+# Mixins: Meteodyne's own, all on vanilla classes; the config's plugin would skip any whose target mod is absent.
+[[mixins]]
+    config="meteodyne.mixins.json"

@@ -20,43 +20,47 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 /**
- * Debug commands for the wind push, under the pack's {@code /eae} root. They need operator permission.
+ * Debug commands for the wind push, as a {@code wind} node another mod puts under its root (Meteodyne's
+ * {@code /meteodyne}, split step 2c: the wind is Meteodyne's, and without a wind provider there is nothing to show or
+ * force). They need operator permission.
  *
  * <ul>
- *   <li>{@code /eae wind}: where the wind comes from, the surface and aloft wind where you stand, and the nearest
+ *   <li>{@code wind}: where the wind comes from, the surface and aloft wind where you stand, and the nearest
  *       physics object within 64 blocks: its outline, cover, exposure, the wind it feels and the push on it.</li>
- *   <li>{@code /eae wind set <speed> <direction>}: the same wind everywhere and at every height, in m/s, toward a
+ *   <li>{@code wind set <speed> <direction>}: the same wind everywhere and at every height, in m/s, toward a
  *       Minecraft yaw (0 south, 90 west, 180 north, 270 east). Overrides Project Atmosphere until cleared; not saved.</li>
- *   <li>{@code /eae wind clear}: back to Project Atmosphere's wind.</li>
+ *   <li>{@code wind clear}: back to Project Atmosphere's wind.</li>
  * </ul>
  *
- * <p>Listed for {@link RegisterCommandsEvent} by {@link WindContent#register}, only when Sable is loaded.
+ * <p>Only for Sable's physics objects, so only to be used when Sable is loaded.
  */
 public final class WindCommand {
 
     private static final double SHIP_SEARCH = 64;
 
-    static void onRegisterCommands(RegisterCommandsEvent event) {
-        LiteralArgumentBuilder<CommandSourceStack> wind = Commands.literal("wind")
+    /**
+     * The {@code wind} node. {@code command} is how players type it ({@code "/meteodyne wind"}), for the messages; the
+     * caller registers it under its root, with operator permission.
+     */
+    public static LiteralArgumentBuilder<CommandSourceStack> node(String command) {
+        return Commands.literal("wind")
                 .executes(context -> info(context.getSource()))
                 .then(Commands.literal("set")
                         .then(Commands.argument("speed", DoubleArgumentType.doubleArg(0, 200))
                                 .then(Commands.argument("direction", DoubleArgumentType.doubleArg(-360, 360))
-                                        .executes(context -> set(context.getSource(),
+                                        .executes(context -> set(context.getSource(), command,
                                                 DoubleArgumentType.getDouble(context, "speed"),
                                                 DoubleArgumentType.getDouble(context, "direction"))))))
                 .then(Commands.literal("clear").executes(context -> clear(context.getSource())));
-        event.getDispatcher().register(Commands.literal("eae").requires(source -> source.hasPermission(2)).then(wind));
     }
 
-    private static int set(CommandSourceStack source, double speed, double yaw) {
+    private static int set(CommandSourceStack source, String command, double speed, double yaw) {
         double[] vector = WindColumn.fromYaw(speed, yaw);
         WindProvider.get().setOverride(WindColumn.uniform(vector[0], vector[1]));
         source.sendSuccess(() -> Component.literal("Wind forced to " + speedAndHeading(vector[0], vector[1])
-                + " everywhere, until /eae wind clear."), true);
+                + " everywhere, until " + command + " clear."), true);
         return 1;
     }
 
