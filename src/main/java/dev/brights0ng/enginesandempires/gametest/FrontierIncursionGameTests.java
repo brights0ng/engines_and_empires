@@ -26,7 +26,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -90,20 +89,18 @@ public final class FrontierIncursionGameTests {
         for (int wave = 1; wave <= Incursions.GREATER_WAVES; wave++) {
             helper.assertTrue(DeepRoster.get(helper.getLevel(), DeepRoster.greater(wave)).isPresent(), "greater wave " + wave);
         }
-        if (ModList.get().isLoaded("deeperdarker")) {
-            DeepRoster last = DeepRoster.get(helper.getLevel(), DeepRoster.greater(5)).orElseThrow();
-            helper.assertTrue(last.fixed().stream().anyMatch(f -> f.entity().getPath().equals("stalker")
-                            && f.roll(helper.getLevel().random) == 1),
-                    "the stalker comes only in the last wave, alone");
-            helper.assertTrue(DeepRoster.get(helper.getLevel(), DeepRoster.greater(4)).orElseThrow().fixed().stream()
-                    .noneMatch(f -> f.entity().getPath().equals("stalker")), "and not before");
-            for (int wave = 1; wave <= Incursions.GREATER_WAVES; wave++) {
-                helper.assertTrue(DeepRoster.get(helper.getLevel(), DeepRoster.greater(wave)).orElseThrow().fixed().stream()
-                        .noneMatch(f -> f.entity().getPath().equals("sludge")), "no sludge in wave " + wave);
-            }
-            helper.assertTrue(DeepRoster.get(helper.getLevel(), DeepRoster.LESSER).orElseThrow().entries().stream()
-                    .noneMatch(e -> e.entity().getPath().equals("sludge")), "no sludge in lesser waves");
+        DeepRoster last = DeepRoster.get(helper.getLevel(), DeepRoster.greater(5)).orElseThrow();
+        helper.assertTrue(last.fixed().stream().anyMatch(f -> f.entity().getPath().equals("stalker")
+                        && f.roll(helper.getLevel().random) == 1),
+                "the stalker comes only in the last wave, alone");
+        helper.assertTrue(DeepRoster.get(helper.getLevel(), DeepRoster.greater(4)).orElseThrow().fixed().stream()
+                .noneMatch(f -> f.entity().getPath().equals("stalker")), "and not before");
+        for (int wave = 1; wave <= Incursions.GREATER_WAVES; wave++) {
+            helper.assertTrue(DeepRoster.get(helper.getLevel(), DeepRoster.greater(wave)).orElseThrow().fixed().stream()
+                    .noneMatch(f -> f.entity().getPath().equals("sludge")), "no sludge in wave " + wave);
         }
+        helper.assertTrue(DeepRoster.get(helper.getLevel(), DeepRoster.LESSER).orElseThrow().entries().stream()
+                .noneMatch(e -> e.entity().getPath().equals("sludge")), "no sludge in lesser waves");
         helper.assertTrue(LoudMachines.weight(block("create:mechanical_drill")) == 10.0, "a drill weighs 10");
         helper.assertTrue(LoudMachines.weight(block("create:mechanical_press")) == 5.0, "a press weighs 5");
         helper.assertTrue(LoudMachines.weight(block("create:mechanical_saw")) == 1.0, "a saw weighs 1");
@@ -126,10 +123,6 @@ public final class FrontierIncursionGameTests {
 
     @GameTest(template = SCRATCH, batch = "incursion_waves", timeoutTicks = 800)
     public static void aThumperIncursionBringsItsFirstWaveUp(GameTestHelper helper) {
-        if (!ModList.get().isLoaded("deeperdarker")) {
-            helper.succeed();
-            return;
-        }
         floor(helper);
         helper.setBlock(PLATE, SeismicContent.STRIKE_PLATE.get());
         helper.setBlock(THUMPER, SeismicContent.MECHANICAL_THUMPER.get());

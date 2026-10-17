@@ -4,8 +4,9 @@ import java.util.List;
 
 /**
  * The chips: a quarter of a coal, diamond or nether quartz. Those ores drop a single item in vanilla, and there is no
- * smaller unit to cut them down to, so the pack adds one. They live in Sparse Ores so its rich ores can drop them
- * without the core (split seam S15); the core's ore refining refers to them by id.
+ * smaller unit to cut them down to, so the pack adds one. They live in Sparse Ores (split seam S15) next to the rich
+ * ores; the core's ore refining refers to them by id, and its loot cuts make the ordinary and rich ores drop them
+ * (without the core, those ores drop vanilla's whole items; split step 4).
  */
 public final class Chips {
 
