@@ -1,4 +1,4 @@
-package dev.brights0ng.meteodyne.cloud.client;
+package dev.brights0ng.meteodyne.compat.iris;
 
 import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.client.Minecraft;
@@ -17,6 +17,9 @@ import net.neoforged.fml.ModList;
  * every call into Iris is guarded: if a future Iris moves them, the clouds stay hidden under shaders (as before) and
  * the log says why, instead of crashing. Iris classes are only touched through {@link Impl}, only loaded with Iris
  * installed. Render thread.
+ *
+ * <p>Iris is optional (plan section 2), so this sits in Meteodyne's {@code compat.iris} package (split step 2c); the
+ * clouds' renderers call only its Iris-free methods.
  */
 public final class IrisCompat {
 
