@@ -54,7 +54,7 @@ If the code makes **our** mechanism work or look right, it stays with the mechan
 | MineColonies guard counting (`MineColoniesGuards`) | core | Frontier defines a guard-source registry; core registers MineColonies and the Guard Villagers tag |
 | Machine heat drivers for Create/Simulated/Aeronautics/Diesel/Cold Sweat (`HeatDrivers` built-ins; machine entries of `heat_power.json`) | core | `HeatDrivers.register(...)` already exists; the data map splits (vanilla heat sources stay in Meteodyne) |
 | Create loudness of machines (`LoudMachines`) | core | Frontier keeps the data-map weights; Create-aware weighting becomes a core-registered provider |
-| PRD/logger tier overlay (`TierOverlay`) | core | glue between Frontier and Seismic (S8) |
+| PRD/logger tier overlay (`TierOverlay`) | Frontier (`frontier.seismic`, Seismic-only) | moved from core in 4b under the standing principle: it is Frontier's own feature on Seismic's map screens, not pack tuning (S8) |
 | Pack mob rosters and tags (Born in Chaos, Naturalist) | core datapack | Deeper and Darker rosters and tags stay in Frontier, which hard-requires Deeper and Darker (Bright, after 2d); no vanilla-only defaults |
 | `IrisCompat` (cloud shaders under Iris) | Meteodyne | the renderer is hidden under shaders without it; core ships the shader preset |
 | Sable ship weather/wind/heat (`ShipWeather`, `WindShips`, `HeatRegion`) | Meteodyne / lib, behind Sable | the mechanism itself; Sable optional |
