@@ -1,5 +1,5 @@
 {
   "values": [
-    { "id": "deeperdarker:shriek_worm", "required": false }
+    "deeperdarker:shriek_worm"
   ]
 }
