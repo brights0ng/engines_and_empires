@@ -7,14 +7,14 @@ import java.util.Map;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
- * Food spoilage settings. A SERVER config ({@code serverconfig/simple_spoilage-spoilage-server.toml} in the world folder),
+ * Food spoilage settings. A SERVER config ({@code serverconfig/simple_spoilage-server.toml} in the world folder),
  * which the server sends to its players, so tooltips agree with the server.
  *
  * <p>Code reads them through {@link #times()}, which falls back to {@link SpoilTimes#DEFAULTS} before the config has loaded.
  */
 public final class SpoilageConfig {
 
-    public static final String FILE_NAME = "simple_spoilage-spoilage-server.toml";
+    public static final String FILE_NAME = "simple_spoilage-server.toml";
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 

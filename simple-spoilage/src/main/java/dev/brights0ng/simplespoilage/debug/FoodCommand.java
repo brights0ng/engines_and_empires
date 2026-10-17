@@ -20,12 +20,12 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 /**
- * Debug commands for food spoilage, under Simple Spoilage's {@code /spoilage} root (split step 2d; it was {@code /eae}).
- * They need operator permission and act on the food in your main hand.
+ * Debug commands for food spoilage, under Simple Spoilage's {@code /spoilage} root (it was {@code /eae food} before split
+ * step 2d, and {@code /spoilage food} until step 2f). They need operator permission and act on the food in your main hand.
  *
  * <ul>
- *   <li>{@code /spoilage food inspect}: each cohort in the stack, top first: count, stage, hidden substage, and age.</li>
- *   <li>{@code /spoilage food age <ticks>}: makes the whole stack older by that much (24000 = a day).</li>
+ *   <li>{@code /spoilage inspect}: each cohort in the stack, top first: count, stage, hidden substage, and age.</li>
+ *   <li>{@code /spoilage age <ticks>}: makes the whole stack older by that much (24000 = a day).</li>
  * </ul>
  */
 @EventBusSubscriber(modid = SimpleSpoilage.MODID)
@@ -38,11 +38,10 @@ public final class FoodCommand {
     static void onRegisterCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(Commands.literal(COMMAND_ROOT)
                 .requires(source -> source.hasPermission(2))
-                .then(Commands.literal("food")
-                        .then(Commands.literal("inspect").executes(context -> inspect(context.getSource())))
-                        .then(Commands.literal("age")
-                                .then(Commands.argument("ticks", LongArgumentType.longArg(0))
-                                        .executes(context -> age(context.getSource(), LongArgumentType.getLong(context, "ticks")))))));
+                .then(Commands.literal("inspect").executes(context -> inspect(context.getSource())))
+                .then(Commands.literal("age")
+                        .then(Commands.argument("ticks", LongArgumentType.longArg(0))
+                                .executes(context -> age(context.getSource(), LongArgumentType.getLong(context, "ticks"))))));
     }
 
     private static int inspect(CommandSourceStack source) throws CommandSyntaxException {
