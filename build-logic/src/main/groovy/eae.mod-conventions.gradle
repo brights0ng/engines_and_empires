@@ -217,6 +217,16 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
+// The jars meant for release leave the game tests out (split step 4: the core's jar shipped 12 game test classes).
+// NeoForge never runs game tests in production (GameTestHooks.isGametestEnabled), and the dev runs and
+// runGameTestServer load each mod's classes folder, not its jar, so nothing that runs them changes. Only the test
+// classes go: the rest of a gametest package is runtime code (Meteodyne's GameTestCalendar is an event subscriber its
+// mod class registers; the lib's GameTestStructures is a data provider). A mod with helpers that only its game tests
+// use excludes them in its own build.gradle.
+tasks.named('jar', Jar) {
+    exclude('**/*GameTests.class', '**/*GameTests$*.class')
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
 }

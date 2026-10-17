@@ -50,3 +50,9 @@ tasks.named('test') {
         }
     }
 }
+
+tasks.named('jar', Jar) {
+    // Game test code only the game tests use, left out of the release jar with the game tests themselves (convention
+    // plugin): the climatology year is a @GameTestHolder, and GameTestSky is the lightning tests' open-sky helper.
+    exclude('**/gametest/ClimatologyDiagnosticRun.class', '**/gametest/GameTestSky.class')
+}
