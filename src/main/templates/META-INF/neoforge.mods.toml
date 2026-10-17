@@ -121,6 +121,15 @@ Core mod for the Engines and Empires modpack.
     ordering="AFTER"
     side="BOTH"
 
+# Simple Spoilage (food spoilage; split step 2d: a mod of its own). The core's AppleSkin and Diet compat reads its
+# freshness, so it loads first.
+[[dependencies.${mod_id}]]
+    modId="simple_spoilage"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
 # Create. The pack is built on it: the ore refining's crushing and washing recipes and the core's machine heat and
 # loudness use it, so this mod loads AFTER Create.
 [[dependencies.${mod_id}]]
@@ -185,12 +194,10 @@ Core mod for the Engines and Empires modpack.
 
 # Mixins: one config per future mod (split step 1b), each with a plugin that applies a mixin only when the mod it
 # targets is loaded. Listed so that mixins on a shared target (Monster, ItemEntity) keep their old relative order.
-# Paradyne Lib and Sable Fixes (step 2b), Meteodyne (step 2c) and Sparse Ores (step 2e) register their own configs in
-# their own metadata (Seismic Surveyance has no mixins).
+# Paradyne Lib and Sable Fixes (step 2b), Meteodyne (step 2c), Sparse Ores (step 2e) and Simple Spoilage (step 2d)
+# register their own configs in their own metadata (Seismic Surveyance has no mixins).
 [[mixins]]
     config="frontier.mixins.json"
-[[mixins]]
-    config="simple_spoilage.mixins.json"
 [[mixins]]
     config="${mod_id}.mixins.json"
 
