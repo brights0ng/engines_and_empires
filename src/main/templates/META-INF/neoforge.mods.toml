@@ -113,9 +113,19 @@ Core mod for the Engines and Empires modpack.
     side="BOTH"
 
 # Seismic Surveyance (the seismic survey; split step 2e: a mod of its own). The core draws Frontier's tiers on its maps,
-# and Frontier's deep (still in the core until step 2d) listens to its shots, so it loads first.
+# so it loads first.
 [[dependencies.${mod_id}]]
     modId="seismic_surveyance"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Frontier (how civilised the land is, spawning and incursions; split step 2d: a mod of its own). The core registers
+# MineColonies' guards and Create's running machines with it and draws its tiers on Seismic Surveyance's maps, so it
+# loads first.
+[[dependencies.${mod_id}]]
+    modId="frontier"
     type="required"
     versionRange="[0.1.0,)"
     ordering="AFTER"
@@ -192,12 +202,9 @@ Core mod for the Engines and Empires modpack.
     ordering="NONE"
     side="BOTH"
 
-# Mixins: one config per future mod (split step 1b), each with a plugin that applies a mixin only when the mod it
-# targets is loaded. Listed so that mixins on a shared target (Monster, ItemEntity) keep their old relative order.
-# Paradyne Lib and Sable Fixes (step 2b), Meteodyne (step 2c), Sparse Ores (step 2e) and Simple Spoilage (step 2d)
-# register their own configs in their own metadata (Seismic Surveyance has no mixins).
-[[mixins]]
-    config="frontier.mixins.json"
+# Mixins: one config per mod (split step 1b), with a plugin that applies a mixin only when the mod it targets is loaded.
+# Every other mod of the family registers its own config in its own metadata (since steps 2b-2e; Seismic Surveyance has
+# no mixins), so only the core's is left here.
 [[mixins]]
     config="${mod_id}.mixins.json"
 
