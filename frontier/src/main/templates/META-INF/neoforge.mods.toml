@@ -1,0 +1,48 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="brights0ng"
+description='''
+${mod_description}
+'''
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Paradyne Lib, the family's library: how stormy it is where monsters spawn (its StormProvider; Meteodyne answers in the
+# pack), and the game test structure.
+[[dependencies.${mod_id}]]
+    modId="paradyne_lib"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Seismic Surveyance (optional). With it, thumper shots wake the Deep below them and call up incursions against the
+# thumpers (the seismic package, reached only when it is loaded). Frontier listens to its events, so it loads first.
+[[dependencies.${mod_id}]]
+    modId="seismic_surveyance"
+    type="optional"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Mixins: Frontier's own, both on vanilla classes; the config's plugin would skip any whose target mod is absent.
+[[mixins]]
+    config="frontier.mixins.json"

@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "frontier:block/dry_torch" }
+  }
+}

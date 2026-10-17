@@ -29,7 +29,7 @@ public final class TierOverlay implements MapLayer {
 
     public static final TierOverlay INSTANCE = new TierOverlay();
 
-    /** The tiers' colours, as {@code /eae frontier map} shows them: yellow Uninhabited, green Settled, blue Civilized. */
+    /** The tiers' colours, as {@code /frontier map} shows them: yellow Uninhabited, green Settled, blue Civilized. */
     private static final int[] COLOURS = {0x000000, 0xF2D91A, 0x33D933, 0x3399FF};
     private static final int FILL_ALPHA = 0x1A;
     private static final int EDGE_ALPHA = 0xC8;
@@ -56,7 +56,7 @@ public final class TierOverlay implements MapLayer {
     }
 
     public static Component legendName(int i) {
-        return Component.translatable("gui.engines_and_empires.tier_map." + LEGEND_KEYS[i]);
+        return Component.translatable("gui.frontier.tier_map." + LEGEND_KEYS[i]);
     }
 
     /** Only the Overworld has tiers. */
