@@ -20,7 +20,6 @@
     "minecraft:ore_diamond",
     "minecraft:ore_diamond_medium",
     "minecraft:ore_diamond_large",
-    "minecraft:ore_diamond_buried",
-    "create:zinc_ore"
+    "minecraft:ore_diamond_buried"
   ]
 }

@@ -29,7 +29,8 @@ import net.minecraft.world.level.block.state.BlockState;
  * so the two cannot disagree. Blocks are looked up by registry id the first time they are needed, not
  * while classes load, because blocks are only safe to touch once the game has started up. That also means
  * a block from another mod, such as Create's zinc ore, needs no compile-time dependency on that mod: if it
- * is missing, a clearly visible placeholder block is used instead and a warning is logged.
+ * is missing, a clearly visible placeholder block is used instead and a warning is logged (and, as there is no rich
+ * version of it either, the placeholder stands in for the rich ore too).
  *
  * <p>Crystal has no rich block yet, so rich crystal is ordinary amethyst.
  */
@@ -97,8 +98,12 @@ final class OreBlocks {
         BlockState ore = resolve(entry.stone(), entry.fallback());
         BlockState deepOre = entry.deepslate() == null ? ore : resolve(entry.deepslate(), entry.fallback());
 
-        // Rich ore: its own blocks where the ore has them, otherwise just the ordinary ore.
+        // Rich ore: its own blocks where the ore has them, otherwise just the ordinary ore. Rich blocks copied from
+        // another mod's ore (Create's zinc) are not registered without that mod, and the placeholder stands in for both.
         RichOres.Spec richSpec = RichOres.forOre(oreId);
+        if (richSpec != null && !RichOreBlocks.exists(richSpec.stoneName())) {
+            richSpec = null;
+        }
         BlockState rich = richSpec == null ? ore : RichOreBlocks.state(richSpec.stoneName());
         BlockState deepRich = richSpec == null ? deepOre
                 : richSpec.deepslateName() == null ? rich : RichOreBlocks.state(richSpec.deepslateName());

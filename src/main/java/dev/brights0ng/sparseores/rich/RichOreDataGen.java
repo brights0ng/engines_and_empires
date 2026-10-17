@@ -181,16 +181,29 @@ public final class RichOreDataGen {
         for (RichOres.Spec spec : RichOres.ALL) {
             for (RichOres.Variant variant : spec.variants()) {
                 Block block = RichOreBlocks.block(variant.name());
-                tag.apply(blockTag("minecraft:mineable/pickaxe")).add(block);
+                addTo(tag.apply(blockTag("minecraft:mineable/pickaxe")), block, variant);
                 switch (spec.tier()) {
-                    case STONE -> tag.apply(blockTag("minecraft:needs_stone_tool")).add(block);
-                    case IRON -> tag.apply(blockTag("minecraft:needs_iron_tool")).add(block);
+                    case STONE -> addTo(tag.apply(blockTag("minecraft:needs_stone_tool")), block, variant);
+                    case IRON -> addTo(tag.apply(blockTag("minecraft:needs_iron_tool")), block, variant);
                     case NONE -> { }
                 }
                 for (String t : oreTags(spec, variant)) {
-                    tag.apply(blockTag(t)).add(block);
+                    addTo(tag.apply(blockTag(t)), block, variant);
                 }
             }
+        }
+    }
+
+    /**
+     * Adds a rich block to a tag. One that copies another mod's ore (rich zinc ore, from Create's) is only registered
+     * with that mod, so it goes in as an optional entry: a missing required entry would fail the whole tag, such as
+     * {@code minecraft:mineable/pickaxe}, in a game without Create. The item tags copy these entries as they are.
+     */
+    private static void addTo(IntrinsicHolderTagsProvider.IntrinsicTagAppender<Block> tag, Block block, RichOres.Variant variant) {
+        if (ResourceLocation.parse(variant.counterpart()).getNamespace().equals(ResourceLocation.DEFAULT_NAMESPACE)) {
+            tag.add(block);
+        } else {
+            tag.addOptional(BuiltInRegistries.BLOCK.getKey(block));
         }
     }
 
