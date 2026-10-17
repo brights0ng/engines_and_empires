@@ -10,8 +10,9 @@ import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
- * The wind push's registrations: its Sable force group, its physics-step listener and its debug command. Called by
- * {@code ParadyneLib} only when Sable is loaded.
+ * The wind push's registrations: its Sable force group and its physics-step listener. Called by {@code ParadyneLib}
+ * only when Sable is loaded. Its debug command ({@link WindCommand}) goes under the root of the mod whose wind it is
+ * (Meteodyne's, split step 2c).
  */
 public final class WindContent {
 
@@ -26,7 +27,6 @@ public final class WindContent {
     public static void register(IEventBus modEventBus) {
         FORCE_GROUPS.register(modEventBus);
         NeoForge.EVENT_BUS.addListener(WindPhysics::onPrePhysicsTick);
-        NeoForge.EVENT_BUS.addListener(WindCommand::onRegisterCommands);
     }
 
     private WindContent() {
