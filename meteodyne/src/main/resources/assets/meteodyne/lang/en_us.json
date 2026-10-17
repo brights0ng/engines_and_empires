@@ -1,0 +1,6 @@
+{
+  "meteodyne.configuration.title": "Meteodyne",
+  "block.meteodyne.glaze": "Glaze",
+  "death.attack.meteodyne.hail": "%1$s was battered to death by hail",
+  "death.attack.meteodyne.hail.player": "%1$s was battered to death by hail while fighting %2$s"
+}

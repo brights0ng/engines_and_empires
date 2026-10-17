@@ -180,8 +180,5 @@
   "gui.engines_and_empires.ice_chest.no_melt": "Too cold out for the ice to melt",
   "gui.engines_and_empires.ice_chest.no_ice": "No ice",
   "tooltip.engines_and_empires.food.frozen": "%s (frozen)",
-  "gui.engines_and_empires.ice_chest.needs_food": "Ice only melts while there is food inside",
-  "block.engines_and_empires.glaze": "Glaze",
-  "death.attack.engines_and_empires.hail": "%1$s was battered to death by hail",
-  "death.attack.engines_and_empires.hail.player": "%1$s was battered to death by hail while fighting %2$s"
+  "gui.engines_and_empires.ice_chest.needs_food": "Ice only melts while there is food inside"
 }
