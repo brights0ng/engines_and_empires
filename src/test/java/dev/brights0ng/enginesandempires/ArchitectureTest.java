@@ -123,10 +123,7 @@ class ArchitectureTest {
             // S15: RefiningItems becomes sparseores.chips.ChipItems.
             "main:oregen/refining/RefiningItems.java", new String[]{"sparse_ores", "ChipItems.java"},
             // Step 1c-A task 10: the CloudWorks fix is outside-mod compat, so it goes to the core.
-            "main:mixin/CloudWorksDebugDumpMixin.java", new String[]{"engines_and_empires", "CloudWorksDebugDumpMixin.java"},
-            // Step 2e: the combustive thumper's game tests need Diesel Generators' fuels, which Seismic only has
-            // optionally, so they are a core integration test.
-            "main:gametest/CombustiveThumperGameTests.java", new String[]{"engines_and_empires", "CombustiveThumperGameTests.java"});
+            "main:mixin/CloudWorksDebugDumpMixin.java", new String[]{"engines_and_empires", "CloudWorksDebugDumpMixin.java"});
 
     private static final Pattern PACKAGE = Pattern.compile("^\\s*package\\s+([\\w.]+)\\s*;", Pattern.MULTILINE);
     private static final Pattern OUR_MENTION = Pattern.compile("(?<![\\w.])dev\\.brights0ng\\.(\\w+)");
