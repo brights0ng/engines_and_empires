@@ -27,3 +27,4 @@ A client boot under `xvfb-run` with software graphics (see `docs/split/build-lay
 
 ## Conventions
 `git mv` for moves (keep history). One logical change per commit. Commit messages say what and why. Lang keys, ids and resource paths change only in the step that says so.
+If `:runData` on the root hangs during startup (third-party class-init deadlock among Simulated, Veil and Create), rerun it; it is not our code.
