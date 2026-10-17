@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=east": { "model": "frontier:block/dry_wall_torch" },
+    "facing=north": { "model": "frontier:block/dry_wall_torch", "y": 270 },
+    "facing=south": { "model": "frontier:block/dry_wall_torch", "y": 90 },
+    "facing=west": { "model": "frontier:block/dry_wall_torch", "y": 180 }
+  }
+}

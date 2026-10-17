@@ -10,7 +10,3 @@ dev/brights0ng/enginesandempires/gametest/ColdSweatGameTests.java | coldsweat | 
 dev/brights0ng/enginesandempires/gametest/DietGameTests.java | diet | core integration game test; asserts Diet is in the dev runtime, so it needs gating before any run without it (2f)
 dev/brights0ng/enginesandempires/gametest/HeatPlayerGameTests.java | coldsweat | core integration game test (plan section 10); its Cold Sweat case passes trivially without Cold Sweat
 dev/brights0ng/enginesandempires/gametest/WeatherChecksGameTests.java | minecolonies | core integration game test (plan section 10); its MineColonies case passes trivially without MineColonies
-
-# Simple Spoilage.
-dev/brights0ng/simplespoilage/FoodClimateSweep.java | sable | ship holds (plan section 2: Sable optional through the lib); gating is step 2d
-dev/brights0ng/simplespoilage/gametest/FoodGameTests.java | appleskin | plan section 10: its AppleSkin part splits off to the core (step 2d); today it asserts AppleSkin is in the dev runtime
