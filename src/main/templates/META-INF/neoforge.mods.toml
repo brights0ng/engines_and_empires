@@ -165,15 +165,6 @@ Core mod for the Engines and Empires modpack.
     ordering="AFTER"
     side="BOTH"
 
-# Deeper and Darker (optional). Its mobs come up around stirred deposits (deep_roster/stirred.json) and are named by id
-# only, so the mod runs without it: the rosters and tags just skip them.
-[[dependencies.${mod_id}]]
-    modId="deeperdarker"
-    type="optional"
-    versionRange="[1.4,)"
-    ordering="NONE"
-    side="BOTH"
-
 # AppleSkin (optional). Its food previews show what spoiled food really gives (food/compat/AppleSkinCompat, hooked up
 # only when it is installed). Built against the 3.0.x API.
 [[dependencies.${mod_id}]]

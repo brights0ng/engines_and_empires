@@ -4,7 +4,27 @@ plugins {
 
 requireMod(':paradyne-lib')
 
+configurations {
+    // Outside mods Frontier requires at runtime only: it names them by id (in its data) and never compiles against them.
+    // On its own runtime classpath, so its bare game test run and its data run load them, and offered as a consumable
+    // configuration to the root, whose runs load Frontier (split step 2f).
+    requiredRuntime {
+        canBeConsumed = false
+        canBeResolved = false
+    }
+    runtimeOnly.extendsFrom requiredRuntime
+    requiredRuntimeElements {
+        canBeConsumed = true
+        canBeResolved = false
+        extendsFrom requiredRuntime
+    }
+}
+
 dependencies {
+    // Deeper and Darker is required (Bright, after split step 2d): the Deep's rosters (deep_roster/*.json) and the
+    // provoked_from_below and stationary tags are made of its mobs, named by id only. It needs no library of its own.
+    requiredRuntime("maven.modrinth:deeperdarker:${deeper_darker_version}")
+
     // Seismic Surveyance is optional (plan section 2): only the gated package frontier.seismic touches it and Sparse Ores
     // (the Deep listens to thumper shots and reads their echoes; thumper incursions go after the thumpers), and only
     // after ModList.isLoaded("seismic_surveyance"). So Frontier compiles against both, but they are not bound to its
