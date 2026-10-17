@@ -14,26 +14,6 @@
     "minecraft:shroomlight": {"power": 0.1, "radiant": 1.0},
     "minecraft:ice": {"power": -0.2, "radiant": 1.0},
     "minecraft:packed_ice": {"power": -0.4, "radiant": 1.0},
-    "minecraft:blue_ice": {"power": -0.8, "radiant": 1.0},
-    "create:blaze_burner": [
-      {"state": {"blaze": "seething"}, "power": 2.0, "radiant": 0.3, "max_offset": 40},
-      {"state": {"blaze": "kindled"}, "power": 1.0, "radiant": 0.3, "max_offset": 40},
-      {"state": {"blaze": "fading"}, "power": 0.5, "radiant": 0.3, "max_offset": 40},
-      {"state": {"blaze": "smouldering"}, "power": 0.2, "radiant": 0.3, "max_offset": 40}
-    ],
-    "createdieselgenerators:diesel_engine": {"power": 0.8, "radiant": 0.1, "max_offset": 40, "driver": "engines_and_empires:running"},
-    "createdieselgenerators:huge_diesel_engine": {"power": 2.5, "radiant": 0.1, "max_offset": 40, "driver": "engines_and_empires:running"},
-    "createdieselgenerators:large_diesel_engine": {"power": 0.5, "radiant": 0.1, "max_offset": 40, "driver": "engines_and_empires:running"},
-    "#engines_and_empires:portable_engines": {"power": 0.6, "radiant": 0.1, "max_offset": 40, "driver": "engines_and_empires:running"},
-    "aeronautics:adjustable_burner": [
-      {"state": {"variant": "soulful"}, "power": 1.1, "radiant": 0.5, "max_offset": 45, "driver": "engines_and_empires:hot_air_burner"},
-      {"power": 1.0, "radiant": 0.5, "max_offset": 45, "driver": "engines_and_empires:hot_air_burner"}
-    ],
-    "cold_sweat:hearth_bottom": [
-      {"power": 2.0, "radiant": 0.0, "max_offset": 40, "driver": "engines_and_empires:cold_sweat_heating"},
-      {"power": -2.0, "radiant": 0.0, "limit": 0, "driver": "engines_and_empires:cold_sweat_cooling"}
-    ],
-    "cold_sweat:boiler": {"power": 2.0, "radiant": 0.0, "max_offset": 40, "driver": "engines_and_empires:cold_sweat_heating"},
-    "cold_sweat:icebox": {"power": -2.0, "radiant": 0.0, "limit": 0, "driver": "engines_and_empires:cold_sweat_cooling"}
+    "minecraft:blue_ice": {"power": -0.8, "radiant": 1.0}
   }
 }
