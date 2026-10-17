@@ -37,7 +37,7 @@ import net.neoforged.neoforge.event.EventHooks;
 public final class FrontierSpawner {
 
     /** Marks the mobs this spawner placed, so each player's count only counts its own. */
-    public static final String TAG = "frontier.frontier_spawn";
+    public static final String TAG = "frontier.spawn";
 
     private static final int MAX_PACK = 3;
     private static final int PACK_SPREAD = 4;

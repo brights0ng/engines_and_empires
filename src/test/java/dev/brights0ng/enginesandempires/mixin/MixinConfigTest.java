@@ -120,10 +120,16 @@ class MixinConfigTest {
         }
     }
 
-    /** "required" makes any mixin failure fatal; only a config whose mixins never depend on another mod keeps it. */
+    /**
+     * "required" makes any mixin failure fatal. The plugin skips a mixin whose mod is absent before Mixin tries it, and the
+     * CloudWorks mixin is {@code @Pseudo}, so a skipped mixin is not a failure, but a broken injection is (split step 2f:
+     * an aggregate game test run without MineColonies, Cold Sweat and Diet proved the gate, as the library's and Sable
+     * Fixes' bare runs did theirs in 2b).
+     */
     @Test
-    void theConfigIsRequiredOnlyWithoutOptionalTargets() throws IOException {
-        assertEquals(String.valueOf(GATED.isEmpty()), match(read(CONFIG), "\"required\"\\s*:\\s*(true|false)"));
+    void theConfigIsRequired() throws IOException {
+        assertFalse(GATED.isEmpty(), "the gate has mixins to skip");
+        assertEquals("true", match(read(CONFIG), "\"required\"\\s*:\\s*(true|false)"));
     }
 
     private static String classResource(String name) {

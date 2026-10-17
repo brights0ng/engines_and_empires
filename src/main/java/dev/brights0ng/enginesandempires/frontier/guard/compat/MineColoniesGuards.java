@@ -1,4 +1,4 @@
-package dev.brights0ng.enginesandempires.frontier.guard;
+package dev.brights0ng.enginesandempires.frontier.guard.compat;
 
 import com.minecolonies.api.colony.jobs.IJob;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;

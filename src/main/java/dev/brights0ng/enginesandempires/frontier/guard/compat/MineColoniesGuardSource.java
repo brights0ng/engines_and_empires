@@ -1,4 +1,4 @@
-package dev.brights0ng.enginesandempires.frontier.guard;
+package dev.brights0ng.enginesandempires.frontier.guard.compat;
 
 import dev.brights0ng.frontier.guard.GuardSources;
 import dev.brights0ng.frontier.guard.GuardTypes;
