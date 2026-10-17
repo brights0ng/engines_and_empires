@@ -15,6 +15,8 @@ Status: **plan settled, nothing built.** Every question from v2 is answered (sec
 10. Versions: new mods start at **0.1.0**; the core mod goes to **0.4.0**. **All licences are All Rights Reserved.**
 11. Order: package-first inside the single mod, then slice the build. The plan is settled before any code; implementation runs in Claude Code cloud sessions, one pull request per step into a `split` branch for Bright's review.
 
+**Standing principle (Bright, after step 4):** every split mod must run complete and consistent without the core mod. Chips and rich ore blocks belong entirely to Sparse Ores. What the core adds is pack tuning and integration with other mods' content, never something a mod's own features need.
+
 ## 2. The family
 
 | Mod | id | Package | Requires | Optional |
