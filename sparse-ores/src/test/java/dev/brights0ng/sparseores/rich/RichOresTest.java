@@ -92,30 +92,6 @@ class RichOresTest {
         assertEquals("minecraft:emerald", RichOres.forOre("emerald").drop());
     }
 
-    /** The ordinary blocks of the ores the pack cuts get a loot table generated from the same entry, once over. */
-    @Test
-    void cutOresReplaceTheOrdinaryBlocksLootTables() throws IOException {
-        for (String oreId : RichOres.PACK_LOOT) {
-            RichOres.Spec spec = RichOres.forOre(oreId);
-            for (RichOres.Variant variant : spec.variants()) {
-                String path = variant.counterpart().substring("minecraft:".length());
-                String loot = read("/data/minecraft/loot_table/blocks/" + path + ".json");
-                assertTrue(loot.contains("\"name\": \"" + spec.drop() + "\""), path + " drop item");
-                assertTrue(loot.contains("\"name\": \"" + variant.counterpart() + "\""), path + " silk touch");
-                if (spec.minDrop() == spec.maxDrop()) {
-                    assertTrue(loot.contains("\"count\": " + spec.minDrop() + ".0"), path + " count");
-                } else {
-                    assertTrue(loot.contains("\"min\": " + spec.minDrop() + ".0"), path + " min count");
-                    assertTrue(loot.contains("\"max\": " + spec.maxDrop() + ".0"), path + " max count");
-                }
-            }
-        }
-        assertNull(RichOresTest.class.getResource("/data/minecraft/loot_table/blocks/iron_ore.json"),
-                "iron keeps vanilla's loot table: it is cut in the furnace instead");
-        assertNull(RichOresTest.class.getResource("/data/minecraft/loot_table/blocks/emerald_ore.json"),
-                "emerald is left alone");
-    }
-
     @Test
     void fortuneUsesTheSameFormulaAsTheOrdinaryBlock() {
         for (RichOres.Spec spec : RichOres.ALL) {
@@ -278,6 +254,23 @@ class RichOresTest {
                 String optional = "{\"id\":\"sparse_ores:" + variant.name() + "\",\"required\":false}";
                 assertEquals(!vanilla, text.contains(optional), variant.name() + " in " + tag);
             }
+        }
+    }
+
+    /**
+     * A rich block of another mod's ore (rich zinc ore, from Create's) has a loot table that names that mod's drop, so the
+     * table loads only with that mod: without it the game skips the table quietly instead of logging a parse error.
+     * Rich blocks of vanilla's ores have no condition.
+     */
+    @Test
+    void richBlocksOfOtherModsOresHaveLootOnlyWithThatMod() throws IOException {
+        for (RichOres.Variant variant : RichOres.allVariants()) {
+            String loot = read("/data/sparse_ores/loot_table/blocks/" + variant.name() + ".json").replaceAll("\\s+", "");
+            String namespace = variant.counterpart().substring(0, variant.counterpart().indexOf(':'));
+            boolean vanilla = namespace.equals("minecraft");
+            String condition = "\"neoforge:conditions\":[{\"type\":\"neoforge:mod_loaded\",\"modid\":\"" + namespace + "\"}]";
+            assertEquals(!vanilla, loot.contains(condition), variant.name() + " loaded only with " + namespace);
+            assertEquals(!vanilla, loot.contains("neoforge:conditions"), variant.name() + ": a condition only on another mod's ore");
         }
     }
 
