@@ -24,9 +24,9 @@ Status: **plan settled, nothing built.** Every question from v2 is answered (sec
 | Sparse Ores | `sparse_ores` | `dev.brights0ng.sparseores` | lib | Create (zinc ore is found by block id only; load after it when present) |
 | Seismic Surveyance | `seismic_surveyance` | `dev.brights0ng.seismicsurveyance` | lib, Sparse Ores, **Create** (brings Flywheel and Catnip) | Create: Diesel Generators, Sable |
 | Meteodyne | `meteodyne` | `dev.brights0ng.meteodyne` | lib | Sable, Iris |
-| Frontier | `frontier` | `dev.brights0ng.frontier` | lib | Seismic Surveyance (through one gated package) |
+| Frontier | `frontier` | `dev.brights0ng.frontier` | lib, Deeper and Darker (Bright, after 2d) | Seismic Surveyance (through one gated package) |
 | Simple Spoilage | `simple_spoilage` | `dev.brights0ng.simplespoilage` | lib | Sable (ship holds, through the lib) |
-| Engines and Empires | `engines_and_empires` | `dev.brights0ng.enginesandempires` | lib, the six feature mods, Sable, Create, Simulated/Aeronautics/Offroad, Encumbered | Cold Sweat, MineColonies, Serene Seasons, AppleSkin, Diet, Guard Villagers, Deeper and Darker, Born in Chaos, Naturalist |
+| Engines and Empires | `engines_and_empires` | `dev.brights0ng.enginesandempires` | lib, the six feature mods, Sable, Create, Simulated/Aeronautics/Offroad, Encumbered | Cold Sweat, MineColonies, Serene Seasons, AppleSkin, Diet, Guard Villagers, Born in Chaos, Naturalist |
 
 Compile-time graph (must stay acyclic): lib <- Sparse Ores <- Seismic <- (gated) Frontier; lib <- Meteodyne; lib <- Simple Spoilage; everything <- core. Sable Fixes stands outside it. Seismic and Sparse Ores never reference Frontier.
 
@@ -51,7 +51,7 @@ If the code makes **our** mechanism work or look right, it stays with the mechan
 | Machine heat drivers for Create/Simulated/Aeronautics/Diesel/Cold Sweat (`HeatDrivers` built-ins; machine entries of `heat_power.json`) | core | `HeatDrivers.register(...)` already exists; the data map splits (vanilla heat sources stay in Meteodyne) |
 | Create loudness of machines (`LoudMachines`) | core | Frontier keeps the data-map weights; Create-aware weighting becomes a core-registered provider |
 | PRD/logger tier overlay (`TierOverlay`) | core | glue between Frontier and Seismic (S8) |
-| Pack mob rosters and tags (Deeper and Darker, Born in Chaos, Naturalist) | core datapack | Frontier ships vanilla-only defaults |
+| Pack mob rosters and tags (Born in Chaos, Naturalist) | core datapack | Deeper and Darker rosters and tags stay in Frontier, which hard-requires Deeper and Darker (Bright, after 2d); no vanilla-only defaults |
 | `IrisCompat` (cloud shaders under Iris) | Meteodyne | the renderer is hidden under shaders without it; core ships the shader preset |
 | Sable ship weather/wind/heat (`ShipWeather`, `WindShips`, `HeatRegion`) | Meteodyne / lib, behind Sable | the mechanism itself; Sable optional |
 | `NoiseGeneratorSettingsMixin` (vanilla ore veins off) | Sparse Ores | part of the ore mechanism |
