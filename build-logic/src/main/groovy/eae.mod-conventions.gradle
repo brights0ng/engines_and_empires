@@ -73,12 +73,26 @@ ext.requiredModPaths = [] as LinkedHashSet
 // Mod projects this one's runs load without requiring them (loadMod), as Gradle paths.
 ext.loadedModPaths = [] as LinkedHashSet
 
+/**
+ * Makes every run's prepare task build a mod's classes and resources folders. The Gradle run tasks already build them
+ * (their classpath carries the folders), but an IDE run configuration only calls prepare<Run>Run before launching, and
+ * nothing else builds a mod this project does not compile against (the aggregator's Sable Fixes): on a fresh checkout
+ * the IDE runClient failed on a missing sable-fixes/build/classes/java/main (split step 4).
+ */
+def prepareBuilds = { Project mod ->
+    tasks.matching { it.name ==~ /prepare[A-Z]\w*Run/ }.configureEach {
+        dependsOn("${mod.path}:classes", "${mod.path}:processResources")
+    }
+}
+prepareBuilds(project)
+
 /** Binds another project's mod to this project's runs (ModDevGradle's mods {} block), once. */
 def bindMod = { Project mod ->
     if (!neoForge.mods.names.contains(mod.mod_id)) {
         neoForge.mods.create(mod.mod_id) {
             sourceSet(mod.sourceSets.main)
         }
+        prepareBuilds(mod)
     }
 }
 
@@ -201,6 +215,16 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+// The jars meant for release leave the game tests out (split step 4: the core's jar shipped 12 game test classes).
+// NeoForge never runs game tests in production (GameTestHooks.isGametestEnabled), and the dev runs and
+// runGameTestServer load each mod's classes folder, not its jar, so nothing that runs them changes. Only the test
+// classes go: the rest of a gametest package is runtime code (Meteodyne's GameTestCalendar is an event subscriber its
+// mod class registers; the lib's GameTestStructures is a data provider). A mod with helpers that only its game tests
+// use excludes them in its own build.gradle.
+tasks.named('jar', Jar) {
+    exclude('**/*GameTests.class', '**/*GameTests$*.class')
 }
 
 tasks.withType(JavaCompile).configureEach {

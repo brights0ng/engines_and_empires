@@ -27,8 +27,8 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 /**
- * The weather's debug commands, under Meteodyne's {@code /meteodyne} root (split step 2c; the core is to keep
- * {@code /eae weather} as a redirect, step 2f), operators only (permission level 2):
+ * The weather's debug commands, under Meteodyne's {@code /meteodyne} root (split step 2c; the old {@code /eae weather}
+ * was removed for good after 2c, with no redirect), operators only (permission level 2):
  * <ul>
  *   <li>{@code /meteodyne weather}: the climate at your position, broken down into its parts.</li>
  *   <li>{@code /meteodyne weather season}: where in the year and the day the world is.</li>

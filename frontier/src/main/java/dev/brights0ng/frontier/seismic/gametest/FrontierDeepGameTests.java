@@ -31,7 +31,6 @@ import net.minecraft.world.level.block.state.properties.SculkSensorPhase;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
-import net.neoforged.fml.ModList;
 
 /**
  * In-game checks of what thumper shots set off (Frontier phase 5): sculk hearing them, the disturbance calling up an
@@ -180,10 +179,6 @@ public final class FrontierDeepGameTests {
 
     @GameTest(templateNamespace = Frontier.MODID, template = SCRATCH, batch = "deep_roster_dd")
     public static void theStirredRosterIsDeeperAndDarkersMobs(GameTestHelper helper) {
-        if (!ModList.get().isLoaded("deeperdarker")) {
-            helper.succeed();
-            return;
-        }
         DeepRoster roster = DeepRoster.get(helper.getLevel(), DeepRoster.STIRRED).orElseThrow();
         helper.assertTrue(roster.entries().size() == 5, "five Deeper and Darker mobs, got " + roster.entries().size());
         for (DeepRoster.Entry entry : roster.entries()) {
@@ -195,10 +190,6 @@ public final class FrontierDeepGameTests {
 
     @GameTest(templateNamespace = Frontier.MODID, template = SCRATCH, batch = "deep_provoked_dd")
     public static void snappersAndCentipedesFromBelowAttackPlayersAnywhere(GameTestHelper helper) {
-        if (!ModList.get().isLoaded("deeperdarker")) {
-            helper.succeed();
-            return;
-        }
         for (String id : List.of("sculk_snapper", "sculk_centipede")) {
             EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.get(ResourceLocation.fromNamespaceAndPath("deeperdarker", id));
 

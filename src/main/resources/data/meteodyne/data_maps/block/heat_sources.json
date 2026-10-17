@@ -1,7 +1,7 @@
 {
   "values": {
-    "cold_sweat:boiler": {"state": {"lit": "true"}, "change": 8.33, "range": 7, "max_effect": 20.0, "limit": 100.0},
-    "cold_sweat:icebox": {"state": {"frosted": "true"}, "change": -8.33, "range": 7, "max_effect": 20.0, "limit": 0.0},
+    "cold_sweat:boiler": {"neoforge:conditions": [{"type": "neoforge:mod_loaded", "modid": "cold_sweat"}], "state": {"lit": "true"}, "change": 8.33, "range": 7, "max_effect": 20.0, "limit": 100.0},
+    "cold_sweat:icebox": {"neoforge:conditions": [{"type": "neoforge:mod_loaded", "modid": "cold_sweat"}], "state": {"frosted": "true"}, "change": -8.33, "range": 7, "max_effect": 20.0, "limit": 0.0},
     "create:blaze_burner": [
       {"state": {"blaze": "seething"}, "change": 16.67, "range": 6, "max_effect": 33.33, "limit": 204.4},
       {"state": {"blaze": "kindled"}, "change": 11.11, "range": 5, "max_effect": 25.0, "limit": 204.4},
