@@ -65,7 +65,7 @@ Open **Mods**, pick the mod, press **Config**.
 | 2.2 | Meteodyne | A screen titled "Meteodyne" with the weather settings and the cloud settings. | As above. Changing a cloud setting does not change the clouds without a restart (the client file is watched and should apply live). |
 | 2.3 | Frontier | A screen titled "Frontier". | As above. |
 | 2.4 | Simple Spoilage | A screen titled "Simple Spoilage". | As above. |
-| 2.5 | Engines and Empires, Sparse Ores, Seismic Surveyance, Sable Fixes | **No** Config button. This is expected: these four have no settings and the core's empty screen was deliberately removed. | A Config button that opens a blank or crashing screen. (A leftover lang key `engines_and_empires.configuration.title` exists in the core's language file; it is harmless and not a failure.) |
+| 2.5 | Engines and Empires, Sparse Ores, Seismic Surveyance, Sable Fixes | **No** Config button. This is expected: these four have no settings and the core's empty screen was deliberately removed. | A Config button that opens a blank or crashing screen. |
 | 2.6 | Change one value in each of 2.1-2.4, press Done, reopen. | The value is kept, and the matching `.toml` file in `config/` changed. | The value reverts, or the file does not change. |
 
 ---
