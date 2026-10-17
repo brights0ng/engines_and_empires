@@ -1,4 +1,4 @@
-package dev.brights0ng.enginesandempires.gametest;
+package dev.brights0ng.enginesandempires.food.compat;
 
 import java.util.List;
 import java.util.Map;
@@ -7,7 +7,6 @@ import java.util.UUID;
 import com.mojang.authlib.GameProfile;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
-import dev.brights0ng.enginesandempires.food.compat.DietCompat;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import dev.brights0ng.simplespoilage.Cohort;
 import dev.brights0ng.simplespoilage.FoodFreshness;
@@ -31,21 +30,23 @@ import net.minecraft.world.level.GameType;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * In-game checks of the Diet hooks (food/compat/DietCompat) and the pack's Diet group data. The dev runs always have Diet.
+ * In-game checks of the Diet hooks ({@link DietCompat}) and the pack's Diet group data. The dev runs always have Diet.
  * Bread is Diet's built-in 4% grains.
+ *
+ * <p>Needs Diet, which the core has only optionally: not a {@code @GameTestHolder} (NeoForge would load every holder, Diet
+ * or not), but registered by {@link DietCompat} when Diet is loaded (split step 2f). Each test names its template's
+ * namespace itself.
  */
-@GameTestHolder(EnginesAndEmpires.MODID)
 @PrefixGameTestTemplate(false)
 public final class DietGameTests {
 
     private static final String SCRATCH = GameTestStructures.EMPTY;
     private static final float BREAD = 0.04f;
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void dietIsLoadedWithThePacksGroups(GameTestHelper helper) {
         helper.assertTrue(net.neoforged.fml.ModList.get().isLoaded(DietCompat.MOD_ID), "Diet should be in the dev runtime");
         List<String> names = DietGroups.getGroups(helper.getLevel()).stream().map(IDietGroup::getName).sorted().toList();
@@ -71,7 +72,7 @@ public final class DietGameTests {
     // Checked by hand on a fresh world instead.
 
     /** Eating for real (use the item until it finishes), so Diet reads the stack NeoForge hands its event. */
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void eatingScalesGainsByStage(GameTestHelper helper) {
         expectGain(helper, bread(1, times().freshTicks() / 20), BREAD * 1.25f);
         expectGain(helper, bread(1, times().freshTicks() + times().ripeTicks() / 2), BREAD);
@@ -81,7 +82,7 @@ public final class DietGameTests {
     }
 
     /** A mixed stack: the gain is that of the group eaten (the top), not of what is left on top afterwards. */
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void eatingAMixedStackUsesTheGroupEaten(GameTestHelper helper) {
         long now = SpoilClock.now();
         long staleAge = times().freshTicks() + times().ripeTicks() + times().staleTicks() / 2;
@@ -100,7 +101,7 @@ public final class DietGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void dietsTooltipShowsTheStagesValues(GameTestHelper helper) {
         Player player = player(helper);
         long staleAge = times().freshTicks() + times().ripeTicks() + times().staleTicks() / 2;
@@ -109,7 +110,7 @@ public final class DietGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void dyingResetsToAQuarter(GameTestHelper helper) {
         Player player = player(helper);
         setAll(player, 0.9f);
@@ -121,7 +122,7 @@ public final class DietGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void comingBackFromTheEndKeepsNutrition(GameTestHelper helper) {
         Player before = player(helper);
         setAll(before, 0.8f);
@@ -136,7 +137,7 @@ public final class DietGameTests {
     }
 
     /** Diet tops groups at 0 up to 50% on login (meant for new players); an emptied group must stay empty. */
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void loggingInDoesNotRefillEmptyGroups(GameTestHelper helper) {
         Player player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "diet_test"));
         setAll(player, 0.6f);

@@ -6,7 +6,7 @@ import com.mojang.logging.LogUtils;
 
 import dev.brights0ng.enginesandempires.food.compat.AppleSkinCompat;
 import dev.brights0ng.enginesandempires.food.compat.DietCompat;
-import dev.brights0ng.enginesandempires.frontier.guard.MineColoniesGuardSource;
+import dev.brights0ng.enginesandempires.frontier.guard.compat.MineColoniesGuardSource;
 import dev.brights0ng.enginesandempires.frontier.incursion.CreateLoudMachines;
 import dev.brights0ng.enginesandempires.oregen.refining.RefiningDataGen;
 import dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatCompat;
@@ -53,7 +53,7 @@ public final class EnginesAndEmpires {
         // AppleSkin's food previews show what spoiled food really gives (only if AppleSkin is installed)
         AppleSkinCompat.registerIfLoaded();
         // Diet: spoiled food feeds its groups less, death resets them to 25% (only if Diet is installed)
-        DietCompat.registerIfLoaded();
+        DietCompat.registerIfLoaded(modEventBus);
 
         // Engines and hot air burners are heat sources while they run (their heat_power entries name these drivers)
         MachineHeatDrivers.register();
