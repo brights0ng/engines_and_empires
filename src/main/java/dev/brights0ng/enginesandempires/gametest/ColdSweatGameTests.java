@@ -228,14 +228,18 @@ public final class ColdSweatGameTests {
         BlockPos ice = new BlockPos(2, 2, 2);
         helper.setBlock(ice, net.minecraft.world.level.block.Blocks.ICE);
         helper.setBlock(ice.east(), net.minecraft.world.level.block.Blocks.GLOWSTONE);
-        helper.runAfterDelay(5, () -> {
-            BlockPos abs = helper.absolutePos(ice);
-            helper.assertTrue(level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, abs) > 11, "the glowstone lights the ice well past vanilla's melt level");
-            for (int i = 0; i < 20; i++) {
-                level.getBlockState(abs).randomTick(level, abs, level.random);
-            }
-            helper.assertBlock(ice, b -> b == net.minecraft.world.level.block.Blocks.ICE, () -> "the ice should still be ice");
-            helper.succeed();
-        });
+        BlockPos abs = helper.absolutePos(ice);
+        // Light is worked out on its own executor, so wait for it to arrive (until the test's timeout) rather than a
+        // fixed number of ticks (split step 2f: it once took longer than 5 ticks while the unit tests ran alongside).
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, abs) > 11,
+                        "the glowstone lights the ice well past vanilla's melt level"))
+                .thenExecute(() -> {
+                    for (int i = 0; i < 20; i++) {
+                        level.getBlockState(abs).randomTick(level, abs, level.random);
+                    }
+                    helper.assertBlock(ice, b -> b == net.minecraft.world.level.block.Blocks.ICE, () -> "the ice should still be ice");
+                })
+                .thenSucceed();
     }
 }
