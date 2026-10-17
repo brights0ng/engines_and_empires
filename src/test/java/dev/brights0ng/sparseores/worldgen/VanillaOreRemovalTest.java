@@ -26,7 +26,9 @@ import dev.brights0ng.sparseores.Realm;
 /**
  * The pack generates its own ore deposits, so the ore veins vanilla (and Create) generate must be
  * switched off, or both would appear. These check the biome modifiers that do it, which are plain JSON
- * data files, against a written-down list of which worldgen features make each ore.
+ * data files, against a written-down list of which worldgen features make each ore. Create's veins are
+ * removed by a modifier of their own that only loads with Create: naming a feature that does not exist
+ * would stop the world from loading without it.
  */
 class VanillaOreRemovalTest {
 
@@ -61,7 +63,7 @@ class VanillaOreRemovalTest {
 
     @Test
     void everyOreWeGenerateHasItsVanillaVeinsRemovedInTheRightDimension() throws IOException {
-        Set<String> overworld = featuresRemovedBy("remove_vanilla_ores_overworld.json");
+        Set<String> overworld = overworldRemovals();
         Set<String> nether = featuresRemovedBy("remove_vanilla_ores_nether.json");
         for (OreType type : OreTypes.ALL) {
             List<String> features = FEATURES_OF.get(type.id());
@@ -87,13 +89,30 @@ class VanillaOreRemovalTest {
                 (type.realm() == Realm.NETHER ? expectedNether : expectedOverworld).addAll(features);
             }
         }
-        assertEquals(expectedOverworld, featuresRemovedBy("remove_vanilla_ores_overworld.json"));
+        assertEquals(expectedOverworld, overworldRemovals());
         assertEquals(expectedNether, featuresRemovedBy("remove_vanilla_ores_nether.json"));
+    }
+
+    /** Vanilla's modifiers name only vanilla features; Create's only Create's, and it loads only with Create. */
+    @Test
+    void createsVeinsAreRemovedOnlyWhenCreateIsLoaded() throws IOException {
+        for (String file : List.of("remove_vanilla_ores_overworld.json", "remove_vanilla_ores_nether.json")) {
+            for (String feature : featuresRemovedBy(file)) {
+                assertTrue(feature.startsWith("minecraft:"), file + " names " + feature + ", which is not vanilla's");
+            }
+            assertFalse(read(file).contains("neoforge:conditions"), file + " must always load");
+        }
+        for (String feature : featuresRemovedBy("remove_create_ores.json")) {
+            assertTrue(feature.startsWith("create:"), "remove_create_ores.json names " + feature + ", which is not Create's");
+        }
+        String create = read("remove_create_ores.json").replaceAll("\\s+", "");
+        assertTrue(create.contains("\"neoforge:conditions\":[{\"type\":\"neoforge:mod_loaded\",\"modid\":\"create\"}]"),
+                "remove_create_ores.json must load only with Create");
     }
 
     @Test
     void featuresThatMustSurviveAreNeverRemoved() throws IOException {
-        Set<String> all = new HashSet<>(featuresRemovedBy("remove_vanilla_ores_overworld.json"));
+        Set<String> all = new HashSet<>(overworldRemovals());
         all.addAll(featuresRemovedBy("remove_vanilla_ores_nether.json"));
         for (String feature : MUST_SURVIVE) {
             assertFalse(all.contains(feature), feature + " must not be removed");
@@ -103,14 +122,24 @@ class VanillaOreRemovalTest {
     @Test
     void theModifiersTargetTheRightBiomesAndOurOwnDepositsAreStillAdded() throws IOException {
         String overworld = read("remove_vanilla_ores_overworld.json");
+        String create = read("remove_create_ores.json");
         String nether = read("remove_vanilla_ores_nether.json");
         assertTrue(overworld.contains("\"type\": \"neoforge:remove_features\""));
         assertTrue(overworld.contains("\"biomes\": \"#minecraft:is_overworld\""));
+        assertTrue(create.contains("\"type\": \"neoforge:remove_features\""));
+        assertTrue(create.contains("\"biomes\": \"#minecraft:is_overworld\""));
         assertTrue(nether.contains("\"type\": \"neoforge:remove_features\""));
         assertTrue(nether.contains("\"biomes\": \"#minecraft:is_nether\""));
         // The modifiers that add our deposits must still be there, or the world would have no ore at all.
         assertTrue(read("add_deposits.json").contains("\"features\": \"engines_and_empires:deposits\""));
         assertTrue(read("add_deposits_nether.json").contains("\"features\": \"engines_and_empires:deposits\""));
+    }
+
+    /** Every overworld feature removed: vanilla's, and Create's (whose modifier loads only with Create). */
+    private static Set<String> overworldRemovals() throws IOException {
+        Set<String> ids = new LinkedHashSet<>(featuresRemovedBy("remove_vanilla_ores_overworld.json"));
+        ids.addAll(featuresRemovedBy("remove_create_ores.json"));
+        return ids;
     }
 
     /** The feature ids listed under "features" in a removal modifier. */

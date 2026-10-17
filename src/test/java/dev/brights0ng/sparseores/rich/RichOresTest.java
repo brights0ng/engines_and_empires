@@ -264,6 +264,23 @@ class RichOresTest {
         }
     }
 
+    /**
+     * A rich block that copies another mod's ore (rich zinc ore, from Create's) is only registered with that mod, so its
+     * tag entries must be optional: one missing required entry fails the whole tag (all of {@code mineable/pickaxe}).
+     */
+    @Test
+    void richBlocksOfOtherModsOresAreOptionalTagEntries() throws IOException {
+        for (String tag : List.of("/data/minecraft/tags/block/mineable/pickaxe.json", "/data/c/tags/block/ores.json",
+                "/data/c/tags/item/ores.json")) {
+            String text = read(tag).replaceAll("\\s+", "");
+            for (RichOres.Variant variant : RichOres.allVariants()) {
+                boolean vanilla = variant.counterpart().startsWith("minecraft:");
+                String optional = "{\"id\":\"engines_and_empires:" + variant.name() + "\",\"required\":false}";
+                assertEquals(!vanilla, text.contains(optional), variant.name() + " in " + tag);
+            }
+        }
+    }
+
     @Test
     void generatedTagsMarkEveryRichBlockAsAnOre() throws IOException {
         String ores = read("/data/c/tags/block/ores.json");

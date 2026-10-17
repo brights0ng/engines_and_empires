@@ -6,8 +6,14 @@
     "engines_and_empires:rich_deepslate_iron_ore",
     "engines_and_empires:rich_copper_ore",
     "engines_and_empires:rich_deepslate_copper_ore",
-    "engines_and_empires:rich_zinc_ore",
-    "engines_and_empires:rich_deepslate_zinc_ore",
+    {
+      "id": "engines_and_empires:rich_zinc_ore",
+      "required": false
+    },
+    {
+      "id": "engines_and_empires:rich_deepslate_zinc_ore",
+      "required": false
+    },
     "engines_and_empires:rich_redstone_ore",
     "engines_and_empires:rich_deepslate_redstone_ore",
     "engines_and_empires:rich_lapis_ore",
