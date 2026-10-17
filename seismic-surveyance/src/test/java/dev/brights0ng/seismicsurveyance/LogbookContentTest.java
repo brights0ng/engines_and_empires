@@ -128,10 +128,11 @@ class LogbookContentTest {
         assertEquals(actions.length, java.util.Arrays.stream(actions).distinct().count(), "no two actions share an id");
     }
 
-    /** The name the creative tab was asked for, exactly. */
+    /** The name the creative tab was asked for, exactly, and the key binding category's (Bright, after split step 2e). */
     @Test
-    void theCreativeTabIsCalledEnginesAndEmpiresSeismology() throws IOException {
+    void theCreativeTabIsCalledSeismicSurveyance() throws IOException {
         String lang = Files.readString(LANG);
-        assertTrue(lang.contains("\"itemGroup.seismic_surveyance.seismology\": \"Engines and Empires: Seismology\""));
+        assertTrue(lang.contains("\"itemGroup.seismic_surveyance.seismology\": \"Seismic Surveyance\""));
+        assertTrue(lang.contains("\"key.categories.seismic_surveyance\": \"Seismic Surveyance\""));
     }
 }
