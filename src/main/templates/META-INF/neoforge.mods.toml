@@ -29,9 +29,6 @@ version="${mod_version}" #mandatory
 # A display name for the mod
 displayName="${mod_name}" #mandatory
 
-# Enum constants this mod adds (currently one: the arm pose for holding the portable record display up in both hands).
-enumExtensions="META-INF/enumextensions.json"
-
 # A URL to query for updates for this mod. See the JSON update specification https://docs.neoforged.net/docs/misc/updatechecker/
 #updateJSONURL="https://change.me.example.invalid/updates.json" #optional
 
@@ -107,7 +104,7 @@ Core mod for the Engines and Empires modpack.
     side="BOTH"
 
 # Sparse Ores (ore generation and the chips; split step 2e: a mod of its own). The core's ore refining cuts its ores'
-# drops and recipes, and the core's seismic survey (until it is sliced out too) reads its deposits, so it loads first.
+# drops and recipes, so it loads first.
 [[dependencies.${mod_id}]]
     modId="sparse_ores"
     type="required"
@@ -115,8 +112,17 @@ Core mod for the Engines and Empires modpack.
     ordering="AFTER"
     side="BOTH"
 
-# Create. The pack is built on it: the seismic survey's machines, the ore refining's crushing and washing recipes, and
-# the core's machine heat and loudness all use it, so this mod loads AFTER Create.
+# Seismic Surveyance (the seismic survey; split step 2e: a mod of its own). The core draws Frontier's tiers on its maps,
+# and Frontier's deep (still in the core until step 2d) listens to its shots, so it loads first.
+[[dependencies.${mod_id}]]
+    modId="seismic_surveyance"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Create. The pack is built on it: the ore refining's crushing and washing recipes and the core's machine heat and
+# loudness use it, so this mod loads AFTER Create.
 [[dependencies.${mod_id}]]
     modId="create"
     type="required"
@@ -180,7 +186,7 @@ Core mod for the Engines and Empires modpack.
 # Mixins: one config per future mod (split step 1b), each with a plugin that applies a mixin only when the mod it
 # targets is loaded. Listed so that mixins on a shared target (Monster, ItemEntity) keep their old relative order.
 # Paradyne Lib and Sable Fixes (step 2b), Meteodyne (step 2c) and Sparse Ores (step 2e) register their own configs in
-# their own metadata.
+# their own metadata (Seismic Surveyance has no mixins).
 [[mixins]]
     config="frontier.mixins.json"
 [[mixins]]

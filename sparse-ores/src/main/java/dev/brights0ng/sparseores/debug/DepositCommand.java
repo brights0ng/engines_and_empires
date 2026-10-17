@@ -52,7 +52,8 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  * </ul>
  *
  * Deposit lines show only deposits that exist: ones the terrain check dropped are counted but not listed. The geophone's
- * search ({@code /eae scan}) and {@code /eae shot} are Seismic Surveyance's ({@code seismicsurveyance/debug/SeismicCommand}).
+ * search ({@code /seismic scan}) and {@code /seismic shot} are Seismic Surveyance's
+ * ({@code seismicsurveyance/debug/SeismicCommand}).
  */
 @EventBusSubscriber(modid = SparseOres.MODID)
 public final class DepositCommand {

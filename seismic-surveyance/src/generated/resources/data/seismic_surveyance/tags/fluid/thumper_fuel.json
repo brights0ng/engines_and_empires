@@ -1,0 +1,13 @@
+{
+  "values": [
+    "#seismic_surveyance:premium_thumper_fuel",
+    {
+      "id": "#c:gasoline",
+      "required": false
+    },
+    {
+      "id": "#c:biodiesel",
+      "required": false
+    }
+  ]
+}

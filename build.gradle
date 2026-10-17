@@ -24,6 +24,7 @@ group = mod_group_id
 requireMod(':paradyne-lib')
 requireMod(':meteodyne')
 requireMod(':sparse-ores')
+requireMod(':seismic-surveyance')
 // Mods the dev runs load although the core does not require them (plan section 9: the dev runs load every mod).
 loadMod(':sable-fixes')
 

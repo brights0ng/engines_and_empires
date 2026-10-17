@@ -1,0 +1,21 @@
+plugins {
+    id 'eae.mod-conventions'
+}
+
+requireMod(':paradyne-lib')
+requireMod(':sparse-ores')
+
+dependencies {
+    // Create is required (plan section 2): the thumpers are Create machines, and the survey's blocks and models use its
+    // parts. It brings Flywheel (the thumpers' and the portable record display's visuals) and Catnip (in Ponder). On the
+    // runtime classpath, so every run of this mod loads them, as the root's runs do. Non-transitive like the root's.
+    // See https://wiki.createmod.net/developers/depend-on-create/neoforge-1.21.1
+    implementation("com.simibubi.create:create-${minecraft_version}:${create_version}:slim") { transitive = false }
+    implementation("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
+    compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}")
+    runtimeOnly("dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}")
+    implementation("com.tterrag.registrate:Registrate:${registrate_version}")
+
+    // Create: Diesel Generators is optional: the combustive thumper sorts fuels by fluid tag (#c:diesel and the like),
+    // so no code touches it, and the bare runs go without it. The root's runs load it.
+}
