@@ -1,8 +1,8 @@
 {
   "replace": false,
   "values": [
-    "engines_and_empires:coal_chip",
-    "engines_and_empires:diamond_chip",
-    "engines_and_empires:quartz_chip"
+    "sparse_ores:coal_chip",
+    "sparse_ores:diamond_chip",
+    "sparse_ores:quartz_chip"
   ]
 }

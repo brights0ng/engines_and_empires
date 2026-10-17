@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "seismic_surveyance:item/brass_geophone"
+  }
+}

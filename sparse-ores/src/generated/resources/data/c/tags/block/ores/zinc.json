@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "sparse_ores:rich_zinc_ore",
+      "required": false
+    },
+    {
+      "id": "sparse_ores:rich_deepslate_zinc_ore",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "sparse_ores:block/rich_copper_ore"
+  }
+}

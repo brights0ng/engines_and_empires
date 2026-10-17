@@ -4,10 +4,10 @@
   "cookingtime": 100,
   "experience": 0.1,
   "ingredient": {
-    "item": "engines_and_empires:rich_deepslate_coal_ore"
+    "item": "sparse_ores:rich_deepslate_coal_ore"
   },
   "result": {
     "count": 5,
-    "id": "engines_and_empires:coal_chip"
+    "id": "sparse_ores:coal_chip"
   }
 }
