@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "bottom": "simple_spoilage:block/ice_chest_bottom",
+    "side": "simple_spoilage:block/ice_chest_side",
+    "top": "simple_spoilage:block/ice_chest_top"
+  }
+}
