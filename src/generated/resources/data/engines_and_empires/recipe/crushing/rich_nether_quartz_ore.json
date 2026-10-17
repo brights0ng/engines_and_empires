@@ -2,18 +2,18 @@
   "type": "create:crushing",
   "ingredients": [
     {
-      "item": "engines_and_empires:rich_nether_quartz_ore"
+      "item": "sparse_ores:rich_nether_quartz_ore"
     }
   ],
   "processing_time": 350,
   "results": [
     {
       "count": 14,
-      "id": "engines_and_empires:quartz_chip"
+      "id": "sparse_ores:quartz_chip"
     },
     {
       "chance": 0.05,
-      "id": "engines_and_empires:quartz_chip"
+      "id": "sparse_ores:quartz_chip"
     },
     {
       "count": 3,

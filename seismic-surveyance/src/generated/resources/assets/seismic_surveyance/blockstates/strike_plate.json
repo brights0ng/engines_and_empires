@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "seismic_surveyance:block/strike_plate"
+    }
+  }
+}

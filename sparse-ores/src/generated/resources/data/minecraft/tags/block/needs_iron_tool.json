@@ -1,0 +1,20 @@
+{
+  "values": [
+    {
+      "id": "sparse_ores:rich_zinc_ore",
+      "required": false
+    },
+    {
+      "id": "sparse_ores:rich_deepslate_zinc_ore",
+      "required": false
+    },
+    "sparse_ores:rich_redstone_ore",
+    "sparse_ores:rich_deepslate_redstone_ore",
+    "sparse_ores:rich_gold_ore",
+    "sparse_ores:rich_deepslate_gold_ore",
+    "sparse_ores:rich_emerald_ore",
+    "sparse_ores:rich_deepslate_emerald_ore",
+    "sparse_ores:rich_diamond_ore",
+    "sparse_ores:rich_deepslate_diamond_ore"
+  ]
+}

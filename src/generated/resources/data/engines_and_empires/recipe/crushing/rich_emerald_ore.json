@@ -2,7 +2,7 @@
   "type": "create:crushing",
   "ingredients": [
     {
-      "item": "engines_and_empires:rich_emerald_ore"
+      "item": "sparse_ores:rich_emerald_ore"
     }
   ],
   "processing_time": 350,

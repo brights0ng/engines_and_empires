@@ -1,0 +1,62 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="brights0ng"
+description='''
+${mod_description}
+'''
+# Enum constants this mod adds (currently one: the arm pose for holding the portable record display up in both hands).
+enumExtensions="META-INF/enumextensions.json"
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Paradyne Lib, the family's library: the terrain the waves travel through, and the game test structure.
+[[dependencies.${mod_id}]]
+    modId="paradyne_lib"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Sparse Ores: the deposits the survey listens for.
+[[dependencies.${mod_id}]]
+    modId="sparse_ores"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Create (with Flywheel and Catnip). The thumpers are Create machines, and the survey's blocks look up Create's parts,
+# so this mod loads AFTER Create.
+[[dependencies.${mod_id}]]
+    modId="create"
+    type="required"
+    versionRange="${create_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+# Create: Diesel Generators (optional). Its diesel, gasoline, biodiesel and ethanol fuel the combustive thumper, found by
+# fluid tag, so nothing breaks without it.
+[[dependencies.${mod_id}]]
+    modId="createdieselgenerators"
+    type="optional"
+    versionRange="*"
+    ordering="NONE"
+    side="BOTH"
