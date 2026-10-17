@@ -1,0 +1,51 @@
+// The core-less combined run (split step 4b): the seven feature mods of the family together, without the core mod, and
+// what they require (Create for Seismic Surveyance, Sable for Sable Fixes, Deeper and Darker for Frontier), nothing else.
+// Bright's standing principle: every mod runs complete without the core, and the feature mods work with each other
+// without it. Each mod's bare run proves the first half; this run proves the second: every feature mod's game tests,
+// in one game with all the others.
+//
+// It builds no mod of its own, so it applies eae.family-base (repositories, NeoForge, loadMod, the run limit) and not
+// eae.mod-conventions. Its one run, runGameTestServer, is part of the full check: `./gradlew ... runGameTestServer`
+// runs every project's run task, and the run limit queues it with the others. Its game folder is coreless/run.
+plugins {
+    id 'eae.family-base'
+}
+
+// The mods it loads, each from its own classes and resources folders (loadMod also loads what each one requires; none
+// of them is compiled against here, as there are no sources).
+def featureMods = [':paradyne-lib', ':sable-fixes', ':sparse-ores', ':seismic-surveyance', ':meteodyne', ':frontier',
+                   ':simple-spoilage']
+featureMods.each { loadMod(it) }
+def featureModIds = featureMods.collect { project(it).mod_id }
+
+dependencies {
+    // What the feature mods require from outside the family, as each one's own build.gradle declares it (the same
+    // artifacts the root's runs load). Optional outside mods (Diesel Generators, Iris, Cold Sweat, ...) stay out, as in
+    // the bare runs: they are integration, the core's business.
+    // Seismic Surveyance: Create and what it brings (Ponder, Flywheel, Registrate). Non-transitive like Seismic's.
+    runtimeOnly("com.simibubi.create:create-${minecraft_version}:${create_version}:slim") { transitive = false }
+    runtimeOnly("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
+    runtimeOnly("dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}")
+    runtimeOnly("com.tterrag.registrate:Registrate:${registrate_version}")
+    // Sable Fixes: Sable (it carries Veil and its companion library inside its own jar).
+    runtimeOnly("dev.ryanhcode.sable:sable-neoforge-${minecraft_version}:${sable_version}") { transitive = false }
+    // Frontier: Deeper and Darker, from Frontier's own declaration.
+    runtimeOnly(project(path: ':frontier', configuration: 'requiredRuntimeElements'))
+}
+
+neoForge {
+    runs {
+        // Every feature mod's game tests, no core: the namespaces are exactly the loaded mods' ids. To chase a failure,
+        // -Pcoreless.namespaces=frontier,meteodyne runs only those mods' tests (all seven mods still load).
+        gameTestServer {
+            type = 'gameTestServer'
+            systemProperty 'neoforge.enabledGameTestNamespaces',
+                    project.findProperty('coreless.namespaces')?.toString() ?: featureModIds.join(',')
+        }
+    }
+}
+
+// No sources, so nothing to ship: no jar (and buildAll, the root's, collects only the mods' jars).
+tasks.named('jar') {
+    enabled = false
+}

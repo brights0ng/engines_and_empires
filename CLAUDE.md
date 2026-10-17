@@ -16,7 +16,7 @@ One multi-project Gradle build, one project per mod. The root project is the cor
 | `simple-spoilage/` | `simple_spoilage` | `simplespoilage` | lib | |
 | root (`src/`) | `engines_and_empires` | `enginesandempires` | lib and the five feature mods (not Sable Fixes) | Sable, Create, Simulated, Aeronautics, Offroad, Encumbered |
 
-Plan section 2 (`docs/split/mod-split-plan.md`) has the optional dependencies. New mods are 0.1.0, the core 0.4.0; every licence is All Rights Reserved. Shared build settings are the convention plugin `build-logic/src/main/groovy/eae.mod-conventions.gradle`; `docs/split/build-layout.md` explains the layout.
+Plan section 2 (`docs/split/mod-split-plan.md`) has the optional dependencies. New mods are 0.1.0, the core 0.4.0; every licence is All Rights Reserved. Shared build settings are the convention plugin `build-logic/src/main/groovy/eae.mod-conventions.gradle`, which applies `eae.family-base.gradle` (what a project that only runs mods shares with the mods); `docs/split/build-layout.md` explains the layout. One more project, `coreless/`, is not a mod: it holds the feature mods' combined run without the core (no sources, no `gradle.properties`).
 
 Background on behaviour that must not change: `docs/design/` (eight read-only reference notes; see its README; `docs/split/path-map.md` maps their old `claude/*.md` paths). Known problems: `docs/known-issues.md`.
 
@@ -32,8 +32,8 @@ Gradle and javac enforce the graph between projects; `ArchitectureTest` (core un
 `pack/`, anything for the Modrinth profile, `tools/profiling`, `run/`. Do not delete tests to make things pass. Do not weaken assertions. Do not edit `docs/design/`.
 
 ## Commands
-- Full check: `./gradlew compileJava compileTestJava test runGameTestServer`. Baseline after split step 4: 1049 unit tests (2 skipped, the `EAE_BENCH` cloud benchmarks), 215/215 aggregate game tests, and every bare run green (Frontier 13, Meteodyne 67, lib 3, Sable Fixes 2, Seismic 15, Spoilage 34, Sparse Ores 2). New tests add to it; none may be removed or skipped without Bright.
-- `runGameTestServer` runs the aggregate (`:runGameTestServer`, every mod) and one bare run per mod (`:<project>:runGameTestServer`, only that mod and what it requires); a build service runs them one at a time.
+- Full check: `./gradlew compileJava compileTestJava test runGameTestServer`. Baseline after split step 4b: 1052 unit tests (2 skipped, the `EAE_BENCH` cloud benchmarks), 218/218 aggregate game tests, every bare run green (Frontier 13, Meteodyne 67, lib 3, Sable Fixes 2, Seismic 15, Spoilage 34, Sparse Ores 5), and the core-less combined run 158/158. New tests add to it; none may be removed or skipped without Bright.
+- `runGameTestServer` runs the aggregate (`:runGameTestServer`, every mod), one bare run per mod (`:<project>:runGameTestServer`, only that mod and what it requires) and the core-less combined run (`:coreless:runGameTestServer`: the seven feature mods and what they require, Create, Sable and Deeper and Darker, no core; every feature mod's game tests; `-Pcoreless.namespaces=<ids>` narrows it); a build service runs them one at a time. Bright's standing principle: every mod runs complete without the core and the feature mods work with each other without it (`docs/standalone-audit.md`).
 - Data: `:<project>:runData` writes that mod's `src/generated/resources`; `:runData` is the core's. If the root's `:runData` hangs during startup (third-party class-init deadlock among Simulated, Veil and Create), rerun it; it is not our code. Commit the regenerated files; a data run on unchanged code must leave no diff.
 - Jars: `./gradlew build buildAll` puts every mod's jar in `build/allJars` (separate jars, no jar-in-jar; game test classes are left out of the jars).
 - Cold compile ~9 min, warm ~5 min, game tests ~3-5 min on 2-4 cores. Run in the background and poll; do not run two Gradle builds at once.

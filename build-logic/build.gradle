@@ -1,4 +1,5 @@
-// Builds the convention plugin (src/main/groovy/eae.mod-conventions.gradle) that every mod project applies.
+// Builds the convention plugins: src/main/groovy/eae.mod-conventions.gradle, which every mod project applies, and
+// eae.family-base.gradle, which it applies and the core-less combined run (coreless/) applies alone.
 plugins {
     id 'groovy-gradle-plugin'
 }
