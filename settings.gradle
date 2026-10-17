@@ -16,3 +16,4 @@ rootProject.name = 'engines_and_empires'
 
 include 'paradyne-lib'
 include 'sable-fixes'
+include 'meteodyne'

@@ -1,0 +1,52 @@
+plugins {
+    id 'eae.mod-conventions'
+}
+
+requireMod(':paradyne-lib')
+
+configurations {
+    // Iris and Sodium, for testing the clouds with shader packs in the dev client (the pack ships them from Modrinth).
+    // Nothing of Meteodyne's own runs uses them: the root's client run syncs them into run/mods (see the root's
+    // shaderRuntime), so they are offered from here as a consumable configuration only.
+    shaderRuntimeElements {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+dependencies {
+    // Sable is optional (plan section 2): only the sable sub-package touches it, and only after ModList.isLoaded("sable"),
+    // so it is compiled against but never on the runtime classpath of Meteodyne's own runs. Non-transitive: its pom
+    // pulls in a Sable build that isn't published. Its companion library (Pose3d, bounding boxes) is inside Sable's jar
+    // at runtime.
+    compileOnly("dev.ryanhcode.sable:sable-neoforge-${minecraft_version}:${sable_version}") { transitive = false }
+    compileOnly("dev.ryanhcode.sable-companion:sable-companion-common-${minecraft_version}:${sable_companion_version}") { transitive = false }
+
+    // Iris is optional: the clouds compile against it (compat/iris/IrisCompat), and only touch it when it's installed.
+    compileOnly("maven.modrinth:iris:${iris_version}") { transitive = false }
+    shaderRuntimeElements("maven.modrinth:iris:${iris_version}") { transitive = false }
+    shaderRuntimeElements("maven.modrinth:sodium:${sodium_version}") { transitive = false }
+}
+
+neoForge {
+    runs {
+        // The bare game test run (the convention plugin's): the headless climatology year
+        // (gametest/ClimatologyDiagnosticRun), off unless asked for with -Pmeteodyne.climatologyDays=...
+        gameTestServer {
+            ['meteodyne.climatologyDays', 'meteodyne.climatologyX', 'meteodyne.climatologyZ'].each { key ->
+                if (project.hasProperty(key)) {
+                    systemProperty key, project.property(key).toString()
+                }
+            }
+        }
+    }
+}
+
+tasks.named('test') {
+    // Weather phase 7c: the forecast skill harness runs longer offline with -Pmeteodyne.harnessDays=30 (and harnessSeeds).
+    ['meteodyne.harnessDays', 'meteodyne.harnessSeeds'].each { key ->
+        if (project.hasProperty(key)) {
+            systemProperty key, project.property(key)
+        }
+    }
+}

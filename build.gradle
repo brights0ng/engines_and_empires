@@ -22,6 +22,7 @@ group = mod_group_id
 
 // The mods of the family the core compiles against and loads in every run (and the mods those require).
 requireMod(':paradyne-lib')
+requireMod(':meteodyne')
 // Mods the dev runs load although the core does not require them (plan section 9: the dev runs load every mod).
 loadMod(':sable-fixes')
 
@@ -42,12 +43,13 @@ neoForge {
             server()
             programArgument '--nogui'
             systemProperty 'neoforge.enabledGameTestNamespaces', allModIds()
-            // Weather phase 8a: a headless climatology run on a world copy (-Peae.world=<folder under run/>
-            // -Peae.climatologyAuto="x,z;x,z" [-Peae.climatologyDays=72]); the server stops when it is done.
-            if (project.hasProperty('eae.world')) {
-                programArguments.addAll '--world', project.property('eae.world').toString()
+            // Weather phase 8a (Meteodyne): a headless climatology run on a world copy (-Pmeteodyne.world=<folder under
+            // run/> -Pmeteodyne.climatologyAuto="x,z;x,z" [-Pmeteodyne.climatologyDays=72]); the server stops when it is
+            // done.
+            if (project.hasProperty('meteodyne.world')) {
+                programArguments.addAll '--world', project.property('meteodyne.world').toString()
             }
-            ['eae.climatologyAuto', 'eae.climatologyDays', 'eae.legacy8b'].each { key ->
+            ['meteodyne.climatologyAuto', 'meteodyne.climatologyDays', 'meteodyne.legacy8b'].each { key ->
                 if (project.hasProperty(key)) {
                     systemProperty key, project.property(key).toString()
                 }
@@ -60,8 +62,9 @@ neoForge {
         // The aggregate game test run: the core's own run already loads every mod; it runs every mod's game tests.
         gameTestServer {
             systemProperty 'neoforge.enabledGameTestNamespaces', allModIds()
-            // Weather phase 8a: the headless climatology year (gametest/ClimatologyDiagnosticRun), off unless asked for.
-            ['eae.climatologyDays', 'eae.climatologyX', 'eae.climatologyZ'].each { key ->
+            // Weather phase 8a (Meteodyne): the headless climatology year (gametest/ClimatologyDiagnosticRun), off unless
+            // asked for.
+            ['meteodyne.climatologyDays', 'meteodyne.climatologyX', 'meteodyne.climatologyZ'].each { key ->
                 if (project.hasProperty(key)) {
                     systemProperty key, project.property(key).toString()
                 }
@@ -189,10 +192,9 @@ dependencies {
     localRuntime("maven.modrinth:cold-sweat:${cold_sweat_version}")
 
     // Iris and Sodium: shader packs in the dev client (the pack ships them from Modrinth), loaded from run/mods (see
-    // shaderRuntime). The clouds compile against Iris (weather/cloud/client/IrisCompat), only touched when it's installed.
-    compileOnly("maven.modrinth:iris:${iris_version}") { transitive = false }
-    shaderRuntime("maven.modrinth:iris:${iris_version}") { transitive = false }
-    shaderRuntime("maven.modrinth:sodium:${sodium_version}") { transitive = false }
+    // shaderRuntime). Meteodyne's clouds compile against Iris (compat/iris/IrisCompat), so Meteodyne declares them
+    // (split step 2c) and offers them to this client run.
+    shaderRuntime(project(path: ':meteodyne', configuration: 'shaderRuntimeElements'))
     // GlitchCore 2.1.0.2, Serene Seasons' library, for the client run only (synced into run/mods like Iris and Sodium).
     shaderRuntime("maven.modrinth:glitchcore:S2TfWrZR") { transitive = false }
 
