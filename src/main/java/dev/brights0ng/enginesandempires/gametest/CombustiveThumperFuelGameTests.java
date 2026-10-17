@@ -26,17 +26,18 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * In-world tests for the combustive thumper, run by the {@code GameTestServer} run configuration (or {@code /test runall}
- * in a dev world). They need Create: Diesel Generators for its fuels, which the dev runs always have. That makes them core
- * integration tests (split step 2e): Seismic Surveyance only has Diesel Generators optionally, and its bare run goes
- * without it.
+ * In-world tests for the combustive thumper on Create: Diesel Generators' fuels, run by the {@code GameTestServer} run
+ * configuration (or {@code /test runall} in a dev world). They need Diesel Generators, which the dev runs always have.
+ * That makes them core integration tests (split step 2e): Seismic Surveyance only has Diesel Generators optionally, and
+ * its bare run goes without it. The thumper's tests that need no fuel are Seismic Surveyance's own
+ * ({@code seismicsurveyance.gametest.CombustiveThumperGameTests}, split step 2d).
  *
  * <p>Each test starts from an empty template ({@link GameTestStructures}) and builds what it needs. The head is lifted by
  * setting the block entity's armed flag directly: the tests are about what a shot does, not about the torque that lifts it.
  */
 @GameTestHolder(EnginesAndEmpires.MODID)
 @PrefixGameTestTemplate(false)
-public final class CombustiveThumperGameTests {
+public final class CombustiveThumperFuelGameTests {
 
     private static final String SCRATCH = GameTestStructures.EMPTY;
 
@@ -116,18 +117,6 @@ public final class CombustiveThumperGameTests {
         helper.succeed();
     }
 
-    /** Taking away the top (not by a player: an explosion, a command) brings the whole machine down, and drops it. */
-    @GameTest(template = SCRATCH, timeoutTicks = 60)
-    public static void losingThePartsAboveDropsTheMachine(GameTestHelper helper) {
-        build(helper);
-        helper.setBlock(THUMPER.above(2), Blocks.AIR);
-        helper.succeedWhen(() -> {
-            helper.assertBlockNotPresent(SeismicContent.COMBUSTIVE_THUMPER.get(), THUMPER);
-            helper.assertBlockNotPresent(SeismicContent.COMBUSTIVE_THUMPER_COLUMN.get(), THUMPER.above());
-            helper.assertItemEntityPresent(SeismicContent.COMBUSTIVE_THUMPER.get().asItem(), THUMPER, 2.0);
-        });
-    }
-
     /**
      * Firing on ethanol must blow up the stone around it, not just the thumper and its plate, and only once the ram has
      * come down, a few ticks after the pulse.
@@ -148,25 +137,6 @@ public final class CombustiveThumperGameTests {
             if (!helper.getBlockState(beside).isAir()) {
                 throw new GameTestAssertException("the stone right beside the thumper survived the blast");
             }
-        });
-    }
-
-    /** A water-filled tank: the ram just drops, nothing burns, nothing explodes. */
-    @GameTest(template = SCRATCH)
-    public static void waterShotIsADud(GameTestHelper helper) {
-        CombustiveThumperBlockEntity thumper = build(helper);
-        helper.setBlock(THUMPER.east(), Blocks.STONE);
-        fill(thumper, Fluids.WATER, 1000);
-        arm(thumper);
-        thumper.fireIfArmed();
-        helper.runAfterDelay(20, () -> {
-            if (thumper.fluid().getAmount() != 1000) {
-                helper.fail("water was used up: " + thumper.fluid().getAmount());
-                return;
-            }
-            helper.assertBlockPresent(Blocks.STONE, THUMPER.east());
-            helper.assertBlockPresent(SeismicContent.COMBUSTIVE_THUMPER.get(), THUMPER);
-            helper.succeed();
         });
     }
 
@@ -214,6 +184,6 @@ public final class CombustiveThumperGameTests {
         }
     }
 
-    private CombustiveThumperGameTests() {
+    private CombustiveThumperFuelGameTests() {
     }
 }
