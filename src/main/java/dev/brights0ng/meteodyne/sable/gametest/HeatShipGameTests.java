@@ -1,4 +1,4 @@
-package dev.brights0ng.meteodyne.gametest;
+package dev.brights0ng.meteodyne.sable.gametest;
 
 import java.util.List;
 
@@ -30,15 +30,16 @@ import net.minecraft.world.level.block.CampfireBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.attachment.AttachmentHolder;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Weather phase 8f-5: the heat simulation on ships (Sable sub-levels). Each test spawns its own ship 60 blocks over the
  * test cell, plans only inside that ship's plot ({@link HeatWorld#setTestArea}) with the live tick paused, and removes
  * the ship (and anything built in the world) at the end. Same batch as the other heat tests.
+ *
+ * <p>Needs Sable: not a {@code @GameTestHolder} (NeoForge would load every holder, Sable or not), but registered by
+ * {@code MeteodyneSable} only when Sable is loaded, each test naming Meteodyne's template namespace itself.
  */
-@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class HeatShipGameTests {
 
@@ -133,7 +134,7 @@ public final class HeatShipGameTests {
     // ---- tests ----
 
     /** Its own batch: it waits a few ticks, and the other heat tests would forget its regions meanwhile. */
-    @GameTest(template = SCRATCH, batch = "heat_ship_cabin", timeoutTicks = 200)
+    @GameTest(templateNamespace = Meteodyne.MODID, template = SCRATCH, batch = "heat_ship_cabin", timeoutTicks = 200)
     public static void aShipsCabinWarmsAndIsFeltAboard(GameTestHelper helper) {
         ServerSubLevel ship = spawn(helper);
         HeatWorld w = world(helper, ship);
@@ -193,7 +194,7 @@ public final class HeatShipGameTests {
         }
     }
 
-    @GameTest(template = SCRATCH, batch = BATCH, timeoutTicks = 200)
+    @GameTest(templateNamespace = Meteodyne.MODID, template = SCRATCH, batch = BATCH, timeoutTicks = 200)
     public static void lavaAboardCountsWithNobodyNear(GameTestHelper helper) {
         ServerSubLevel ship = spawn(helper);
         HeatWorld w = world(helper, ship);
@@ -220,7 +221,7 @@ public final class HeatShipGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH, batch = BATCH, timeoutTicks = 200)
+    @GameTest(templateNamespace = Meteodyne.MODID, template = SCRATCH, batch = BATCH, timeoutTicks = 200)
     public static void aShipFeelsTheWindAndAHangarRoofsIt(GameTestHelper helper) {
         ServerSubLevel ship = spawn(helper);
         HeatWorld w = world(helper, ship);

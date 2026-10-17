@@ -1,11 +1,12 @@
-package dev.brights0ng.meteodyne.gametest;
+package dev.brights0ng.meteodyne.sable.gametest;
 
 import org.joml.Vector2i;
 
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.meteodyne.gametest.GameTestSky;
 import dev.brights0ng.meteodyne.rain.LocalWeather;
 import dev.brights0ng.meteodyne.rain.Precip;
-import dev.brights0ng.meteodyne.ships.ShipWeather;
+import dev.brights0ng.meteodyne.sable.ShipWeather;
 import dev.brights0ng.meteodyne.surface.GlazeBlock;
 import dev.brights0ng.meteodyne.surface.HailDamage;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
@@ -29,25 +30,26 @@ import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Phase 5d of the weather backbone: ships (Sable sub-levels) as cover from the sky, and weather on their decks. Each test
  * spawns a one-block ship over the test area (it falls slowly at first; the checks run a few ticks in) and opens the
  * test framework's barrier roof over it.
+ *
+ * <p>Needs Sable: not a {@code @GameTestHolder} (NeoForge would load every holder, Sable or not), but registered by
+ * {@code MeteodyneSable} only when Sable is loaded, each test naming Meteodyne's template namespace itself.
  */
-@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class ShipWeatherGameTests {
 
     private static final String SCRATCH = GameTestStructures.EMPTY;
 
     /** A ship's block shelters the column under it (hail and rain), not the air above or beside it. */
-    @GameTest(template = SCRATCH, timeoutTicks = 60)
+    @GameTest(templateNamespace = Meteodyne.MODID, template = SCRATCH, timeoutTicks = 60)
     public static void aShipSheltersWhatIsUnderIt(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        openSky(helper);
+        GameTestSky.openSky(helper);
         helper.setBlock(new BlockPos(4, 1, 4), Blocks.STONE);
         ServerSubLevel ship = spawnBlock(helper, 4.5, 7, 4.5, Blocks.STONE.defaultBlockState());
         helper.runAfterDelay(3, () -> {
@@ -76,10 +78,10 @@ public final class ShipWeatherGameTests {
     }
 
     /** Snow settles on a deck and is stripped off at speed; glaze settles too and stays. */
-    @GameTest(template = SCRATCH, timeoutTicks = 60)
+    @GameTest(templateNamespace = Meteodyne.MODID, template = SCRATCH, timeoutTicks = 60)
     public static void deckCollectsSnowAndGlaze(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        openSky(helper);
+        GameTestSky.openSky(helper);
         ServerSubLevel ship = spawnBlock(helper, 4.5, 7, 4.5, Blocks.STONE.defaultBlockState());
         ServerSubLevelContainer container = SubLevelContainer.getContainer(level);
         helper.runAfterDelay(3, () -> {
@@ -100,22 +102,6 @@ public final class ShipWeatherGameTests {
             remove(level, ship);
             helper.succeed();
         });
-    }
-
-    /** Opens the test framework's barrier roof over the whole test area. */
-    static void openSky(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        for (int x = -1; x <= 9; x++) {
-            for (int z = -1; z <= 9; z++) {
-                BlockPos base = helper.absolutePos(new BlockPos(x, 0, z));
-                for (int y = 1; y <= 24; y++) {
-                    BlockPos p = base.above(y);
-                    if (level.getBlockState(p).is(Blocks.BARRIER)) {
-                        level.setBlock(p, Blocks.AIR.defaultBlockState(), 3);
-                    }
-                }
-            }
-        }
     }
 
     /** A one-block ship at (x, y, z) relative to the test (as WindGameTests spawns them). */

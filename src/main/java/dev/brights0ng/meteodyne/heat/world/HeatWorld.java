@@ -14,26 +14,15 @@ import java.util.concurrent.Executors;
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.climate.Temperature;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
+import dev.brights0ng.meteodyne.ships.Ships;
 import dev.brights0ng.meteodyne.wind.WindSources;
 import dev.brights0ng.paradynelib.heat.air.AirGrid;
 import dev.brights0ng.paradynelib.heat.air.AirParams;
 import dev.brights0ng.paradynelib.heat.air.HeatClusters;
-import dev.brights0ng.paradynelib.sable.ships.ShipCover;
-import dev.brights0ng.paradynelib.sable.wind.ShelterProbe;
 import dev.brights0ng.paradynelib.wind.Shelter;
-import dev.brights0ng.paradynelib.wind.WindBlend;
 import dev.brights0ng.paradynelib.wind.WindColumn;
 import dev.brights0ng.paradynelib.wind.WindConfig;
 import dev.brights0ng.paradynelib.wind.WindParams;
-import dev.ryanhcode.sable.Sable;
-import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
-import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
-import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
-import dev.ryanhcode.sable.companion.math.BoundingBox3ic;
-import dev.ryanhcode.sable.companion.math.Pose3dc;
-import dev.ryanhcode.sable.sublevel.ServerSubLevel;
-import dev.ryanhcode.sable.sublevel.SubLevel;
-import org.joml.Vector3d;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
@@ -339,15 +328,7 @@ public final class HeatWorld {
     /** Players (not spectators) and ships in the level, and test anchors. */
     List<Vec3> anchors() {
         List<Vec3> out = people();
-        ServerSubLevelContainer container = SubLevelContainer.getContainer(level);
-        if (container != null) {
-            for (ServerSubLevel ship : container.getAllSubLevels()) {
-                if (!ship.isRemoved()) {
-                    BoundingBox3dc b = ship.boundingBox();
-                    out.add(new Vec3((b.minX() + b.maxX()) / 2, (b.minY() + b.maxY()) / 2, (b.minZ() + b.maxZ()) / 2));
-                }
-            }
-        }
+        HeatShips.get().addCentres(level, out);
         return out;
     }
 
@@ -376,72 +357,19 @@ public final class HeatWorld {
     }
 
     /** The ship whose plot holds the middle of {@code box}, or null for the world. */
-    private SubLevel shipOf(int[] box) {
+    private Object shipOf(int[] box) {
         int cx = ((box[0] + box[3]) / 2) >> 4;
         int cz = ((box[2] + box[5]) / 2) >> 4;
-        if (!ShipCover.inPlot(level, new ChunkPos(cx, cz))) {
-            return null;
-        }
-        SubLevel ship = Sable.HELPER.getContaining(level, cx, cz);
-        return ship == null || ship.isRemoved() ? null : ship;
+        return HeatShips.get().containing(level, cx, cz);
     }
 
     /** What {@code ship}'s regions take from where it is now (public for the game tests). */
-    public ShipAir shipAir(SubLevel ship) {
+    public ShipAir shipAir(Object ship) {
         return shipAir(ship, List.of());
     }
 
-    ShipAir shipAir(SubLevel ship, List<Vec3> anchors) {
-        WindParams wp = WindConfig.params();
-        BoundingBox3ic pb = ship.getPlot().getBoundingBox();
-        Pose3dc pose = ship.logicalPose();
-        Vector3d plotCentre = pb.volume() > 0
-                ? new Vector3d((pb.minX() + pb.maxX() + 1) / 2.0, (pb.minY() + pb.maxY() + 1) / 2.0,
-                (pb.minZ() + pb.maxZ() + 1) / 2.0)
-                : new Vector3d(ship.getPlot().getCenterBlock().getX(), ship.getPlot().getCenterBlock().getY(),
-                ship.getPlot().getCenterBlock().getZ());
-        Vector3d world = pose.transformPosition(plotCentre, new Vector3d());
-
-        // The wind at its height, against its own motion
-        double wx = 0;
-        double wz = 0;
-        WindColumn column = WindSources.column(level, world.x, world.z);
-        if (column != null) {
-            BlockPos here = BlockPos.containing(world.x, world.y, world.z);
-            double ground = level.hasChunkAt(here)
-                    ? level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, here.getX(), here.getZ())
-                    : level.getSeaLevel();
-            double[] w = column.at(WindBlend.aloftShare(world.y, ground, wp.surfaceLayer(), wp.aloftHeight()));
-            wx = w[0];
-            wz = w[1];
-        }
-        Vector3d velocity = Sable.HELPER.getVelocity(level, plotCentre, new Vector3d());
-        double rx = wx - velocity.x;
-        double rz = wz - velocity.z;
-
-        // World blocks around it as a whole (a hangar, a dock wall)
-        BoundingBox3dc wb = ship.boundingBox();
-        double[] coverage = new double[Shelter.FACES];
-        ShelterProbe.measure(level, wb.minX(), wb.minY(), wb.minZ(), wb.maxX(), wb.maxY(), wb.maxZ(),
-                wp.sideReach(), wp.roofReach(), coverage);
-        boolean roofed = coverage[Shelter.TOP] >= 0.5;
-        double speed = Math.hypot(rx, rz);
-        if (speed > 1e-6) {
-            double exposure = Shelter.exposure(coverage, rx / speed, rz / speed, wp.roofWeight());
-            rx *= exposure;
-            rz *= exposure;
-        }
-        Vector3d local = pose.transformNormalInverse(new Vector3d(rx, 0, rz), new Vector3d());
-
-        boolean near = false;
-        for (Vec3 a : people()) {
-            if (a.x >= wb.minX() - NEAR && a.x <= wb.maxX() + NEAR && a.y >= wb.minY() - NEAR
-                    && a.y <= wb.maxY() + NEAR && a.z >= wb.minZ() - NEAR && a.z <= wb.maxZ() + NEAR) {
-                near = true;
-                break;
-            }
-        }
-        return new ShipAir(new Vec3(world.x, world.y, world.z), local.x, local.z, roofed, near);
+    ShipAir shipAir(Object ship, List<Vec3> anchors) {
+        return HeatShips.get().shipAir(level, ship, people(), NEAR);
     }
 
     /**
@@ -449,7 +377,7 @@ public final class HeatWorld {
      * removed or disassembled.
      */
     private void pruneShipChunks() {
-        java.util.function.LongPredicate gone = key -> ShipCover.inPlot(level, new ChunkPos(key))
+        java.util.function.LongPredicate gone = key -> Ships.get().inPlot(level, new ChunkPos(key))
                 && level.getChunkSource().getChunkNow(ChunkPos.getX(key), ChunkPos.getZ(key)) == null;
         placed.keySet().removeIf(gone);
         naturals.keySet().removeIf(gone);
@@ -547,17 +475,7 @@ public final class HeatWorld {
         }
         // 8f-5: every loaded ship's chunks; natural sources aboard always count (a ship is its own anchor)
         LongOpenHashSet aboard = new LongOpenHashSet();
-        ServerSubLevelContainer container = SubLevelContainer.getContainer(level);
-        if (container != null) {
-            for (ServerSubLevel ship : container.getAllSubLevels()) {
-                if (ship.isRemoved()) {
-                    continue;
-                }
-                for (var holder : ship.getPlot().getLoadedChunks()) {
-                    aboard.add(holder.getPos().toLong());
-                }
-            }
-        }
+        HeatShips.get().addLoadedChunks(level, aboard);
         chunks.addAll(aboard);
         double reach2 = (double) reach * reach;
         for (long key : chunks) {
@@ -675,7 +593,7 @@ public final class HeatWorld {
         }
 
         regions = next;
-        Map<SubLevel, ShipAir> shipAir = new IdentityHashMap<>();
+        Map<Object, ShipAir> shipAir = new IdentityHashMap<>();
         for (HeatRegion r : regions) {
             r.ship = shipOf(r.box);
             ShipAir air = null;
@@ -693,13 +611,13 @@ public final class HeatWorld {
      */
     private List<HeatClusters.Cluster> clusters(List<Found> found, HeatSettings s, int minY, int maxY) {
         Map<Object, List<Integer>> homes = new java.util.LinkedHashMap<>();
-        Map<Object, SubLevel> ships = new IdentityHashMap<>();
+        Map<Object, Object> ships = new IdentityHashMap<>();
         for (int i = 0; i < found.size(); i++) {
             Found f = found.get(i);
             Object home = WORLD_HOME;
-            if (ShipCover.inPlot(level, new ChunkPos(f.x >> 4, f.z >> 4))) {
-                SubLevel ship = ShipCover.shipAt(level, new BlockPos(f.x, f.y, f.z));
-                if (ship == null || ship.isRemoved()) {
+            if (Ships.get().inPlot(level, new ChunkPos(f.x >> 4, f.z >> 4))) {
+                Object ship = HeatShips.get().shipAt(level, new BlockPos(f.x, f.y, f.z));
+                if (ship == null) {
                     continue;
                 }
                 home = ship;
@@ -720,7 +638,7 @@ public final class HeatWorld {
                 y[i] = f.y;
                 z[i] = f.z;
             }
-            SubLevel ship = ships.get(e.getKey());
+            Object ship = ships.get(e.getKey());
             for (HeatClusters.Cluster c : HeatClusters.cluster(x, y, z, s.margin(), s.maxSize(), minY, maxY)) {
                 int[] members = new int[c.members().length];
                 for (int i = 0; i < members.length; i++) {
@@ -728,7 +646,7 @@ public final class HeatWorld {
                 }
                 int[] box = c.box();
                 if (ship != null) {
-                    box = clipToPlot(box, ship);
+                    box = HeatShips.get().clipToPlot(box, ship);
                     if (box == null) {
                         continue;
                     }
@@ -740,18 +658,6 @@ public final class HeatWorld {
     }
 
     private static final Object WORLD_HOME = new Object();
-
-    /** {@code box} cut to the ship's plot (its whole reserved grid), or null if too little is left. */
-    private static int[] clipToPlot(int[] box, SubLevel ship) {
-        ChunkPos min = ship.getPlot().getChunkMin();
-        ChunkPos max = ship.getPlot().getChunkMax();
-        int[] b = box.clone();
-        b[0] = Math.max(b[0], min.getMinBlockX());
-        b[2] = Math.max(b[2], min.getMinBlockZ());
-        b[3] = Math.min(b[3], max.getMaxBlockX());
-        b[5] = Math.min(b[5], max.getMaxBlockZ());
-        return b[3] - b[0] >= 2 && b[5] - b[2] >= 2 ? b : null;
-    }
 
     private static boolean inside(int[] b, int x, int y, int z) {
         return x >= b[0] && y >= b[1] && z >= b[2] && x <= b[3] && y <= b[4] && z <= b[5];
@@ -1284,10 +1190,10 @@ public final class HeatWorld {
      * world point inside a ship's bounds reads the ship's rooms there if one holds it, else the world's.
      */
     public double roomAt(Vec3 at) {
-        if (ShipCover.inPlot(level, BlockPos.containing(at))) {
+        if (Ships.get().inPlot(level, BlockPos.containing(at))) {
             return offsetAt(at.x, at.y, at.z);
         }
-        Vec3 plot = ShipCover.plotPoint(level, at.x, at.y, at.z);
+        Vec3 plot = Ships.get().plotPoint(level, at.x, at.y, at.z);
         if (plot != null) {
             double v = regionOffset(plot.x, plot.y, plot.z);
             if (!Double.isNaN(v)) {

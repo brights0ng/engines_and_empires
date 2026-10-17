@@ -4,11 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import dev.brights0ng.meteodyne.heat.world.HeatView;
-import dev.brights0ng.paradynelib.sable.ships.ShipCover;
-import dev.ryanhcode.sable.Sable;
-import dev.ryanhcode.sable.companion.math.Pose3dc;
-import dev.ryanhcode.sable.sublevel.ClientSubLevel;
-import dev.ryanhcode.sable.sublevel.SubLevel;
+import dev.brights0ng.meteodyne.ships.Ships;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -71,14 +67,13 @@ public final class HeatViewClient {
 
     private static void draw(HeatView.Payload p, Vec3 cam, MultiBufferSource.BufferSource buffers, PoseStack.Pose pose) {
         byte[] cells = p.cells();
-        Pose3dc ship = null;
+        Ships.Pose ship = null;
         net.minecraft.client.multiplayer.ClientLevel level = Minecraft.getInstance().level;
-        if (ShipCover.inPlot(level, new net.minecraft.world.level.ChunkPos(p.ox() >> 4, p.oz() >> 4))) {
-            SubLevel s = Sable.HELPER.getContaining(level, p.ox() >> 4, p.oz() >> 4);
-            if (s == null) {
+        if (Ships.get().inPlot(level, new net.minecraft.world.level.ChunkPos(p.ox() >> 4, p.oz() >> 4))) {
+            ship = Ships.get().renderPose(level, p.ox() >> 4, p.oz() >> 4);
+            if (ship == null) {
                 return;
             }
-            ship = s instanceof ClientSubLevel c ? c.renderPose() : s.logicalPose();
         }
         Vector3d at = new Vector3d();
 
@@ -134,7 +129,7 @@ public final class HeatViewClient {
     }
 
     /** The middle of cell {@code b} in the world: through the ship's pose if it is a ship's. */
-    private static void centre(HeatView.Payload p, byte[] cells, int b, Pose3dc ship, Vector3d out) {
+    private static void centre(HeatView.Payload p, byte[] cells, int b, Ships.Pose ship, Vector3d out) {
         out.set(p.ox() + (cells[b] & 0xFF) + 0.5, p.oy() + (cells[b + 1] & 0xFF) + 0.5, p.oz() + (cells[b + 2] & 0xFF) + 0.5);
         if (ship != null) {
             ship.transformPosition(out);

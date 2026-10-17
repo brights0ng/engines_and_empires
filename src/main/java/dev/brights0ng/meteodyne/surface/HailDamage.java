@@ -10,7 +10,7 @@ import dev.brights0ng.meteodyne.WeatherOwnership;
 import dev.brights0ng.meteodyne.rain.LocalWeather;
 import dev.brights0ng.meteodyne.rain.Precip;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
-import dev.brights0ng.paradynelib.sable.ships.ShipCover;
+import dev.brights0ng.meteodyne.ships.Ships;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
@@ -87,7 +87,7 @@ public final class HailDamage {
     public static boolean exposed(ServerLevel level, LivingEntity living) {
         int roof = level.getHeight(Heightmap.Types.MOTION_BLOCKING, living.getBlockX(), living.getBlockZ());
         return Mth.floor(living.getY() + 0.5) >= roof
-                && !ShipCover.covered(level, living.getX(), living.getY() + 0.5, living.getZ());
+                && !Ships.get().covered(level, living.getX(), living.getY() + 0.5, living.getZ());
     }
 
     /** One hailstone on {@code living}: a helmet takes the wear, or it takes the damage (never below 1 health). */

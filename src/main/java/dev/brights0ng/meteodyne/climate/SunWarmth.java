@@ -2,9 +2,9 @@ package dev.brights0ng.meteodyne.climate;
 
 import dev.brights0ng.meteodyne.WeatherOwnership;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
+import dev.brights0ng.meteodyne.ships.Ships;
 import dev.brights0ng.meteodyne.sky.StormLight;
 import dev.brights0ng.meteodyne.sky.StormShade;
-import dev.brights0ng.paradynelib.sable.ships.ShipCover;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -41,8 +41,8 @@ public final class SunWarmth {
         }
         Vec3 eye = entity.getEyePosition();
         BlockPos feet = entity.blockPosition();
-        if (ShipCover.inPlot(level, feet)) {
-            Vec3 w = ShipCover.worldCentre(level, feet);
+        if (Ships.get().inPlot(level, feet)) {
+            Vec3 w = Ships.get().worldCentre(level, feet);
             if (w == null) {
                 return 0;
             }
@@ -60,7 +60,7 @@ public final class SunWarmth {
             return 0;
         }
         int worst = Math.max(worldBlocks(level, eye, feet, sun, reach),
-                ShipCover.rayObstruction(level, eye.x, eye.y, eye.z, sun[0], sun[1], sun[2], 0.3, reach,
+                Ships.get().rayObstruction(level, eye.x, eye.y, eye.z, sun[0], sun[1], sun[2], 0.3, reach,
                         SunWarmth::classify));
         double blocks = SunLight.blockShare(worst);
         if (blocks <= 0) {

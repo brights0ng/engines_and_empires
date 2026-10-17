@@ -15,8 +15,8 @@ import dev.brights0ng.meteodyne.climate.Temperature;
 import dev.brights0ng.meteodyne.heat.HeatField;
 import dev.brights0ng.meteodyne.rain.LocalWeather;
 import dev.brights0ng.meteodyne.rain.Precip;
+import dev.brights0ng.meteodyne.ships.Ships;
 import dev.brights0ng.meteodyne.wind.WindSources;
-import dev.brights0ng.paradynelib.sable.ships.ShipCover;
 import dev.brights0ng.paradynelib.wind.WindColumn;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -135,7 +135,7 @@ public final class SurfaceWeather {
         if (Math.floorMod(level.getGameTime() + stagger(cp), PERIOD) != 0) {
             return;
         }
-        if (ShipCover.inPlot(level, cp)) {
+        if (Ships.get().inPlot(level, cp)) {
             // A ship's blocks: ShipWeather does these where the ship really is.
             return;
         }
@@ -153,7 +153,7 @@ public final class SurfaceWeather {
         boolean sunny = level.isDay() && here.cover() < SUNNY_COVER;
         RandomSource random = level.random;
         int seaLevel = level.getSeaLevel();
-        ShipCover.Area ships = ShipCover.area(level, cp.getMinBlockX(), cp.getMinBlockZ(), cp.getMaxBlockX() + 1,
+        Ships.Cover ships = Ships.get().area(level, cp.getMinBlockX(), cp.getMinBlockZ(), cp.getMaxBlockX() + 1,
                 cp.getMaxBlockZ() + 1);
         for (int i = 0; i < COLUMNS; i++) {
             int x = cp.getMinBlockX() + random.nextInt(16);
@@ -210,7 +210,7 @@ public final class SurfaceWeather {
                 p.set(s.x() + random.nextInt(2 * reach + 1) - reach, s.y() + random.nextInt(2 * reach + 1) - reach,
                         s.z() + random.nextInt(2 * reach + 1) - reach);
                 if (level.hasChunkAt(p) && p.getY() >= level.getMinBuildHeight() && p.getY() < level.getMaxBuildHeight()
-                        && !ShipCover.inPlot(level, new ChunkPos(p))) {
+                        && !Ships.get().inPlot(level, new ChunkPos(p))) {
                     sourceSample(level, p.immutable(), random);
                 }
             }
@@ -606,9 +606,9 @@ public final class SurfaceWeather {
         try {
             BlockPos at = pos;
             BiomeAdjust climate;
-            if (ShipCover.inPlot(level, pos)) {
+            if (Ships.get().inPlot(level, pos)) {
                 // A ship's block: the air where the ship really is (phase 5d).
-                net.minecraft.world.phys.Vec3 w = ShipCover.worldCentre(level, pos);
+                net.minecraft.world.phys.Vec3 w = Ships.get().worldCentre(level, pos);
                 if (w == null) {
                     return null;
                 }

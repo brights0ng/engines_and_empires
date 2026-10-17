@@ -1,4 +1,4 @@
-package dev.brights0ng.meteodyne.gametest;
+package dev.brights0ng.meteodyne.sable.gametest;
 
 import org.joml.Vector2i;
 import org.joml.Vector3d;
@@ -7,7 +7,7 @@ import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.wind.WindSources;
 import dev.brights0ng.paradynelib.ParadyneLib;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
-import dev.brights0ng.paradynelib.sable.wind.ShelterProbe;
+import dev.brights0ng.paradynelib.wind.ShelterProbe;
 import dev.brights0ng.paradynelib.sable.wind.ShipWind;
 import dev.brights0ng.paradynelib.sable.wind.WindContent;
 import dev.brights0ng.paradynelib.sable.wind.WindShips;
@@ -29,7 +29,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
@@ -39,14 +38,16 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  *
  * <p>The override is global, so the push tests run in batches of their own. The floating block is spawned well above the
  * test's walled room, where nothing shelters it.
+ *
+ * <p>Needs Sable: not a {@code @GameTestHolder} (NeoForge would load every holder, Sable or not), but registered by
+ * {@code MeteodyneSable} only when Sable is loaded, each test naming Meteodyne's template namespace itself.
  */
-@GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class WindGameTests {
 
     private static final String SCRATCH = GameTestStructures.EMPTY;
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = Meteodyne.MODID, template = SCRATCH)
     public static void windForceGroupIsRegistered(GameTestHelper helper) {
         // The force group is the library's (WindContent), so its id is in the library's namespace
         ResourceLocation id = ParadyneLib.id("wind");
@@ -55,7 +56,7 @@ public final class WindGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH, batch = "wind_push", timeoutTicks = 100)
+    @GameTest(templateNamespace = Meteodyne.MODID, template = SCRATCH, batch = "wind_push", timeoutTicks = 100)
     public static void aFloatingBlockDriftsDownwind(GameTestHelper helper) {
         double[] east = WindColumn.fromYaw(20, 270);
         WindSources.setOverride(WindColumn.uniform(east[0], east[1]));
@@ -73,7 +74,7 @@ public final class WindGameTests {
         });
     }
 
-    @GameTest(template = SCRATCH, batch = "wind_calm", timeoutTicks = 100)
+    @GameTest(templateNamespace = Meteodyne.MODID, template = SCRATCH, batch = "wind_calm", timeoutTicks = 100)
     public static void calmAirLeavesABlockAlone(GameTestHelper helper) {
         WindSources.setOverride(WindColumn.CALM);
         ServerSubLevel block = spawnBlock(helper, new Vector3d(3.5, 24, 3.5), Blocks.GLASS.defaultBlockState());
@@ -86,7 +87,7 @@ public final class WindGameTests {
         });
     }
 
-    @GameTest(template = SCRATCH)
+    @GameTest(templateNamespace = Meteodyne.MODID, template = SCRATCH)
     public static void aSealedBoxIsFullySheltered(GameTestHelper helper) {
         BlockPos cell = new BlockPos(3, 2, 3);
         for (BlockPos wall : new BlockPos[]{cell.above(), cell.north(), cell.south(), cell.west(), cell.east()}) {

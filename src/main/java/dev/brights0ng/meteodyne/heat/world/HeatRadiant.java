@@ -6,9 +6,9 @@ import java.util.List;
 
 import dev.brights0ng.meteodyne.climate.SunLight;
 import dev.brights0ng.meteodyne.climate.SunWarmth;
+import dev.brights0ng.meteodyne.ships.Ships;
 import dev.brights0ng.paradynelib.heat.air.AirParams;
 import dev.brights0ng.paradynelib.heat.air.Radiant;
-import dev.brights0ng.paradynelib.sable.ships.ShipCover;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.FluidTags;
@@ -239,7 +239,7 @@ public final class HeatRadiant {
             }
         }
         if (ships && len > 0.6) {
-            int hull = ShipCover.rayObstruction(level, from.x, from.y, from.z, ex / len, ey / len, ez / len, 0.3,
+            int hull = Ships.get().rayObstruction(level, from.x, from.y, from.z, ex / len, ey / len, ez / len, 0.3,
                     len - 0.3, HeatRadiant::classify);
             worst = Math.max(worst, hull);
         }

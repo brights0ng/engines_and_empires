@@ -1,7 +1,5 @@
 package dev.brights0ng.meteodyne.gametest;
 
-import org.joml.Vector2i;
-
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.climate.PersonClimate;
 import dev.brights0ng.meteodyne.climate.SunWarmth;
@@ -15,21 +13,12 @@ import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import dev.brights0ng.paradynelib.wind.WindColumn;
 import dev.brights0ng.paradynelib.wind.WindConfig;
 import dev.brights0ng.paradynelib.wind.WindParams;
-import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
-import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
-import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
-import dev.ryanhcode.sable.companion.math.Pose3d;
-import dev.ryanhcode.sable.sublevel.ServerSubLevel;
-import dev.ryanhcode.sable.sublevel.SubLevel;
-import dev.ryanhcode.sable.sublevel.plot.LevelPlot;
-import dev.ryanhcode.sable.sublevel.storage.SubLevelRemovalReason;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -42,16 +31,17 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  *
  * <p>The game test cells are walled and roofed with barrier blocks (which the probes rightly see), so everything here
  * happens {@link #UP} blocks above the cell, in open air. Tests that build blocks, and the wind tests that look 16
- * blocks sideways, each run in a batch of their own so that a neighbouring cell's building isn't in their way.
+ * blocks sideways, each run in a batch of their own so that a neighbouring cell's building isn't in their way. The ship
+ * cases need Sable: {@code ShipPersonClimateGameTests}.
  */
 @GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
 public final class PersonClimateGameTests {
 
     private static final String SCRATCH = GameTestStructures.EMPTY;
-    private static final double MAX = 8.0;
-    private static final int REACH = 96;
-    private static final double NOON = 0.0;
+    public static final double MAX = 8.0;
+    public static final int REACH = 96;
+    public static final double NOON = 0.0;
     private static final double MIDNIGHT = 0.5;
     /** Blocks above the cell where the tests happen. */
     private static final int UP = 30;
@@ -103,37 +93,6 @@ public final class PersonClimateGameTests {
             }
         }
         helper.succeed();
-    }
-
-    @GameTest(template = SCRATCH, batch = "person_sun_ship", timeoutTicks = 80)
-    public static void aShipsBlocksFollowTheSameRule(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        ServerSubLevel glass = spawnBlock(helper, new Vec3(3.5, 40, 3.5), Blocks.GLASS.defaultBlockState());
-        helper.runAfterDelay(3, () -> {
-            try {
-                BoundingBox3dc box = glass.boundingBox();
-                Vec3 eye = new Vec3((box.minX() + box.maxX()) / 2, box.minY() - 6, (box.minZ() + box.maxZ()) / 2);
-                double under = SunWarmth.at(level, eye, BlockPos.containing(eye.x, eye.y - 1.6, eye.z), NOON, MAX, REACH);
-                helper.assertTrue(Math.abs(under - MAX * 0.25) < 0.01, "under a glass ship: a quarter: " + under);
-                Vec3 beside = eye.add(box.maxX() - box.minX() + 3, 0, 0);
-                double open = SunWarmth.at(level, beside, BlockPos.containing(beside.x, beside.y - 1.6, beside.z), NOON, MAX, REACH);
-                helper.assertTrue(Math.abs(open - MAX) < 0.01, "beside it: all of it: " + open);
-            } finally {
-                remove(helper, glass);
-            }
-            ServerSubLevel stone = spawnBlock(helper, new Vec3(3.5, 40, 3.5), Blocks.STONE.defaultBlockState());
-            helper.runAfterDelay(3, () -> {
-                try {
-                    BoundingBox3dc box = stone.boundingBox();
-                    Vec3 eye = new Vec3((box.minX() + box.maxX()) / 2, box.minY() - 6, (box.minZ() + box.maxZ()) / 2);
-                    double under = SunWarmth.at(level, eye, BlockPos.containing(eye.x, eye.y - 1.6, eye.z), NOON, MAX, REACH);
-                    helper.assertTrue(under == 0, "under a stone ship: none: " + under);
-                } finally {
-                    remove(helper, stone);
-                }
-                helper.succeed();
-            });
-        });
     }
 
     @GameTest(template = SCRATCH, batch = "person_sun_cloud", timeoutTicks = 80)
@@ -278,31 +237,6 @@ public final class PersonClimateGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = SCRATCH, batch = "person_wind_ship", timeoutTicks = 80)
-    public static void aShipsRoofShelters(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        WindParams params = WindConfig.params();
-        ServerSubLevel roof = spawnBlock(helper, new Vec3(3.5, 50, 3.5), Blocks.STONE.defaultBlockState());
-        helper.runAfterDelay(3, () -> {
-            try {
-                BoundingBox3dc box = roof.boundingBox();
-                double cx = (box.minX() + box.maxX()) / 2;
-                double cz = (box.minZ() + box.maxZ()) / 2;
-                Vec3 under = new Vec3(cx, box.minY() - 4.5, cz);
-                double sheltered = PersonClimate.exposure(level, under, 1, 0, params);
-                double expected = 1 - params.roofWeight();
-                helper.assertTrue(Math.abs(sheltered - expected) < 0.02,
-                        "a roof alone cuts by its weight (exposure " + expected + "): " + sheltered);
-                Vec3 beside = under.add(box.maxX() - box.minX() + 3, 0, 0);
-                double open = PersonClimate.exposure(level, beside, 1, 0, params);
-                helper.assertTrue(open > 0.99, "beside the ship: open: " + open);
-            } finally {
-                remove(helper, roof);
-            }
-            helper.succeed();
-        });
-    }
-
     private static void clear(GameTestHelper helper, int x0, int x1, int y0, int y1, int z0, int z1) {
         for (int x = x0; x <= x1; x++) {
             for (int y = y0; y <= y1; y++) {
@@ -311,30 +245,6 @@ public final class PersonClimateGameTests {
                 }
             }
         }
-    }
-
-    // ---- ships ----
-
-    /** Spawns a one-block physics object at a position relative to the test (the way Sable's own tests do). */
-    private static ServerSubLevel spawnBlock(GameTestHelper helper, Vec3 relative, BlockState state) {
-        ServerLevel level = helper.getLevel();
-        ServerSubLevelContainer container = SubLevelContainer.getContainer(level);
-        BlockPos origin = helper.absolutePos(BlockPos.ZERO);
-        Pose3d pose = new Pose3d();
-        pose.position().set(origin.getX() + relative.x, origin.getY() + relative.y, origin.getZ() + relative.z);
-        SubLevel subLevel = container.allocateNewSubLevel(pose);
-        LevelPlot plot = subLevel.getPlot();
-        plot.newEmptyChunk(plot.getCenterChunk());
-        plot.getEmbeddedLevelAccessor().setBlock(BlockPos.ZERO, state, 3);
-        subLevel.updateLastPose();
-        return (ServerSubLevel) subLevel;
-    }
-
-    private static void remove(GameTestHelper helper, ServerSubLevel subLevel) {
-        ServerSubLevelContainer container = SubLevelContainer.getContainer(helper.getLevel());
-        LevelPlot plot = subLevel.getPlot();
-        Vector2i origin = container.getOrigin();
-        container.removeSubLevel(plot.plotPos.x - origin.x, plot.plotPos.z - origin.y, SubLevelRemovalReason.REMOVED);
     }
 
     private PersonClimateGameTests() {
