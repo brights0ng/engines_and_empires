@@ -12,6 +12,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.cloud.CloudScale;
+import dev.brights0ng.meteodyne.compat.iris.IrisCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.ShaderInstance;
