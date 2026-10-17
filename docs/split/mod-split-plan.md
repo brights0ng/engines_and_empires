@@ -142,7 +142,7 @@ R1 above; Mixin ordering when two mods inject the same `LevelChunk` method (S4);
 - **Q1** ids/packages: snake_case ids, concatenated packages, core keeps its package. **Yes.**
 - **Q2** Seismic and Create: **Create is a hard requirement** (the mechanical thumper is essential); Create Diesel Generators soft. The proposed Create gating is dropped, which removes about one sub-step of work.
 - **Q3** `IrisCompat` stays in Meteodyne; machine heat drivers and `LoudMachines` weighting go to core. **Yes.**
-- **Q4** per-mod command roots with core `/eae` redirects. **Yes.**
+- **Q4** per-mod command roots with core `/eae` redirects. **Yes**, except `/eae weather|heat|clouds|wind`, which are deleted with no redirect (Bright, after 2c).
 - **Q5** built-in calendar, **very simple** (section 5, S11).
 - **Q6** Frontier ships vanilla-only rosters and tags; core's datapack adds the pack's mobs. **Yes.**
 - **Q7** defaults stay at today's values; `defaultconfigs/` carries deviations; new mods 0.1.0, core 0.4.0; all licences ARR.
