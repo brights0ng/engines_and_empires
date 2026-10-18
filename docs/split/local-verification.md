@@ -228,6 +228,13 @@ Use a fresh copy of the instance for each row so nothing else is in `mods/`. In 
 
 ---
 
+## 10a. Added after steps 4b and 4c (checks only your machine can do)
+- [ ] Sparse Ores chips: mine coal, diamond and nether quartz ore: each drops 1 chip; rich versions drop 5; four chips craft back into the item; the coal chip burns as fuel. With the `chipDrops` server option off, ordinary ores drop the vanilla item and rich ores still drop chips.
+- [ ] Rich ores smelt in a furnace and a blast furnace (5x the ordinary block); with Create loaded they crush.
+- [ ] Combustive thumper with no fuel mod (try a world without Create Diesel Generators): it can be crafted but never fires, and its tooltip and the goggle readout tell you it needs a compatible fuel source. With Diesel Generators present it fires as before.
+- [ ] The Frontier tier map still draws on the PRD and smart logger map screens (now registered by Frontier, not the core).
+- [ ] The creative tab and the PRD key category read "Seismic Surveyance".
+
 ## 11. What to send back
 - A pass or fail for each numbered line (a copy of this file with the boxes ticked is enough).
 - For each failure: the line number, what you saw, the `latest.log` (or the crash report), and a screenshot if it is visual.
