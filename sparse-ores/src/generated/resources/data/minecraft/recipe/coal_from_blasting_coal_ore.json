@@ -1,0 +1,19 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "sparse_ores:chip_drops"
+    }
+  ],
+  "type": "minecraft:blasting",
+  "category": "misc",
+  "cookingtime": 100,
+  "experience": 0.1,
+  "group": "coal",
+  "ingredient": {
+    "item": "minecraft:coal_ore"
+  },
+  "result": {
+    "count": 1,
+    "id": "sparse_ores:coal_chip"
+  }
+}

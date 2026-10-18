@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -49,7 +51,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * for each input and recipe type, which recipes take it, and each one as the game encodes it (results, counts, chances,
  * experience, cooking and processing times, groups and categories).
  *
- * <p>A recipe that only moved to another id is listed in {@link #MOVED}. On a mismatch the test writes what it resolved
+ * <p>A recipe that only moved to another id is matched by {@link #MOVED}. On a mismatch the test writes what it resolved
  * to a file in the temporary folder (named in the failure) in the same format as the recorded lines.
  */
 @GameTestHolder(EnginesAndEmpires.MODID)
@@ -58,8 +60,13 @@ public final class PackRecipesGameTests {
 
     private static final Gson GSON = new Gson();
 
-    /** Ids a recipe has had since step 4c, by the id it had before: none yet. */
-    private static final Map<String, String> MOVED = Map.of();
+    /**
+     * The one rename of step 4c: the rich ores' furnace and crushing recipes are Sparse Ores' now, so the core's
+     * {@code engines_and_empires:<smelting|blasting|crushing>/rich_*} became {@code sparse_ores:<same path>} (Sparse Ores'
+     * own, or the core's replacement of it where the pack's numbers differ).
+     */
+    private static final Pattern MOVED = Pattern.compile("^" + EnginesAndEmpires.MODID
+            + ":((?:smelting|blasting|crushing)/rich_\\w+)$");
 
     @GameTest(template = GameTestStructures.EMPTY)
     public static void everyOreRecipeResolvesAsItDidBeforeStep4c(GameTestHelper helper) {
@@ -150,7 +157,8 @@ public final class PackRecipesGameTests {
     /** A recorded line with the recipe's id as it is now, if it has moved. */
     private static String renamed(String line) {
         String[] parts = line.split(" ", 4);
-        String id = MOVED.getOrDefault(parts[2], parts[2]);
+        Matcher moved = MOVED.matcher(parts[2]);
+        String id = moved.matches() ? SparseOres.MODID + ":" + moved.group(1) : parts[2];
         return parts[0] + " " + parts[1] + " " + id + " " + parts[3];
     }
 

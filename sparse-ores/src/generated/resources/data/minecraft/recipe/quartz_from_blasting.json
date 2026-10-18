@@ -1,0 +1,18 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "sparse_ores:chip_drops"
+    }
+  ],
+  "type": "minecraft:blasting",
+  "category": "misc",
+  "cookingtime": 100,
+  "experience": 0.2,
+  "ingredient": {
+    "item": "minecraft:nether_quartz_ore"
+  },
+  "result": {
+    "count": 1,
+    "id": "sparse_ores:quartz_chip"
+  }
+}
