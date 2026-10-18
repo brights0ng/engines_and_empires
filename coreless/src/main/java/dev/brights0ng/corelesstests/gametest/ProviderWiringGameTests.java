@@ -1,6 +1,6 @@
-package dev.brights0ng.enginesandempires.gametest;
+package dev.brights0ng.corelesstests.gametest;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpires;
+import dev.brights0ng.corelesstests.CorelessTests;
 import dev.brights0ng.frontier.incursion.Incursion;
 import dev.brights0ng.frontier.incursion.Incursions;
 import dev.brights0ng.frontier.incursion.ThumperAccess;
@@ -32,11 +32,13 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * The pack's mods answering each other's questions (split seams S1-S3, S6): Meteodyne registers the library's
+ * The family's mods answering each other's questions (split seams S1-S3, S6): Meteodyne registers the library's
  * temperature, wind and storm providers, Frontier gets Seismic Surveyance's thumpers, and food sees the same temperature
- * it saw before the split, when Simple Spoilage read Meteodyne's classes itself.
+ * it saw before the split, when Simple Spoilage read Meteodyne's classes itself. All of that is the feature mods' own
+ * wiring, with no core code, so since split step 4c these are the test-only mod's (until then the core's) and run
+ * without the core as well as in the aggregate.
  */
-@GameTestHolder(EnginesAndEmpires.MODID)
+@GameTestHolder(CorelessTests.MODID)
 @PrefixGameTestTemplate(false)
 public final class ProviderWiringGameTests {
 
