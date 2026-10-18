@@ -15,13 +15,14 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * The incursion check that needs the core (Frontier phase 6): the loud machines loading, being Create's machines, whose
  * weights are the core's data ({@code frontier:loud_machines}). The wave rosters check is Frontier's own since split
  * step 4e ({@code theWaveRostersLoad}, in Frontier's {@code FrontierIncursionGameTests}). The other
- * incursion checks need no core code and are the test-only mod Core-less Tests' since split step 4c
- * ({@code corelesstests.gametest.FrontierIncursionGameTests}), which runs them without the core too; this class keeps
- * the name, so the test keeps its name.
+ * incursion checks need no core code and are Frontier's, Seismic Surveyance's or the test-only mod Core-less Tests'
+ * ({@code corelesstests.gametest.FrontierIncursionGameTests}), which run them without the core too. Split step 4e renamed
+ * this class (it was {@code FrontierIncursionGameTests}, as the others still are) to say what it checks: the pack's side
+ * of the incursion wiring, which is data the core ships for Frontier's machinery.
  */
 @GameTestHolder(EnginesAndEmpires.MODID)
 @PrefixGameTestTemplate(false)
-public final class FrontierIncursionGameTests {
+public final class PackIncursionGameTests {
 
     private static final String SCRATCH = GameTestStructures.EMPTY;
 
@@ -38,6 +39,6 @@ public final class FrontierIncursionGameTests {
         return BuiltInRegistries.BLOCK.get(ResourceLocation.parse(id)).defaultBlockState();
     }
 
-    private FrontierIncursionGameTests() {
+    private PackIncursionGameTests() {
     }
 }
