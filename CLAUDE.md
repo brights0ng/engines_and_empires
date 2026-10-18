@@ -16,9 +16,9 @@ One multi-project Gradle build, one project per mod. The root project is the cor
 | `simple-spoilage/` | `simple_spoilage` | `simplespoilage` | lib | |
 | root (`src/`) | `engines_and_empires` | `enginesandempires` | lib and the five feature mods (not Sable Fixes) | Sable, Create, Simulated, Aeronautics, Offroad, Encumbered |
 
-Plan section 2 (`docs/split/mod-split-plan.md`) has the optional dependencies. New mods are 0.1.0, the core 0.4.0; every licence is All Rights Reserved. Shared build settings are the convention plugin `build-logic/src/main/groovy/eae.mod-conventions.gradle`, which applies `eae.family-base.gradle` (what a project that only runs mods shares with the mods); `docs/split/build-layout.md` explains the layout. One more project, `coreless/`, is a test-only mod (`coreless_tests`, package `corelesstests`, never released, no jar; split step 4c): its game test run is the feature mods' combined run without the core, and it holds the game tests of feature mods working together that need no core code. The aggregate loads it too, so those tests run with and without the core; `buildAll` leaves it out.
+Plan section 2 (`docs/history/mod-split-plan.md`) has the optional dependencies. New mods are 0.1.0, the core 0.4.0; every licence is All Rights Reserved. Shared build settings are the convention plugin `build-logic/src/main/groovy/eae.mod-conventions.gradle`, which applies `eae.family-base.gradle` (what a project that only runs mods shares with the mods); `docs/build-layout.md` explains the layout. One more project, `coreless/`, is a test-only mod (`coreless_tests`, package `corelesstests`, never released, no jar; split step 4c): its game test run is the feature mods' combined run without the core, and it holds the game tests of feature mods working together that need no core code. The aggregate loads it too, so those tests run with and without the core; `buildAll` leaves it out.
 
-Background on behaviour that must not change: `docs/design/` (eight read-only reference notes; see its README; `docs/split/path-map.md` maps their old `claude/*.md` paths). Known problems: `docs/known-issues.md`.
+Background on behaviour that must not change: `docs/design/` (eight read-only reference notes; see its README; `docs/path-map.md` maps their old `claude/*.md` paths). Known problems: `docs/known-issues.md`. History of the split: `docs/history/mod-split-plan.md`. `docs/split/mod-split-manifest.csv` (every pre-split Java file and the mod it went to) stays because `ArchitectureTest` reads it.
 
 ## Import rules (compile-time graph; must stay acyclic)
 lib <- sparse_ores <- seismic_surveyance <- (gated package frontier.seismic only) frontier
@@ -37,7 +37,17 @@ Gradle and javac enforce the graph between projects; `ArchitectureTest` (core un
 - Data: `:<project>:runData` writes that mod's `src/generated/resources`; `:runData` is the core's. If the root's `:runData` hangs during startup (third-party class-init deadlock among Simulated, Veil and Create), rerun it; it is not our code. Commit the regenerated files; a data run on unchanged code must leave no diff.
 - Jars: `./gradlew build buildAll` puts every mod's jar in `build/allJars` (separate jars, no jar-in-jar; game test classes are left out of the jars).
 - Cold compile ~9 min, warm ~5 min, game tests ~3-5 min on 2-4 cores. Run in the background and poll; do not run two Gradle builds at once.
-- If Maven Central answers 429, use the mirror init script in `docs/split/baseline.md` (kept outside the repo, in `~/.gradle/init.d/`).
+- If Maven Central answers 429 (Gradle reports it as "Could not find com.google.code.gson:gson:2.10.1" while resolving the ModDevGradle plugin), put this sandbox-only init script in `~/.gradle/init.d/central-mirror.gradle` (it is not part of the repo and changes no artifact):
+  ```groovy
+  def mirror = 'https://maven-central.storage-download.googleapis.com/maven2/'
+  beforeSettings { settings ->
+      settings.pluginManagement.repositories { maven { name = 'CentralMirror'; url = mirror } }
+  }
+  allprojects {
+      buildscript.repositories { maven { name = 'CentralMirror'; url = mirror } }
+      repositories { maven { name = 'CentralMirror'; url = mirror } }
+  }
+  ```
 - A client boot under `xvfb-run` with software graphics (`LIBGL_ALWAYS_SOFTWARE=1 xvfb-run ./gradlew :runClient`) is a valid crash-on-boot check in the cloud. Anything visual (rendering, shaders, GUIs, the PRD model and maps), long climatology runs and the Modrinth smoke test cannot be tested there; say so rather than guess.
 
 ## Adding a mod

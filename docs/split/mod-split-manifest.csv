@@ -1,5 +1,5 @@
 # First-pass assignment of every Java file (main and test, paths under dev/brights0ng/enginesandempires/) to its target mod, 2026-10-16, commit 9ebdb39.
-# Rules and exceptions are in claude/mod-split-plan.md. Files marked mod=engines_and_empires but listed as integration tests need two or more of the new mods.
+# Rules and exceptions are in docs/history/mod-split-plan.md. Files marked mod=engines_and_empires but listed as integration tests need two or more of the new mods.
 # 2026-10-16 (Q10): ChipTextures and RefiningItems moved to sparse_ores (chips). RefiningDataGen and Refining.java stay core but their chip parts move too (seam S15).
 kind,mod,path
 main,engines_and_empires,EnginesAndEmpiresMod.java
