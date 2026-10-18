@@ -153,6 +153,37 @@ class RefiningTest {
     }
 
     /**
+     * The chip ores' crushing is Sparse Ores' since split step 4d, which ships the pack's numbers (docs/design/ore-refining.md:
+     * 2.2 times the mined chips from stone ore, 2.8 from deepslate and nether ore, five times that from a rich block).
+     * {@link RefiningRecipes} still states those numbers from {@link Refining}'s rules; Sparse Ores' files must be exactly
+     * that, apart from their conditions, or the pack would be crushing something else than it says.
+     */
+    @Test
+    void sparseOresCrushesTheChipOresExactlyAsThePackSays() {
+        int checked = 0;
+        for (Refining.Ore ore : Refining.ORES) {
+            if (ore.kind() != Refining.Kind.CHIP) {
+                continue;
+            }
+            for (RichOres.Variant variant : ore.spec().variants()) {
+                String vanilla = variant.counterpart().substring("minecraft:".length());
+                assertEquals(RefiningRecipes.crushing(ore, variant, 1), unconditional(
+                        ChipRecipes.files().get("create/recipe/crushing/" + vanilla + ".json")), vanilla);
+                assertEquals(RefiningRecipes.crushing(ore, variant, RichOres.RICHNESS), unconditional(
+                        RichOreRecipes.files().get("sparse_ores/recipe/crushing/" + variant.name() + ".json")), variant.name());
+                checked++;
+            }
+        }
+        assertEquals(5, checked);
+    }
+
+    private static JsonObject unconditional(JsonObject recipe) {
+        JsonObject copy = recipe.deepCopy();
+        copy.remove("neoforge:conditions");
+        return copy;
+    }
+
+    /**
      * Since split step 4c the core replaces Sparse Ores' recipes only where the pack's numbers differ, and ships none of
      * the recipes Sparse Ores now has for itself: no rich ore recipe under its own ids, no chip ore smelting.
      */
@@ -177,9 +208,16 @@ class RefiningTest {
             assertFalse(FILES.containsKey("minecraft/recipe/" + chipOre + ".json"), chipOre + " is Sparse Ores' since 4c");
         }
         // The metals' rich furnace recipes (iron, copper, zinc, gold, nether gold: 9 blocks, smelting and blasting), the
-        // chip and group ores' rich crushing (coal, diamond, nether quartz, redstone, lapis, nether gold: 10 blocks), and
-        // Create's zinc ore smelting and blasting.
-        assertEquals(18 + 10 + 2, replaced);
+        // group ores' rich crushing (redstone, lapis, nether gold: 5 blocks), and Create's zinc ore smelting and blasting.
+        // The chip ores' crushing, ordinary and rich (coal, deepslate coal, diamond, deepslate diamond, nether quartz), is Sparse Ores' own
+        // since split step 4d: Sparse Ores ships the pack's numbers there, so the core replaces none of it.
+        assertEquals(18 + 5 + 2, replaced);
+        for (String chipOre : new String[] {"coal_ore", "deepslate_coal_ore", "diamond_ore", "deepslate_diamond_ore",
+                "nether_quartz_ore"}) {
+            assertFalse(FILES.containsKey("create/recipe/crushing/" + chipOre + ".json"), chipOre + "'s crushing is Sparse Ores'");
+            assertFalse(FILES.containsKey("sparse_ores/recipe/crushing/rich_" + chipOre + ".json"),
+                    "rich " + chipOre + "'s crushing is Sparse Ores', which is already the pack's");
+        }
     }
 
     @Test

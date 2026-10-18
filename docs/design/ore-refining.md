@@ -44,6 +44,7 @@ Crushing plus washing beats mining plus the furnace by 2.19× for stone ore and 
 - Rich blocks previously had no furnace or crushing recipes at all, and Create's zinc tag recipe matched rich zinc.
 
 ### Chips
+- Chip ores crush into chips, not whole items, at the lead in the table above: 2.2 chips from stone ore, 2.8 from deepslate and nether ore, and five times that from a rich block. Sparse Ores ships these crushing recipes itself (split step 4d; they need Create). The ordinary ores' follow the `chipDrops` option like their drops and smelting: with it off, Create's own recipes apply. `chipDrops` is a startup config (`config/sparse_ores-startup.toml`); changing it needs a restart.
 - Items: `coal_chip`, `diamond_chip`, `quartz_chip`. Four craft back into the item in a 2×2.
 - Coal chip burns for 400 ticks, via the `neoforge:furnace_fuels` data map.
 - Textures are script-derived shards of the vanilla item (`ChipTextures`), placeholders for an artist.

@@ -1,32 +1,29 @@
 package dev.brights0ng.sparseores.chips;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import com.mojang.serialization.MapCodec;
 
 import dev.brights0ng.sparseores.SparseOres;
 import dev.brights0ng.sparseores.SparseOresConfig;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.MinecraftServer;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.event.config.ModConfigEvent;
-import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.conditions.ICondition;
-import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 /**
- * The load condition {@code sparse_ores:chip_drops} (split step 4c): true while the server config has the ordinary chip
- * ores drop chips ({@link SparseOresConfig#chipDrops}). The ordinary chip ores' smelting carries it ({@link ChipRecipes}),
- * so a silk-touched ore smelts into what mining it drops. A file whose conditions fail is skipped as it loads; recipes
- * are fine with that, each chip recipe having a whole-item twin under the opposite condition. Loot tables are not: a
- * skipped table leaves the block dropping nothing, so the loot follows the setting at every drop instead
- * ({@link ChipDropFunction}).
+ * The load condition {@code sparse_ores:chip_drops} (split step 4c): true while the config has the ordinary chip ores drop
+ * chips ({@link SparseOresConfig#chipDrops}). The ordinary chip ores' smelting and, with Create, crushing carry it
+ * ({@link ChipRecipes}), so a silk-touched ore smelts into what mining it drops and crushing follows the same setting. A
+ * file whose conditions fail is skipped as it loads; recipes are fine with that, each chip recipe having a whole-item twin
+ * under the opposite condition. Loot tables are not: a skipped table leaves the block dropping nothing, so the loot
+ * follows the setting at every drop instead ({@link ChipDropFunction}).
  *
- * <p>Conditions are tested when the server loads its data, and a world's server config is only read after the world's
- * first data load (NeoForge loads server configs at {@code ServerAboutToStartEvent}), so that first load always sees the
- * default. When the setting then turns out different, or is changed while the server runs, the server reloads its data
- * once, as {@code /reload} would, so the recipes follow it.
+ * <p>Conditions are tested when the server loads its data. The setting is a startup config (split step 4d), which the game
+ * reads while the mod is constructed, so even the first data load sees the real value and nothing is reloaded. (As a
+ * server config, which NeoForge reads only after its world's first data load, the first load saw the default; 4c reloaded
+ * the data once when that turned out wrong.) Changing the setting needs a restart.
  */
 public final class ChipDropsCondition implements ICondition {
 
@@ -43,14 +40,23 @@ public final class ChipDropsCondition implements ICondition {
         CONDITIONS.register(ID.getPath(), () -> CODEC);
     }
 
-    /** What the last data load was given: null until a load has tested the condition. */
-    private static volatile Boolean loadedWith;
+    /** What the condition saw the first time anything tested it: whether the config was loaded, and its value. */
+    public record Seen(boolean configLoaded, boolean chipDrops) {
+    }
+
+    private static final AtomicReference<Seen> FIRST = new AtomicReference<>();
 
     /** Call from the mod constructor with the mod event bus. */
     public static void register(IEventBus modEventBus) {
         CONDITIONS.register(modEventBus);
-        modEventBus.addListener(ChipDropsCondition::onConfigReloading);
-        NeoForge.EVENT_BUS.addListener(ChipDropsCondition::onServerStarted);
+    }
+
+    /**
+     * What the first test saw (the first data load's, in a game), or null if nothing has tested the condition yet. A game
+     * test checks that the config was already loaded then, which is what a startup config is for.
+     */
+    public static Seen firstSeen() {
+        return FIRST.get();
     }
 
     private ChipDropsCondition() {
@@ -59,7 +65,10 @@ public final class ChipDropsCondition implements ICondition {
     @Override
     public boolean test(IContext context) {
         boolean chipDrops = SparseOresConfig.chipDrops();
-        loadedWith = chipDrops;
+        if (FIRST.compareAndSet(null, new Seen(SparseOresConfig.SPEC.isLoaded(), chipDrops))) {
+            SparseOres.LOGGER.info("The first data load found chip drops {} in {} (config {})", chipDrops ? "on" : "off",
+                    SparseOresConfig.FILE_NAME, SparseOresConfig.SPEC.isLoaded() ? "loaded" : "NOT loaded yet");
+        }
         return chipDrops;
     }
 
@@ -71,26 +80,5 @@ public final class ChipDropsCondition implements ICondition {
     @Override
     public String toString() {
         return ID.toString();
-    }
-
-    private static void onServerStarted(ServerStartedEvent event) {
-        reloadIfStale(event.getServer());
-    }
-
-    private static void onConfigReloading(ModConfigEvent.Reloading event) {
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
-        if (event.getConfig().getSpec() == SparseOresConfig.SPEC && server != null) {
-            server.execute(() -> reloadIfStale(server));
-        }
-    }
-
-    private static void reloadIfStale(MinecraftServer server) {
-        boolean chipDrops = SparseOresConfig.chipDrops();
-        if (Chips.needsReload(loadedWith, chipDrops)) {
-            SparseOres.LOGGER.info("Chip drops are {} in the server config; reloading the data so the chip ores' smelting "
-                    + "follows", chipDrops ? "on" : "off");
-            loadedWith = chipDrops;
-            server.reloadResources(server.getPackRepository().getSelectedIds());
-        }
     }
 }

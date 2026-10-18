@@ -1,22 +1,11 @@
 package dev.brights0ng.corelesstests.gametest;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import dev.brights0ng.corelesstests.CorelessTests;
-import dev.brights0ng.frontier.FrontierContent;
 import dev.brights0ng.frontier.incursion.Incursion;
 import dev.brights0ng.frontier.incursion.Incursions;
-import dev.brights0ng.frontier.incursion.Settlement;
-import dev.brights0ng.frontier.incursion.SettlementClusters;
-import dev.brights0ng.frontier.tier.SectionKey;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
-import dev.brights0ng.seismicsurveyance.ChokedThumperBlock;
-import dev.brights0ng.seismicsurveyance.ChokedThumpers;
-import dev.brights0ng.seismicsurveyance.CombustiveThumperBlock;
 import dev.brights0ng.seismicsurveyance.SeismicContent;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.Mob;
@@ -26,12 +15,14 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * In-game checks of incursions (Frontier phase 6): choking thumpers, snuffing torches, a thumper incursion bringing its
- * first wave up, settlements, the squelching heart, and the tier map's answer. Each runs in its own batch.
+ * The in-game check of incursions that needs both Frontier and Seismic Surveyance (Frontier phase 6): a thumper incursion
+ * bringing its first wave up.
  *
- * <p>They need Frontier and Seismic Surveyance (and Create, which Seismic requires), and no code of the core, so since
- * split step 4c they are this test-only mod's and run without the core as well as in the aggregate; until then they
- * were the core's. The one check that needs the core's data (Create's machines as loud machines) stays in the core's
+ * <p>It needs both mods (and Create, which Seismic requires), and no code of the core, so since split step 4c it is this
+ * test-only mod's and runs without the core as well as in the aggregate; until then it was the core's. The checks that
+ * need only one of the two moved to that mod in split step 4d, under the same class and test names: snuffing torches,
+ * settlements, the squelching heart and the tier map's answer are Frontier's; choking thumpers is Seismic Surveyance's.
+ * The one check that needs the core's data (Create's machines as loud machines) stays in the core's
  * {@code enginesandempires.gametest.FrontierIncursionGameTests}, under the same class name so every test keeps its name.
  */
 @GameTestHolder(CorelessTests.MODID)
@@ -41,61 +32,6 @@ public final class FrontierIncursionGameTests {
     private static final String SCRATCH = GameTestStructures.EMPTY;
     private static final BlockPos PLATE = new BlockPos(3, 1, 3);
     private static final BlockPos THUMPER = new BlockPos(3, 2, 3);
-
-    @GameTest(template = SCRATCH, batch = "incursion_choke_mechanical")
-    public static void aChokedMechanicalThumperKeepsItsAxis(GameTestHelper helper) {
-        floor(helper);
-        helper.setBlock(PLATE, SeismicContent.STRIKE_PLATE.get());
-        helper.setBlock(THUMPER, SeismicContent.MECHANICAL_THUMPER.get().defaultBlockState()
-                .setValue(com.simibubi.create.content.kinetics.base.HorizontalAxisKineticBlock.HORIZONTAL_AXIS, Direction.Axis.X));
-        helper.assertTrue(ChokedThumpers.choke(helper.getLevel(), helper.absolutePos(THUMPER)), "there was a thumper to choke");
-        helper.assertBlockPresent(SeismicContent.CHOKED_MECHANICAL_THUMPER.get(), THUMPER);
-        helper.assertTrue(helper.getBlockState(THUMPER).getValue(ChokedThumperBlock.HORIZONTAL_AXIS) == Direction.Axis.X,
-                "it keeps the axis the thumper was turned to");
-        helper.assertFalse(ChokedThumpers.choke(helper.getLevel(), helper.absolutePos(THUMPER)), "a choked one can't choke again");
-        helper.succeed();
-    }
-
-    @GameTest(template = SCRATCH, batch = "incursion_choke_combustive")
-    public static void aChokedCombustiveThumperLosesItsColumn(GameTestHelper helper) {
-        floor(helper);
-        helper.setBlock(PLATE, SeismicContent.STRIKE_PLATE.get());
-        helper.setBlock(THUMPER, SeismicContent.COMBUSTIVE_THUMPER.get());
-        CombustiveThumperBlock.placeColumn(helper.getLevel(), helper.absolutePos(THUMPER),
-                helper.getBlockState(THUMPER).getValue(CombustiveThumperBlock.HORIZONTAL_AXIS));
-        // Choked from the top of the column: it finds the base.
-        helper.assertTrue(ChokedThumpers.choke(helper.getLevel(), helper.absolutePos(THUMPER.above(2))), "found the base");
-        helper.assertBlockPresent(SeismicContent.CHOKED_COMBUSTIVE_THUMPER.get(), THUMPER);
-        helper.assertBlockNotPresent(SeismicContent.COMBUSTIVE_THUMPER_COLUMN.get(), THUMPER.above());
-        helper.assertBlockNotPresent(SeismicContent.COMBUSTIVE_THUMPER_COLUMN.get(), THUMPER.above(2));
-        helper.succeed();
-    }
-
-    @GameTest(template = SCRATCH, batch = "incursion_torches")
-    public static void incursionMobsSnuffTorchesWithinTwoBlocks(GameTestHelper helper) {
-        floor(helper);
-        BlockPos near = new BlockPos(3, 1, 5);   // two blocks from the middle
-        BlockPos far = new BlockPos(6, 1, 6);    // three out
-        helper.setBlock(near, Blocks.TORCH);
-        helper.setBlock(far, Blocks.TORCH);
-        Incursion.snuffTorches(helper.getLevel(), helper.absolutePos(new BlockPos(3, 1, 3)));
-        helper.assertBlockPresent(FrontierContent.DRY_TORCH.get(), near);
-        helper.assertBlockPresent(Blocks.TORCH, far);
-        helper.succeed();
-    }
-
-    @GameTest(template = SCRATCH, batch = "incursion_settlement")
-    public static void aSettlementCountsTheSubchunksAboveAndBelowItsOwn(GameTestHelper helper) {
-        BlockPos at = helper.absolutePos(new BlockPos(3, 1, 3));
-        Set<Long> sections = new HashSet<>();
-        sections.add(SectionKey.of(at.getX() >> 4, at.getY() >> 4, at.getZ() >> 4));
-        Settlement settlement = new Settlement(sections, SettlementClusters.columns(sections), false);
-        helper.assertTrue(settlement.contains(at), "its own subchunk");
-        helper.assertTrue(settlement.contains(at.above(16)), "the one above");
-        helper.assertFalse(settlement.contains(at.above(40)), "not two above");
-        helper.assertFalse(settlement.contains(at.east(40)), "not beside it");
-        helper.succeed();
-    }
 
     @GameTest(template = SCRATCH, batch = "incursion_waves", timeoutTicks = 800)
     public static void aThumperIncursionBringsItsFirstWaveUp(GameTestHelper helper) {
@@ -132,39 +68,6 @@ public final class FrontierIncursionGameTests {
                 helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
             }
         }
-    }
-
-    @GameTest(template = SCRATCH, batch = "incursion_heart")
-    public static void aWardenDropsASquelchingHeartThatOnlyWorksAtNight(GameTestHelper helper) {
-        helper.assertTrue(dev.brights0ng.frontier.incursion.NightHold.isNight(14000), "14000 is night");
-        helper.assertTrue(dev.brights0ng.frontier.incursion.NightHold.isNight(24000 * 3 + 22999), "just before dawn");
-        helper.assertFalse(dev.brights0ng.frontier.incursion.NightHold.isNight(24000 * 3 + 23000), "dawn is not");
-        helper.assertFalse(dev.brights0ng.frontier.incursion.NightHold.isNight(6000), "noon is not");
-        floor(helper);
-        net.minecraft.world.entity.monster.warden.Warden warden = helper.spawn(net.minecraft.world.entity.EntityType.WARDEN,
-                new BlockPos(3, 1, 3));
-        warden.hurt(helper.getLevel().damageSources().genericKill(), Float.MAX_VALUE);
-        helper.succeedWhen(() -> helper.assertItemEntityPresent(
-                dev.brights0ng.frontier.FrontierContent.SQUELCHING_HEART.get(), new BlockPos(3, 1, 3), 4.0));
-    }
-
-    @GameTest(template = SCRATCH, batch = "tier_map")
-    public static void theMapsAnswerCarriesEveryColumnAndRemembersUnloadedOnes(GameTestHelper helper) {
-        var frontier = dev.brights0ng.frontier.tier.FrontierLevels.of(helper.getLevel());
-        BlockPos at = helper.absolutePos(new BlockPos(3, 1, 3));
-        var answer = dev.brights0ng.frontier.map.TierMapNetwork.build(frontier, at.getX() >> 4, at.getZ() >> 4, 2);
-        helper.assertTrue(answer.size() == 5, "a radius of 2 is 5 across");
-        helper.assertTrue(dev.brights0ng.frontier.map.TierGrid.unpack(answer.packed(), 25).length == 25, "25 columns");
-        // A column far off, never loaded here: whatever was last remembered for it comes back.
-        var memory = dev.brights0ng.frontier.map.TierMemory.of(helper.getLevel());
-        int far = 1_000_000 >> 4;
-        memory.remember(far, far, dev.brights0ng.frontier.Tier.SETTLED);
-        helper.assertTrue(memory.groundTier(frontier, far, far) == dev.brights0ng.frontier.Tier.SETTLED,
-                "remembered as Settled");
-        memory.remember(far, far, dev.brights0ng.frontier.Tier.FRONTIER);
-        helper.assertTrue(memory.groundTier(frontier, far, far) == dev.brights0ng.frontier.Tier.FRONTIER,
-                "and forgotten once Frontier");
-        helper.succeed();
     }
 
     private FrontierIncursionGameTests() {
