@@ -30,8 +30,8 @@ import net.minecraft.world.phys.Vec3;
  *   <li>{@code wind}: where the wind comes from, the surface and aloft wind where you stand, and the nearest
  *       physics object within 64 blocks: its outline, cover, exposure, the wind it feels and the push on it.</li>
  *   <li>{@code wind set <speed> <direction>}: the same wind everywhere and at every height, in m/s, toward a
- *       Minecraft yaw (0 south, 90 west, 180 north, 270 east). Overrides Project Atmosphere until cleared; not saved.</li>
- *   <li>{@code wind clear}: back to Project Atmosphere's wind.</li>
+ *       Minecraft yaw (0 south, 90 west, 180 north, 270 east). Overrides the wind provider's wind (Meteodyne's, when it is loaded) until cleared; not saved.</li>
+ *   <li>{@code wind clear}: back to the wind provider's own wind.</li>
  * </ul>
  *
  * <p>Only for Sable's physics objects, so only to be used when Sable is loaded.
