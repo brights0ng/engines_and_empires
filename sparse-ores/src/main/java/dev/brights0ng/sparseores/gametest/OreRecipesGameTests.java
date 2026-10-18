@@ -17,6 +17,7 @@ import dev.brights0ng.sparseores.SparseOresConfig;
 import dev.brights0ng.sparseores.chips.ChipRecipes;
 import dev.brights0ng.sparseores.chips.Chips;
 import dev.brights0ng.sparseores.rich.RichOreBlocks;
+import dev.brights0ng.sparseores.rich.RichOreRecipes;
 import dev.brights0ng.sparseores.rich.RichOres;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -335,10 +336,15 @@ public final class OreRecipesGameTests {
      * Create's own recipe for the same ore says, key for key: the twin is a copy of Create 6.0.10's numbers (the mod
      * cannot read Create's file at data generation), so a Create update that changes a recipe makes this fail instead of
      * leaving a stale copy that players get with {@code chipDrops} off. The twin's own load conditions are the only
-     * thing it may add. Runs in the bare run with Create; without Create there is nothing to compare, and neither file exists.
+     * thing it may add.
+     *
+     * <p>The same goes for {@link RichOreRecipes#CRUSHING}, the mirror of Create's crushing of all 20 ordinary ores that the
+     * rich ores' crushing (and the chip ores' lead) is built from: for each, Create's file must name that ore block, take
+     * that time, give that mean of that item, that many experience nuggets and the rock. Runs in the bare run with Create;
+     * without Create there is nothing to compare, and neither file exists.
      */
     @GameTest(template = GameTestStructures.EMPTY)
-    public static void everyMirroredCrushingTwinEqualsCreatesOwnRecipe(GameTestHelper helper) {
+    public static void everyMirroredCrushingRecipeEqualsCreatesOwn(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         boolean create = ModList.get().isLoaded("create");
         List<String> differences = new ArrayList<>();
@@ -375,10 +381,59 @@ public final class OreRecipesGameTests {
                         + " but Create's recipe is " + createsOwn);
             }
         }
+        int mirrored = 0;
+        for (RichOreRecipes.Crushing mirror : RichOreRecipes.CRUSHING) {
+            if (!create) {
+                break;
+            }
+            String name = mirror.block().substring(mirror.block().indexOf(':') + 1);
+            ResourceLocation createFile = ResourceLocation.fromNamespaceAndPath("create", "recipe/crushing/" + name + ".json");
+            JsonObject createsOwn = null;
+            for (Resource resource : level.getServer().getResourceManager().getResourceStack(createFile)) {
+                if (resource.sourcePackId().equals("mod/create")) {
+                    createsOwn = json(resource);
+                }
+            }
+            if (createsOwn == null) {
+                differences.add(createFile + ": Create no longer ships a crushing recipe for " + mirror.block());
+                continue;
+            }
+            mirrored++;
+            JsonObject ingredient = createsOwn.getAsJsonArray("ingredients").get(0).getAsJsonObject();
+            List<String> wrong = new ArrayList<>();
+            if (!ingredient.has("item") || !ingredient.get("item").getAsString().equals(mirror.block())) {
+                wrong.add("it takes " + ingredient + ", not " + mirror.block());
+            }
+            if (createsOwn.get("processing_time").getAsInt() != mirror.time()) {
+                wrong.add("it takes " + createsOwn.get("processing_time") + " ticks, the mirror says " + mirror.time());
+            }
+            if (Math.abs(mean(createsOwn, mirror.item()) - mirror.mean()) > 1e-9) {
+                wrong.add("it gives " + mean(createsOwn, mirror.item()) + " of " + mirror.item() + " on average, the mirror says " + mirror.mean());
+            }
+            if (Math.abs(mean(createsOwn, "create:experience_nugget") - mirror.xpNuggets() * RichOreRecipes.XP_CHANCE) > 1e-9) {
+                wrong.add("it gives " + mean(createsOwn, "create:experience_nugget") + " experience nuggets on average, the mirror says "
+                        + mirror.xpNuggets() + " at " + RichOreRecipes.XP_CHANCE);
+            }
+            boolean rock = false;
+            for (JsonElement element : createsOwn.getAsJsonArray("results")) {
+                JsonObject result = element.getAsJsonObject();
+                rock |= result.has("chance") && result.get("chance").getAsDouble() == RichOreRecipes.ROCK_CHANCE
+                        && !result.get("id").getAsString().equals(mirror.item())
+                        && !result.get("id").getAsString().equals("create:experience_nugget");
+            }
+            if (!rock) {
+                wrong.add("it has no rock result at " + RichOreRecipes.ROCK_CHANCE);
+            }
+            if (!wrong.isEmpty()) {
+                differences.add("RichOreRecipes.CRUSHING for " + mirror.block() + " differs from " + createFile + ": " + String.join(", ", wrong));
+            }
+        }
         helper.assertTrue(differences.isEmpty(), "A mirrored twin no longer matches Create's recipe (Create changed it?). "
-                + "Update the mirror in sparse-ores RichOreRecipes (its crushing table) and ChipRecipes to Create's numbers: "
+                + "Update the mirror in sparse-ores RichOreRecipes (its CRUSHING table) and ChipRecipes to Create's numbers: "
                 + String.join("; ", differences));
         helper.assertTrue(!create || checked == 5, "only " + checked + " of the 5 chip ore crushing twins were compared");
+        helper.assertTrue(!create || mirrored == RichOreRecipes.CRUSHING.size(),
+                "only " + mirrored + " of " + RichOreRecipes.CRUSHING.size() + " mirrored ore crushing recipes were compared");
         helper.succeed();
     }
 
