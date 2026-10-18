@@ -21,3 +21,5 @@ include 'sparse-ores'
 include 'seismic-surveyance'
 include 'simple-spoilage'
 include 'frontier'
+// Not a mod: the seven feature mods' combined game test run, without the core (split step 4b).
+include 'coreless'

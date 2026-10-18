@@ -1,18 +1,14 @@
-package dev.brights0ng.enginesandempires.geophone.client;
+package dev.brights0ng.frontier.seismic.client;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.frontier.map.TierGrid;
 import dev.brights0ng.frontier.map.TierMapCache;
 import dev.brights0ng.frontier.map.TierMapPayloads;
 import dev.brights0ng.seismicsurveyance.client.MapLayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -21,10 +17,12 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * chunk column better than Frontier gets a very faint fill in its tier's colour, and an outline where it meets a lower
  * tier. Frontier itself is left clear. Incursions under way show as a diamond. A small legend explains the colours.
  *
- * <p>A layer on Seismic Surveyance's maps (split seam S8), registered by the pack's client setup: this holds what both
- * maps draw of it (the colours, the visible columns, the markers and legend) and asks the server for the columns.
+ * <p>A layer on Seismic Surveyance's maps (split seam S8): this holds what both maps draw of it (the colours, the
+ * visible columns, the markers and legend) and asks the server for the columns. Frontier registers it itself when
+ * Seismic Surveyance is loaded ({@link FrontierSeismicClient}); until split step 4b the core did, so Frontier and Seismic
+ * without the core drew no tier map. Not an {@code @EventBusSubscriber}: FML would load it, and with it Seismic's
+ * {@code MapLayer}, whether Seismic is there or not, so its one listener is added by {@link FrontierSeismicClient}.
  */
-@EventBusSubscriber(modid = EnginesAndEmpires.MODID, value = Dist.CLIENT)
 public final class TierOverlay implements MapLayer {
 
     public static final TierOverlay INSTANCE = new TierOverlay();
@@ -123,7 +121,7 @@ public final class TierOverlay implements MapLayer {
         }
     }
 
-    @SubscribeEvent
+    /** Forgets the columns when the player leaves the world. */
     static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         TierMapCache.clear();
     }

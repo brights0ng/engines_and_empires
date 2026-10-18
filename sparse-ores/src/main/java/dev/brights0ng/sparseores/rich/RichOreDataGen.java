@@ -13,6 +13,7 @@ import java.util.function.Function;
 import com.mojang.serialization.Codec;
 
 import dev.brights0ng.sparseores.SparseOres;
+import dev.brights0ng.sparseores.chips.Chips;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -34,6 +35,7 @@ import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.storage.loot.entries.LootItem;
+import net.minecraft.world.level.storage.loot.entries.LootPoolSingletonContainer;
 import net.minecraft.world.level.storage.loot.functions.ApplyBonusCount;
 import net.minecraft.world.level.storage.loot.functions.LootItemFunction;
 import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
@@ -56,8 +58,10 @@ import net.neoforged.neoforge.common.data.ExistingFileHelper;
  *
  * <p>A run can have only one loot table provider (its name is fixed), and only one block state and block tag provider
  * (two would write the same files), so {@code SparseOresDataGen} puts those together from these parts and the chips'.
- * The rich ores drop what their vanilla counterparts drop, {@link RichOres#RICHNESS} times over (split step 4). The pack
- * cuts some ores' drops in the core (its loot cuts), which builds both the ordinary and the rich blocks' tables with
+ * The rich ores drop what their vanilla counterparts drop, {@link RichOres#RICHNESS} times over (split step 4), except
+ * that coal, diamond and nether quartz drop chips ({@link Chips#chipped}): five chips from a rich block, as the ordinary
+ * block drops one (the chips' own tables for the ordinary blocks are {@code ChipDataGen.OrdinaryLoot}). A pack that cuts
+ * some ores' drops (the Engines and Empires core's loot cuts) builds both the ordinary and the rich blocks' tables with
  * {@link OreLoot}, so the two still cannot drift apart.
  *
  * <p>Run Sparse Ores' {@code data} run to (re)generate everything into {@code sparse-ores/src/generated/resources}.
@@ -67,8 +71,9 @@ public final class RichOreDataGen {
     /**
      * The loot of an ore block: with Silk Touch it drops itself; otherwise it drops what its {@link RichOres} entry says,
      * some number of times over, and Fortune improves that with the same formula the ordinary block uses. The rich ores'
-     * tables ({@link Loot}) and the pack's cut ones, ordinary and rich (the core's loot cuts, since split steps 2f and 4),
-     * are built with it, each pair from the same entry, so the two cannot drift apart.
+     * tables ({@link Loot}), the ordinary chip ores' ({@code ChipDataGen.OrdinaryLoot}) and a pack's cut ones, ordinary
+     * and rich (the Engines and Empires core's loot cuts, since split steps 2f and 4), are built with it, each pair from
+     * the same entry, so the two cannot drift apart.
      */
     public abstract static class OreLoot extends BlockLootSubProvider {
 
@@ -76,8 +81,11 @@ public final class RichOreDataGen {
             super(Set.of(), FeatureFlags.REGISTRY.allFlags(), registries);
         }
 
-        /** Silk Touch gives the block; otherwise the spec's drop, {@code times} over, improved by Fortune. */
-        protected LootTable.Builder oreDrop(Block block, RichOres.Spec spec, int times) {
+        /**
+         * Silk Touch gives the block; otherwise the spec's drop, {@code times} over, improved by Fortune, then put through
+         * {@code extra} (the ordinary chip ores' {@code sparse_ores:chip_drop}).
+         */
+        protected LootTable.Builder oreDrop(Block block, RichOres.Spec spec, int times, LootItemFunction.Builder... extra) {
             Item drop = BuiltInRegistries.ITEM.getOptional(ResourceLocation.parse(spec.drop()))
                     .orElseThrow(() -> new IllegalStateException("Item '" + spec.drop() + "' does not exist. "
                             + "Is the mod that adds it loaded?"));
@@ -90,16 +98,19 @@ public final class RichOreDataGen {
                     ? ApplyBonusCount.addUniformBonusCount(fortune, times)
                     : ApplyBonusCount.addOreBonusCount(fortune);
 
-            return createSilkTouchDispatchTable(block, applyExplosionDecay(block,
-                    LootItem.lootTableItem(drop)
-                            .apply(SetItemCountFunction.setCount(count))
-                            .apply(bonus)));
+            LootPoolSingletonContainer.Builder<?> entry = LootItem.lootTableItem(drop)
+                    .apply(SetItemCountFunction.setCount(count))
+                    .apply(bonus);
+            for (LootItemFunction.Builder function : extra) {
+                entry.apply(function);
+            }
+            return createSilkTouchDispatchTable(block, applyExplosionDecay(block, entry));
         }
     }
 
     /**
      * Loot of the rich ores: what the counterpart drops, {@link RichOres#RICHNESS} times over (a count of 1 becomes 5, a
-     * range of 2-5 becomes 10-25). One instance covers either the rich ores of vanilla's ores, for the loot table
+     * range of 2-5 becomes 10-25), in chips for the chip ores ({@link Chips#chipped}: five coal chips). One instance covers either the rich ores of vanilla's ores, for the loot table
      * provider, or those of other mods' ores (rich zinc ore, from Create's), for {@link OtherModsLoot}, which writes them
      * with a condition on that mod.
      */
@@ -120,7 +131,7 @@ public final class RichOreDataGen {
         protected void generate() {
             for (RichOres.Variant variant : variants()) {
                 Block block = RichOreBlocks.block(variant.name());
-                add(block, oreDrop(block, RichOres.forOre(oreOf(variant)), RichOres.RICHNESS));
+                add(block, oreDrop(block, Chips.chipped(RichOres.forOre(oreOf(variant))), RichOres.RICHNESS));
             }
         }
 

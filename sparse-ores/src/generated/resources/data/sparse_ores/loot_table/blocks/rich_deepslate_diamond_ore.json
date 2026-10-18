@@ -45,7 +45,7 @@
                   "function": "minecraft:explosion_decay"
                 }
               ],
-              "name": "minecraft:diamond"
+              "name": "sparse_ores:diamond_chip"
             }
           ]
         }
