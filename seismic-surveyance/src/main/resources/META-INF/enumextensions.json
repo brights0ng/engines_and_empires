@@ -1,0 +1,13 @@
+{
+  "entries": [
+    {
+      "enum": "net/minecraft/client/model/HumanoidModel$ArmPose",
+      "name": "SEISMIC_SURVEYANCE_PRD_RAISED",
+      "constructor": "(ZLnet/neoforged/neoforge/client/IArmPoseTransformer;)V",
+      "parameters": {
+        "class": "dev/brights0ng/seismicsurveyance/client/PrdArmPose",
+        "field": "RAISED"
+      }
+    }
+  ]
+}

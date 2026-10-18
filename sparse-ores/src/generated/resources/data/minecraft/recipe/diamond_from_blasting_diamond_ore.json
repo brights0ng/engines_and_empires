@@ -1,0 +1,19 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "sparse_ores:chip_drops"
+    }
+  ],
+  "type": "minecraft:blasting",
+  "category": "misc",
+  "cookingtime": 100,
+  "experience": 1.0,
+  "group": "diamond",
+  "ingredient": {
+    "item": "minecraft:diamond_ore"
+  },
+  "result": {
+    "count": 1,
+    "id": "sparse_ores:diamond_chip"
+  }
+}

@@ -2,13 +2,15 @@ package dev.brights0ng.enginesandempires.gametest;
 
 import java.util.List;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatDrivers;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatPowerData;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatRadiant;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatRegion;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatTables;
-import dev.brights0ng.enginesandempires.weather.heat.world.HeatWorld;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
+import dev.brights0ng.enginesandempires.weather.heat.compat.MachineHeatDrivers;
+import dev.brights0ng.meteodyne.heat.world.HeatDrivers;
+import dev.brights0ng.meteodyne.heat.world.HeatPowerData;
+import dev.brights0ng.meteodyne.heat.world.HeatRadiant;
+import dev.brights0ng.meteodyne.heat.world.HeatRegion;
+import dev.brights0ng.meteodyne.heat.world.HeatTables;
+import dev.brights0ng.meteodyne.heat.world.HeatWorld;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
@@ -27,7 +29,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * block entity (Cold Sweat's hearth). Built high above the test cell ({@link #Y0}), clear of the other heat tests'
  * fires and lava, and in the same batch as them.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(EnginesAndEmpires.MODID)
 @PrefixGameTestTemplate(false)
 public final class HeatPlayerGameTests {
 
@@ -71,7 +73,7 @@ public final class HeatPlayerGameTests {
         double glass = HeatRadiant.at(helper.getLevel(), at);
         helper.setBlock(new BlockPos(2, Y0, 3), Blocks.STONE);
         double wall = HeatRadiant.at(helper.getLevel(), at);
-        EnginesAndEmpiresMod.LOGGER.info("heat radiant test: clear {}, glass {}, wall {}", clear, glass, wall);
+        EnginesAndEmpires.LOGGER.info("heat radiant test: clear {}, glass {}, wall {}", clear, glass, wall);
         // 12 x 1 x 0.5 / 1.5^2 = 2.67 C
         helper.assertTrue(Math.abs(clear - 2.67) < 0.1, "a campfire's radiant warmth 1.5 blocks off: " + clear);
         helper.assertTrue(Math.abs(glass - clear / 4) < 0.05, "a quarter through glass: " + glass);
@@ -90,7 +92,7 @@ public final class HeatPlayerGameTests {
         // Standing on a stone ledge at the lake's edge, over the lava's level
         helper.setBlock(new BlockPos(0, Y0 - 1, 3), Blocks.STONE);
         double edge = HeatRadiant.at(helper.getLevel(), body(helper, 0.5, Y0 + 0.9, 3.5));
-        EnginesAndEmpiresMod.LOGGER.info("heat radiant test: lava lake edge {}", edge);
+        EnginesAndEmpires.LOGGER.info("heat radiant test: lava lake edge {}", edge);
         helper.assertTrue(edge > 25, "hot at a lava lake's edge: " + edge);
         helper.assertTrue(edge <= 60, "but eased toward lava's +60 limit, not past it: " + edge);
         finish(helper);
@@ -102,7 +104,7 @@ public final class HeatPlayerGameTests {
         HeatPowerData.Variant v = HeatTables.power(Blocks.BLUE_ICE.defaultBlockState());
         helper.assertTrue(v != null && !v.inAir(), "blue ice makes no region");
         double chill = HeatRadiant.at(helper.getLevel(), body(helper, 4.5, Y0 + 0.5, 3.5));
-        EnginesAndEmpiresMod.LOGGER.info("heat radiant test: blue ice at 1 block {}", chill);
+        EnginesAndEmpires.LOGGER.info("heat radiant test: blue ice at 1 block {}", chill);
         // 12 x -0.8 / 1^2 = -9.6 C, eased toward -20
         helper.assertTrue(chill < -7 && chill > -10, "blue ice a block away chills: " + chill);
         finish(helper);
@@ -114,7 +116,7 @@ public final class HeatPlayerGameTests {
     public static void enginesAreSourcesOnlyWhileRunning(GameTestHelper helper) {
         BuiltInRegistries.BLOCK.getOptional(ResourceLocation.parse("createdieselgenerators:diesel_engine")).ifPresent(b -> {
             List<HeatPowerData.Variant> driven = HeatTables.driven(b.defaultBlockState());
-            helper.assertTrue(driven.size() == 1 && driven.get(0).driver().equals(HeatDrivers.RUNNING)
+            helper.assertTrue(driven.size() == 1 && driven.get(0).driver().equals(MachineHeatDrivers.RUNNING)
                     && driven.get(0).power() == 0.8, "a diesel engine is driven by running: " + driven);
             BlockPos pos = new BlockPos(3, Y0, 3);
             helper.setBlock(pos, b.defaultBlockState());
@@ -136,7 +138,7 @@ public final class HeatPlayerGameTests {
         BlockState fire = burner.get().defaultBlockState();
         List<HeatPowerData.Variant> driven = HeatTables.driven(fire);
         helper.assertTrue(driven.size() == 1 && driven.get(0).power() == 1.0 && driven.get(0).radiant() == 0.5
-                && driven.get(0).driver().equals(HeatDrivers.HOT_AIR_BURNER), "a burner: one campfire, driven: " + driven);
+                && driven.get(0).driver().equals(MachineHeatDrivers.HOT_AIR_BURNER), "a burner: one campfire, driven: " + driven);
         for (var p : fire.getProperties()) {
             if (p.getName().equals("variant")) {
                 BlockState soul = setValue(fire, p, "soulful");
@@ -155,7 +157,7 @@ public final class HeatPlayerGameTests {
             be.updateSignal();
         }
         double full = HeatDrivers.share(helper.getLevel(), abs, helper.getLevel().getBlockState(abs), driven.get(0));
-        EnginesAndEmpiresMod.LOGGER.info("heat burner test: off {}, full signal {}", off, full);
+        EnginesAndEmpires.LOGGER.info("heat burner test: off {}, full signal {}", off, full);
         helper.assertTrue(off == 0, "no signal, no heat: " + off);
         helper.assertTrue(Math.abs(full - 1) < 1e-9, "full signal at the most hot air: a campfire's worth: " + full);
         finish(helper);
@@ -209,7 +211,7 @@ public final class HeatPlayerGameTests {
             helper.assertTrue(be.isUsingHotFuel(), "Cold Sweat says it is using hot fuel");
             w.runNow(60);
             HeatRegion on = region(w, helper.absolutePos(hearth));
-            EnginesAndEmpiresMod.LOGGER.info("heat hearth test: sources {}", on == null ? -1 : on.sourceCount());
+            EnginesAndEmpires.LOGGER.info("heat hearth test: sources {}", on == null ? -1 : on.sourceCount());
             helper.assertTrue(on != null && on.sourceCount() > 0, "heating: the hearth is a source");
             BlockPos beside = helper.absolutePos(hearth.west());
             double warm = w.offsetAt(beside.getX() + 0.5, beside.getY() + 0.5, beside.getZ() + 0.5);

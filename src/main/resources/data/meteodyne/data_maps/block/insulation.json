@@ -1,0 +1,8 @@
+{
+  "values": {
+    "create:andesite_casing": {"conductance": 4.0, "capacity": 1.3},
+    "create:brass_casing": {"conductance": 4.0, "capacity": 1.3},
+    "create:copper_casing": {"conductance": 4.0, "capacity": 1.3},
+    "create:railway_casing": {"conductance": 4.0, "capacity": 1.3}
+  }
+}

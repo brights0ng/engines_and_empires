@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:blasting",
+  "category": "misc",
+  "cookingtime": 100,
+  "experience": 0.1,
+  "ingredient": {
+    "item": "sparse_ores:rich_coal_ore"
+  },
+  "result": {
+    "count": 5,
+    "id": "sparse_ores:coal_chip"
+  }
+}

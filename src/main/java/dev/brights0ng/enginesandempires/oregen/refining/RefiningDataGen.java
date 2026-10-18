@@ -1,52 +1,55 @@
 package dev.brights0ng.enginesandempires.oregen.refining;
 
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 
-import javax.imageio.ImageIO;
-
-import com.google.common.hash.Hashing;
 import com.google.gson.JsonObject;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
-import net.minecraft.Util;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.data.CachedOutput;
 import net.minecraft.data.DataProvider;
 import net.minecraft.data.PackOutput;
+import net.minecraft.data.loot.LootTableProvider;
 import net.minecraft.data.loot.LootTableSubProvider;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.packs.PackType;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.storage.loot.LootPool;
 import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.storage.loot.entries.LootItem;
 import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
 import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
-import net.neoforged.neoforge.client.model.generators.BlockStateProvider;
-import net.neoforged.neoforge.client.model.generators.ModelProvider;
-import net.neoforged.neoforge.common.data.ExistingFileHelper;
+import net.neoforged.neoforge.data.event.GatherDataEvent;
 
 /**
- * The data generator's providers for ore refining: the recipes of {@link RefiningRecipes}, the chips' item models and
- * textures, and the iron golem's cut-down drop. Ore block loot tables are generated with the rich ones, in
- * {@code RichOreDataGen}, from the same {@code RichOres} table. Called from {@code RichOreDataGen.gatherData}.
+ * The data generator's providers for ore refining: the recipes of {@link RefiningRecipes} and the iron golem's cut-down
+ * drop. The cut ores' loot tables, ordinary and rich, are {@link LootCuts}, built from Sparse Ores' {@code RichOres} table
+ * as its rich ones are; the chips' own loot, recipes, models and textures are Sparse Ores' ({@code sparseores/chips/ChipDataGen}).
+ * {@link #gatherData} adds all of them; the core's other data is hand-written, apart from its game test structure
+ * ({@code EnginesAndEmpires}). Until split step 2f the loot went into a shared loot provider ({@code SharedDataGen}),
+ * from when every mod wrote into the one jar.
  */
 public final class RefiningDataGen {
 
-    private static final String MODID = EnginesAndEmpiresMod.MODID;
+    /**
+     * Registered on the mod event bus by the mod class. A run can have only one loot table provider (its name is fixed),
+     * so the golem's loot and the loot cuts share the core's one.
+     */
+    public static void gatherData(GatherDataEvent event) {
+        PackOutput output = event.getGenerator().getPackOutput();
+        event.getGenerator().addProvider(event.includeServer(), new Recipes(output));
+        event.getGenerator().addProvider(event.includeServer(), new LootTableProvider(output, Set.of(),
+                List.of(new LootTableProvider.SubProviderEntry(GolemLoot::new, LootContextParamSets.ENTITY),
+                        new LootTableProvider.SubProviderEntry(LootCuts::new, LootContextParamSets.BLOCK)),
+                event.getLookupProvider()));
+    }
 
     /** Writes {@link RefiningRecipes#files()}. */
     public static final class Recipes implements DataProvider {
@@ -90,65 +93,6 @@ public final class RefiningDataGen {
                     .withPool(LootPool.lootPool().setRolls(ConstantValue.exactly(1))
                             .add(LootItem.lootTableItem(Items.IRON_NUGGET)
                                     .apply(SetItemCountFunction.setCount(UniformGenerator.between(min, max))))));
-        }
-    }
-
-    /** Tells the model generator the chip textures exist: they are written by this same run. */
-    public static void trackTextures(ExistingFileHelper existing) {
-        for (Refining.Chip chip : Refining.CHIPS) {
-            existing.trackGenerated(ResourceLocation.fromNamespaceAndPath(MODID, "item/" + chip.name()), ModelProvider.TEXTURE);
-        }
-    }
-
-    /** The chips' item models: flat items, like coal. */
-    public static void registerModels(BlockStateProvider provider) {
-        for (Refining.Chip chip : Refining.CHIPS) {
-            provider.itemModels().withExistingParent(chip.name(), "item/generated")
-                    .texture("layer0", provider.modLoc("item/" + chip.name()));
-        }
-    }
-
-    /** Writes the chip textures drawn by {@link ChipTextures}, from the vanilla items' own textures. */
-    public static final class Textures implements DataProvider {
-
-        private final PackOutput output;
-        private final ExistingFileHelper existing;
-
-        public Textures(PackOutput output, ExistingFileHelper existing) {
-            this.output = output;
-            this.existing = existing;
-        }
-
-        @Override
-        public CompletableFuture<?> run(CachedOutput cache) {
-            return CompletableFuture.runAsync(() -> {
-                Path root = output.getOutputFolder(PackOutput.Target.RESOURCE_PACK).resolve(MODID).resolve("textures/item");
-                for (Refining.Chip chip : Refining.CHIPS) {
-                    try {
-                        BufferedImage image = ChipTextures.chip(vanillaItem(chip.item()));
-                        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                        ImageIO.write(image, "png", bytes);
-                        byte[] data = bytes.toByteArray();
-                        cache.writeIfNeeded(root.resolve(chip.name() + ".png"), data, Hashing.sha1().hashBytes(data));
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                }
-            }, Util.backgroundExecutor());
-        }
-
-        /** A vanilla item's texture, such as {@code minecraft:coal}'s, from the game's own resources. */
-        private BufferedImage vanillaItem(String itemId) throws IOException {
-            ResourceLocation item = ResourceLocation.parse(itemId);
-            ResourceLocation texture = ResourceLocation.fromNamespaceAndPath(item.getNamespace(), "textures/item/" + item.getPath() + ".png");
-            try (InputStream in = existing.getResource(texture, PackType.CLIENT_RESOURCES).open()) {
-                return ImageIO.read(in);
-            }
-        }
-
-        @Override
-        public String getName() {
-            return "Chip textures";
         }
     }
 

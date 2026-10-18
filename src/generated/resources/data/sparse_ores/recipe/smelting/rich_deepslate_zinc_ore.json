@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:smelting",
+  "category": "misc",
+  "cookingtime": 200,
+  "experience": 1.0,
+  "ingredient": {
+    "item": "sparse_ores:rich_deepslate_zinc_ore"
+  },
+  "result": {
+    "count": 10,
+    "id": "create:zinc_nugget"
+  }
+}

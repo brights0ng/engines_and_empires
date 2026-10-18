@@ -29,9 +29,6 @@ version="${mod_version}" #mandatory
 # A display name for the mod
 displayName="${mod_name}" #mandatory
 
-# Enum constants this mod adds (currently one: the arm pose for holding the portable record display up in both hands).
-enumExtensions="META-INF/enumextensions.json"
-
 # A URL to query for updates for this mod. See the JSON update specification https://docs.neoforged.net/docs/misc/updatechecker/
 #updateJSONURL="https://change.me.example.invalid/updates.json" #optional
 
@@ -89,12 +86,92 @@ Core mod for the Engines and Empires modpack.
     ordering="NONE"
     side="BOTH"
 
-# Create. The pack is built on it, and the ore system looks up Create's blocks (zinc ore) by id. Rich zinc ore
-# copies Create's zinc ore when it is registered, so this mod must load AFTER Create.
+# Paradyne Lib, the family's library (split step 2b: a mod of its own). Loads first, as it did when the core called it.
+[[dependencies.${mod_id}]]
+    modId="paradyne_lib"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Meteodyne (clouds, weather, temperature; split step 2c: a mod of its own). The core's compat (Cold Sweat, Serene
+# Seasons, MineColonies, the machines' heat) hooks into it, so it loads first.
+[[dependencies.${mod_id}]]
+    modId="meteodyne"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Sparse Ores (ore generation and the chips; split step 2e: a mod of its own). The core's ore refining cuts its ores'
+# drops and recipes, so it loads first.
+[[dependencies.${mod_id}]]
+    modId="sparse_ores"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Seismic Surveyance (the seismic survey; split step 2e: a mod of its own). The core draws Frontier's tiers on its maps,
+# so it loads first.
+[[dependencies.${mod_id}]]
+    modId="seismic_surveyance"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Frontier (how civilised the land is, spawning and incursions; split step 2d: a mod of its own). The core registers
+# MineColonies' guards and Create's running machines with it and draws its tiers on Seismic Surveyance's maps, so it
+# loads first.
+[[dependencies.${mod_id}]]
+    modId="frontier"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Simple Spoilage (food spoilage; split step 2d: a mod of its own). The core's AppleSkin and Diet compat reads its
+# freshness, so it loads first.
+[[dependencies.${mod_id}]]
+    modId="simple_spoilage"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Create. The pack is built on it: the ore refining's crushing and washing recipes and the core's machine heat and
+# loudness use it, so this mod loads AFTER Create.
 [[dependencies.${mod_id}]]
     modId="create"
     type="required"
     versionRange="${create_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+# Sable (ships as sub-levels; plan decision 3: required by the core). The core tunes it for the pack (its heavy block
+# tag) and the family's ship weather, wind and heat run on it.
+[[dependencies.${mod_id}]]
+    modId="sable"
+    type="required"
+    versionRange="${sable_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+# Create Aeronautics' core module, Simulated. Its machines are heat sources and loud machines in the core's data maps.
+[[dependencies.${mod_id}]]
+    modId="simulated"
+    type="required"
+    versionRange="${simulated_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+# Create Aeronautics' flight module. Its engines and hot air burners are heat sources and loud machines in the core's
+# data maps.
+[[dependencies.${mod_id}]]
+    modId="aeronautics"
+    type="required"
+    versionRange="${simulated_version_range}"
     ordering="AFTER"
     side="BOTH"
 
@@ -112,15 +189,6 @@ Core mod for the Engines and Empires modpack.
     type="required"
     versionRange="${encumbered_version_range}"
     ordering="AFTER"
-    side="BOTH"
-
-# Deeper and Darker (optional). Its mobs come up around stirred deposits (deep_roster/stirred.json) and are named by id
-# only, so the mod runs without it: the rosters and tags just skip them.
-[[dependencies.${mod_id}]]
-    modId="deeperdarker"
-    type="optional"
-    versionRange="[1.4,)"
-    ordering="NONE"
     side="BOTH"
 
 # AppleSkin (optional). Its food previews show what spoiled food really gives (food/compat/AppleSkinCompat, hooked up
@@ -151,7 +219,55 @@ Core mod for the Engines and Empires modpack.
     ordering="NONE"
     side="BOTH"
 
-# Mixins. Currently one: it switches off vanilla's large terrain-noise ore veins (see NoiseGeneratorSettingsMixin).
+# MineColonies (optional). Its colonists follow the local weather (the compat.minecolonies mixins, applied only when it
+# is installed), and its guards count as Frontier's guards (frontier/guard/compat/MineColoniesGuardSource). Built against
+# 1.1.1397.
+[[dependencies.${mod_id}]]
+    modId="minecolonies"
+    type="optional"
+    versionRange="[1.1,)"
+    ordering="NONE"
+    side="BOTH"
+
+# Serene Seasons (optional). Its calendar runs Meteodyne's year in place of the built-in one
+# (weather/climate/compat/SereneSeasonsCompat, hooked up only when it is installed). Built against 10.1.0.9.
+[[dependencies.${mod_id}]]
+    modId="sereneseasons"
+    type="optional"
+    versionRange="[10.1,)"
+    ordering="NONE"
+    side="BOTH"
+
+# Guard Villagers (optional). Its guards are in Frontier's guards tag (data/frontier/tags/entity_type/guards.json, an
+# optional entry), by id only.
+[[dependencies.${mod_id}]]
+    modId="guardvillagers"
+    type="optional"
+    versionRange="[2.4,)"
+    ordering="NONE"
+    side="BOTH"
+
+# Born in Chaos (optional; plan section 2). The pack's datapack is to name its mobs in Frontier's rosters and tags, by
+# id only.
+[[dependencies.${mod_id}]]
+    modId="born_in_chaos_v1"
+    type="optional"
+    versionRange="[0,)"
+    ordering="NONE"
+    side="BOTH"
+
+# Naturalist (optional; plan section 2). The pack's datapack is to name its mobs in Frontier's rosters and tags, by id
+# only.
+[[dependencies.${mod_id}]]
+    modId="naturalist"
+    type="optional"
+    versionRange="[0,)"
+    ordering="NONE"
+    side="BOTH"
+
+# Mixins: one config per mod (split step 1b), with a plugin that applies a mixin only when the mod it targets is loaded.
+# Every other mod of the family registers its own config in its own metadata (since steps 2b-2e; Seismic Surveyance has
+# no mixins), so only the core's is left here.
 [[mixins]]
     config="${mod_id}.mixins.json"
 

@@ -5,13 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 import org.junit.jupiter.api.Test;
 
@@ -20,11 +21,20 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import dev.brights0ng.enginesandempires.oregen.rich.RichOres;
+import dev.brights0ng.sparseores.chips.ChipRecipes;
+import dev.brights0ng.sparseores.rich.RichOreRecipes;
+import dev.brights0ng.sparseores.rich.RichOres;
 
 class RefiningTest {
 
     private static final Map<String, JsonObject> FILES = RefiningRecipes.files();
+
+    /**
+     * The recipe files the pack loads for ore refining: Sparse Ores' own (since split step 4c; those whose conditions
+     * hold in the pack, with Create loaded and chip drops on by default, without their conditions), with the core's on
+     * top where they share a path, as the core's data wins in game.
+     */
+    private static final Map<String, JsonObject> PACK = pack();
 
     // ---- the rules ----
 
@@ -75,7 +85,6 @@ class RefiningTest {
     void otherSourcesAreCutLikeRawOre() {
         assertEquals(0.03, Refining.otherSourceChance(0.125), 1e-9);  // gravel's iron nugget
         assertEquals(0.085, Refining.otherSourceChance(0.375), 1e-9); // red sand's gold nuggets
-        assertEquals(400, Refining.COAL_CHIP_BURN_TIME);
     }
 
     // ---- the recipes ----
@@ -94,10 +103,10 @@ class RefiningTest {
     void silkTouchedOreBlocksSmeltLikeTheirDrops() {
         assertCooking("minecraft/recipe/iron_ingot_from_smelting_deepslate_iron_ore.json", "minecraft:iron_nugget", 2);
         assertCooking("minecraft/recipe/copper_ingot_from_smelting_copper_ore.json", "create:copper_nugget", 7);
-        assertCooking("minecraft/recipe/coal_from_blasting_coal_ore.json", "engines_and_empires:coal_chip", 1);
-        assertCooking("minecraft/recipe/diamond_from_smelting_deepslate_diamond_ore.json", "engines_and_empires:diamond_chip", 1);
-        assertCooking("minecraft/recipe/quartz.json", "engines_and_empires:quartz_chip", 1);
-        assertCooking("minecraft/recipe/quartz_from_blasting.json", "engines_and_empires:quartz_chip", 1);
+        assertCooking("minecraft/recipe/coal_from_blasting_coal_ore.json", "sparse_ores:coal_chip", 1);
+        assertCooking("minecraft/recipe/diamond_from_smelting_deepslate_diamond_ore.json", "sparse_ores:diamond_chip", 1);
+        assertCooking("minecraft/recipe/quartz.json", "sparse_ores:quartz_chip", 1);
+        assertCooking("minecraft/recipe/quartz_from_blasting.json", "sparse_ores:quartz_chip", 1);
         assertCooking("minecraft/recipe/gold_ingot_from_smelting_nether_gold_ore.json", "minecraft:gold_nugget", 1);
         // Create's zinc ore recipe no longer matches the rich zinc ores through #c:ores/zinc.
         JsonObject zinc = file("create/recipe/smelting/zinc_ingot_from_ore.json");
@@ -116,9 +125,9 @@ class RefiningTest {
 
     @Test
     void crushingChipAndGroupOresKeepsTheCreateLead() {
-        assertEquals(2.2, mean(crushing("create/recipe/crushing/coal_ore.json"), "engines_and_empires:coal_chip"), 1e-9);
-        assertEquals(2.8, mean(crushing("create/recipe/crushing/deepslate_diamond_ore.json"), "engines_and_empires:diamond_chip"), 1e-9);
-        assertEquals(2.8, mean(crushing("create/recipe/crushing/nether_quartz_ore.json"), "engines_and_empires:quartz_chip"), 1e-9);
+        assertEquals(2.2, mean(crushing("create/recipe/crushing/coal_ore.json"), "sparse_ores:coal_chip"), 1e-9);
+        assertEquals(2.8, mean(crushing("create/recipe/crushing/deepslate_diamond_ore.json"), "sparse_ores:diamond_chip"), 1e-9);
+        assertEquals(2.8, mean(crushing("create/recipe/crushing/nether_quartz_ore.json"), "sparse_ores:quartz_chip"), 1e-9);
         assertEquals(2.2, mean(crushing("create/recipe/crushing/redstone_ore.json"), "minecraft:redstone"), 1e-9);
         assertEquals(3.3, mean(crushing("create/recipe/crushing/lapis_ore.json"), "minecraft:lapis_lazuli"), 1e-9);
         assertEquals(4.2, mean(crushing("create/recipe/crushing/deepslate_lapis_ore.json"), "minecraft:lapis_lazuli"), 1e-9);
@@ -134,31 +143,86 @@ class RefiningTest {
             for (RichOres.Variant variant : ore.spec().variants()) {
                 boolean deep = variant.ground() != RichOres.Ground.STONE;
                 String name = variant.name();
-                assertCooking("engines_and_empires/recipe/smelting/" + name + ".json", ore.furnaceItem(), ore.furnaceCount() * 5);
-                assertCooking("engines_and_empires/recipe/blasting/" + name + ".json", ore.furnaceItem(), ore.furnaceCount() * 5);
-                JsonArray crushed = crushing("engines_and_empires/recipe/crushing/" + name + ".json");
+                assertCooking("sparse_ores/recipe/smelting/" + name + ".json", ore.furnaceItem(), ore.furnaceCount() * 5);
+                assertCooking("sparse_ores/recipe/blasting/" + name + ".json", ore.furnaceItem(), ore.furnaceCount() * 5);
+                JsonArray crushed = crushing("sparse_ores/recipe/crushing/" + name + ".json");
                 assertEquals(Refining.Amount.of(ore.crushedMean(deep) * 5).mean(), mean(crushed, ore.crushedItem()), 1e-9, name);
                 assertEquals(ore.crushedMean(deep) * 5, mean(crushed, ore.crushedItem()), 0.05, name);
             }
         }
     }
 
+    /**
+     * The chip ores' crushing is Sparse Ores' since split step 4d, which ships the pack's numbers (docs/design/ore-refining.md:
+     * 2.2 times the mined chips from stone ore, 2.8 from deepslate and nether ore, five times that from a rich block).
+     * {@link RefiningRecipes} still states those numbers from {@link Refining}'s rules; Sparse Ores' files must be exactly
+     * that, apart from their conditions, or the pack would be crushing something else than it says.
+     */
     @Test
-    void fourChipsCraftIntoTheWholeItem() {
-        for (Refining.Chip chip : Refining.CHIPS) {
-            String item = chip.item().substring("minecraft:".length());
-            JsonObject recipe = file("engines_and_empires/recipe/" + item + "_from_chips.json");
-            assertEquals("engines_and_empires:" + chip.name(), recipe.getAsJsonObject("key").getAsJsonObject("#").get("item").getAsString());
-            assertEquals(4, String.join("", recipe.getAsJsonArray("pattern").asList().stream().map(JsonElement::getAsString).toList()).length());
-            assertEquals(chip.item(), recipe.getAsJsonObject("result").get("id").getAsString());
+    void sparseOresCrushesTheChipOresExactlyAsThePackSays() {
+        int checked = 0;
+        for (Refining.Ore ore : Refining.ORES) {
+            if (ore.kind() != Refining.Kind.CHIP) {
+                continue;
+            }
+            for (RichOres.Variant variant : ore.spec().variants()) {
+                String vanilla = variant.counterpart().substring("minecraft:".length());
+                assertEquals(RefiningRecipes.crushing(ore, variant, 1), unconditional(
+                        ChipRecipes.files().get("create/recipe/crushing/" + vanilla + ".json")), vanilla);
+                assertEquals(RefiningRecipes.crushing(ore, variant, RichOres.RICHNESS), unconditional(
+                        RichOreRecipes.files().get("sparse_ores/recipe/crushing/" + variant.name() + ".json")), variant.name());
+                checked++;
+            }
         }
-        assertEquals(400, file("neoforge/data_maps/item/furnace_fuels.json").getAsJsonObject("values")
-                .getAsJsonObject("engines_and_empires:coal_chip").get("burn_time").getAsInt());
+        assertEquals(5, checked);
+    }
+
+    private static JsonObject unconditional(JsonObject recipe) {
+        JsonObject copy = recipe.deepCopy();
+        copy.remove("neoforge:conditions");
+        return copy;
+    }
+
+    /**
+     * Since split step 4c the core replaces Sparse Ores' recipes only where the pack's numbers differ, and ships none of
+     * the recipes Sparse Ores now has for itself: no rich ore recipe under its own ids, no chip ore smelting.
+     */
+    @Test
+    void theCoreOnlyReplacesWhatThePackChanges() {
+        Map<String, JsonObject> sparseOres = new LinkedHashMap<>(ChipRecipes.files());
+        sparseOres.putAll(RichOreRecipes.files());
+        int replaced = 0;
+        for (Map.Entry<String, JsonObject> file : FILES.entrySet()) {
+            String path = file.getKey();
+            assertFalse(path.startsWith("engines_and_empires/recipe/"), path + ": rich ore recipes are Sparse Ores' ids now");
+            JsonObject theirs = sparseOres.get(path);
+            if (theirs != null) {
+                JsonObject unconditional = theirs.deepCopy();
+                unconditional.remove("neoforge:conditions");
+                assertFalse(unconditional.equals(file.getValue()), path + " replaces Sparse Ores' recipe with the same one");
+                replaced++;
+            }
+        }
+        for (String chipOre : new String[] {"coal_from_smelting_coal_ore", "diamond_from_blasting_deepslate_diamond_ore",
+                "quartz", "quartz_from_blasting"}) {
+            assertFalse(FILES.containsKey("minecraft/recipe/" + chipOre + ".json"), chipOre + " is Sparse Ores' since 4c");
+        }
+        // The metals' rich furnace recipes (iron, copper, zinc, gold, nether gold: 9 blocks, smelting and blasting), the
+        // group ores' rich crushing (redstone, lapis, nether gold: 5 blocks), and Create's zinc ore smelting and blasting.
+        // The chip ores' crushing, ordinary and rich (coal, deepslate coal, diamond, deepslate diamond, nether quartz), is Sparse Ores' own
+        // since split step 4d: Sparse Ores ships the pack's numbers there, so the core replaces none of it.
+        assertEquals(18 + 5 + 2, replaced);
+        for (String chipOre : new String[] {"coal_ore", "deepslate_coal_ore", "diamond_ore", "deepslate_diamond_ore",
+                "nether_quartz_ore"}) {
+            assertFalse(FILES.containsKey("create/recipe/crushing/" + chipOre + ".json"), chipOre + "'s crushing is Sparse Ores'");
+            assertFalse(FILES.containsKey("sparse_ores/recipe/crushing/rich_" + chipOre + ".json"),
+                    "rich " + chipOre + "'s crushing is Sparse Ores', which is already the pack's");
+        }
     }
 
     @Test
     void createResultsNeverExceedWhatCrushingAllows() {
-        for (Map.Entry<String, JsonObject> file : FILES.entrySet()) {
+        for (Map.Entry<String, JsonObject> file : PACK.entrySet()) {
             JsonObject json = file.getValue();
             if (json.has("type") && json.get("type").getAsString().equals("create:crushing")) {
                 assertTrue(json.getAsJsonArray("results").size() <= 7, file.getKey());
@@ -179,40 +243,46 @@ class RefiningTest {
         }
     }
 
-    // ---- the chip textures ----
-
-    @Test
-    void aChipIsAShardOfTheItemWithADarkRim() {
-        BufferedImage item = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        for (int y = 2; y < 14; y++) {
-            for (int x = 2; x < 14; x++) {
-                item.setRGB(x, y, 0xFFC08040);
-            }
-        }
-        BufferedImage chip = ChipTextures.chip(item);
-        int opaque = 0;
-        for (int y = 0; y < 16; y++) {
-            for (int x = 0; x < 16; x++) {
-                int alpha = chip.getRGB(x, y) >>> 24;
-                boolean inShape = ChipTextures.inShape(x - ChipTextures.LEFT, y - ChipTextures.TOP);
-                assertEquals(inShape ? 255 : 0, alpha, "pixel " + x + "," + y);
-                if (inShape) {
-                    opaque++;
-                    int expected = ChipTextures.onRim(x - ChipTextures.LEFT, y - ChipTextures.TOP)
-                            ? ChipTextures.shade(0xFFC08040, ChipTextures.RIM_SHADE) : 0xFFC08040;
-                    assertEquals(expected, chip.getRGB(x, y));
-                }
-            }
-        }
-        assertTrue(opaque > 20 && opaque < 60, "a chip is small: " + opaque + " pixels");
-    }
-
     // ---- helpers ----
 
     private static JsonObject file(String path) {
-        JsonObject json = FILES.get(path);
-        assertNotNull(json, "no generated file " + path);
+        JsonObject json = PACK.get(path);
+        assertNotNull(json, "no recipe file " + path + " in the pack");
         return json;
+    }
+
+    private static Map<String, JsonObject> pack() {
+        Map<String, JsonObject> pack = new TreeMap<>();
+        Map<String, JsonObject> sparseOres = new LinkedHashMap<>(ChipRecipes.files());
+        sparseOres.putAll(RichOreRecipes.files());
+        for (Map.Entry<String, JsonObject> file : sparseOres.entrySet()) {
+            JsonObject json = file.getValue().deepCopy();
+            JsonElement conditions = json.remove("neoforge:conditions");
+            if (conditions == null || allHoldInThePack(conditions.getAsJsonArray())) {
+                pack.put(file.getKey(), json);
+            }
+        }
+        pack.putAll(FILES);
+        return pack;
+    }
+
+    /** Whether recipe conditions hold in the pack: Create is loaded, and chip drops are on (the default). */
+    private static boolean allHoldInThePack(JsonArray conditions) {
+        for (JsonElement element : conditions) {
+            if (!holdsInThePack(element.getAsJsonObject())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean holdsInThePack(JsonObject condition) {
+        return switch (condition.get("type").getAsString()) {
+            case "neoforge:mod_loaded" -> condition.get("modid").getAsString().equals("create");
+            case "sparse_ores:chip_drops" -> true;
+            case "neoforge:not" -> !holdsInThePack(condition.getAsJsonObject("value"));
+            default -> throw new IllegalArgumentException("unknown condition " + condition);
+        };
     }
 
     private static JsonArray crushing(String path) {

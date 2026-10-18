@@ -7,8 +7,8 @@ import com.momosoftworks.coldsweat.api.event.core.registry.TempModifierRegisterE
 import com.momosoftworks.coldsweat.api.util.placement.Matcher;
 import com.momosoftworks.coldsweat.api.util.placement.Placement;
 import com.momosoftworks.coldsweat.config.ConfigSettings;
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
-import dev.brights0ng.enginesandempires.weather.rain.ClientWeather;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
+import dev.brights0ng.meteodyne.rain.ClientWeather;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -18,6 +18,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 
 /**
  * Cold Sweat's world temperature, from the pack's climate (weather phase 8d, {@code claude/weather-backbone-phase8d.md};
@@ -37,7 +38,7 @@ public final class ColdSweatCompat {
     public static final String MOD_ID = "cold_sweat";
 
     /** Our modifier's id in Cold Sweat's registry. */
-    public static final ResourceLocation CLIMATE_ID = ResourceLocation.fromNamespaceAndPath(EnginesAndEmpiresMod.MODID, "climate");
+    public static final ResourceLocation CLIMATE_ID = EnginesAndEmpires.id("climate");
 
     /** Cold Sweat's own world terms that the pack's climate replaces (by registry id, so none needs its mod loaded). */
     static final Set<ResourceLocation> REPLACED = Set.of(
@@ -63,7 +64,13 @@ public final class ColdSweatCompat {
     public static void registerIfLoaded(IEventBus modEventBus) {
         if (ModList.get().isLoaded(MOD_ID)) {
             Hook.register(modEventBus);
+            modEventBus.addListener(ColdSweatCompat::registerGameTests);
         }
+    }
+
+    /** Its game tests, which need Cold Sweat (split step 2f). */
+    private static void registerGameTests(RegisterGameTestsEvent event) {
+        event.register(ColdSweatGameTests.class);
     }
 
     /** Degrees C as Cold Sweat's units. */
@@ -77,7 +84,7 @@ public final class ColdSweatCompat {
      */
     public static double airTemperature(Level level, BlockPos pos) {
         if (level instanceof ServerLevel server) {
-            return dev.brights0ng.enginesandempires.weather.climate.Temperature.at(server, pos);
+            return dev.brights0ng.meteodyne.climate.Temperature.at(server, pos);
         }
         return ClientWeather.temperature(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
     }
@@ -124,7 +131,7 @@ public final class ColdSweatCompat {
                     field.set(difficulty, copy);
                 }
             } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
-                EnginesAndEmpiresMod.LOGGER.warn("Could not give Cold Sweat's difficulties one comfort range; its own presets stay", e);
+                EnginesAndEmpires.LOGGER.warn("Could not give Cold Sweat's difficulties one comfort range; its own presets stay", e);
             }
         }
 

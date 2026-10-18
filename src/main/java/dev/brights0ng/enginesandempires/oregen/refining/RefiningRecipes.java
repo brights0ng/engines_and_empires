@@ -8,19 +8,23 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-import dev.brights0ng.enginesandempires.oregen.rich.RichOres;
+import dev.brights0ng.sparseores.SparseOres;
+import dev.brights0ng.sparseores.chips.Chips;
+import dev.brights0ng.sparseores.rich.RichOreRecipes;
+import dev.brights0ng.sparseores.rich.RichOres;
 
 /**
- * Every recipe the pack adds or replaces for ore refining, and the coal chip's burn time, built as plain JSON from
- * {@link Refining}. It needs no running game, so unit tests check it; {@link RefiningDataGen} writes it out.
+ * Every recipe the pack adds or replaces for ore refining, built as plain JSON from {@link Refining}. It needs no running
+ * game, so unit tests check it; {@link RefiningDataGen} writes it out. The chips' own recipes and fuel value, the chip
+ * ores' smelting and crushing, and the rich ores' furnace and crushing recipes are Sparse Ores' ({@code sparseores/chips/ChipRecipes},
+ * {@code sparseores/rich/RichOreRecipes}; the smelting and the rich ores' since split step 4c, the chip ores' crushing,
+ * ordinary and rich, since step 4d).
  *
- * <p>Recipes that replace vanilla's or Create's are written under <em>their</em> ids (for example
- * {@code minecraft:iron_ingot_from_smelting_raw_iron}), so the pack's file is loaded instead of theirs. This mod loads
- * after Create, so its data wins.
+ * <p>Every recipe here replaces vanilla's, Create's or Sparse Ores', written under <em>their</em> ids (for example
+ * {@code minecraft:iron_ingot_from_smelting_raw_iron}, {@code sparse_ores:smelting/rich_iron_ore}), so the pack's file
+ * is loaded instead of theirs. This mod loads after Create and Sparse Ores, so its data wins.
  */
 public final class RefiningRecipes {
-
-    private static final String MODID = "engines_and_empires";
 
     /** Every file, keyed by its path under {@code data/} (such as {@code minecraft/recipe/x.json}). */
     public static Map<String, JsonObject> files() {
@@ -35,16 +39,7 @@ public final class RefiningRecipes {
         metals(recipe);
         ordinaryOres(recipe);
         richOres(recipe);
-        chips(recipe);
         otherSources(recipe);
-
-        JsonObject coalChip = new JsonObject();
-        coalChip.addProperty("burn_time", Refining.COAL_CHIP_BURN_TIME);
-        JsonObject values = new JsonObject();
-        values.add(MODID + ":coal_chip", coalChip);
-        JsonObject fuels = new JsonObject();
-        fuels.add("values", values);
-        files.put("neoforge/data_maps/item/furnace_fuels.json", fuels);
         return files;
     }
 
@@ -74,14 +69,18 @@ public final class RefiningRecipes {
         }
     }
 
-    /** The ordinary ore blocks: the furnace (every metal and chip, and nether gold), and crushing (chips and group drops). */
+    /**
+     * The ordinary ore blocks: the furnace (every metal, and nether gold; the chip ores' smelting is Sparse Ores' own since
+     * split step 4c), and crushing (group drops; the chip ores' crushing is Sparse Ores' own since split step 4d).
+     */
     private static void ordinaryOres(BiConsumer<String, JsonObject> recipe) {
         for (Refining.Ore ore : Refining.ORES) {
             RichOres.Spec spec = ore.spec();
             if (ore.overridesFurnace()) {
                 if (ore.oreId().equals("zinc")) {
                     // Create smelts both zinc ores with one recipe. It matched #c:ores/zinc, which holds the rich zinc
-                    // ores too; it now names the ordinary ones, and rich zinc gets its own recipe.
+                    // ores too; it now names the ordinary ones, and rich zinc gets its own recipe. Sparse Ores replaces it
+                    // the same way since split step 4c, with Create's one ingot; the pack's file gives nuggets.
                     JsonArray both = new JsonArray();
                     both.add(item(spec.stone()));
                     both.add(item(spec.deepslate()));
@@ -94,7 +93,7 @@ public final class RefiningRecipes {
                         for (boolean blasting : new boolean[] {false, true}) {
                             recipe.accept(vanillaFurnaceId(ore, variant.counterpart(), blasting),
                                     cooking(blasting, item(variant.counterpart()), ore.furnaceItem(), ore.furnaceCount(),
-                                            ore.smeltXp(), ore.oreId().equals("nether_quartz") ? null : vanillaGroup(ore)));
+                                            ore.smeltXp(), vanillaGroup(ore)));
                         }
                     }
                 }
@@ -107,36 +106,38 @@ public final class RefiningRecipes {
         }
     }
 
-    /** Rich ore blocks, which had no furnace or crushing recipes of their own: five times their ordinary block. */
+    /**
+     * Rich ore blocks: five times their ordinary block, as in Sparse Ores, but of the pack's ordinary numbers. Sparse
+     * Ores ships these recipes for itself since split step 4c ({@code RichOreRecipes}: five times vanilla's and Create's);
+     * the pack replaces, under Sparse Ores' ids, only those whose numbers it changes (the metals' furnace, which gives
+     * nuggets, and the crushing of the group ores), and leaves the rest to Sparse Ores. The chip ores' rich crushing is
+     * the pack's numbers in Sparse Ores since step 4d, so it is left to it too; this still builds it, and the
+     * comparison below is what keeps the two in step. Until 4c the core gave
+     * every rich block its recipes itself, under its own ids.
+     */
     private static void richOres(BiConsumer<String, JsonObject> recipe) {
+        Map<String, JsonObject> sparseOres = RichOreRecipes.files();
+        BiConsumer<String, JsonObject> ifChanged = (id, json) -> {
+            JsonObject theirs = sparseOres.get(namespace(id) + "/recipe/" + path(id) + ".json");
+            if (theirs == null) {
+                throw new IllegalStateException("Sparse Ores has no recipe " + id + " for the pack to replace");
+            }
+            JsonObject unconditional = theirs.deepCopy();
+            unconditional.remove("neoforge:conditions");
+            if (!unconditional.equals(json)) {
+                recipe.accept(id, json);
+            }
+        };
         for (Refining.Ore ore : Refining.ORES) {
             for (RichOres.Variant variant : ore.spec().variants()) {
-                String rich = MODID + ":" + variant.name();
+                String rich = SparseOres.MODID + ":" + variant.name();
                 for (boolean blasting : new boolean[] {false, true}) {
-                    recipe.accept(MODID + ":" + (blasting ? "blasting" : "smelting") + "/" + variant.name(),
+                    ifChanged.accept(SparseOres.MODID + ":" + (blasting ? "blasting" : "smelting") + "/" + variant.name(),
                             cooking(blasting, item(rich), ore.furnaceItem(), ore.furnaceCount() * RichOres.RICHNESS,
                                     ore.smeltXp(), null));
                 }
-                recipe.accept(MODID + ":crushing/" + variant.name(), crushing(ore, variant, RichOres.RICHNESS));
+                ifChanged.accept(SparseOres.MODID + ":crushing/" + variant.name(), crushing(ore, variant, RichOres.RICHNESS));
             }
-        }
-    }
-
-    /** Four chips craft back into the whole item. */
-    private static void chips(BiConsumer<String, JsonObject> recipe) {
-        for (Refining.Chip chip : Refining.CHIPS) {
-            JsonObject json = new JsonObject();
-            json.addProperty("type", "minecraft:crafting_shaped");
-            json.addProperty("category", "misc");
-            JsonObject key = new JsonObject();
-            key.add("#", item(MODID + ":" + chip.name()));
-            json.add("key", key);
-            JsonArray pattern = new JsonArray();
-            pattern.add("##");
-            pattern.add("##");
-            json.add("pattern", pattern);
-            json.add("result", stack(chip.item(), 1));
-            recipe.accept(MODID + ":" + path(chip.item()) + "_from_chips", json);
         }
     }
 
@@ -157,8 +158,8 @@ public final class RefiningRecipes {
 
         // Create gives four quartz an eighth of the time: half a quartz, or two chips, on average.
         JsonArray soulSand = new JsonArray();
-        soulSand.add(result(MODID + ":quartz_chip", 1,
-                Refining.otherSourceChance(4 * 0.125 * Refining.CHIPS_PER_ITEM)));
+        soulSand.add(result(SparseOres.MODID + ":quartz_chip", 1,
+                Refining.otherSourceChance(4 * 0.125 * Chips.CHIPS_PER_ITEM)));
         soulSand.add(result("minecraft:gold_nugget", 1, Refining.otherSourceChance(0.02)));
         recipe.accept("create:splashing/soul_sand", processing("create:splashing", "minecraft:soul_sand", soulSand, 0));
     }
@@ -166,9 +167,9 @@ public final class RefiningRecipes {
     // ---- recipe pieces ----
 
     /** A crushing recipe for one ore block, {@code times} as rich as the ordinary block. */
-    private static JsonObject crushing(Refining.Ore ore, RichOres.Variant variant, int times) {
+    static JsonObject crushing(Refining.Ore ore, RichOres.Variant variant, int times) {
         boolean deep = variant.ground() != RichOres.Ground.STONE;
-        String input = times == 1 ? variant.counterpart() : MODID + ":" + variant.name();
+        String input = times == 1 ? variant.counterpart() : SparseOres.MODID + ":" + variant.name();
         JsonArray results = new JsonArray();
         addAmount(results, ore.crushedItem(), Refining.Amount.of(ore.crushedMean(deep) * times));
         if (times == 1) {
@@ -250,18 +251,14 @@ public final class RefiningRecipes {
 
     /** Vanilla's id for smelting or blasting an ore block, such as {@code minecraft:iron_ingot_from_blasting_deepslate_iron_ore}. */
     static String vanillaFurnaceId(Refining.Ore ore, String block, boolean blasting) {
-        if (ore.oreId().equals("nether_quartz")) {
-            return blasting ? "minecraft:quartz_from_blasting" : "minecraft:quartz";
-        }
         return "minecraft:" + vanillaGroup(ore) + "_from_" + (blasting ? "blasting" : "smelting") + "_" + path(block);
     }
 
-    /** The name vanilla's furnace recipes give their output: {@code iron_ingot}, {@code coal}, {@code diamond}. */
+    /** The name vanilla's furnace recipes give their output: {@code iron_ingot}, {@code gold_ingot}, {@code lapis_lazuli}. */
     private static String vanillaGroup(Refining.Ore ore) {
         return switch (ore.oreId()) {
             case "iron", "gold", "copper", "zinc" -> ore.oreId() + "_ingot";
             case "nether_gold" -> "gold_ingot";
-            case "nether_quartz" -> "quartz";
             case "lapis" -> "lapis_lazuli";
             default -> ore.oreId();
         };
