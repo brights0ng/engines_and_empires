@@ -5,7 +5,9 @@ import java.util.Set;
 
 import dev.brights0ng.frontier.Frontier;
 import dev.brights0ng.frontier.FrontierContent;
+import dev.brights0ng.frontier.deep.DeepRoster;
 import dev.brights0ng.frontier.incursion.Incursion;
+import dev.brights0ng.frontier.incursion.Incursions;
 import dev.brights0ng.frontier.incursion.Settlement;
 import dev.brights0ng.frontier.incursion.SettlementClusters;
 import dev.brights0ng.frontier.tier.SectionKey;
@@ -19,12 +21,14 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * In-game checks of incursions that need Frontier and nothing else (Frontier phase 6): snuffing torches, settlements, the
- * squelching heart, and the tier map's answer. Each runs in its own batch.
+ * squelching heart, the tier map's answer, and the wave rosters loading. Each runs in its own batch.
  *
  * <p>They were in the core until split step 4c, then in the test-only mod {@code coreless_tests}; since step 4d they are
  * Frontier's, under the same class and test names, so they also run in Frontier's bare run. The checks that need
  * Seismic Surveyance as well (a thumper incursion bringing its first wave up) stay in {@code coreless_tests}, and the one
  * that needs the core's data (Create's machines as loud machines) in the core's {@code FrontierIncursionGameTests}.
+ * The wave rosters check was the first half of the core's {@code theWaveRostersAndLoudMachinesLoad}; split step 4e moved it
+ * here as {@code theWaveRostersLoad}, since the rosters are Frontier's own data.
  */
 @GameTestHolder(Frontier.MODID)
 @PrefixGameTestTemplate(false)
@@ -96,6 +100,27 @@ public final class FrontierIncursionGameTests {
         memory.remember(far, far, dev.brights0ng.frontier.Tier.FRONTIER);
         helper.assertTrue(memory.groundTier(frontier, far, far) == dev.brights0ng.frontier.Tier.FRONTIER,
                 "and forgotten once Frontier");
+        helper.succeed();
+    }
+
+    @GameTest(template = SCRATCH, batch = "incursion_data")
+    public static void theWaveRostersLoad(GameTestHelper helper) {
+        helper.assertTrue(DeepRoster.get(helper.getLevel(), DeepRoster.LESSER).isPresent(), "the lesser roster");
+        for (int wave = 1; wave <= Incursions.GREATER_WAVES; wave++) {
+            helper.assertTrue(DeepRoster.get(helper.getLevel(), DeepRoster.greater(wave)).isPresent(), "greater wave " + wave);
+        }
+        DeepRoster last = DeepRoster.get(helper.getLevel(), DeepRoster.greater(5)).orElseThrow();
+        helper.assertTrue(last.fixed().stream().anyMatch(f -> f.entity().getPath().equals("stalker")
+                        && f.roll(helper.getLevel().random) == 1),
+                "the stalker comes only in the last wave, alone");
+        helper.assertTrue(DeepRoster.get(helper.getLevel(), DeepRoster.greater(4)).orElseThrow().fixed().stream()
+                .noneMatch(f -> f.entity().getPath().equals("stalker")), "and not before");
+        for (int wave = 1; wave <= Incursions.GREATER_WAVES; wave++) {
+            helper.assertTrue(DeepRoster.get(helper.getLevel(), DeepRoster.greater(wave)).orElseThrow().fixed().stream()
+                    .noneMatch(f -> f.entity().getPath().equals("sludge")), "no sludge in wave " + wave);
+        }
+        helper.assertTrue(DeepRoster.get(helper.getLevel(), DeepRoster.LESSER).orElseThrow().entries().stream()
+                .noneMatch(e -> e.entity().getPath().equals("sludge")), "no sludge in lesser waves");
         helper.succeed();
     }
 
