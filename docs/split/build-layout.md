@@ -460,3 +460,13 @@ the empty game test structure for its namespace. The root `loadMod`s it, so the 
 is disabled and `buildAll` leaves it out. `ArchitectureTest` knows it as a mod (`ROOTS`, `ALLOWED`: every feature mod,
 never the core; `REQUIRED`: Create), and the rule that a project without `gradle.properties` holds no sources stays.
 
+**Step 4d: a second bare run for Sparse Ores, and single-mod tests back in their mods.**
+- Sparse Ores' bare run goes without Create (Create is optional to it), but what Sparse Ores does for Create (crushing,
+  rich zinc ore) needs it. So `sparse-ores/build.gradle` has a second run, `runGameTestServerWithCreate`: the same
+  `gameTestServer` type and the same tests (they check both cases), on the data run's source set, whose runtime classpath
+  already holds Create, Ponder, Flywheel and Registrate. `runGameTestServer` is `finalizedBy` it, so every
+  `./gradlew runGameTestServer` runs both. `eae.family-base`'s one-run-at-a-time service now matches every
+  `run(Client|Server|GameTestServer*|Data)` task, so it covers this one too.
+- The six single-mod tests that 4c had moved into `coreless_tests` are back in their mods (Frontier's four, Seismic's two);
+  only tests that really involve two or more mods stay in `coreless_tests`.
+

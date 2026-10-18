@@ -126,7 +126,8 @@ neoForge {
 def minecraftRunLimit = gradle.sharedServices.registerIfAbsent('minecraftRunLimit', dev.brights0ng.buildlogic.MinecraftRunLimit) {
     maxParallelUsages = 1
 }
-tasks.matching { it.name in ['runClient', 'runServer', 'runGameTestServer', 'runData'] }.configureEach {
+// (A mod may have more runs of its own, such as Sparse Ores' runGameTestServerWithCreate.)
+tasks.matching { it.name ==~ /run(Client|Server|GameTestServer\w*|Data)/ }.configureEach {
     usesService(minecraftRunLimit)
 }
 

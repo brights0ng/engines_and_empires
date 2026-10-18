@@ -14,12 +14,12 @@
   "processing_time": 450,
   "results": [
     {
-      "count": 11,
-      "id": "minecraft:diamond"
+      "count": 14,
+      "id": "sparse_ores:diamond_chip"
     },
     {
-      "chance": 0.25,
-      "id": "minecraft:diamond"
+      "chance": 0.05,
+      "id": "sparse_ores:diamond_chip"
     },
     {
       "count": 3,

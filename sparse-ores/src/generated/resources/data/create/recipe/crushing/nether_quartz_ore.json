@@ -1,23 +1,28 @@
 {
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "create"
+    },
+    {
+      "type": "sparse_ores:chip_drops"
+    }
+  ],
   "type": "create:crushing",
   "ingredients": [
     {
-      "item": "sparse_ores:rich_nether_quartz_ore"
+      "item": "minecraft:nether_quartz_ore"
     }
   ],
   "processing_time": 350,
   "results": [
     {
-      "count": 14,
+      "count": 2,
       "id": "sparse_ores:quartz_chip"
     },
     {
-      "chance": 0.05,
+      "chance": 0.8,
       "id": "sparse_ores:quartz_chip"
-    },
-    {
-      "count": 3,
-      "id": "create:experience_nugget"
     },
     {
       "chance": 0.75,

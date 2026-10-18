@@ -20,7 +20,9 @@ import dev.brights0ng.sparseores.rich.RichOres;
  *       already better than mining it.</li>
  *   <li><b>Chips</b> (coal, diamond, nether quartz). These ores drop a single item, so Sparse Ores has them drop a
  *       chip instead, a {@link Chips#CHIPS_PER_ITEM quarter} of one ({@link Chips#chipped}; its own rule since split
- *       step 4b). The pack refines them by the chip: the furnace and crushing give chips.</li>
+ *       step 4b). The pack refines them by the chip: the furnace and crushing give chips. Sparse Ores ships both
+ *       recipes itself (the furnace's since step 4c, the crushing's since step 4d, with the same lead as below); the
+ *       numbers here are the pack's statement of them, which the tests hold Sparse Ores' recipes to.</li>
  *   <li><b>Group drops</b> (redstone, lapis, nether gold). These drop several items, so they simply drop fewer (see
  *       {@link LootCuts}).</li>
  *   <li><b>Emerald</b> is left alone: villagers set its value.</li>
@@ -154,9 +156,12 @@ public final class Refining {
             return crushingLead(deep) * dropMean();
         }
 
-        /** Whether the pack replaces Create's recipe for crushing the ordinary block (only chips and group drops). */
+        /**
+         * Whether the pack replaces Create's recipe for crushing the ordinary block (only group drops: the chip ores' is
+         * Sparse Ores' own since split step 4d).
+         */
         public boolean overridesCrushing() {
-            return kind == Kind.CHIP || kind == Kind.GROUP;
+            return kind == Kind.GROUP;
         }
 
         /**

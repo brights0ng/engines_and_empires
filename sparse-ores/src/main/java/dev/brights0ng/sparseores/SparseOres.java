@@ -14,7 +14,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.config.ModConfig;
 
 /**
  * Sparse Ores (ore generation): its id, logger and registration. A mod of its own since split step 2e; it requires
@@ -44,12 +43,13 @@ public final class SparseOres {
         RichOreBlocks.register(modEventBus);
 
         // The chips (coal, diamond, quartz): what those ores drop instead of a whole item, and their recipes, fuel value
-        // and textures. The ordinary ores' chips go through a loot function that reads the server config
+        // and textures. The ordinary ores' chips go through a loot function that reads the startup config
         ChipItems.register(modEventBus);
         ChipDropFunction.register(modEventBus);
-        // The chip ores' smelting follows the same setting, through a load condition on those recipes
+        // The chip ores' smelting and crushing follow the same setting, through a load condition on those recipes. It is
+        // a startup config, read right here, so the first data load already sees it
         ChipDropsCondition.register(modEventBus);
-        modContainer.registerConfig(ModConfig.Type.SERVER, SparseOresConfig.SPEC, SparseOresConfig.FILE_NAME);
+        modContainer.registerConfig(SparseOresConfig.TYPE, SparseOresConfig.SPEC, SparseOresConfig.FILE_NAME);
         modEventBus.addListener(ChipDataGen::gatherData);
         modEventBus.addListener(SparseOresDataGen::gatherData);
     }
