@@ -1,0 +1,19 @@
+{
+  "frontier.configuration.title": "Frontier",
+  "block.frontier.dry_torch": "Dry Torch",
+  "block.frontier.dry_wall_torch": "Dry Torch",
+  "item.frontier.squelching_heart": "Squelching Heart",
+  "gui.frontier.tier_map.uninhabited": "Uninhabited",
+  "gui.frontier.tier_map.settled": "Settled",
+  "gui.frontier.tier_map.civilized": "Civilized",
+  "gui.frontier.tier_map.incursion": "Incursion",
+  "item.frontier.squelching_heart.day": "It only stirs at night.",
+  "item.frontier.squelching_heart.already": "You have already eaten a heart tonight.",
+  "item.frontier.squelching_heart.eaten": "%s ate a Squelching Heart. The night holds still (%s minutes).",
+  "event.frontier.incursion": "Incursion",
+  "event.frontier.incursion.greater": "Greater Incursion",
+  "event.frontier.incursion.wave": "%s - Wave %s/%s",
+  "event.frontier.incursion.victory": "%s - Victory",
+  "event.frontier.incursion.defeat": "%s - Defeat",
+  "event.frontier.incursion.retreating": "%s - Retreating"
+}

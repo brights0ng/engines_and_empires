@@ -1,0 +1,19 @@
+{
+  "values": {
+    "minecraft:campfire": {"state": {"lit": "true"}, "power": 1.0, "radiant": 0.5, "max_offset": 45},
+    "minecraft:soul_campfire": {"state": {"lit": "true"}, "power": 1.1, "radiant": 0.5, "max_offset": 45},
+    "minecraft:fire": {"power": 1.5, "radiant": 0.6, "natural": true, "max_offset": 45},
+    "minecraft:soul_fire": {"power": 1.65, "radiant": 0.6, "natural": true, "max_offset": 45},
+    "minecraft:furnace": {"state": {"lit": "true"}, "power": 0.5, "radiant": 0.2, "max_offset": 40},
+    "minecraft:smoker": {"state": {"lit": "true"}, "power": 0.5, "radiant": 0.2, "max_offset": 40},
+    "minecraft:blast_furnace": {"state": {"lit": "true"}, "power": 0.8, "radiant": 0.2, "max_offset": 40},
+    "minecraft:lava": {"power": 3.0, "radiant": 0.7, "natural": true, "per_face": true, "max_offset": 60},
+    "minecraft:lava_cauldron": {"power": 3.0, "radiant": 0.7, "max_offset": 60},
+    "minecraft:magma_block": {"power": 0.5, "radiant": 0.4, "natural": true, "max_offset": 60},
+    "minecraft:glowstone": {"power": 0.15, "radiant": 1.0},
+    "minecraft:shroomlight": {"power": 0.1, "radiant": 1.0},
+    "minecraft:ice": {"power": -0.2, "radiant": 1.0},
+    "minecraft:packed_ice": {"power": -0.4, "radiant": 1.0},
+    "minecraft:blue_ice": {"power": -0.8, "radiant": 1.0}
+  }
+}

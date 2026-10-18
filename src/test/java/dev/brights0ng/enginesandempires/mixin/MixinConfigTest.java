@@ -1,37 +1,81 @@
 package dev.brights0ng.enginesandempires.mixin;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
 
 /**
- * A mixin that is silently not applied is the worst kind of bug: the game runs, and vanilla's ore
- * veins are just back. These check the wiring, since the mixin itself can only run inside the game.
+ * A mixin that is silently not applied is the worst kind of bug: the game runs, and vanilla's behaviour is just back.
+ * These check the wiring of the core mod's mixin config (split step 1b: one config per mod), since the mixins themselves can
+ * only run inside the game.
  */
 class MixinConfigTest {
 
     private static final String CONFIG = "/engines_and_empires.mixins.json";
+    private static final String PACKAGE = "dev.brights0ng.enginesandempires.mixin";
+    private static final String PLUGIN = "dev.brights0ng.enginesandempires.EnginesAndEmpiresMixinPlugin";
+    /** The mixins that need another mod loaded, and that mod's id; every other mixin always applies. */
+    private static final Map<String, String> GATED = Map.ofEntries(
+            Map.entry("compat.minecolonies.AISkeletonAccessor", "minecolonies"),
+            Map.entry("compat.minecolonies.CitizenAIWeatherMixin", "minecolonies"),
+            Map.entry("compat.minecolonies.CitizenWanderWeatherMixin", "minecolonies"),
+            Map.entry("compat.minecolonies.ColonySoundWeatherMixin", "minecolonies"),
+            Map.entry("compat.minecolonies.CookSeatingWeatherMixin", "minecolonies"),
+            Map.entry("compat.minecolonies.CraftingIdleWeatherMixin", "minecolonies"),
+            Map.entry("compat.minecolonies.LeisureSiteWeatherMixin", "minecolonies"),
+            Map.entry("compat.coldsweat.HearthFuelAccessor", "cold_sweat"),
+            Map.entry("compat.coldsweat.HearthKinSmartMixin", "cold_sweat"),
+            Map.entry("compat.coldsweat.HearthReplacedMixin", "cold_sweat"),
+            Map.entry("compat.cloudworks.CloudWorksDebugDumpMixin", "cloudworks_api"));
 
     @Test
     void theConfigListsOnlyMixinClassesThatExist() throws IOException {
         String config = read(CONFIG);
-        String pkg = match(config, "\"package\"\\s*:\\s*\"([^\"]+)\"");
+        assertEquals(PACKAGE, match(config, "\"package\"\\s*:\\s*\"([^\"]+)\""));
         List<String> mixins = mixinNames(config);
-        assertFalse(mixins.isEmpty(), "the config should list at least the ore vein mixin");
+        assertFalse(mixins.isEmpty(), "the config should list at least one mixin");
         for (String name : mixins) {
-            String resource = "/" + pkg.replace('.', '/') + "/" + name.replace('.', '/') + ".class";
+            String resource = classResource(name);
             assertNotNull(MixinConfigTest.class.getResource(resource), "config lists " + name + " but " + resource + " does not exist");
         }
+    }
+
+    /** A mixin left out of the config (say, dropped while the configs were split) would never apply. */
+    @Test
+    void theConfigListsEveryMixinInItsPackage() throws IOException, URISyntaxException {
+        List<String> listed = mixinNames(read(CONFIG));
+        // The main classes' copy of the package: climb from a listed mixin's class file (tests share the package name).
+        String first = listed.get(0);
+        Path dir = Path.of(MixinConfigTest.class.getResource(classResource(first)).toURI()).getParent();
+        for (int i = 1; i < first.split("\\.").length; i++) {
+            dir = dir.getParent();
+        }
+        Path root = dir;
+        TreeSet<String> found = new TreeSet<>();
+        try (Stream<Path> files = Files.walk(root)) {
+            files.map(p -> root.relativize(p).toString())
+                    .filter(p -> p.endsWith(".class") && !p.contains("$"))
+                    .forEach(p -> found.add(p.substring(0, p.length() - ".class".length()).replace('/', '.')));
+        }
+        assertEquals(found, new TreeSet<>(listed), "every class in " + PACKAGE + " should be listed exactly once");
+        assertEquals(listed.size(), new TreeSet<>(listed).size(), "a mixin is listed twice");
     }
 
     /** With defaultRequire the game refuses to start if an injection stops matching, instead of quietly not applying. */
@@ -44,25 +88,66 @@ class MixinConfigTest {
     void theModMetadataRegistersTheConfig() throws IOException {
         String toml = read("/META-INF/neoforge.mods.toml");
         assertTrue(toml.contains("[[mixins]]"), "neoforge.mods.toml has no [[mixins]] entry");
-        assertTrue(toml.contains("config=\"engines_and_empires.mixins.json\""), "the mixin config is not referenced by the mod metadata");
+        assertTrue(toml.contains("config=\"" + CONFIG.substring(1) + "\""), "the mixin config is not referenced by the mod metadata");
     }
 
+    /** Mixins on another mod's classes apply only when that mod is loaded; vanilla targets always apply. */
     @Test
-    void theOreVeinMixinStillTargetsTheOreVeinAccessor() throws IOException {
-        try (InputStream in = MixinConfigTest.class.getResourceAsStream("/dev/brights0ng/enginesandempires/mixin/NoiseGeneratorSettingsMixin.class")) {
-            assertNotNull(in);
-            String classFile = new String(in.readAllBytes(), StandardCharsets.ISO_8859_1);
-            assertTrue(classFile.contains("oreVeinsEnabled"), "the mixin should inject into oreVeinsEnabled");
-            assertTrue(classFile.contains("net/minecraft/world/level/levelgen/NoiseGeneratorSettings"), "the mixin should target NoiseGeneratorSettings");
+    void thePluginGatesExactlyTheMixinsOnOtherModsClasses() throws Exception {
+        String config = read(CONFIG);
+        assertEquals(PLUGIN, match(config, "\"plugin\"\\s*:\\s*\"([^\"]+)\""));
+        // The plugin itself needs Mixin's classes, which unit tests run without; its gate table is kept apart.
+        Object gate = Class.forName(PLUGIN + "$Gates").getField("GATE").get(null);
+        for (String name : mixinNames(config)) {
+            Object mod = gate.getClass().getMethod("requiredMod", String.class).invoke(gate, name);
+            assertEquals(GATED.get(name), mod, name);
+        }
+        assertTrue(mixinNames(config).containsAll(GATED.keySet()), "a gated mixin is not in the config");
+    }
+
+    /**
+     * CloudWorks' debug dump mixin (moved here from Meteodyne in split step 1c-A) is {@code @Pseudo} with
+     * {@code require = 0}, so a CloudWorks that renames its class does nothing rather than failing; since split step 4e it
+     * is also gated on {@code cloudworks_api}, so Mixin does not try to load CloudWorks' class (and warn) where it is absent.
+     */
+    @Test
+    void theCloudWorksMixinIsPseudoAndAlwaysListed() throws IOException {
+        String name = "compat.cloudworks.CloudWorksDebugDumpMixin";
+        assertTrue(mixinNames(read(CONFIG)).contains(name), name + " is not in the config");
+        assertEquals("cloudworks_api", GATED.get(name));
+        try (InputStream in = MixinConfigTest.class.getResourceAsStream(classResource(name))) {
+            assertNotNull(in, "missing " + name);
+            String bytes = new String(in.readAllBytes(), StandardCharsets.ISO_8859_1);
+            assertTrue(bytes.contains("Lorg/spongepowered/asm/mixin/Pseudo;"), name + " should be @Pseudo");
         }
     }
 
+    /**
+     * "required" makes any mixin failure fatal. The plugin skips a mixin whose mod is absent before Mixin tries it, and the
+     * CloudWorks mixin is {@code @Pseudo}, so a skipped mixin is not a failure, but a broken injection is (split step 2f:
+     * an aggregate game test run without MineColonies, Cold Sweat and Diet proved the gate, as the library's and Sable
+     * Fixes' bare runs did theirs in 2b).
+     */
+    @Test
+    void theConfigIsRequired() throws IOException {
+        assertFalse(GATED.isEmpty(), "the gate has mixins to skip");
+        assertEquals("true", match(read(CONFIG), "\"required\"\\s*:\\s*(true|false)"));
+    }
+
+    private static String classResource(String name) {
+        return "/" + PACKAGE.replace('.', '/') + "/" + name.replace('.', '/') + ".class";
+    }
+
     private static List<String> mixinNames(String config) {
-        String block = match(config, "\"mixins\"\\s*:\\s*\\[([^\\]]*)\\]");
         List<String> names = new ArrayList<>();
-        Matcher matcher = Pattern.compile("\"([^\"]+)\"").matcher(block);
-        while (matcher.find()) {
-            names.add(matcher.group(1));
+        for (String key : List.of("mixins", "client", "server")) {
+            Matcher list = Pattern.compile("\"" + key + "\"\\s*:\\s*\\[([^\\]]*)\\]").matcher(config);
+            if (list.find()) {
+                Matcher matcher = Pattern.compile("\"([^\"]+)\"").matcher(list.group(1));
+                while (matcher.find()) {
+                    names.add(matcher.group(1));
+                }
+            }
         }
         return names;
     }

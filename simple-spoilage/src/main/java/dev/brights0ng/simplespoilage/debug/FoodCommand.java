@@ -1,0 +1,94 @@
+package dev.brights0ng.simplespoilage.debug;
+
+import com.mojang.brigadier.arguments.LongArgumentType;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+
+import dev.brights0ng.simplespoilage.Cohort;
+import dev.brights0ng.simplespoilage.FoodFreshness;
+import dev.brights0ng.simplespoilage.SimpleSpoilage;
+import dev.brights0ng.simplespoilage.SpoilClock;
+import dev.brights0ng.simplespoilage.SpoilTimes;
+import dev.brights0ng.simplespoilage.Spoilage;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+
+/**
+ * Debug commands for food spoilage, under Simple Spoilage's {@code /spoilage} root (it was {@code /eae food} before split
+ * step 2d, and {@code /spoilage food} until step 2f). They need operator permission and act on the food in your main hand.
+ *
+ * <ul>
+ *   <li>{@code /spoilage inspect}: each cohort in the stack, top first: count, stage, hidden substage, and age.</li>
+ *   <li>{@code /spoilage age <ticks>}: makes the whole stack older by that much (24000 = a day).</li>
+ * </ul>
+ */
+@EventBusSubscriber(modid = SimpleSpoilage.MODID)
+public final class FoodCommand {
+
+    /** Simple Spoilage's command root (split step 2d; it was {@code /eae}). */
+    private static final String COMMAND_ROOT = "spoilage";
+
+    @SubscribeEvent
+    static void onRegisterCommands(RegisterCommandsEvent event) {
+        event.getDispatcher().register(Commands.literal(COMMAND_ROOT)
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.literal("inspect").executes(context -> inspect(context.getSource())))
+                .then(Commands.literal("age")
+                        .then(Commands.argument("ticks", LongArgumentType.longArg(0))
+                                .executes(context -> age(context.getSource(), LongArgumentType.getLong(context, "ticks"))))));
+    }
+
+    private static int inspect(CommandSourceStack source) throws CommandSyntaxException {
+        ItemStack held = heldFood(source);
+        if (held == null) {
+            return 0;
+        }
+        long now = SpoilClock.now();
+        SpoilTimes times = Spoilage.times();
+        FoodFreshness stored = Spoilage.stored(held);
+        FoodFreshness view = Spoilage.view(held, now);
+        source.sendSuccess(() -> Component.literal(held.getHoverName().getString() + " x" + held.getCount()
+                + (stored == null ? " (not stamped yet)" : "")), false);
+        int size = view.cohorts().size();
+        for (int step = 0; step < size; step++) {
+            int index = (view.top() + step) % size;
+            Cohort cohort = view.cohorts().get(index);
+            long age = now - cohort.born();
+            String line = String.format("  %s%d %s, substage %d/10 (step %d/30), %.2f days old, born at tick %d",
+                    step == 0 ? "top: " : "", cohort.count(), times.stage(age).id(), times.substage(age) + 1, times.step(age),
+                    age / (double) SpoilTimes.DAY, cohort.born());
+            source.sendSuccess(() -> Component.literal(line).withStyle(ChatFormatting.GRAY), false);
+        }
+        return size;
+    }
+
+    private static int age(CommandSourceStack source, long ticks) throws CommandSyntaxException {
+        ItemStack held = heldFood(source);
+        if (held == null) {
+            return 0;
+        }
+        long now = SpoilClock.now();
+        Spoilage.write(held, Spoilage.view(held, now).aged(ticks).settle(now, Spoilage.times()));
+        source.sendSuccess(() -> Component.literal("Aged the stack by " + ticks + " ticks."), false);
+        return inspect(source);
+    }
+
+    private static ItemStack heldFood(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        ItemStack held = player.getMainHandItem();
+        if (!Spoilage.isSpoilable(held)) {
+            source.sendFailure(Component.literal("Hold some food that spoils."));
+            return null;
+        }
+        return held;
+    }
+
+    private FoodCommand() {
+    }
+}

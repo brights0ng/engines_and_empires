@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "sparse_ores:block/rich_redstone_ore"
+    },
+    "lit=true": {
+      "model": "sparse_ores:block/rich_redstone_ore"
+    }
+  }
+}

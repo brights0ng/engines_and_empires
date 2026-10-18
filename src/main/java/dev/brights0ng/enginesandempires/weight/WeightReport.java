@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -34,9 +34,9 @@ public final class WeightReport {
                 byMod.computeIfAbsent(id.getNamespace(), k -> new ArrayList<>()).add(id.getPath());
                 total++;
             }
-            EnginesAndEmpiresMod.LOGGER.info("Item weights: {} items have no weight group and weigh the fallback {} kpg", total,
+            EnginesAndEmpires.LOGGER.info("Item weights: {} items have no weight group and weigh the fallback {} kpg", total,
                     ItemWeights.format(ItemWeights.FALLBACK));
-            byMod.forEach((mod, items) -> EnginesAndEmpiresMod.LOGGER.info("  {} ({}): {}", mod, items.size(), String.join(", ", items)));
+            byMod.forEach((mod, items) -> EnginesAndEmpires.LOGGER.info("  {} ({}): {}", mod, items.size(), String.join(", ", items)));
         });
     }
 

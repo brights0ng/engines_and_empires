@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.brights0ng.frontier.mixin",
+  "plugin": "dev.brights0ng.frontier.FrontierMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "LevelChunkFrontierMixin",
+    "MonsterDarknessMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

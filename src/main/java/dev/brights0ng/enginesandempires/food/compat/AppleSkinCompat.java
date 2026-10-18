@@ -1,6 +1,6 @@
 package dev.brights0ng.enginesandempires.food.compat;
 
-import dev.brights0ng.enginesandempires.food.EatingEffects;
+import dev.brights0ng.simplespoilage.EatingEffects;
 import net.neoforged.neoforge.common.NeoForge;
 import squeek.appleskin.api.event.FoodValuesEvent;
 

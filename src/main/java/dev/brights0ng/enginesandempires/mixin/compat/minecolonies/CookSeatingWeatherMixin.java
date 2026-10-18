@@ -8,7 +8,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.minecolonies.api.colony.buildings.IBuilding;
 
-import dev.brights0ng.enginesandempires.weather.checks.ColonyWeather;
+import dev.brights0ng.meteodyne.checks.ColonyWeather;
 import net.minecraft.world.level.Level;
 
 /** The restaurant seats diners indoors when it rains on the restaurant (weather phase 6a). */

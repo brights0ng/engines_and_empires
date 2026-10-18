@@ -10,7 +10,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.minecolonies.core.colony.Colony;
 
-import dev.brights0ng.enginesandempires.weather.checks.ColonyWeather;
+import dev.brights0ng.meteodyne.checks.ColonyWeather;
 import net.minecraft.server.level.ServerLevel;
 
 /** Leisure sites are chosen by the rain over the colony (its centre), not the global rain (weather phase 6a). */

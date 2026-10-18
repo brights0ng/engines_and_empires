@@ -6,10 +6,11 @@ import java.util.List;
 import com.khofonyx.encumbered.common.events.PlayerWeightHandler;
 import com.khofonyx.encumbered.datamaps.EncumberedDataMaps;
 
-import dev.brights0ng.enginesandempires.EnginesAndEmpiresMod;
-import dev.brights0ng.enginesandempires.oregen.refining.RefiningItems;
-import dev.brights0ng.enginesandempires.oregen.rich.RichOreBlocks;
+import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.enginesandempires.weight.ItemWeights;
+import dev.brights0ng.paradynelib.gametest.GameTestStructures;
+import dev.brights0ng.sparseores.chips.ChipItems;
+import dev.brights0ng.sparseores.rich.RichOreBlocks;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
@@ -28,7 +29,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * Aeronautics mass (ore blocks now 2), that each group and the tool/armour materials weigh what was chosen, and that
  * every item in the game lands on one of the allowed steps.
  */
-@GameTestHolder(EnginesAndEmpiresMod.MODID)
+@GameTestHolder(EnginesAndEmpires.MODID)
 @PrefixGameTestTemplate(false)
 public final class WeightGameTests {
 
@@ -67,7 +68,7 @@ public final class WeightGameTests {
         expect(helper, Items.REDSTONE, 0.5f);
         expect(helper, Items.COAL, 0.5f);
         expect(helper, Items.IRON_NUGGET, 0.05f);
-        expect(helper, RefiningItems.chip("coal_chip"), 0.1f);
+        expect(helper, ChipItems.chip("coal_chip"), 0.1f);
         expect(helper, Items.BREAD, 0.1f);
         expect(helper, Items.WHEAT, 0.1f);
         expect(helper, Items.WHEAT_SEEDS, 0.05f);

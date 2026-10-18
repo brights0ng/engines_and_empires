@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.brights0ng.sparseores.mixin",
+  "plugin": "dev.brights0ng.sparseores.SparseOresMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "NoiseGeneratorSettingsMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

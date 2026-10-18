@@ -1,0 +1,307 @@
+package dev.brights0ng.sparseores.rich;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import javax.imageio.ImageIO;
+
+import org.junit.jupiter.api.Test;
+
+import dev.brights0ng.sparseores.OreType;
+import dev.brights0ng.sparseores.OreTypes;
+import dev.brights0ng.sparseores.Realm;
+import dev.brights0ng.sparseores.chips.Chips;
+
+class RichOresTest {
+
+    private static final String TEXTURES = "/assets/sparse_ores/textures/block/";
+
+    @Test
+    void everyOreExceptCrystalHasRichBlocksAndNothingElseDoes() {
+        Set<String> withRich = new HashSet<>();
+        for (RichOres.Spec spec : RichOres.ALL) {
+            withRich.add(spec.oreId());
+        }
+        Set<String> expected = new HashSet<>();
+        for (OreType type : OreTypes.ALL) {
+            expected.add(type.id());
+        }
+        expected.remove("crystal"); // amethyst has no rich look yet
+        assertEquals(expected, withRich);
+        assertNull(RichOres.forOre("crystal"));
+    }
+
+    @Test
+    void thereAreTwentyRichBlocksWithUniqueNames() {
+        List<RichOres.Variant> variants = RichOres.allVariants();
+        assertEquals(20, variants.size());
+        Set<String> names = new HashSet<>();
+        for (RichOres.Variant variant : variants) {
+            assertTrue(names.add(variant.name()), "duplicate name " + variant.name());
+        }
+    }
+
+    @Test
+    void namesFollowTheBlockTheyCopy() {
+        assertEquals("rich_iron_ore", RichOres.richName("minecraft:iron_ore"));
+        assertEquals("rich_deepslate_gold_ore", RichOres.richName("minecraft:deepslate_gold_ore"));
+        assertEquals("rich_zinc_ore", RichOres.richName("create:zinc_ore"));
+        assertEquals("rich_nether_quartz_ore", RichOres.richName("minecraft:nether_quartz_ore"));
+        for (RichOres.Spec spec : RichOres.ALL) {
+            for (RichOres.Variant variant : spec.variants()) {
+                assertEquals(RichOres.richName(variant.counterpart()), variant.name());
+            }
+        }
+    }
+
+    /** The whole point of rich ore: five times what the ordinary block drops. */
+    @Test
+    void richOreDropsFiveTimesWhatTheOrdinaryBlockDrops() {
+        assertEquals(5, RichOres.RICHNESS);
+        for (RichOres.Spec spec : RichOres.ALL) {
+            assertEquals(spec.minDrop() * 5, spec.richMinDrop(), spec.oreId());
+            assertEquals(spec.maxDrop() * 5, spec.richMaxDrop(), spec.oreId());
+        }
+        // Spot checks: vanilla's (and Create's) loot for every ore, since split step 4. The pack's cut amounts are the
+        // core's loot cuts (the core's LootCutsTest checks them as this test did before).
+        assertEquals(5, RichOres.forOre("iron").richMinDrop());
+        assertEquals(5, RichOres.forOre("iron").richMaxDrop());
+        assertEquals(10, RichOres.forOre("copper").richMinDrop());   // copper ore drops 2-5
+        assertEquals(25, RichOres.forOre("copper").richMaxDrop());
+        assertEquals(20, RichOres.forOre("lapis").richMinDrop());    // lapis ore drops 4-9
+        assertEquals(45, RichOres.forOre("lapis").richMaxDrop());
+        assertEquals(20, RichOres.forOre("redstone").richMinDrop()); // redstone ore drops 4-5
+        assertEquals(25, RichOres.forOre("redstone").richMaxDrop());
+        assertEquals(10, RichOres.forOre("nether_gold").richMinDrop()); // nether gold ore drops 2-6 nuggets
+        assertEquals(30, RichOres.forOre("nether_gold").richMaxDrop());
+        assertEquals("minecraft:raw_iron", RichOres.forOre("iron").drop());
+        assertEquals("create:raw_zinc", RichOres.forOre("zinc").drop());
+        assertEquals("minecraft:coal", RichOres.forOre("coal").drop());
+        assertEquals("minecraft:diamond", RichOres.forOre("diamond").drop());
+        assertEquals("minecraft:quartz", RichOres.forOre("nether_quartz").drop());
+        assertEquals("minecraft:emerald", RichOres.forOre("emerald").drop());
+    }
+
+    @Test
+    void fortuneUsesTheSameFormulaAsTheOrdinaryBlock() {
+        for (RichOres.Spec spec : RichOres.ALL) {
+            RichOres.Bonus expected = spec.oreId().equals("redstone") ? RichOres.Bonus.UNIFORM : RichOres.Bonus.ORE_DROPS;
+            assertEquals(expected, spec.bonus(), spec.oreId());
+        }
+    }
+
+    @Test
+    void miningTiersMatchVanilla() {
+        assertEquals(RichOres.Tier.NONE, RichOres.forOre("coal").tier());
+        assertEquals(RichOres.Tier.STONE, RichOres.forOre("iron").tier());
+        assertEquals(RichOres.Tier.STONE, RichOres.forOre("copper").tier());
+        assertEquals(RichOres.Tier.STONE, RichOres.forOre("lapis").tier());
+        assertEquals(RichOres.Tier.IRON, RichOres.forOre("gold").tier());
+        assertEquals(RichOres.Tier.IRON, RichOres.forOre("redstone").tier());
+        assertEquals(RichOres.Tier.IRON, RichOres.forOre("emerald").tier());
+        assertEquals(RichOres.Tier.IRON, RichOres.forOre("diamond").tier());
+        assertEquals(RichOres.Tier.IRON, RichOres.forOre("zinc").tier());   // Create: needs an iron pickaxe
+        assertEquals(RichOres.Tier.NONE, RichOres.forOre("nether_gold").tier());
+        assertEquals(RichOres.Tier.NONE, RichOres.forOre("nether_quartz").tier());
+    }
+
+    @Test
+    void experienceMatchesVanilla() {
+        assertEquals(0, RichOres.forOre("coal").minXp());
+        assertEquals(2, RichOres.forOre("coal").maxXp());
+        assertEquals(2, RichOres.forOre("lapis").minXp());
+        assertEquals(5, RichOres.forOre("lapis").maxXp());
+        assertEquals(3, RichOres.forOre("diamond").minXp());
+        assertEquals(7, RichOres.forOre("diamond").maxXp());
+        assertEquals(0, RichOres.forOre("zinc").maxXp());          // Create's zinc ore is a plain block
+        assertEquals(0, RichOres.forOre("nether_gold").minXp());
+        assertEquals(1, RichOres.forOre("nether_gold").maxXp());
+        assertTrue(RichOres.forOre("redstone").redstone());
+    }
+
+    @Test
+    void overworldOresHaveDeepslateVersionsAndNetherOresDoNot() {
+        for (RichOres.Spec spec : RichOres.ALL) {
+            Realm realm = OreTypes.byId(spec.oreId()).realm();
+            assertEquals(spec.oreId().startsWith("nether_"), realm == Realm.NETHER, spec.oreId());
+            if (realm == Realm.OVERWORLD) {
+                assertNotNull(spec.deepslate(), spec.oreId() + " needs a deepslate version");
+                assertEquals(2, spec.variants().size(), spec.oreId());
+                assertEquals(RichOres.Ground.STONE, spec.variants().get(0).ground(), spec.oreId());
+                assertEquals(RichOres.Ground.DEEPSLATE, spec.variants().get(1).ground(), spec.oreId());
+                assertTrue(spec.deepslateName().startsWith("rich_deepslate_"), spec.oreId());
+            } else {
+                assertNull(spec.deepslate(), spec.oreId() + " has no deepslate version");
+                assertEquals(1, spec.variants().size(), spec.oreId());
+                assertEquals(RichOres.Ground.NETHERRACK, spec.variants().get(0).ground(), spec.oreId());
+                assertNull(spec.deepslateName());
+            }
+        }
+    }
+
+    @Test
+    void invalidEntriesAreRejected() {
+        assertThrows(IllegalArgumentException.class, () -> new RichOres.Spec("x", "a:b", null, "a:c", 0, 1,
+                RichOres.Bonus.ORE_DROPS, 0, 0, RichOres.Tier.NONE, false, "x", null));
+        assertThrows(IllegalArgumentException.class, () -> new RichOres.Spec("x", "a:b", null, "a:c", 3, 2,
+                RichOres.Bonus.ORE_DROPS, 0, 0, RichOres.Tier.NONE, false, "x", null));
+        assertThrows(IllegalArgumentException.class, () -> new RichOres.Spec("x", "a:b", null, "a:c", 1, 1,
+                RichOres.Bonus.ORE_DROPS, 5, 2, RichOres.Tier.NONE, false, "x", null));
+    }
+
+    /** The textures are art files placed by hand, so check they are really there, and the right size. */
+    @Test
+    void everyRichBlockHasA16By16Texture() throws IOException {
+        for (RichOres.Variant variant : RichOres.allVariants()) {
+            URL texture = RichOresTest.class.getResource(TEXTURES + variant.name() + ".png");
+            assertNotNull(texture, "missing texture for " + variant.name());
+            BufferedImage image = ImageIO.read(texture);
+            assertEquals(16, image.getWidth(), variant.name());
+            assertEquals(16, image.getHeight(), variant.name());
+        }
+    }
+
+    @Test
+    void everyRichBlockHasAnEnglishName() throws IOException {
+        String lang;
+        try (InputStream in = RichOresTest.class.getResourceAsStream("/assets/sparse_ores/lang/en_us.json")) {
+            assertNotNull(in, "en_us.json is missing");
+            lang = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        for (RichOres.Variant variant : RichOres.allVariants()) {
+            assertTrue(lang.contains("\"block.sparse_ores." + variant.name() + "\""),
+                    "no English name for " + variant.name());
+        }
+        assertFalse(lang.contains("Rich Rich"), "a name got doubled");
+    }
+
+    /** Everything generated for each block must exist. If this fails, run the Data run configuration. */
+    @Test
+    void everyRichBlockHasItsGeneratedStateModelsAndLootTable() throws IOException {
+        for (RichOres.Variant variant : RichOres.allVariants()) {
+            String name = variant.name();
+            for (String path : List.of(
+                    "/assets/sparse_ores/blockstates/" + name + ".json",
+                    "/assets/sparse_ores/models/block/" + name + ".json",
+                    "/assets/sparse_ores/models/item/" + name + ".json",
+                    "/data/sparse_ores/loot_table/blocks/" + name + ".json")) {
+                assertNotNull(RichOresTest.class.getResource(path), "missing generated file " + path
+                        + " (run the Data run configuration)");
+            }
+            assertTrue(read("/assets/sparse_ores/models/block/" + name + ".json")
+                    .contains("sparse_ores:block/" + name), name + "'s model should use its own texture");
+        }
+    }
+
+    /**
+     * The generated loot tables really say what the table says: silk touch, the drop, five times the count, the fortune
+     * formula. The drop is vanilla's, except that the chip ores drop chips (split step 4b): five coal chips, not five coal.
+     */
+    @Test
+    void generatedLootTablesDropFiveTimesTheOrdinaryAmount() throws IOException {
+        for (RichOres.Spec vanilla : RichOres.ALL) {
+            RichOres.Spec spec = Chips.chipped(vanilla);
+            for (RichOres.Variant variant : spec.variants()) {
+                String loot = read("/data/sparse_ores/loot_table/blocks/" + variant.name() + ".json");
+                String label = variant.name();
+                assertTrue(loot.contains("\"name\": \"sparse_ores:" + variant.name() + "\""), label + " silk touch");
+                assertTrue(loot.contains("minecraft:silk_touch"), label + " silk touch");
+                assertTrue(loot.contains("\"name\": \"" + spec.drop() + "\""), label + " drop item");
+                if (spec.richMinDrop() == spec.richMaxDrop()) {
+                    assertTrue(loot.contains("\"count\": " + spec.richMinDrop() + ".0"), label + " count");
+                } else {
+                    assertTrue(loot.contains("\"min\": " + spec.richMinDrop() + ".0"), label + " min count");
+                    assertTrue(loot.contains("\"max\": " + spec.richMaxDrop() + ".0"), label + " max count");
+                }
+                String formula = spec.bonus() == RichOres.Bonus.UNIFORM ? "minecraft:uniform_bonus_count" : "minecraft:ore_drops";
+                assertTrue(loot.contains(formula), label + " fortune formula");
+                assertFalse(loot.contains("sparse_ores:chip_drop"), label + ": rich ores drop chips whatever the config says");
+                if (!spec.equals(vanilla)) {
+                    assertFalse(loot.contains("\"name\": \"" + vanilla.drop() + "\""), label + " drops chips, not " + vanilla.drop());
+                }
+            }
+        }
+        assertEquals("sparse_ores:coal_chip", Chips.chipped(RichOres.forOre("coal")).drop());
+        assertEquals(5, Chips.chipped(RichOres.forOre("diamond")).richMaxDrop());
+    }
+
+    @Test
+    void generatedTagsPutEveryBlockInTheRightMiningTier() throws IOException {
+        String stone = read("/data/minecraft/tags/block/needs_stone_tool.json");
+        String iron = read("/data/minecraft/tags/block/needs_iron_tool.json");
+        String pickaxe = read("/data/minecraft/tags/block/mineable/pickaxe.json");
+        for (RichOres.Spec spec : RichOres.ALL) {
+            for (RichOres.Variant variant : spec.variants()) {
+                String id = "\"sparse_ores:" + variant.name() + "\"";
+                assertTrue(pickaxe.contains(id), variant.name() + " must be mineable with a pickaxe");
+                assertEquals(spec.tier() == RichOres.Tier.STONE, stone.contains(id), variant.name() + " stone tier");
+                assertEquals(spec.tier() == RichOres.Tier.IRON, iron.contains(id), variant.name() + " iron tier");
+            }
+        }
+    }
+
+    /**
+     * A rich block that copies another mod's ore (rich zinc ore, from Create's) is only registered with that mod, so its
+     * tag entries must be optional: one missing required entry fails the whole tag (all of {@code mineable/pickaxe}).
+     */
+    @Test
+    void richBlocksOfOtherModsOresAreOptionalTagEntries() throws IOException {
+        for (String tag : List.of("/data/minecraft/tags/block/mineable/pickaxe.json", "/data/c/tags/block/ores.json",
+                "/data/c/tags/item/ores.json")) {
+            String text = read(tag).replaceAll("\\s+", "");
+            for (RichOres.Variant variant : RichOres.allVariants()) {
+                boolean vanilla = variant.counterpart().startsWith("minecraft:");
+                String optional = "{\"id\":\"sparse_ores:" + variant.name() + "\",\"required\":false}";
+                assertEquals(!vanilla, text.contains(optional), variant.name() + " in " + tag);
+            }
+        }
+    }
+
+    /**
+     * A rich block of another mod's ore (rich zinc ore, from Create's) has a loot table that names that mod's drop, so the
+     * table loads only with that mod: without it the game skips the table quietly instead of logging a parse error.
+     * Rich blocks of vanilla's ores have no condition.
+     */
+    @Test
+    void richBlocksOfOtherModsOresHaveLootOnlyWithThatMod() throws IOException {
+        for (RichOres.Variant variant : RichOres.allVariants()) {
+            String loot = read("/data/sparse_ores/loot_table/blocks/" + variant.name() + ".json").replaceAll("\\s+", "");
+            String namespace = variant.counterpart().substring(0, variant.counterpart().indexOf(':'));
+            boolean vanilla = namespace.equals("minecraft");
+            String condition = "\"neoforge:conditions\":[{\"type\":\"neoforge:mod_loaded\",\"modid\":\"" + namespace + "\"}]";
+            assertEquals(!vanilla, loot.contains(condition), variant.name() + " loaded only with " + namespace);
+            assertEquals(!vanilla, loot.contains("neoforge:conditions"), variant.name() + ": a condition only on another mod's ore");
+        }
+    }
+
+    @Test
+    void generatedTagsMarkEveryRichBlockAsAnOre() throws IOException {
+        String ores = read("/data/c/tags/block/ores.json");
+        for (RichOres.Variant variant : RichOres.allVariants()) {
+            assertTrue(ores.contains("\"sparse_ores:" + variant.name() + "\""), variant.name() + " should be in #c:ores");
+        }
+        assertTrue(read("/data/c/tags/block/ores/zinc.json").contains("sparse_ores:rich_zinc_ore"));
+        assertTrue(read("/data/c/tags/block/ores_in_ground/deepslate.json").contains("sparse_ores:rich_deepslate_iron_ore"));
+        assertTrue(read("/data/c/tags/block/ores_in_ground/netherrack.json").contains("sparse_ores:rich_nether_gold_ore"));
+        assertFalse(read("/data/c/tags/block/ores_in_ground/stone.json").contains("rich_deepslate"));
+    }
+
+    private static String read(String resource) throws IOException {
+        try (InputStream in = RichOresTest.class.getResourceAsStream(resource)) {
+            assertNotNull(in, "missing resource " + resource + " (run the Data run configuration)");
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+}

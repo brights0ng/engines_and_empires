@@ -4,7 +4,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import dev.brights0ng.enginesandempires.oregen.rich.RichOres;
+import dev.brights0ng.sparseores.chips.Chips;
+import dev.brights0ng.sparseores.rich.RichOres;
 
 /**
  * How much every ore is worth once it is refined, in one place. Nothing here touches Minecraft, so the rules can be
@@ -17,10 +18,13 @@ import dev.brights0ng.enginesandempires.oregen.rich.RichOres;
  *       nuggets instead of an ingot. Washing crushed ore gives the same plus a {@link #WASH_BONUS_CHANCE} chance of
  *       one more nugget, so a Create line beats the furnace. Crushing an ore block keeps Create's numbers, which were
  *       already better than mining it.</li>
- *   <li><b>Chips</b> (coal, diamond, nether quartz). These ores drop a single item, so they drop a chip instead, a
- *       {@link #CHIPS_PER_ITEM quarter} of one.</li>
+ *   <li><b>Chips</b> (coal, diamond, nether quartz). These ores drop a single item, so Sparse Ores has them drop a
+ *       chip instead, a {@link Chips#CHIPS_PER_ITEM quarter} of one ({@link Chips#chipped}; its own rule since split
+ *       step 4b). The pack refines them by the chip: the furnace and crushing give chips. Sparse Ores ships both
+ *       recipes itself (the furnace's since step 4c, the crushing's since step 4d, with the same lead as below); the
+ *       numbers here are the pack's statement of them, which the tests hold Sparse Ores' recipes to.</li>
  *   <li><b>Group drops</b> (redstone, lapis, nether gold). These drop several items, so they simply drop fewer (see
- *       {@link RichOres}).</li>
+ *       {@link LootCuts}).</li>
  *   <li><b>Emerald</b> is left alone: villagers set its value.</li>
  * </ul>
  *
@@ -29,7 +33,9 @@ import dev.brights0ng.enginesandempires.oregen.rich.RichOres;
  * step of their own.
  *
  * <p>A silk-touched ore block smelts into what mining it would have dropped, so Silk Touch plus a furnace is no
- * shortcut. A rich block gives {@link RichOres#RICHNESS} times its ordinary block, whichever way it is refined.
+ * shortcut. A rich block gives {@link RichOres#RICHNESS} times its ordinary block, whichever way it is refined. Sparse
+ * Ores ships both rules for its own numbers (vanilla's and Create's) since split step 4c; the pack replaces the recipes
+ * whose numbers it changes.
  */
 public final class Refining {
 
@@ -42,14 +48,8 @@ public final class Refining {
     /** The chance of one more nugget when washing crushed ore. */
     public static final double WASH_BONUS_CHANCE = 0.5;
 
-    /** Chips that craft into one whole item. */
-    public static final int CHIPS_PER_ITEM = 4;
-
     /** How much other sources of metal keep (iron golems, washing gravel, red sand and soul sand): the same as raw ore. */
     public static final double OTHER_SOURCES = NUGGETS_PER_RAW / 9.0;
-
-    /** Burn time of a coal chip, in ticks: a quarter of coal's. */
-    public static final int COAL_CHIP_BURN_TIME = 1600 / CHIPS_PER_ITEM;
 
     /** Create's crushing wheels turn a stone-type ore block into this many crushed ores on average (1 + 75% of 1). */
     public static final double CREATE_CRUSHED_PER_STONE_ORE = 1.75;
@@ -128,9 +128,9 @@ public final class Refining {
     public record Ore(String oreId, Kind kind, String furnaceItem, String crushedItem, int stoneTime, int deepTime,
                       int xpNuggets, double smeltXp) {
 
-        /** The ore's entry in {@link RichOres}, which holds what its ordinary block drops. */
+        /** The ore's entry in {@link RichOres}, with what its ordinary block drops in the pack ({@link #packSpec}). */
         public RichOres.Spec spec() {
-            return RichOres.forOre(oreId);
+            return packSpec(oreId);
         }
 
         /** What the ordinary ore block drops on average when mined without Fortune. */
@@ -156,19 +156,65 @@ public final class Refining {
             return crushingLead(deep) * dropMean();
         }
 
-        /** Whether the pack replaces Create's recipe for crushing the ordinary block (only chips and group drops). */
+        /**
+         * Whether the pack replaces Create's recipe for crushing the ordinary block (only group drops: the chip ores' is
+         * Sparse Ores' own since split step 4d).
+         */
         public boolean overridesCrushing() {
-            return kind == Kind.CHIP || kind == Kind.GROUP;
+            return kind == Kind.GROUP;
         }
 
-        /** Whether the pack replaces the furnace recipe for the ordinary block. Redstone and lapis already give 1. */
+        /**
+         * Whether the pack replaces the furnace recipe for the ordinary block. Redstone and lapis already give 1, and the
+         * chip ores already smelt into a chip in Sparse Ores (its own recipes since split step 4c, which follow its
+         * {@code chipDrops} setting).
+         */
         public boolean overridesFurnace() {
-            return kind == Kind.METAL || kind == Kind.CHIP || oreId.equals("nether_gold");
+            return kind == Kind.METAL || oreId.equals("nether_gold");
         }
 
         public int crushingTime(boolean deep) {
             return deep ? deepTime : stoneTime;
         }
+    }
+
+    /**
+     * One loot cut: an ore (its id in {@link RichOres}) and what its ordinary block drops in the pack, before Fortune.
+     * Its rich block drops {@link RichOres#RICHNESS} times that ({@link LootCuts} writes both tables).
+     */
+    public record Cut(String oreId, String drop, int minDrop, int maxDrop) {
+    }
+
+    /**
+     * The ores whose drops the pack cuts: the group drops. The chip ores (coal, diamond, nether quartz) are not cut here:
+     * Sparse Ores itself has them drop one chip, and five from a rich block (split step 4b, Bright's option A; until
+     * then these cuts held them too). The others (iron, copper, zinc, gold, emerald) keep their original loot tables:
+     * the pack cuts metals down in the furnace and the washer instead, and leaves emeralds alone. Sparse Ores'
+     * {@link RichOres} entries hold vanilla's drops (split step 4), so these are the pack's.
+     */
+    public static final List<Cut> CUTS = List.of(
+            new Cut("redstone", "minecraft:redstone", 1, 1),
+            new Cut("lapis", "minecraft:lapis_lazuli", 1, 2),
+            new Cut("nether_gold", "minecraft:gold_nugget", 1, 1));
+
+    /** The loot cut of an ore, or null if the pack leaves its drop alone. */
+    public static Cut cutOf(String oreId) {
+        for (Cut cut : CUTS) {
+            if (cut.oreId().equals(oreId)) {
+                return cut;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * What an ore's ordinary block drops in the pack: what it drops in Sparse Ores (its {@link RichOres} entry, in chips
+     * for the chip ores, {@link Chips#chipped}), with the cut drop if the pack cuts it.
+     */
+    public static RichOres.Spec packSpec(String oreId) {
+        RichOres.Spec spec = Chips.chipped(RichOres.forOre(oreId));
+        Cut cut = cutOf(oreId);
+        return cut == null ? spec : spec.withDrop(cut.drop(), cut.minDrop(), cut.maxDrop());
     }
 
     /** Create's own crushing output for the ores the pack does not override: {stone, deepslate} averages. */
@@ -183,7 +229,7 @@ public final class Refining {
     }
 
     public static final List<Ore> ORES = List.of(
-            new Ore("coal", Kind.CHIP, "engines_and_empires:coal_chip", "engines_and_empires:coal_chip", 150, 300, 1, 0.1),
+            new Ore("coal", Kind.CHIP, "sparse_ores:coal_chip", "sparse_ores:coal_chip", 150, 300, 1, 0.1),
             new Ore("iron", Kind.METAL, "minecraft:iron_nugget", "create:crushed_raw_iron", 250, 350, 1, 0.7),
             new Ore("copper", Kind.METAL, "create:copper_nugget", "create:crushed_raw_copper", 250, 350, 1, 0.7),
             new Ore("zinc", Kind.METAL, "create:zinc_nugget", "create:crushed_raw_zinc", 250, 350, 1, 1.0),
@@ -191,9 +237,9 @@ public final class Refining {
             new Ore("lapis", Kind.GROUP, "minecraft:lapis_lazuli", "minecraft:lapis_lazuli", 250, 350, 1, 0.2),
             new Ore("gold", Kind.METAL, "minecraft:gold_nugget", "create:crushed_raw_gold", 250, 350, 2, 1.0),
             new Ore("emerald", Kind.KEPT, "minecraft:emerald", "minecraft:emerald", 350, 450, 1, 1.0),
-            new Ore("diamond", Kind.CHIP, "engines_and_empires:diamond_chip", "engines_and_empires:diamond_chip", 350, 450, 1, 1.0),
+            new Ore("diamond", Kind.CHIP, "sparse_ores:diamond_chip", "sparse_ores:diamond_chip", 350, 450, 1, 1.0),
             new Ore("nether_gold", Kind.GROUP, "minecraft:gold_nugget", "minecraft:gold_nugget", 350, 350, 1, 1.0),
-            new Ore("nether_quartz", Kind.CHIP, "engines_and_empires:quartz_chip", "engines_and_empires:quartz_chip", 350, 350, 1, 0.2));
+            new Ore("nether_quartz", Kind.CHIP, "sparse_ores:quartz_chip", "sparse_ores:quartz_chip", 350, 350, 1, 0.2));
 
     /**
      * A metal: its raw ore, crushed ore and nugget, and what washing its crushed ore gives besides nuggets (kept as
@@ -214,15 +260,6 @@ public final class Refining {
                     "minecraft:clay_ball", 0.5, 0.7, false),
             new Metal("zinc", "zinc", "create:raw_zinc", "create:crushed_raw_zinc", "create:zinc_nugget",
                     "minecraft:gunpowder", 0.25, 0.7, true));
-
-    /** A chip, and the whole item four of them craft into. */
-    public record Chip(String name, String item) {
-    }
-
-    public static final List<Chip> CHIPS = List.of(
-            new Chip("coal_chip", "minecraft:coal"),
-            new Chip("diamond_chip", "minecraft:diamond"),
-            new Chip("quartz_chip", "minecraft:quartz"));
 
     /** The ore with this id. */
     public static Ore ore(String oreId) {
