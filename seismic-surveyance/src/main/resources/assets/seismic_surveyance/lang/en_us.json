@@ -16,6 +16,7 @@
   "seismic_surveyance.combustive_thumper.charge.short": "Next shot: not enough fuel, will only drop",
   "seismic_surveyance.combustive_thumper.charge.inert": "Next shot: won't ignite, will only drop",
   "seismic_surveyance.combustive_thumper.charge.empty": "Next shot: no fuel, will only drop",
+  "seismic_surveyance.combustive_thumper.no_fuel": "Needs a compatible fuel source (for example Create: Diesel Generators)",
   "entity.seismic_surveyance.geophone": "Geophone",
   "item.seismic_surveyance.windup_reader.wound": "Fully wound",
   "item.seismic_surveyance.windup_reader.winding": "Wound: %s%%",

@@ -32,6 +32,8 @@ Status: **plan settled, nothing built.** Every question from v2 is answered (sec
 
 Sable Fixes is not required by the core: the dev aggregator loads it with the other mods (`loadMod`) and `buildAll` collects its jar, but no mod of ours depends on it.
 
+Not part of the family (split step 4c): `coreless_tests` (`coreless/`, package `dev.brights0ng.corelesstests`), a test-only mod that is never released. It holds the game tests of feature mods working together that need no core code, and runs them in the core-less combined run and the aggregate.
+
 Compile-time graph (must stay acyclic): lib <- Sparse Ores <- Seismic <- (gated) Frontier; lib <- Meteodyne; lib <- Simple Spoilage; everything <- core. Sable Fixes stands outside it. Seismic and Sparse Ores never reference Frontier.
 
 Main lines today: Meteodyne ~36.9k (203 files), Seismic ~16.0k (102), Frontier ~8.0k (61), Sparse Ores ~6.3k (50), Simple Spoilage ~5.1k (47), core ~3.9k (42), lib ~2.5k (23), Sable Fixes ~0.1k (2).

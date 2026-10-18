@@ -31,7 +31,9 @@ import dev.brights0ng.sparseores.rich.RichOres;
  * step of their own.
  *
  * <p>A silk-touched ore block smelts into what mining it would have dropped, so Silk Touch plus a furnace is no
- * shortcut. A rich block gives {@link RichOres#RICHNESS} times its ordinary block, whichever way it is refined.
+ * shortcut. A rich block gives {@link RichOres#RICHNESS} times its ordinary block, whichever way it is refined. Sparse
+ * Ores ships both rules for its own numbers (vanilla's and Create's) since split step 4c; the pack replaces the recipes
+ * whose numbers it changes.
  */
 public final class Refining {
 
@@ -157,9 +159,13 @@ public final class Refining {
             return kind == Kind.CHIP || kind == Kind.GROUP;
         }
 
-        /** Whether the pack replaces the furnace recipe for the ordinary block. Redstone and lapis already give 1. */
+        /**
+         * Whether the pack replaces the furnace recipe for the ordinary block. Redstone and lapis already give 1, and the
+         * chip ores already smelt into a chip in Sparse Ores (its own recipes since split step 4c, which follow its
+         * {@code chipDrops} setting).
+         */
         public boolean overridesFurnace() {
-            return kind == Kind.METAL || kind == Kind.CHIP || oreId.equals("nether_gold");
+            return kind == Kind.METAL || oreId.equals("nether_gold");
         }
 
         public int crushingTime(boolean deep) {

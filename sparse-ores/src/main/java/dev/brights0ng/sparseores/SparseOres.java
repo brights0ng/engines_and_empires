@@ -6,6 +6,7 @@ import com.mojang.logging.LogUtils;
 
 import dev.brights0ng.sparseores.chips.ChipDataGen;
 import dev.brights0ng.sparseores.chips.ChipDropFunction;
+import dev.brights0ng.sparseores.chips.ChipDropsCondition;
 import dev.brights0ng.sparseores.chips.ChipItems;
 import dev.brights0ng.sparseores.rich.RichOreBlocks;
 import dev.brights0ng.sparseores.worldgen.OreWorldgen;
@@ -38,7 +39,7 @@ public final class SparseOres {
         // The ore worldgen feature type (the data files under data/sparse_ores/ put it to use)
         OreWorldgen.register(modEventBus);
 
-        // The rich ore blocks and items. Their loot, models and tags come from RichOreDataGen's parts, which
+        // The rich ore blocks and items. Their loot, models, tags and recipes come from RichOreDataGen's parts, which
         // SparseOresDataGen puts together with the chips' models
         RichOreBlocks.register(modEventBus);
 
@@ -46,6 +47,8 @@ public final class SparseOres {
         // and textures. The ordinary ores' chips go through a loot function that reads the server config
         ChipItems.register(modEventBus);
         ChipDropFunction.register(modEventBus);
+        // The chip ores' smelting follows the same setting, through a load condition on those recipes
+        ChipDropsCondition.register(modEventBus);
         modContainer.registerConfig(ModConfig.Type.SERVER, SparseOresConfig.SPEC, SparseOresConfig.FILE_NAME);
         modEventBus.addListener(ChipDataGen::gatherData);
         modEventBus.addListener(SparseOresDataGen::gatherData);

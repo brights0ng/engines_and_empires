@@ -449,3 +449,14 @@ and jar settings). It `loadMod`s the seven feature mods, puts on its runtime cla
 `runGameTestServer` task, it is part of the full check. It has no `gradle.properties` and no `src/`, which is how
 `ArchitectureTest` tells it apart from a mod project (and it fails if sources ever appear there).
 
+**Step 4c: `coreless/` becomes a test-only mod.** Game tests are only found inside mods, so the core's game tests of
+feature mods working together (needing no core code) moved into a mod of their own, `coreless_tests` (package
+`dev.brights0ng.corelesstests`), in this same folder. `coreless/` now has a `gradle.properties` and applies
+`eae.mod-conventions` like any mod project: it `requireMod`s the six feature mods its tests compile against,
+`loadMod`s Sable Fixes, and keeps the outside runtime mods above (Create also on its compile classpath, since Seismic's
+blocks are Create's kinds of block). Its game test run, the convention plugin's bare run, is the combined run: its
+namespaces are the seven feature mods' ids and its own (`-Pcoreless.namespaces` still narrows it). Its data run writes
+the empty game test structure for its namespace. The root `loadMod`s it, so the aggregate runs its tests too; its jar
+is disabled and `buildAll` leaves it out. `ArchitectureTest` knows it as a mod (`ROOTS`, `ALLOWED`: every feature mod,
+never the core; `REQUIRED`: Create), and the rule that a project without `gradle.properties` holds no sources stays.
+

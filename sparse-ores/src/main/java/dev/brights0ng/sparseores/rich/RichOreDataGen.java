@@ -1,5 +1,6 @@
 package dev.brights0ng.sparseores.rich;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -10,6 +11,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
+import com.google.gson.JsonObject;
 import com.mojang.serialization.Codec;
 
 import dev.brights0ng.sparseores.SparseOres;
@@ -53,8 +55,9 @@ import net.neoforged.neoforge.common.data.ExistingFileHelper;
 
 /**
  * Sparse Ores' parts of the data generator. It generates the resources of the rich ore blocks from {@link RichOres}, so
- * they cannot drift from it: loot tables, block states, block and item models, and tags. The rich ore textures are not
- * generated; they live in {@code src/main/resources/assets/sparse_ores/textures/block}.
+ * they cannot drift from it: loot tables, block states, block and item models, tags, and (from {@link RichOreRecipes})
+ * recipes. The rich ore textures are not generated; they live in
+ * {@code src/main/resources/assets/sparse_ores/textures/block}.
  *
  * <p>A run can have only one loot table provider (its name is fixed), and only one block state and block tag provider
  * (two would write the same files), so {@code SparseOresDataGen} puts those together from these parts and the chips'.
@@ -152,6 +155,31 @@ public final class RichOreDataGen {
                 }
             }
             return variants;
+        }
+    }
+
+    /** Writes {@link RichOreRecipes#files()}: the rich ores' furnace and crushing recipes (split step 4c). */
+    public static final class Recipes implements DataProvider {
+
+        private final PackOutput output;
+
+        public Recipes(PackOutput output) {
+            this.output = output;
+        }
+
+        @Override
+        public CompletableFuture<?> run(CachedOutput cache) {
+            Path root = output.getOutputFolder(PackOutput.Target.DATA_PACK);
+            List<CompletableFuture<?>> writes = new ArrayList<>();
+            for (Map.Entry<String, JsonObject> file : RichOreRecipes.files().entrySet()) {
+                writes.add(DataProvider.saveStable(cache, file.getValue(), root.resolve(file.getKey())));
+            }
+            return CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new));
+        }
+
+        @Override
+        public String getName() {
+            return "Rich ore recipes";
         }
     }
 

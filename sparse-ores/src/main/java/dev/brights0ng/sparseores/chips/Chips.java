@@ -18,6 +18,12 @@ public final class Chips {
     /** Chips that craft into one whole item. */
     public static final int CHIPS_PER_ITEM = 4;
 
+    /**
+     * The id of the load condition the ordinary chip ores' smelting carries, true while chip drops are on
+     * ({@code ChipDropsCondition}).
+     */
+    public static final String CHIP_DROPS_CONDITION = SparseOres.MODID + ":chip_drops";
+
     /** Burn time of a coal chip, in ticks: a quarter of coal's. */
     public static final int COAL_CHIP_BURN_TIME = 1600 / CHIPS_PER_ITEM;
 
@@ -74,6 +80,15 @@ public final class Chips {
             }
         }
         return List.copyOf(ores);
+    }
+
+    /**
+     * Whether the server must load its data again so the chip ores' smelting follows the setting
+     * ({@code ChipDropsCondition}): a data load tested the setting ({@code loadedWith}, null if none has) and it is now
+     * {@code chipDrops}, something else.
+     */
+    public static boolean needsReload(Boolean loadedWith, boolean chipDrops) {
+        return loadedWith != null && loadedWith != chipDrops;
     }
 
     private Chips() {
