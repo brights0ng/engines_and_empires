@@ -1,5 +1,7 @@
 # Splitting the core mod into a mod family (plan v3.1, 2026-10-16)
 
+> **History (split step 4e).** The split is finished; this plan is kept as the record of the decisions and their reasons. It was moved from `docs/split/`. Its companions `mod-split-steps.md` and `mod-split-seams.csv` (and the step-1 scanner, seam list and baseline notes) were scaffolding and were deleted (see git history); `mod-split-manifest.csv` is still `docs/split/mod-split-manifest.csv`. `claude/...` paths below are Project paths (`docs/path-map.md`). The text below is as it was, so present-tense statements describe the plan, not the repo.
+
 Status: **plan settled, nothing built.** Every question from v2 is answered (section 13). Decisions marked (Bright) are his. Facts come from the working tree at commit `9ebdb39` (clean; same as GitHub `brights0ng/engines_and_empires`): 530 main Java files (68.7k lines, including 31 game test classes that live in `src/main`) plus 124 unit test files. Companions: `claude/mod-split-manifest.csv` (every Java file -> target mod), `claude/mod-split-seams.csv` (every reference that would cross a forbidden boundary), and `claude/mod-split-steps.md` (the repo `CLAUDE.md` and one prompt per Claude Code cloud session).
 
 ## 1. Decisions (Bright)
