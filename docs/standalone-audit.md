@@ -264,7 +264,7 @@ Frontier run more than in their bare runs (67 and 13) because some of their test
 
 **Step 4c.** The core's game tests of these pairings that need no core code moved into a test-only mod in the same
 project, `coreless_tests` (`coreless/`; see `docs/build-layout.md` section 9): `ProviderWiringGameTests` (3) and 7
-of the 8 `FrontierIncursionGameTests` (the eighth reads the core's loud machines and stays in the core). The combined
+of the 8 `FrontierIncursionGameTests` (the eighth reads the core's loud machines and stays in the core, as `PackIncursionGameTests` since step 4e). The combined
 run runs them along with every feature mod's tests, and the aggregate runs them too. On 2026-10-18 it ran 175/175:
 the 158 above, Sparse Ores' 4 new recipe tests and Seismic's 3 new fuel tests, and the 10 moved tests.
 

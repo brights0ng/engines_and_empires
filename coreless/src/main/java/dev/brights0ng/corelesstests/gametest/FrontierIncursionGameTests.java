@@ -23,7 +23,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * need only one of the two moved to that mod in split step 4d, under the same class and test names: snuffing torches,
  * settlements, the squelching heart and the tier map's answer are Frontier's; choking thumpers is Seismic Surveyance's.
  * The one check that needs the core's data (Create's machines as loud machines) stays in the core's
- * {@code enginesandempires.gametest.FrontierIncursionGameTests}, under the same class name so every test keeps its name.
+ * {@code enginesandempires.gametest.PackIncursionGameTests} (renamed in split step 4e; it was
+ * {@code FrontierIncursionGameTests}, its test is now {@code theLoudMachinesLoad}).
  */
 @GameTestHolder(CorelessTests.MODID)
 @PrefixGameTestTemplate(false)
