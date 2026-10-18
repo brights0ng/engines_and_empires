@@ -9,6 +9,10 @@ requireMod(':paradyne-lib')
 // (rich/RichOreBlocks). So the bare game test run goes without Create, but the data run loads it, or the generated
 // files would leave rich zinc ore out. The data run gets a source set of its own for that: no sources, and a runtime
 // classpath of Create and what it needs (Sparse Ores and the library come in through the mods {} block as usual).
+//
+// The same source set serves a second bare game test run, runGameTestServerWithCreate (split step 4d): Sparse Ores with
+// Create, for what Sparse Ores does for Create (crushing, rich zinc ore) and nothing else loaded. It runs the same
+// tests as the bare run (they check both cases), and follows it in every `runGameTestServer` build.
 sourceSets {
     datagen
 }
@@ -31,5 +35,16 @@ neoForge {
         data {
             sourceSet = sourceSets.datagen
         }
+        // The bare run with Create
+        gameTestServerWithCreate {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.datagen
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
     }
+}
+
+// Whenever the bare run is asked for (./gradlew runGameTestServer), the one with Create follows it.
+tasks.named('runGameTestServer') {
+    finalizedBy 'runGameTestServerWithCreate'
 }

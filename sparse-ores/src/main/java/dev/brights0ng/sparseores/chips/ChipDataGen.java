@@ -56,7 +56,7 @@ public final class ChipDataGen {
      * The loot tables of the ordinary chip ores (vanilla's coal, deepslate coal, diamond, deepslate diamond and nether
      * quartz ores), under vanilla's ids so they replace vanilla's: one chip for each whole item vanilla's table drops
      * ({@link Chips#chipped}), Fortune and Silk Touch as vanilla has them, through {@link ChipDropFunction}, which gives
-     * the whole item back when the server config switches chip drops off. Moved from the core's loot cuts (Bright's
+     * the whole item back when the startup config switches chip drops off. Moved from the core's loot cuts (Bright's
      * option A after split step 4): the chip drops are Sparse Ores' own. A pack that cuts other ores' drops replaces those
      * tables on top, as the core does.
      */

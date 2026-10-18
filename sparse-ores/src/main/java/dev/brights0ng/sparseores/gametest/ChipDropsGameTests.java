@@ -1,5 +1,7 @@
 package dev.brights0ng.sparseores.gametest;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,6 +12,7 @@ import com.mojang.serialization.JsonOps;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import dev.brights0ng.sparseores.SparseOres;
 import dev.brights0ng.sparseores.SparseOresConfig;
+import dev.brights0ng.sparseores.chips.ChipDropsCondition;
 import dev.brights0ng.sparseores.chips.Chips;
 import dev.brights0ng.sparseores.rich.RichOreBlocks;
 import dev.brights0ng.sparseores.rich.RichOres;
@@ -29,13 +32,16 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.storage.loot.LootTable;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.config.ModConfigs;
+import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Sparse Ores' own drops, in game (split step 4b, Bright's option A): ordinary coal, diamond and nether quartz ore drop
  * one chip, Fortune and Silk Touch working as vanilla's; every rich ore drops five times its ordinary block (chips for
- * the chip ores); and the server config's {@code chipDrops} switch gives the ordinary ores vanilla's whole items back
+ * the chip ores); and the startup config's {@code chipDrops} switch gives the ordinary ores vanilla's whole items back
  * while rich ores keep dropping chips.
  *
  * <p>In Sparse Ores' bare run (the library and Sparse Ores, nothing else) the ordinary blocks' tables are vanilla's,
@@ -105,9 +111,9 @@ public final class ChipDropsGameTests {
      */
     @GameTest(template = GameTestStructures.EMPTY)
     public static void chipDropsOffGivesVanillasOrdinaryOresBack(GameTestHelper helper) {
-        helper.assertTrue(SparseOresConfig.SPEC.isLoaded(), "Sparse Ores' server config is not loaded");
+        helper.assertTrue(SparseOresConfig.SPEC.isLoaded(), "Sparse Ores' startup config is not loaded");
         boolean before = SparseOresConfig.CHIP_DROPS.get();
-        SparseOresConfig.CHIP_DROPS.set(false);
+        SparseOresConfig.setChipDropsForTests(false);
         try {
             helper.assertFalse(SparseOresConfig.chipDrops(), "chip drops did not switch off");
             for (Block ore : chipOres()) {
@@ -126,9 +132,45 @@ public final class ChipDropsGameTests {
                 }
             }
         } finally {
-            SparseOresConfig.CHIP_DROPS.set(before);
+            SparseOresConfig.setChipDropsForTests(before);
         }
         assertMines(helper, chipOres().get(0), plainPickaxe(), chip(Chips.forItem("minecraft:coal")), 1, 1);
+        helper.succeed();
+    }
+
+    /**
+     * Chip drops is a startup config (split step 4d), which the game reads while the mod is constructed: so the first data
+     * load, whose recipes carry the {@code sparse_ores:chip_drops} condition, already found the config loaded and read the
+     * value that is in its file, and nothing reloaded the data afterwards. The file is in the game's {@code config/}
+     * folder, not in a world's {@code serverconfig/}.
+     */
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void theStartupConfigWasReadBeforeTheFirstDataLoad(GameTestHelper helper) {
+        ModConfig config = ModConfigs.getModConfigs(SparseOres.MODID).stream()
+                .filter(c -> c.getSpec() == SparseOresConfig.SPEC).findFirst()
+                .orElseThrow(() -> new IllegalStateException("Sparse Ores registered no config"));
+        helper.assertTrue(config.getType() == ModConfig.Type.STARTUP, "it is a " + config.getType() + " config");
+        helper.assertTrue(config.getFileName().equals("sparse_ores-startup.toml"), "its file is " + config.getFileName());
+        helper.assertTrue(config.getFullPath().startsWith(FMLPaths.CONFIGDIR.get()), config.getFullPath() + " is not in config/");
+
+        ChipDropsCondition.Seen seen = ChipDropsCondition.firstSeen();
+        helper.assertTrue(seen != null, "no data load tested the chip_drops condition");
+        helper.assertTrue(seen.configLoaded(), "the first data load found the config not loaded yet");
+        // What is written in the file is what that first load saw (the tests that flip the setting put it back, in memory).
+        String written = null;
+        try {
+            for (String line : Files.readAllLines(config.getFullPath())) {
+                if (line.strip().startsWith("chipDrops")) {
+                    written = line.substring(line.indexOf('=') + 1).strip();
+                }
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("could not read " + config.getFullPath(), e);
+        }
+        helper.assertTrue(written != null, "chipDrops is not in " + config.getFullPath());
+        helper.assertTrue(Boolean.parseBoolean(written) == seen.chipDrops(),
+                "the file says chipDrops = " + written + ", the first data load saw " + seen.chipDrops());
+        helper.assertTrue(seen.chipDrops() == SparseOresConfig.chipDrops(), "and nothing changed it since");
         helper.succeed();
     }
 

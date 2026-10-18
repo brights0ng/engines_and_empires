@@ -72,10 +72,17 @@ class RichOreRecipesTest {
                 .getAsJsonObject("result").get("id").getAsString());
     }
 
-    /** Crushing a rich block gives five times what Create gives for its ordinary block, and needs Create to load. */
+    /**
+     * Crushing a rich block gives five times what Create gives for its ordinary block, and needs Create to load. The chip
+     * ores are the exception since split step 4d: they crush into chips, five times the 2.2 (stone) or 2.8 (deepslate and
+     * nether) chips an ordinary block crushes into, and no whole item.
+     */
     @Test
     void richBlocksCrushIntoFiveTimesTheirOrdinaryBlock() {
         for (RichOres.Variant variant : RichOres.allVariants()) {
+            if (isChipOre(variant)) {
+                continue;
+            }
             RichOreRecipes.Crushing ordinary = RichOreRecipes.crushing(variant.counterpart());
             JsonObject recipe = file("sparse_ores/recipe/crushing/" + variant.name() + ".json");
             assertTrue(needs(recipe, "create"), variant.name() + " must load only with Create");
@@ -91,11 +98,56 @@ class RichOreRecipesTest {
             assertEquals(ordinary.xpNuggets() * RichOreRecipes.XP_CHANCE * RichOres.RICHNESS,
                     mean(results, "create:experience_nugget"), 0.025, variant.name());
         }
+        richChipOresCrushIntoChips();
         // 18 gold nuggets from nether gold ore make 90 from the rich one: a stack and 26.
         assertEquals(90, mean(file("sparse_ores/recipe/crushing/rich_nether_gold_ore.json").getAsJsonArray("results"),
                 "minecraft:gold_nugget"), 1e-9);
         assertEquals(8.75, mean(file("sparse_ores/recipe/crushing/rich_iron_ore.json").getAsJsonArray("results"),
                 "create:crushed_raw_iron"), 1e-9);
+    }
+
+    private void richChipOresCrushIntoChips() {
+        int checked = 0;
+        for (RichOres.Variant variant : RichOres.allVariants()) {
+            if (!isChipOre(variant)) {
+                continue;
+            }
+            RichOreRecipes.Crushing ordinary = RichOreRecipes.crushing(variant.counterpart());
+            RichOres.Spec spec = RichOres.forOre(oreOf(variant));
+            Chips.Chip chip = Chips.forItem(spec.drop());
+            boolean deep = variant.ground() != RichOres.Ground.STONE;
+            JsonObject recipe = file("sparse_ores/recipe/crushing/" + variant.name() + ".json");
+            assertTrue(needs(recipe, "create"), variant.name() + " must load only with Create");
+            assertEquals("create:crushing", recipe.get("type").getAsString());
+            assertEquals(ordinary.time(), recipe.get("processing_time").getAsInt(), variant.name());
+            JsonArray results = recipe.getAsJsonArray("results");
+            assertEquals(0, mean(results, chip.item()), 1e-9, variant.name() + " crushes into no whole " + chip.item());
+            // The chips the ordinary block gives (one) times the lead (2.1875 or 2.8125), times five; rounded to 5%.
+            assertEquals((deep ? 2.8125 : 2.1875) * RichOres.RICHNESS, mean(results, chip.id()), 0.025, variant.name());
+            assertEquals(ordinary.xpNuggets() * RichOreRecipes.XP_CHANCE * RichOres.RICHNESS,
+                    mean(results, "create:experience_nugget"), 0.025, variant.name());
+            checked++;
+        }
+        assertEquals(5, checked, "coal and deepslate coal, diamond and deepslate diamond, nether quartz");
+        assertEquals(10.95, mean(file("sparse_ores/recipe/crushing/rich_coal_ore.json").getAsJsonArray("results"),
+                "sparse_ores:coal_chip"), 1e-9);
+        assertEquals(14.05, mean(file("sparse_ores/recipe/crushing/rich_deepslate_diamond_ore.json").getAsJsonArray("results"),
+                "sparse_ores:diamond_chip"), 1e-9);
+        assertEquals(14.05, mean(file("sparse_ores/recipe/crushing/rich_nether_quartz_ore.json").getAsJsonArray("results"),
+                "sparse_ores:quartz_chip"), 1e-9);
+    }
+
+    private static boolean isChipOre(RichOres.Variant variant) {
+        return Chips.forItem(RichOres.forOre(oreOf(variant)).drop()) != null;
+    }
+
+    private static String oreOf(RichOres.Variant variant) {
+        for (RichOres.Spec spec : RichOres.ALL) {
+            if (spec.variants().contains(variant)) {
+                return spec.oreId();
+            }
+        }
+        throw new IllegalArgumentException(variant.name());
     }
 
     /**

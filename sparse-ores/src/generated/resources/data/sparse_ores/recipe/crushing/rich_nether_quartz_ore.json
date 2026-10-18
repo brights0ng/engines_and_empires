@@ -14,12 +14,12 @@
   "processing_time": 350,
   "results": [
     {
-      "count": 11,
-      "id": "minecraft:quartz"
+      "count": 14,
+      "id": "sparse_ores:quartz_chip"
     },
     {
-      "chance": 0.25,
-      "id": "minecraft:quartz"
+      "chance": 0.05,
+      "id": "sparse_ores:quartz_chip"
     },
     {
       "count": 3,

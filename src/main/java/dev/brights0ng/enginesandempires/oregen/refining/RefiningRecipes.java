@@ -16,8 +16,9 @@ import dev.brights0ng.sparseores.rich.RichOres;
 /**
  * Every recipe the pack adds or replaces for ore refining, built as plain JSON from {@link Refining}. It needs no running
  * game, so unit tests check it; {@link RefiningDataGen} writes it out. The chips' own recipes and fuel value, the chip
- * ores' smelting, and the rich ores' furnace and crushing recipes are Sparse Ores' ({@code sparseores/chips/ChipRecipes},
- * {@code sparseores/rich/RichOreRecipes}; the last two since split step 4c).
+ * ores' smelting and crushing, and the rich ores' furnace and crushing recipes are Sparse Ores' ({@code sparseores/chips/ChipRecipes},
+ * {@code sparseores/rich/RichOreRecipes}; the smelting and the rich ores' since split step 4c, the chip ores' crushing,
+ * ordinary and rich, since step 4d).
  *
  * <p>Every recipe here replaces vanilla's, Create's or Sparse Ores', written under <em>their</em> ids (for example
  * {@code minecraft:iron_ingot_from_smelting_raw_iron}, {@code sparse_ores:smelting/rich_iron_ore}), so the pack's file
@@ -70,7 +71,7 @@ public final class RefiningRecipes {
 
     /**
      * The ordinary ore blocks: the furnace (every metal, and nether gold; the chip ores' smelting is Sparse Ores' own since
-     * split step 4c), and crushing (chips and group drops).
+     * split step 4c), and crushing (group drops; the chip ores' crushing is Sparse Ores' own since split step 4d).
      */
     private static void ordinaryOres(BiConsumer<String, JsonObject> recipe) {
         for (Refining.Ore ore : Refining.ORES) {
@@ -109,7 +110,9 @@ public final class RefiningRecipes {
      * Rich ore blocks: five times their ordinary block, as in Sparse Ores, but of the pack's ordinary numbers. Sparse
      * Ores ships these recipes for itself since split step 4c ({@code RichOreRecipes}: five times vanilla's and Create's);
      * the pack replaces, under Sparse Ores' ids, only those whose numbers it changes (the metals' furnace, which gives
-     * nuggets, and the crushing of the chip and group ores), and leaves the rest to Sparse Ores. Until 4c the core gave
+     * nuggets, and the crushing of the group ores), and leaves the rest to Sparse Ores. The chip ores' rich crushing is
+     * the pack's numbers in Sparse Ores since step 4d, so it is left to it too; this still builds it, and the
+     * comparison below is what keeps the two in step. Until 4c the core gave
      * every rich block its recipes itself, under its own ids.
      */
     private static void richOres(BiConsumer<String, JsonObject> recipe) {
@@ -164,7 +167,7 @@ public final class RefiningRecipes {
     // ---- recipe pieces ----
 
     /** A crushing recipe for one ore block, {@code times} as rich as the ordinary block. */
-    private static JsonObject crushing(Refining.Ore ore, RichOres.Variant variant, int times) {
+    static JsonObject crushing(Refining.Ore ore, RichOres.Variant variant, int times) {
         boolean deep = variant.ground() != RichOres.Ground.STONE;
         String input = times == 1 ? variant.counterpart() : SparseOres.MODID + ":" + variant.name();
         JsonArray results = new JsonArray();

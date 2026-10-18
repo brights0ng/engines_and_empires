@@ -12,16 +12,22 @@ import dev.brights0ng.sparseores.rich.RichOres;
 
 /**
  * The chips' recipes (four craft back into the whole item), the coal chip's burn time, and the ordinary chip ores'
- * smelting, built as plain JSON from {@link Chips} (the first two moved from the core's {@code RefiningRecipes} in split
- * seam S15, the smelting in split step 4c). It needs no running game, so unit tests check it; {@link ChipDataGen} writes
- * it out.
+ * smelting and crushing, built as plain JSON from {@link Chips} (the first two moved from the core's
+ * {@code RefiningRecipes} in split seam S15, the smelting in split step 4c, the crushing in step 4d). It needs no running
+ * game, so unit tests check it; {@link ChipDataGen} writes it out.
  *
- * <p>A silk-touched coal, diamond or nether quartz ore smelts into what mining it drops: one chip while the server config
+ * <p>A silk-touched coal, diamond or nether quartz ore smelts into what mining it drops: one chip while the startup config
  * gives chips ({@code chipDrops}), the whole item when it does not. The chip recipes replace vanilla's, under vanilla's
  * ids, so they carry the condition {@link ChipDropsCondition sparse_ores:chip_drops}. A recipe whose condition fails is
  * skipped, and that does not bring vanilla's back (Sparse Ores' file hides vanilla's at the same id), so each one has a
  * twin under {@code sparse_ores:whole_items/<vanilla's name>}: vanilla's own recipe, with the opposite condition. Exactly
  * one of the pair loads, either way.
+ *
+ * <p>With Create, the crushing wheels turn a chip ore into chips too, {@link #CRUSHING_LEAD_STONE 2.2} times what mining
+ * it gives from stone ore and {@link #CRUSHING_LEAD_DEEP 2.8} times from deepslate and nether ore, and a rich block five
+ * times its ordinary block ({@link #crushing}); the rich blocks always give chips, the ordinary ones follow
+ * {@code chipDrops} the same way, replacing Create's recipes under Create's ids with a twin that is Create's own numbers
+ * ({@link RichOreRecipes#createsCrushing}). These need Create, so they also carry {@code neoforge:mod_loaded}.
  */
 public final class ChipRecipes {
 
@@ -29,6 +35,17 @@ public final class ChipRecipes {
 
     /** The folder of the whole-item recipes that stand in for vanilla's when chip drops are off. */
     public static final String WHOLE_ITEMS = "whole_items";
+
+    /**
+     * How many times more a stone-type ore block gives through crushing wheels and a washer than mined and smelted, which
+     * the pack gives crushed chip ores too (docs/design/ore-refining.md, "The crushing lead"): Create crushes a block
+     * into 1.75 crushed ores, washing makes 2.5 nuggets of each where a furnace makes 2, so 1.75 x 2.5 / 2 = 2.1875.
+     * Rounded to 5% in a recipe, that is 2.2.
+     */
+    public static final double CRUSHING_LEAD_STONE = 1.75 * 2.5 / 2;
+
+    /** The same for deepslate and nether ore (Create crushes it into 2.25 crushed ores): 2.8125, or 2.8 in a recipe. */
+    public static final double CRUSHING_LEAD_DEEP = 2.25 * 2.5 / 2;
 
     /**
      * Every file, keyed by its path under {@code data/} (such as {@code sparse_ores/recipe/coal_from_chips.json}).
@@ -82,9 +99,32 @@ public final class ChipRecipes {
                                     spec.minDrop(), furnace.xp(), furnace.group()),
                             conditions(false)));
                 }
+                // Crushing: chips under Create's id while chip drops are on, Create's own numbers under Sparse Ores' id
+                // while they are off. Only with Create.
+                String crushing = "crushing/" + variant.counterpart().substring(variant.counterpart().indexOf(':') + 1);
+                files.put("create/recipe/" + crushing + ".json", RichOreRecipes.withConditions(
+                        crushing(spec, variant, 1), conditions(true, true)));
+                files.put(MODID + "/recipe/" + WHOLE_ITEMS + "/" + crushing + ".json", RichOreRecipes.withConditions(
+                        RichOreRecipes.createsCrushing(variant), conditions(false, true)));
             }
         }
         return files;
+    }
+
+    /**
+     * Crushing a chip ore block with Create's wheels: chips, {@code times} as many as the ordinary block gives (1 for
+     * the ordinary block, {@link RichOres#RICHNESS} for the rich one). The ordinary block gives the chips mined from it
+     * times the crushing lead (2.2 from stone ore, 2.8 from deepslate and nether ore); the experience nuggets, the rock
+     * and the time are Create's. Rounded like Create's own recipes: a count, and a chance of one more to 5%.
+     */
+    public static JsonObject crushing(RichOres.Spec spec, RichOres.Variant variant, int times) {
+        RichOreRecipes.Crushing create = RichOreRecipes.crushing(variant.counterpart());
+        RichOres.Spec chipped = Chips.chipped(spec);
+        boolean deep = variant.ground() != RichOres.Ground.STONE;
+        double mined = (chipped.minDrop() + chipped.maxDrop()) / 2.0;
+        String input = times == 1 ? variant.counterpart() : MODID + ":" + variant.name();
+        return RichOreRecipes.crushing(input, create, chipped.drop(), (deep ? CRUSHING_LEAD_DEEP : CRUSHING_LEAD_STONE) * mined,
+                variant.ground(), times);
     }
 
     /**
@@ -102,9 +142,20 @@ public final class ChipRecipes {
 
     /** {@code sparse_ores:chip_drops}, or {@code neoforge:not} of it. */
     private static JsonArray conditions(boolean chipDrops) {
+        return conditions(chipDrops, false);
+    }
+
+    /** The same, ahead of it Create being loaded if {@code create} (the recipe names Create's content). */
+    private static JsonArray conditions(boolean chipDrops, boolean create) {
         JsonObject condition = new JsonObject();
         condition.addProperty("type", Chips.CHIP_DROPS_CONDITION);
         JsonArray conditions = new JsonArray();
+        if (create) {
+            JsonObject loaded = new JsonObject();
+            loaded.addProperty("type", "neoforge:mod_loaded");
+            loaded.addProperty("modid", "create");
+            conditions.add(loaded);
+        }
         if (chipDrops) {
             conditions.add(condition);
         } else {

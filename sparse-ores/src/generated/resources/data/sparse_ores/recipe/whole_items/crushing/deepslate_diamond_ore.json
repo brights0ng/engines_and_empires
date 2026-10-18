@@ -1,4 +1,16 @@
 {
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "create"
+    },
+    {
+      "type": "neoforge:not",
+      "value": {
+        "type": "sparse_ores:chip_drops"
+      }
+    }
+  ],
   "type": "create:crushing",
   "ingredients": [
     {
@@ -9,11 +21,11 @@
   "results": [
     {
       "count": 2,
-      "id": "sparse_ores:diamond_chip"
+      "id": "minecraft:diamond"
     },
     {
-      "chance": 0.8,
-      "id": "sparse_ores:diamond_chip"
+      "chance": 0.25,
+      "id": "minecraft:diamond"
     },
     {
       "chance": 0.75,
