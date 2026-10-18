@@ -17,10 +17,10 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
  * The loot function {@code sparse_ores:chip_drop}, on the loot tables of the ordinary chip ores (vanilla's coal, diamond
- * and nether quartz ores, {@link ChipDataGen.OrdinaryLoot}). It leaves their chips as they are, unless the server config
+ * and nether quartz ores, {@link ChipDataGen.OrdinaryLoot}). It leaves their chips as they are, unless the startup config
  * switches chip drops off ({@link SparseOresConfig#chipDrops}): then it turns each chip back into the whole item, one for
  * one, so the block drops exactly what vanilla's table gives (the same count, Fortune formula and explosion decay; Silk
- * Touch gives the block and never reaches it). The setting is read at every drop, so changing it needs no reload.
+ * Touch gives the block and never reaches it). The setting is read at every drop.
  *
  * <p>The tables stay chip tables either way, which is what a pack that cuts other ores' drops on top of Sparse Ores'
  * (by overriding those tables, as the Engines and Empires core does) sees. Rich ores' tables do not have this function:

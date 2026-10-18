@@ -10,7 +10,7 @@ import dev.brights0ng.sparseores.rich.RichOres;
  * The chips: a quarter of a coal, diamond or nether quartz. Those ores drop a single item in vanilla, and there is no
  * smaller unit to cut them down to, so Sparse Ores adds one: their ordinary blocks drop one chip instead of the whole
  * item, and their rich blocks five chips ({@link #chipped}; Bright's option A after split step 4). The ordinary blocks'
- * chips can be switched off in the server config ({@code SparseOresConfig}, {@link ChipDropFunction}); the rich blocks'
+ * chips can be switched off in the startup config ({@code SparseOresConfig}, {@link ChipDropFunction}); the rich blocks'
  * cannot. Other mods refer to the chips by id (the Engines and Empires core's ore refining does).
  */
 public final class Chips {
@@ -80,15 +80,6 @@ public final class Chips {
             }
         }
         return List.copyOf(ores);
-    }
-
-    /**
-     * Whether the server must load its data again so the chip ores' smelting follows the setting
-     * ({@code ChipDropsCondition}): a data load tested the setting ({@code loadedWith}, null if none has) and it is now
-     * {@code chipDrops}, something else.
-     */
-    public static boolean needsReload(Boolean loadedWith, boolean chipDrops) {
-        return loadedWith != null && loadedWith != chipDrops;
     }
 
     private Chips() {

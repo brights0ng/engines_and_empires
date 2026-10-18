@@ -14,12 +14,12 @@
   "processing_time": 150,
   "results": [
     {
-      "count": 8,
-      "id": "minecraft:coal"
+      "count": 10,
+      "id": "sparse_ores:coal_chip"
     },
     {
-      "chance": 0.75,
-      "id": "minecraft:coal"
+      "chance": 0.95,
+      "id": "sparse_ores:coal_chip"
     },
     {
       "count": 3,

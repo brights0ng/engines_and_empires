@@ -9,19 +9,22 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import dev.brights0ng.sparseores.SparseOres;
+import dev.brights0ng.sparseores.chips.ChipRecipes;
 import dev.brights0ng.sparseores.chips.Chips;
 
 /**
  * The rich ore blocks' own recipes (split step 4c; until then only the Engines and Empires core gave them any): a rich
  * block gives {@link RichOres#RICHNESS} times what its ordinary block gives, in the furnace and blast furnace, and,
  * with Create, on crushing wheels. The ordinary blocks' numbers are vanilla's (and Create's), mirrored in the tables
- * below as {@link RichOres} mirrors their loot, with Sparse Ores' one rule on top: the chip ores smelt into chips
- * ({@link Chips#chipped}; their ordinary blocks' smelting is {@code ChipRecipes}). A pack that refines ore differently
- * replaces these by id, as the core does with its metal and crushing numbers.
+ * below as {@link RichOres} mirrors their loot, with Sparse Ores' one rule on top: the chip ores smelt and crush into
+ * chips ({@link Chips#chipped}; their ordinary blocks' recipes are {@link ChipRecipes}, and so is the chips' crushing
+ * lead, since split step 4d). A pack that refines ore differently replaces these by id, as the core does with its metal
+ * and group-drop numbers.
  *
  * <p>Built as plain JSON, so unit tests check it; {@code RichOreDataGen.Recipes} writes it out. Everything that names
  * Create's content carries a {@code neoforge:mod_loaded} condition on Create (an optional dependency), so without Create
- * those files are skipped quietly instead of failing to parse: the crushing recipes, rich zinc ore's furnace recipes,
+ * those files are skipped quietly instead of failing to parse: the crushing recipes (the chip ores' are
+ * {@link ChipRecipes#crushing}: chips, not whole items), rich zinc ore's furnace recipes,
  * and Create's own zinc ore furnace recipes, which Sparse Ores replaces because they match {@code #c:ores/zinc}, where
  * rich zinc ore is too (with both, a furnace would pick either recipe for rich zinc ore).
  */
@@ -138,8 +141,11 @@ public final class RichOreRecipes {
                     put(files, MODID + "/recipe/" + kind(blasting) + "/" + variant.name() + ".json",
                             mod == null ? recipe : withModLoaded(recipe, mod));
                 }
-                put(files, MODID + "/recipe/crushing/" + variant.name() + ".json",
-                        withModLoaded(crushing(variant, rich), "create"));
+                // The chip ores crush into chips (ChipRecipes), the rest into five times Create's numbers.
+                JsonObject crushing = Chips.forItem(spec.drop()) != null
+                        ? ChipRecipes.crushing(spec, variant, RichOres.RICHNESS)
+                        : crushing(variant, rich);
+                put(files, MODID + "/recipe/crushing/" + variant.name() + ".json", withModLoaded(crushing, "create"));
             }
         }
 
@@ -159,18 +165,39 @@ public final class RichOreRecipes {
     /** Crushing a rich block: {@link RichOres#RICHNESS} times what Create gives for its ordinary block. */
     private static JsonObject crushing(RichOres.Variant variant, String rich) {
         Crushing ordinary = crushing(variant.counterpart());
+        return crushing(rich, ordinary, ordinary.item(), ordinary.mean(), variant.ground(), RichOres.RICHNESS);
+    }
+
+    /**
+     * A crushing recipe for one block, {@code times} as rich as an ordinary block that Create's {@code ordinary} entry
+     * describes, except that the main product is {@code item} and its average from the ordinary block {@code mean} (Create's
+     * own, or the chips' in {@link ChipRecipes#crushing}). With {@code times} 1 the experience nuggets are given as Create
+     * writes them (a count at {@link #XP_CHANCE}); more than that, as an average amount. The rock's chance is not multiplied.
+     */
+    public static JsonObject crushing(String input, Crushing ordinary, String item, double mean, RichOres.Ground ground,
+                               int times) {
         JsonArray results = new JsonArray();
-        addAmount(results, ordinary.item(), ordinary.mean() * RichOres.RICHNESS);
-        addAmount(results, "create:experience_nugget", ordinary.xpNuggets() * XP_CHANCE * RichOres.RICHNESS);
-        results.add(result(rock(variant.ground()), 1, ROCK_CHANCE));
+        addAmount(results, item, mean * times);
+        if (times == 1) {
+            results.add(result("create:experience_nugget", ordinary.xpNuggets(), XP_CHANCE));
+        } else {
+            addAmount(results, "create:experience_nugget", ordinary.xpNuggets() * XP_CHANCE * times);
+        }
+        results.add(result(rock(ground), 1, ROCK_CHANCE));
         JsonObject json = new JsonObject();
         json.addProperty("type", "create:crushing");
         JsonArray ingredients = new JsonArray();
-        ingredients.add(item(rich));
+        ingredients.add(item(input));
         json.add("ingredients", ingredients);
         json.addProperty("processing_time", ordinary.time());
         json.add("results", results);
         return json;
+    }
+
+    /** Create's own crushing of an ordinary ore block, as it ships it (the twin of a recipe that replaces it). */
+    public static JsonObject createsCrushing(RichOres.Variant variant) {
+        Crushing ordinary = crushing(variant.counterpart());
+        return crushing(variant.counterpart(), ordinary, ordinary.item(), ordinary.mean(), variant.ground(), 1);
     }
 
     /**
@@ -252,7 +279,7 @@ public final class RichOreRecipes {
         return blasting ? "blasting" : "smelting";
     }
 
-    private static String rock(RichOres.Ground ground) {
+    public static String rock(RichOres.Ground ground) {
         return switch (ground) {
             case STONE -> "minecraft:cobblestone";
             case DEEPSLATE -> "minecraft:cobbled_deepslate";

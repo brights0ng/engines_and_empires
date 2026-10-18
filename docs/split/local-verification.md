@@ -57,7 +57,7 @@ Commands below need cheats on (permission level 2). In a world: `/gamemode creat
 | 1.3 | Create a new world (creative, cheats on) and join it. | You spawn normally. No error toast. | Disconnect, freeze, or an error screen on joining. |
 | 1.4 | Open `logs/latest.log`, search `ERROR`. | Only the outside noise listed in 0.4. | Any error naming our mods, "Mixin apply failed", "Mixin transformation ... failed", "InjectionError", or a `missing translation`/raw `item.xxx`-style name in the creative tab. |
 | 1.5 | Open the creative tab **Seismic Surveyance** and the Search tab; type `rich`, `chip`, `ice chest`. | Our items and blocks appear with names and pictures: Sledgehammer, Andesite and Brass Geophone, Wind-up Reader, Logbook, Portable Record Display, Smart Logger, Strike Plate, thumpers; Rich ore blocks and the chips; Ice Chest. | A purple-and-black checkerboard model, an empty icon, or a raw key as a name. (The thumpers, the Smart Logger and the PRD borrow Create's textures, so a checkerboard on them is worth special notice.) |
-| 1.6 | Quit and look at `config/` (and `saves/<world>/serverconfig/`). | Files named `paradyne_lib-wind-server.toml`, `meteodyne-weather-server.toml`, `meteodyne-clouds-client.toml`, `frontier-server.toml`, `simple_spoilage-server.toml`. | A file with the old name (`engines_and_empires-*.toml`) or a missing one. |
+| 1.6 | Quit and look at `config/` (and `saves/<world>/serverconfig/`). | Files named `paradyne_lib-wind-server.toml`, `meteodyne-weather-server.toml`, `meteodyne-clouds-client.toml`, `frontier-server.toml`, `simple_spoilage-server.toml`, and (since step 4d) `config/sparse_ores-startup.toml`. | A file with the old name (`engines_and_empires-*.toml`; for Sparse Ores, `sparse_ores-server.toml` in the world's `serverconfig/`) or a missing one. |
 | 1.7 | Quit, start again, rejoin the same world. | Same world loads with no new errors. | Data lost, errors that only appear on the second load. |
 
 ---
@@ -228,9 +228,11 @@ Use a fresh copy of the instance for each row so nothing else is in `mods/`. In 
 
 ---
 
-## 10a. Added after steps 4b and 4c (checks only your machine can do)
-- [ ] Sparse Ores chips: mine coal, diamond and nether quartz ore: each drops 1 chip; rich versions drop 5; four chips craft back into the item; the coal chip burns as fuel. With the `chipDrops` server option off, ordinary ores drop the vanilla item and rich ores still drop chips.
+## 10a. Added after steps 4b, 4c and 4d (checks only your machine can do)
+- [ ] Sparse Ores chips: mine coal, diamond and nether quartz ore: each drops 1 chip; rich versions drop 5; four chips craft back into the item; the coal chip burns as fuel. With the `chipDrops` option off (since step 4d a startup config, `config/sparse_ores-startup.toml`; quit and restart after changing it, the config screen says so), ordinary ores drop the vanilla item and rich ores still drop chips.
 - [ ] Rich ores smelt in a furnace and a blast furnace (5x the ordinary block); with Create loaded they crush.
+- [ ] Crushing wheels (Create): coal, diamond and nether quartz ore crush into chips (about 2.2 per stone ore, 2.8 per deepslate or nether ore), rich ones into about 11 or 14 chips, never whole items. With `chipDrops` off (restart), the ordinary ones crush into Create's whole items again.
+- [ ] Edit `chipDrops` in `config/sparse_ores-startup.toml` before launching the game: the very first world you load already follows it (no reload message in `latest.log`; it says "The first data load found chip drops on/off").
 - [ ] Combustive thumper with no fuel mod (try a world without Create Diesel Generators): it can be crafted but never fires, and its tooltip and the goggle readout tell you it needs a compatible fuel source. With Diesel Generators present it fires as before.
 - [ ] The Frontier tier map still draws on the PRD and smart logger map screens (now registered by Frontier, not the core).
 - [ ] The creative tab and the PRD key category read "Seismic Surveyance".
