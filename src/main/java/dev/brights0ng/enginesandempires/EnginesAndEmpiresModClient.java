@@ -1,8 +1,6 @@
 package dev.brights0ng.enginesandempires;
 
 import net.minecraft.client.Minecraft;
-import dev.brights0ng.enginesandempires.geophone.client.TierOverlay;
-import dev.brights0ng.seismicsurveyance.client.MapLayers;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -19,8 +17,7 @@ public class EnginesAndEmpiresModClient {
     public EnginesAndEmpiresModClient(IEventBus modEventBus, ModContainer container) {
         // No config screen: the core has no config of its own since split step 2d (each mod of the family registers
         // its own screen), so NeoForge's would be empty (dropped in split step 2f).
-        // Frontier's tiers and incursions on the survey's maps (the smart logger and the portable record display)
-        MapLayers.register(TierOverlay.INSTANCE);
+        // Frontier's tiers on the survey's maps are Frontier's own since split step 4b (frontier.seismic.client).
     }
 
     @SubscribeEvent

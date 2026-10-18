@@ -26,20 +26,23 @@
                   }
                 }
               ],
-              "name": "sparse_ores:rich_deepslate_diamond_ore"
+              "name": "minecraft:diamond_ore"
             },
             {
               "type": "minecraft:item",
               "functions": [
                 {
                   "add": false,
-                  "count": 5.0,
+                  "count": 1.0,
                   "function": "minecraft:set_count"
                 },
                 {
                   "enchantment": "minecraft:fortune",
                   "formula": "minecraft:ore_drops",
                   "function": "minecraft:apply_bonus"
+                },
+                {
+                  "function": "sparse_ores:chip_drop"
                 },
                 {
                   "function": "minecraft:explosion_decay"
@@ -53,5 +56,5 @@
       "rolls": 1.0
     }
   ],
-  "random_sequence": "sparse_ores:blocks/rich_deepslate_diamond_ore"
+  "random_sequence": "minecraft:blocks/diamond_ore"
 }

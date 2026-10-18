@@ -45,7 +45,7 @@
                   "function": "minecraft:explosion_decay"
                 }
               ],
-              "name": "minecraft:coal"
+              "name": "sparse_ores:coal_chip"
             }
           ]
         }

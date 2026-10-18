@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import dev.brights0ng.sparseores.chips.ChipDataGen;
+import dev.brights0ng.sparseores.chips.ChipDropFunction;
 import dev.brights0ng.sparseores.chips.ChipItems;
 import dev.brights0ng.sparseores.rich.RichOreBlocks;
 import dev.brights0ng.sparseores.worldgen.OreWorldgen;
@@ -12,6 +13,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 
 /**
  * Sparse Ores (ore generation): its id, logger and registration. A mod of its own since split step 2e; it requires
@@ -41,8 +43,10 @@ public final class SparseOres {
         RichOreBlocks.register(modEventBus);
 
         // The chips (coal, diamond, quartz): what those ores drop instead of a whole item, and their recipes, fuel value
-        // and textures
+        // and textures. The ordinary ores' chips go through a loot function that reads the server config
         ChipItems.register(modEventBus);
+        ChipDropFunction.register(modEventBus);
+        modContainer.registerConfig(ModConfig.Type.SERVER, SparseOresConfig.SPEC, SparseOresConfig.FILE_NAME);
         modEventBus.addListener(ChipDataGen::gatherData);
         modEventBus.addListener(SparseOresDataGen::gatherData);
     }

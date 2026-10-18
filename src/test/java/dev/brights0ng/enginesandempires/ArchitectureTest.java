@@ -123,7 +123,9 @@ class ArchitectureTest {
             // S15: RefiningItems becomes sparseores.chips.ChipItems.
             "main:oregen/refining/RefiningItems.java", new String[]{"sparse_ores", "ChipItems.java"},
             // Step 1c-A task 10: the CloudWorks fix is outside-mod compat, so it goes to the core.
-            "main:mixin/CloudWorksDebugDumpMixin.java", new String[]{"engines_and_empires", "CloudWorksDebugDumpMixin.java"});
+            "main:mixin/CloudWorksDebugDumpMixin.java", new String[]{"engines_and_empires", "CloudWorksDebugDumpMixin.java"},
+            // Step 4b: Frontier's tier map on Seismic's maps is Frontier's own (standing principle), not core glue (S8).
+            "main:geophone/client/TierOverlay.java", new String[]{"frontier", "TierOverlay.java"});
 
     private static final Pattern PACKAGE = Pattern.compile("^\\s*package\\s+([\\w.]+)\\s*;", Pattern.MULTILINE);
     private static final Pattern OUR_MENTION = Pattern.compile("(?<![\\w.])dev\\.brights0ng\\.(\\w+)");
@@ -410,7 +412,9 @@ class ArchitectureTest {
 
     /**
      * The Gradle projects of the build, from {@code settings.gradle}: project folder ({@code "."} for the root) to the
-     * id of the mod it builds (its {@code gradle.properties} {@code mod_id}).
+     * id of the mod it builds (its {@code gradle.properties} {@code mod_id}). A project that builds no mod (since split
+     * step 4b, {@code coreless/}, the feature mods' combined run) has no {@code gradle.properties} of its own; it must
+     * hold no Java sources either, so nothing escapes these rules by sitting in it, and it is left out.
      */
     private static synchronized Map<String, String> modules() throws IOException {
         if (moduleCache != null) {
@@ -425,6 +429,11 @@ class ArchitectureTest {
             while (project.find()) {
                 String dir = project.group(1).replace(':', '/');
                 assertTrue(Files.isDirectory(Path.of(dir)), "settings.gradle includes " + dir + ", which has no folder");
+                if (!Files.exists(Path.of(dir).resolve("gradle.properties"))) {
+                    assertFalse(Files.exists(Path.of(dir).resolve("src")), dir + " builds no mod (no gradle.properties)"
+                            + " and so may hold no sources, but has a src folder");
+                    continue;
+                }
                 found.put(dir, modId(Path.of(dir)));
             }
         }

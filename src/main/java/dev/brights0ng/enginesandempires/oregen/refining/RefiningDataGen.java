@@ -30,8 +30,8 @@ import net.neoforged.neoforge.data.event.GatherDataEvent;
 
 /**
  * The data generator's providers for ore refining: the recipes of {@link RefiningRecipes} and the iron golem's cut-down
- * drop. The ordinary ore blocks' cut loot tables are {@link LootCuts}, built from Sparse Ores' {@code RichOres} table as
- * its rich ones are; the chips' own recipes, models and textures are Sparse Ores' ({@code sparseores/chips/ChipDataGen}).
+ * drop. The cut ores' loot tables, ordinary and rich, are {@link LootCuts}, built from Sparse Ores' {@code RichOres} table
+ * as its rich ones are; the chips' own loot, recipes, models and textures are Sparse Ores' ({@code sparseores/chips/ChipDataGen}).
  * {@link #gatherData} adds all of them; the core's other data is hand-written, apart from its game test structure
  * ({@code EnginesAndEmpires}). Until split step 2f the loot went into a shared loot provider ({@code SharedDataGen}),
  * from when every mod wrote into the one jar.

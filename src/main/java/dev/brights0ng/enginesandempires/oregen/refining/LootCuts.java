@@ -13,9 +13,9 @@ import net.minecraft.world.level.block.Block;
 
 /**
  * The pack's loot cuts: what the ores the pack cuts down ({@link Refining#CUTS}) drop, replacing the loot tables of
- * both their ordinary (vanilla) blocks and their rich blocks. Coal, diamond and nether quartz drop one chip instead of
- * a whole item; redstone, lapis and nether gold drop about a quarter of vanilla's amount. A rich block drops
- * {@link RichOres#RICHNESS} times its ordinary block, as Sparse Ores' own rich blocks do.
+ * both their ordinary (vanilla) blocks and their rich blocks. Redstone, lapis and nether gold drop about a quarter of
+ * vanilla's amount. A rich block drops {@link RichOres#RICHNESS} times its ordinary block, as Sparse Ores' own rich
+ * blocks do. Coal, diamond and nether quartz are not cut here: their chips are Sparse Ores' own drops (split step 4b).
  *
  * <p>Both tables of a cut ore are generated from its Sparse Ores {@link RichOres} entry with the cut drop
  * ({@link Refining#packSpec}), with Sparse Ores' {@link RichOreDataGen.OreLoot}: once over for the ordinary block, five
