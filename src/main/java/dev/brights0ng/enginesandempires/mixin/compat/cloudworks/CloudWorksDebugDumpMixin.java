@@ -15,9 +15,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * frequent GC hitches (P99 23 ms) the whole time. The output is debug-only; CloudWorks' recipe indexes, which Diet uses,
  * are built separately and are untouched.
  *
- * <p>{@link Pseudo} and {@code require = 0}: without CloudWorks (or if a later version renames these) this does nothing,
- * so the core's mixin plugin applies it whether or not CloudWorks is loaded. It is the pack's fix for another mod, so it
- * lives in the core (moved from Meteodyne in split step 1c-A).
+ * <p>The core's mixin plugin applies it only when CloudWorks API ({@code cloudworks_api}) is loaded (split step 4e; before
+ * that Mixin tried to load CloudWorks' class on every boot and logged a WARN where it was absent). {@link Pseudo} and
+ * {@code require = 0} stay, so a later CloudWorks version that renames these does nothing instead of failing. It is the
+ * pack's fix for another mod, so it lives in the core (moved from Meteodyne in split step 1c-A).
  */
 @Pseudo
 @Mixin(targets = "com.cloudworks.api.recipeparser.DebugOutputWriter", remap = false)

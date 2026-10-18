@@ -42,7 +42,8 @@ class MixinConfigTest {
             Map.entry("compat.minecolonies.LeisureSiteWeatherMixin", "minecolonies"),
             Map.entry("compat.coldsweat.HearthFuelAccessor", "cold_sweat"),
             Map.entry("compat.coldsweat.HearthKinSmartMixin", "cold_sweat"),
-            Map.entry("compat.coldsweat.HearthReplacedMixin", "cold_sweat"));
+            Map.entry("compat.coldsweat.HearthReplacedMixin", "cold_sweat"),
+            Map.entry("compat.cloudworks.CloudWorksDebugDumpMixin", "cloudworks_api"));
 
     @Test
     void theConfigListsOnlyMixinClassesThatExist() throws IOException {
@@ -105,14 +106,15 @@ class MixinConfigTest {
     }
 
     /**
-     * CloudWorks' debug dump mixin (moved here from Meteodyne in split step 1c-A) is not gated: it is {@code @Pseudo}
-     * with {@code require = 0}, so without CloudWorks it does nothing rather than failing.
+     * CloudWorks' debug dump mixin (moved here from Meteodyne in split step 1c-A) is {@code @Pseudo} with
+     * {@code require = 0}, so a CloudWorks that renames its class does nothing rather than failing; since split step 4e it
+     * is also gated on {@code cloudworks_api}, so Mixin does not try to load CloudWorks' class (and warn) where it is absent.
      */
     @Test
     void theCloudWorksMixinIsPseudoAndAlwaysListed() throws IOException {
         String name = "compat.cloudworks.CloudWorksDebugDumpMixin";
         assertTrue(mixinNames(read(CONFIG)).contains(name), name + " is not in the config");
-        assertFalse(GATED.containsKey(name));
+        assertEquals("cloudworks_api", GATED.get(name));
         try (InputStream in = MixinConfigTest.class.getResourceAsStream(classResource(name))) {
             assertNotNull(in, "missing " + name);
             String bytes = new String(in.readAllBytes(), StandardCharsets.ISO_8859_1);

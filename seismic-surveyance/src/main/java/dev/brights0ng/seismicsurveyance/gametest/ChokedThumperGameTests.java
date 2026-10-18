@@ -20,13 +20,13 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * combustive one loses its column.
  *
  * <p>They were in the core until split step 4c, then in the test-only mod {@code coreless_tests}; since step 4d they are
- * Seismic Surveyance's, so they also run in its bare run. They keep the class name they had ({@code FrontierIncursionGameTests})
- * together with the test names, so every test keeps its name. The check that has a Frontier incursion go after the
+ * Seismic Surveyance's, so they also run in its bare run. Step 4e renamed the class (it was {@code FrontierIncursionGameTests},
+ * which these two never tested); the test names are unchanged. The check that has a Frontier incursion go after the
  * thumpers stays in {@code coreless_tests}, where both mods are.
  */
 @GameTestHolder(SeismicSurveyance.MODID)
 @PrefixGameTestTemplate(false)
-public final class FrontierIncursionGameTests {
+public final class ChokedThumperGameTests {
 
     private static final String SCRATCH = GameTestStructures.EMPTY;
     private static final BlockPos PLATE = new BlockPos(3, 1, 3);
@@ -69,6 +69,6 @@ public final class FrontierIncursionGameTests {
         }
     }
 
-    private FrontierIncursionGameTests() {
+    private ChokedThumperGameTests() {
     }
 }

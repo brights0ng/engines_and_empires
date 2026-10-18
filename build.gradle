@@ -1,4 +1,4 @@
-// The root project is two things (split step 2b, docs/split/build-layout.md): the core mod, engines_and_empires, which
+// The root project is two things (split step 2b, docs/build-layout.md): the core mod, engines_and_empires, which
 // still holds every mod not yet sliced out, and the dev aggregator, whose client, server and game test runs load every
 // mod of the family. The settings every mod shares (repositories, Java, Parchment, mod metadata, JUnit, the bare game
 // test run and the data run) are in the convention plugin, build-logic/src/main/groovy/eae.mod-conventions.gradle.

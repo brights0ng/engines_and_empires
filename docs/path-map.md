@@ -8,10 +8,10 @@ they are in the sources (they are history, and the Project still has the origina
 
 | Old path (Project) | Now (repo) | Notes |
 |---|---|---|
-| `claude/mod-split-plan.md` | `docs/split/mod-split-plan.md` | The repo copy is the one sessions read. |
-| `claude/mod-split-steps.md` | `docs/split/mod-split-steps.md` | |
+| `claude/mod-split-plan.md` | `docs/history/mod-split-plan.md` | The repo copy is the one to read (history since split step 4e). |
+| `claude/mod-split-steps.md` | (deleted in split step 4e) | Per-step prompts, scaffolding of the split; kept in git history and in the Project. |
 | `claude/mod-split-manifest.csv` | `docs/split/mod-split-manifest.csv` | Read by `ArchitectureTest` (per-mod file counts). |
-| `claude/mod-split-seams.csv` | `docs/split/mod-split-seams.csv` | |
+| `claude/mod-split-seams.csv` | (deleted in split step 4e) | Seam scan, scaffolding of the split; kept in git history and in the Project. |
 | `claude/food-spoilage.md` | `docs/design/food-spoilage.md` | Named in `docs/design/food-temperature.md`. |
 | `claude/food-temperature.md` | `docs/design/food-temperature.md` | Named in Simple Spoilage's `FoodClimate`, `FoodClimateSweep`, `FoodTemperature`, `FoodTemperatureGameTests`, Meteodyne's `MeteodyneTemperature`, and `docs/design/food-spoilage.md`. |
 | `claude/weather-backbone-phase8f.md` | `docs/design/weather-backbone-phase8f.md` | Named in Meteodyne's `HeatRadiant`, `HeatWorld`, Sable Fixes' `GameEventSectionGuardMixin`, `PlotChunkAttachmentSaveMixin`, the core's `ColdSweatHearths`, and `docs/design/food-temperature.md`. |
@@ -43,3 +43,7 @@ they are in the sources (they are history, and the Project still has the origina
 Class names in the "named in" columns are the files' current names (after the split); search for the class to find
 its project and package. The game also copies one into the generated `run/config/meteodyne-weather-server.toml` (from
 `WeatherConfig`'s comments); `run/` is not tracked.
+
+## Commands
+
+The `/eae weather`, `/eae heat`, `/eae clouds` and `/eae wind` commands that the design notes and some old comments name were removed in the split. Each lives under Meteodyne's root now: `/meteodyne weather`, `/meteodyne heat`, `/meteodyne clouds` and `/meteodyne wind` (same subcommands). The core's `/eae` root (`EaeCommand`) is what is left of the old one.

@@ -1,4 +1,4 @@
-// Shared settings for every mod in the family (split step 2b; layout in docs/split/build-layout.md). A mod project's
+// Shared settings for every mod in the family (split step 2b; layout in docs/build-layout.md). A mod project's
 // build.gradle applies this plugin, then lists the mods it requires with requireMod(':path') and adds its outside
 // dependencies; everything else is here, or in eae.family-base, which this applies (split step 4b: what a project that
 // only runs mods, the core-less combined run, shares with the mods).
