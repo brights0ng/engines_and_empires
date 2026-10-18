@@ -101,18 +101,63 @@ It requires Sable and nothing of ours.
 combustive, choked), strike plate, geophones, wind-up reader, logbook, smart logger, portable record display,
 sledgehammer: blocks and items (`SeismicContent`), block states, models and textures (generated and hand-made), loot
 tables (6; `combustive_thumper_column` is `noLootTable()`), recipes and their advancements (12 each, generated), mining
-tag (`mineable/pickaxe`), fluid tags for thumper fuel (`combustible`, `thumper_fuel`, `premium_thumper_fuel`), the
-`strikable` block tag, lang (102 keys), the PRD arm pose (`META-INF/enumextensions.json`), `/seismic`. Deposits come
+tag (`mineable/pickaxe`), the thumper fuel data map (`seismic_surveyance:thumper_fuels`, since step 4c; see "Adding a
+combustive thumper fuel" below) and its fluid tags (`combustible`, `thumper_fuel`, `premium_thumper_fuel`), the
+`strikable` block tag, lang (103 keys), the PRD arm pose (`META-INF/enumextensions.json`), `/seismic`. Deposits come
 from Sparse Ores, which it requires.
 
 **Supplied only by the core.** Nothing that Seismic's own features need.
 
 **Without the core (integration only, acceptable).**
-- The combustive thumper's fuels are fluid tags of other mods' fluids (`#c:diesel`, `#c:gasoline`, ...): without a mod
-  that adds such a fluid (the pack's Create: Diesel Generators) it has no fuel. That is plan decision 5 (Diesel
-  Generators a soft dependency of Seismic), and the core's `CombustiveThumperFuelGameTests` test it with Diesel.
+- The combustive thumper's fuels come from data (step 4c): Seismic's data map entries name Create: Diesel Generators'
+  fluids behind a `neoforge:mod_loaded` condition and give its three fluid tags their grades (the tags take other mods'
+  `#c:diesel`, `#c:gasoline`, ... fluids). Without a mod that adds a fuel (the pack's Diesel Generators) no fuel is
+  registered: the thumper can still be built, never ignites, and its tooltip and goggles say it needs a compatible fuel
+  source. That is plan decision 5 (Diesel Generators a soft dependency of Seismic); Seismic's `ThumperFuelGameTests`
+  test both cases in its bare run, and the core's `CombustiveThumperFuelGameTests` test Diesel's fuels.
 - Frontier's tier map on the PRD and smart logger maps is Frontier's layer, registered by Frontier when both are
   present (moved out of the core in this step, see Frontier).
+
+### Adding a combustive thumper fuel
+
+What the combustive thumper burns is the fluid data map `seismic_surveyance:thumper_fuels` (`ThumperFuels`). An entry
+gives a fluid a grade, and the grade decides the shot (`CombustiveFiring`):
+
+| Grade | Range | Burns per shot | |
+|---|---|---|---|
+| `premium` | 1024 | 150 mB | Diesel |
+| `standard` | 768 | 250 mB | Gasoline, biodiesel |
+| `volatile` | 1024 | 250 mB | Fires, then explodes (crude oil, plant oil, ethanol) |
+
+A fluid with no entry does not ignite (a dud drop; it also jams the ram until drained). Another mod or a data pack adds a
+fuel in either of two ways:
+
+1. **A data map entry**, in its own `data/seismic_surveyance/data_maps/fluid/thumper_fuels.json` (files from every pack
+   are merged), keyed by fluid id or `#` fluid tag:
+
+   ```json
+   {
+     "values": {
+       "examplemod:kerosene": { "grade": "standard" },
+       "examplemod:rocket_fuel": { "neoforge:conditions": [{ "type": "neoforge:mod_loaded", "modid": "examplemod" }],
+                                   "grade": "premium" }
+     }
+   }
+   ```
+
+   Name another mod's fluid behind a `neoforge:mod_loaded` condition, as Seismic does for Diesel Generators'. When two
+   entries grade a fluid differently it takes the better grade (premium, then standard, then volatile); an entry written
+   `{ "value": { "grade": "volatile" }, "replace": true }` sets the grade outright, and a top-level
+   `"remove": ["examplemod:kerosene"]` takes a fluid out again.
+2. **A fluid tag**: add the fluid to `seismic_surveyance:premium_thumper_fuel`, `seismic_surveyance:thumper_fuel` or
+   `seismic_surveyance:combustible` (`data/seismic_surveyance/tags/fluid/<tag>.json`, with `"required": false` for an
+   optional mod's fluid). Seismic's own entries give those tags their grades. The tags already take the common
+   `c:diesel`, `c:gasoline`, `c:biodiesel`, `c:crude_oil`, `c:plantoil`, `c:ethanol` and `c:fuel` tags, so a mod that
+   puts its fluids in those is picked up with no work.
+
+The map is synced to clients (the tooltip and the goggles read it). While no fluid at all has an entry, the item and the
+goggles show "Needs a compatible fuel source (for example Create: Diesel Generators)"
+(`seismic_surveyance.combustive_thumper.no_fuel`).
 
 ## Meteodyne (`meteodyne/`)
 

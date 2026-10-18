@@ -12,7 +12,8 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 
 /**
  * Seismic Surveyance: its id, logger and registration. A mod of its own since split step 2e; it requires Paradyne Lib,
- * Sparse Ores and Create, and Create: Diesel Generators is optional (its fuels are found by fluid tag).
+ * Sparse Ores and Create, and Create: Diesel Generators is optional (its fuels are thumper fuels by data,
+ * {@link ThumperFuels}).
  */
 @Mod(SeismicSurveyance.MODID)
 public final class SeismicSurveyance {
@@ -35,6 +36,8 @@ public final class SeismicSurveyance {
         // The seismic survey: the sledgehammer, strike plate, geophones, thumpers, readers and loggers
         SeismicContent.register(modEventBus);
         modEventBus.addListener(SeismicContent::registerCapabilities);
+        // What the combustive thumper burns: a fluid data map, filled from data (its own entries need Diesel Generators)
+        ThumperFuels.register(modEventBus);
         // Its data generator (its data run)
         modEventBus.addListener(SeismicDataGen::gatherData);
     }

@@ -10,9 +10,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
 
 /**
- * The fluid tags {@link ThumperFluids} sorts the combustive thumper's tank by. Every entry points at a common
- * {@code c:} tag, marked optional, so nothing breaks when the mod that fills it (Create: Diesel Generators, for now) is
- * absent, and any other mod's diesel or ethanol is picked up automatically.
+ * The fluid tags whose fluids are combustive thumper fuels ({@link ThumperFluids}; Seismic's data map entries give each
+ * tag its grade, {@link ThumperFuelData}). Every entry points at a common {@code c:} tag, marked optional, so nothing
+ * breaks when the mod that fills it (Create: Diesel Generators, for now) is absent, and any other mod's diesel or ethanol
+ * is picked up automatically.
  */
 public final class ThumperFluidTags extends FluidTagsProvider {
 
