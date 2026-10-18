@@ -20,6 +20,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import dev.brights0ng.sparseores.rich.RichOreRecipes;
 import dev.brights0ng.sparseores.rich.RichOres;
 
 /** The chips' rules, recipes and textures (moved with the chips from the core's {@code RefiningTest}, split seam S15). */
@@ -110,6 +111,74 @@ class ChipsTest {
                 }
             }
         }
+    }
+
+    /**
+     * A silk-touched chip ore smelts and blasts into what mining it drops (split step 4c): one chip under vanilla's
+     * recipe id while chip drops are on, vanilla's own recipe (one whole item) under {@code sparse_ores:whole_items/}
+     * while they are off.
+     */
+    @Test
+    void chipOresSmeltIntoWhatMiningThemDrops() {
+        int pairs = 0;
+        for (RichOres.Spec spec : Chips.ores()) {
+            Chips.Chip chip = Chips.forItem(spec.drop());
+            for (RichOres.Variant variant : spec.variants()) {
+                for (boolean blasting : new boolean[] {false, true}) {
+                    String vanilla = ChipRecipes.vanillaFurnacePath(spec.oreId(),
+                            RichOreRecipes.furnace(spec.oreId()), variant.counterpart(), blasting);
+                    JsonObject chipRecipe = file("minecraft/recipe/" + vanilla + ".json");
+                    JsonObject whole = file("sparse_ores/recipe/whole_items/" + vanilla + ".json");
+                    assertEquals("[{\"type\":\"sparse_ores:chip_drops\"}]", chipRecipe.get("neoforge:conditions").toString());
+                    assertEquals("[{\"type\":\"neoforge:not\",\"value\":{\"type\":\"sparse_ores:chip_drops\"}}]",
+                            whole.get("neoforge:conditions").toString());
+                    assertEquals(chip.id(), chipRecipe.getAsJsonObject("result").get("id").getAsString(), vanilla);
+                    assertEquals(chip.item(), whole.getAsJsonObject("result").get("id").getAsString(), vanilla);
+                    assertEquals(1, chipRecipe.getAsJsonObject("result").get("count").getAsInt(), vanilla);
+                    assertEquals(1, whole.getAsJsonObject("result").get("count").getAsInt(), vanilla);
+                    // Apart from the result and the condition, the pair is vanilla's recipe.
+                    for (String key : new String[] {"type", "category", "cookingtime", "experience", "ingredient"}) {
+                        assertEquals(chipRecipe.get(key), whole.get(key), vanilla + " " + key);
+                    }
+                    assertEquals(variant.counterpart(), chipRecipe.getAsJsonObject("ingredient").get("item").getAsString());
+                    pairs++;
+                }
+            }
+        }
+        assertEquals(10, pairs);
+        assertEquals("coal", file("minecraft/recipe/coal_from_smelting_coal_ore.json").get("group").getAsString());
+        assertEquals(0.1, file("minecraft/recipe/coal_from_blasting_deepslate_coal_ore.json").get("experience").getAsDouble(), 1e-9);
+        assertFalse(file("minecraft/recipe/quartz.json").has("group"), "vanilla's quartz recipe has no group");
+        assertEquals("minecraft:diamond", file("sparse_ores/recipe/whole_items/diamond_from_smelting_diamond_ore.json")
+                .getAsJsonObject("result").get("id").getAsString());
+    }
+
+    /**
+     * Every recipe that carries {@code sparse_ores:chip_drops}, either way round, has a twin with the opposite condition
+     * that takes the same block: a failed condition skips a recipe without bringing back the one it replaced, so the
+     * block must still smelt, into the other kind of drop. The condition is on recipes only, never on a loot table (a
+     * skipped table would leave the block dropping nothing).
+     */
+    @Test
+    void whereverTheChipDropsConditionFailsItsTwinLoads() {
+        int uses = 0;
+        for (Map.Entry<String, JsonObject> file : FILES.entrySet()) {
+            JsonElement conditions = file.getValue().get("neoforge:conditions");
+            if (conditions == null || !conditions.toString().contains("sparse_ores:chip_drops")) {
+                continue;
+            }
+            uses++;
+            String path = file.getKey();
+            assertTrue(path.contains("/recipe/"), path + ": the condition belongs on recipes only");
+            boolean chips = !conditions.toString().contains("neoforge:not");
+            String twin = chips ? "sparse_ores/recipe/whole_items/" + path.substring("minecraft/recipe/".length())
+                    : "minecraft/recipe/" + path.substring("sparse_ores/recipe/whole_items/".length());
+            JsonObject other = file(twin);
+            assertEquals(!chips, !other.get("neoforge:conditions").toString().contains("neoforge:not"), path + " and " + twin);
+            assertEquals(file.getValue().get("ingredient"), other.get("ingredient"), path + " and " + twin);
+            assertEquals(file.getValue().get("type"), other.get("type"), path + " and " + twin);
+        }
+        assertEquals(20, uses);
     }
 
     /** What the data generator wrote is what the rules say today. If this fails, run the Data run configuration. */

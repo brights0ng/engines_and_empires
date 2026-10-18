@@ -9,8 +9,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 import org.junit.jupiter.api.Test;
 
@@ -19,11 +21,20 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import dev.brights0ng.sparseores.chips.ChipRecipes;
+import dev.brights0ng.sparseores.rich.RichOreRecipes;
 import dev.brights0ng.sparseores.rich.RichOres;
 
 class RefiningTest {
 
     private static final Map<String, JsonObject> FILES = RefiningRecipes.files();
+
+    /**
+     * The recipe files the pack loads for ore refining: Sparse Ores' own (since split step 4c; those whose conditions
+     * hold in the pack, with Create loaded and chip drops on by default, without their conditions), with the core's on
+     * top where they share a path, as the core's data wins in game.
+     */
+    private static final Map<String, JsonObject> PACK = pack();
 
     // ---- the rules ----
 
@@ -132,18 +143,48 @@ class RefiningTest {
             for (RichOres.Variant variant : ore.spec().variants()) {
                 boolean deep = variant.ground() != RichOres.Ground.STONE;
                 String name = variant.name();
-                assertCooking("engines_and_empires/recipe/smelting/" + name + ".json", ore.furnaceItem(), ore.furnaceCount() * 5);
-                assertCooking("engines_and_empires/recipe/blasting/" + name + ".json", ore.furnaceItem(), ore.furnaceCount() * 5);
-                JsonArray crushed = crushing("engines_and_empires/recipe/crushing/" + name + ".json");
+                assertCooking("sparse_ores/recipe/smelting/" + name + ".json", ore.furnaceItem(), ore.furnaceCount() * 5);
+                assertCooking("sparse_ores/recipe/blasting/" + name + ".json", ore.furnaceItem(), ore.furnaceCount() * 5);
+                JsonArray crushed = crushing("sparse_ores/recipe/crushing/" + name + ".json");
                 assertEquals(Refining.Amount.of(ore.crushedMean(deep) * 5).mean(), mean(crushed, ore.crushedItem()), 1e-9, name);
                 assertEquals(ore.crushedMean(deep) * 5, mean(crushed, ore.crushedItem()), 0.05, name);
             }
         }
     }
 
+    /**
+     * Since split step 4c the core replaces Sparse Ores' recipes only where the pack's numbers differ, and ships none of
+     * the recipes Sparse Ores now has for itself: no rich ore recipe under its own ids, no chip ore smelting.
+     */
+    @Test
+    void theCoreOnlyReplacesWhatThePackChanges() {
+        Map<String, JsonObject> sparseOres = new LinkedHashMap<>(ChipRecipes.files());
+        sparseOres.putAll(RichOreRecipes.files());
+        int replaced = 0;
+        for (Map.Entry<String, JsonObject> file : FILES.entrySet()) {
+            String path = file.getKey();
+            assertFalse(path.startsWith("engines_and_empires/recipe/"), path + ": rich ore recipes are Sparse Ores' ids now");
+            JsonObject theirs = sparseOres.get(path);
+            if (theirs != null) {
+                JsonObject unconditional = theirs.deepCopy();
+                unconditional.remove("neoforge:conditions");
+                assertFalse(unconditional.equals(file.getValue()), path + " replaces Sparse Ores' recipe with the same one");
+                replaced++;
+            }
+        }
+        for (String chipOre : new String[] {"coal_from_smelting_coal_ore", "diamond_from_blasting_deepslate_diamond_ore",
+                "quartz", "quartz_from_blasting"}) {
+            assertFalse(FILES.containsKey("minecraft/recipe/" + chipOre + ".json"), chipOre + " is Sparse Ores' since 4c");
+        }
+        // The metals' rich furnace recipes (iron, copper, zinc, gold, nether gold: 9 blocks, smelting and blasting), the
+        // chip and group ores' rich crushing (coal, diamond, nether quartz, redstone, lapis, nether gold: 10 blocks), and
+        // Create's zinc ore smelting and blasting.
+        assertEquals(18 + 10 + 2, replaced);
+    }
+
     @Test
     void createResultsNeverExceedWhatCrushingAllows() {
-        for (Map.Entry<String, JsonObject> file : FILES.entrySet()) {
+        for (Map.Entry<String, JsonObject> file : PACK.entrySet()) {
             JsonObject json = file.getValue();
             if (json.has("type") && json.get("type").getAsString().equals("create:crushing")) {
                 assertTrue(json.getAsJsonArray("results").size() <= 7, file.getKey());
@@ -167,9 +208,43 @@ class RefiningTest {
     // ---- helpers ----
 
     private static JsonObject file(String path) {
-        JsonObject json = FILES.get(path);
-        assertNotNull(json, "no generated file " + path);
+        JsonObject json = PACK.get(path);
+        assertNotNull(json, "no recipe file " + path + " in the pack");
         return json;
+    }
+
+    private static Map<String, JsonObject> pack() {
+        Map<String, JsonObject> pack = new TreeMap<>();
+        Map<String, JsonObject> sparseOres = new LinkedHashMap<>(ChipRecipes.files());
+        sparseOres.putAll(RichOreRecipes.files());
+        for (Map.Entry<String, JsonObject> file : sparseOres.entrySet()) {
+            JsonObject json = file.getValue().deepCopy();
+            JsonElement conditions = json.remove("neoforge:conditions");
+            if (conditions == null || allHoldInThePack(conditions.getAsJsonArray())) {
+                pack.put(file.getKey(), json);
+            }
+        }
+        pack.putAll(FILES);
+        return pack;
+    }
+
+    /** Whether recipe conditions hold in the pack: Create is loaded, and chip drops are on (the default). */
+    private static boolean allHoldInThePack(JsonArray conditions) {
+        for (JsonElement element : conditions) {
+            if (!holdsInThePack(element.getAsJsonObject())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean holdsInThePack(JsonObject condition) {
+        return switch (condition.get("type").getAsString()) {
+            case "neoforge:mod_loaded" -> condition.get("modid").getAsString().equals("create");
+            case "sparse_ores:chip_drops" -> true;
+            case "neoforge:not" -> !holdsInThePack(condition.getAsJsonObject("value"));
+            default -> throw new IllegalArgumentException("unknown condition " + condition);
+        };
     }
 
     private static JsonArray crushing(String path) {
