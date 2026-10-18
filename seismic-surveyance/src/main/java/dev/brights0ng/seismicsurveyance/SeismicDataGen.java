@@ -79,6 +79,7 @@ public final class SeismicDataGen {
         trackTextures(existing);
         generator.addProvider(event.includeServer(), new Recipes(output, lookup));
         generator.addProvider(event.includeServer(), new ThumperFluidTags(output, lookup, existing));
+        generator.addProvider(event.includeServer(), new ThumperFuelData(output, lookup));
         generator.addProvider(event.includeClient(), new Textures(output));
         generator.addProvider(event.includeServer(), new LootTableProvider(output, Set.of(),
                 List.of(new LootTableProvider.SubProviderEntry(Loot::new, LootContextParamSets.BLOCK)), lookup));

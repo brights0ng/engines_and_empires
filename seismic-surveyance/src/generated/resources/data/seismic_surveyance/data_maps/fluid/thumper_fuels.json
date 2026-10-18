@@ -1,0 +1,112 @@
+{
+  "values": {
+    "#seismic_surveyance:combustible": {
+      "grade": "volatile"
+    },
+    "#seismic_surveyance:premium_thumper_fuel": {
+      "grade": "premium"
+    },
+    "#seismic_surveyance:thumper_fuel": {
+      "grade": "standard"
+    },
+    "createdieselgenerators:biodiesel": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "createdieselgenerators"
+        }
+      ],
+      "grade": "standard"
+    },
+    "createdieselgenerators:crude_oil": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "createdieselgenerators"
+        }
+      ],
+      "grade": "volatile"
+    },
+    "createdieselgenerators:diesel": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "createdieselgenerators"
+        }
+      ],
+      "grade": "premium"
+    },
+    "createdieselgenerators:ethanol": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "createdieselgenerators"
+        }
+      ],
+      "grade": "volatile"
+    },
+    "createdieselgenerators:flowing_biodiesel": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "createdieselgenerators"
+        }
+      ],
+      "grade": "standard"
+    },
+    "createdieselgenerators:flowing_diesel": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "createdieselgenerators"
+        }
+      ],
+      "grade": "premium"
+    },
+    "createdieselgenerators:flowing_ethanol": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "createdieselgenerators"
+        }
+      ],
+      "grade": "volatile"
+    },
+    "createdieselgenerators:flowing_gasoline": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "createdieselgenerators"
+        }
+      ],
+      "grade": "standard"
+    },
+    "createdieselgenerators:flowing_plant_oil": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "createdieselgenerators"
+        }
+      ],
+      "grade": "volatile"
+    },
+    "createdieselgenerators:gasoline": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "createdieselgenerators"
+        }
+      ],
+      "grade": "standard"
+    },
+    "createdieselgenerators:plant_oil": {
+      "neoforge:conditions": [
+        {
+          "type": "neoforge:mod_loaded",
+          "modid": "createdieselgenerators"
+        }
+      ],
+      "grade": "volatile"
+    }
+  }
+}
