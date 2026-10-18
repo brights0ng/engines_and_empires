@@ -29,6 +29,9 @@ requireMod(':simple-spoilage')
 requireMod(':frontier')
 // Mods the dev runs load although the core does not require them (plan section 9: the dev runs load every mod).
 loadMod(':sable-fixes')
+// The test-only mod of the core-less combined run (split step 4c): its game tests of the feature mods working together
+// run in the aggregate too. It is never released, so buildAll leaves it out.
+loadMod(':coreless')
 
 neoForge {
     // This line is optional. Access Transformers are automatically detected
@@ -257,9 +260,10 @@ String allModIds() {
     ([mod_id] + (requiredModPaths + loadedModPaths).collect { project(it).mod_id }).join(',')
 }
 
-// Every mod's jar in one folder (build/allJars), for copying into a test instance; separate jars, no jar-in-jar.
+// Every mod's jar in one folder (build/allJars), for copying into a test instance; separate jars, no jar-in-jar. The
+// test-only mod (coreless) has none.
 tasks.register('buildAll', Sync) {
     from(tasks.named('jar'))
-    (requiredModPaths + loadedModPaths).each { from(project(it).tasks.named('jar')) }
+    (requiredModPaths + loadedModPaths - [':coreless']).each { from(project(it).tasks.named('jar')) }
     into(layout.buildDirectory.dir('allJars'))
 }

@@ -1,5 +1,6 @@
 package dev.brights0ng.seismicsurveyance;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -35,10 +36,11 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
  * through a shaft, lifts the ram up the rails into the fuel cylinder; a charge of fuel from the tank, ignited on a redstone
  * pulse, drives it back down onto the anvil and through it into the strike plate.
  *
- * <p>What a shot does depends on what is in the tank; see {@link CombustiveFiring} for the rules and {@link ThumperFluids}
- * for how a fluid is sorted. In short: diesel reaches 1024, gasoline and biodiesel 768, other combustibles 1024 but
- * explode, and an empty tank or a non-combustible just drops the ram for a 128 thump. A non-combustible also jams the ram
- * down until it is drained, by pipe, bucket, or a sneak-click with a wrench.
+ * <p>What a shot does depends on what is in the tank; see {@link CombustiveFiring} for the rules, and {@link ThumperFluids}
+ * and {@link ThumperFuels} for how a fluid is sorted (from data: with no fuel registered, nothing ever ignites). In
+ * short: diesel reaches 1024, gasoline and biodiesel 768, other combustibles 1024 but explode, and an empty tank or a
+ * non-combustible just drops the ram for a 128 thump. A non-combustible also jams the ram down until it is drained, by
+ * pipe, bucket, or a sneak-click with a wrench.
  *
  * <h2>Firing</h2>
  * A shot is not instant: the pulse releases the latch, and the rest plays out over a few ticks (see
@@ -356,12 +358,25 @@ public class CombustiveThumperBlockEntity extends KineticBlockEntity {
     @Override
     public boolean addToGoggleTooltip(List<Component> tooltip, boolean isPlayerSneaking) {
         super.addToGoggleTooltip(tooltip, isPlayerSneaking);
-        FluidStack inTank = fluid();
-        CombustiveFiring.Charge charge = ThumperFluids.classify(inTank);
-        tooltip.add(goggleLine(headLine(charge)));
-        tooltip.add(goggleLine(chargeLine(charge, inTank.getAmount())));
+        tooltip.addAll(fuelLines());
         containedFluidTooltip(tooltip, isPlayerSneaking, fluidCapability());
         return true;
+    }
+
+    /**
+     * The goggles' lines on the ram and the fuel: the ram, what the next shot will do, and, while no fuel is registered
+     * at all in this game ({@link ThumperFuels#anyRegistered}), that the machine needs a fuel source.
+     */
+    public List<Component> fuelLines() {
+        FluidStack inTank = fluid();
+        CombustiveFiring.Charge charge = ThumperFluids.classify(inTank);
+        List<Component> lines = new ArrayList<>();
+        lines.add(goggleLine(headLine(charge)));
+        lines.add(goggleLine(chargeLine(charge, inTank.getAmount())));
+        if (!ThumperFuels.anyRegistered()) {
+            lines.add(goggleLine(CombustiveThumperBlock.noFuelHint()));
+        }
+        return lines;
     }
 
     /** The ram: jammed, ready, or how far raised. */

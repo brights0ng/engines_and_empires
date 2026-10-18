@@ -1,11 +1,14 @@
 package dev.brights0ng.seismicsurveyance;
 
+import java.util.List;
+
 import org.jetbrains.annotations.Nullable;
 
 import com.simibubi.create.content.kinetics.base.HorizontalAxisKineticBlock;
 import com.simibubi.create.foundation.block.IBE;
 import com.simibubi.create.foundation.fluid.FluidHelper;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction.Axis;
 import net.minecraft.sounds.SoundEvents;
@@ -14,8 +17,11 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
@@ -44,6 +50,20 @@ public class CombustiveThumperBlock extends HorizontalAxisKineticBlock implement
 
     public CombustiveThumperBlock(Properties properties) {
         super(properties);
+    }
+
+    /** The hint the item and the goggles give while no fuel is registered at all: it needs a fuel source. */
+    public static Component noFuelHint() {
+        return Component.translatable("seismic_surveyance.combustive_thumper.no_fuel").withStyle(ChatFormatting.RED);
+    }
+
+    /** With no thumper fuel registered in this game, the item says the machine needs a fuel source to fire. */
+    @Override
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+        super.appendHoverText(stack, context, tooltip, flag);
+        if (!ThumperFuels.anyRegistered()) {
+            tooltip.add(noFuelHint());
+        }
     }
 
     @Override

@@ -64,7 +64,9 @@ class ArchitectureTest {
             "meteodyne", "meteodyne",
             "frontier", "frontier",
             "simplespoilage", "simple_spoilage",
-            "enginesandempires", "engines_and_empires");
+            "enginesandempires", "engines_and_empires",
+            // The test-only mod of the core-less combined run (coreless/, split step 4c).
+            "corelesstests", "coreless_tests");
 
     /** Plan section 2: the other mods of ours each mod may mention (its own is always allowed). */
     private static final Map<String, Set<String>> ALLOWED = Map.of(
@@ -76,7 +78,10 @@ class ArchitectureTest {
             "frontier", Set.of("paradyne_lib"),
             "simple_spoilage", Set.of("paradyne_lib"),
             "engines_and_empires", Set.of("paradyne_lib", "sable_fixes", "sparse_ores", "seismic_surveyance",
-                    "meteodyne", "frontier", "simple_spoilage"));
+                    "meteodyne", "frontier", "simple_spoilage"),
+            // Every feature mod, never the core: its tests are of the feature mods working together without it.
+            "coreless_tests", Set.of("paradyne_lib", "sable_fixes", "sparse_ores", "seismic_surveyance", "meteodyne",
+                    "frontier", "simple_spoilage"));
 
     /** The only Frontier package that may mention Seismic Surveyance and Sparse Ores (Seismic is optional to Frontier). */
     private static final String GATED_PACKAGE = "dev.brights0ng.frontier.seismic";
@@ -109,6 +114,8 @@ class ArchitectureTest {
     private static final Map<String, Set<String>> REQUIRED = Map.of(
             "sable_fixes", Set.of("sable"),
             "seismic_surveyance", Set.of("create"),
+            // Create, through Seismic Surveyance, which requires it; the combined run loads it.
+            "coreless_tests", Set.of("create"),
             "engines_and_empires", Set.of("sable", "create", "simulated", "aeronautics", "offroad", "encumbered"));
 
     /**

@@ -18,7 +18,8 @@ import net.neoforged.neoforge.common.data.ExistingFileHelper;
 import net.neoforged.neoforge.data.event.GatherDataEvent;
 
 /**
- * Sparse Ores' data generator, beyond the chips' recipes and textures ({@link ChipDataGen#gatherData}): the providers a
+ * Sparse Ores' data generator, beyond the chips' recipes and textures ({@link ChipDataGen#gatherData}): the rich ores'
+ * recipes, and the providers a
  * run may have only one of (one loot table provider, as its name is fixed; one block state and one block tag provider,
  * as two would write the same files), put together from the rich ores' parts ({@link RichOreDataGen}) and the chips'
  * models and ordinary ores' loot, and the empty structure its game tests build on. Until split step 2e the core's {@code SharedDataGen} put
@@ -42,6 +43,8 @@ public final class SparseOresDataGen {
                 lookup));
         // Rich zinc ore's tables, with a condition on Create (a provider of its own: the one above writes no conditions)
         generator.addProvider(event.includeServer(), new RichOreDataGen.OtherModsLoot(output, lookup));
+        // The rich ores' furnace and crushing recipes (split step 4c)
+        generator.addProvider(event.includeServer(), new RichOreDataGen.Recipes(output));
         generator.addProvider(event.includeClient(), new States(output, existing));
         BlockTags blockTags = new BlockTags(output, lookup, existing);
         generator.addProvider(event.includeServer(), blockTags);
