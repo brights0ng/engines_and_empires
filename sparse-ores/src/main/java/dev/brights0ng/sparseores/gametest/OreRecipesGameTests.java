@@ -330,6 +330,58 @@ public final class OreRecipesGameTests {
         }
     }
 
+    /**
+     * Each mirrored whole-item twin of a chip ore's crushing ({@code sparse_ores:whole_items/crushing/<block>}) says what
+     * Create's own recipe for the same ore says, key for key: the twin is a copy of Create 6.0.10's numbers (the mod
+     * cannot read Create's file at data generation), so a Create update that changes a recipe makes this fail instead of
+     * leaving a stale copy that players get with {@code chipDrops} off. The twin's own load conditions are the only
+     * thing it may add. Runs in the bare run with Create; without Create there is nothing to compare, and neither file exists.
+     */
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void everyMirroredCrushingTwinEqualsCreatesOwnRecipe(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        boolean create = ModList.get().isLoaded("create");
+        List<String> differences = new ArrayList<>();
+        int checked = 0;
+        for (String path : ChipRecipes.files().keySet()) {
+            if (!path.startsWith("create/recipe/crushing/")) {
+                continue;
+            }
+            String name = path.substring("create/recipe/".length());
+            ResourceLocation createFile = ResourceLocation.fromNamespaceAndPath("create", "recipe/" + name);
+            ResourceLocation twinFile = ResourceLocation.fromNamespaceAndPath(SparseOres.MODID,
+                    "recipe/" + ChipRecipes.WHOLE_ITEMS + "/" + name);
+            JsonObject createsOwn = null;
+            for (Resource resource : level.getServer().getResourceManager().getResourceStack(createFile)) {
+                if (resource.sourcePackId().equals("mod/create")) {
+                    createsOwn = json(resource);
+                }
+            }
+            if (!create) {
+                helper.assertTrue(createsOwn == null, "Create's " + createFile + " is there without Create");
+                continue;
+            }
+            if (createsOwn == null) {
+                differences.add(createFile + ": Create no longer ships this recipe (the twin " + twinFile + " has nothing to mirror)");
+                continue;
+            }
+            JsonObject twin = json(level.getServer().getResourceManager().getResource(twinFile)
+                    .orElseThrow(() -> new IllegalStateException("no file " + twinFile)));
+            twin.remove("neoforge:conditions");
+            createsOwn.remove("neoforge:conditions");
+            checked++;
+            if (!createsOwn.equals(twin)) {
+                differences.add(twinFile + " differs from Create's own " + createFile + ": the twin is " + twin
+                        + " but Create's recipe is " + createsOwn);
+            }
+        }
+        helper.assertTrue(differences.isEmpty(), "A mirrored twin no longer matches Create's recipe (Create changed it?). "
+                + "Update the mirror in sparse-ores RichOreRecipes (its crushing table) and ChipRecipes to Create's numbers: "
+                + String.join("; ", differences));
+        helper.assertTrue(!create || checked == 5, "only " + checked + " of the 5 chip ore crushing twins were compared");
+        helper.succeed();
+    }
+
     // ---- helpers ----
 
     /** The results of every furnace recipe of this type that takes the item. */
