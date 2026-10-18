@@ -26,8 +26,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * <p>They were in the core until split step 4c, then in the test-only mod {@code coreless_tests}; since step 4d they are
  * Frontier's, under the same class and test names, so they also run in Frontier's bare run. The checks that need
  * Seismic Surveyance as well (a thumper incursion bringing its first wave up) stay in {@code coreless_tests}, and the one
- * that needs the core's data (Create's machines as loud machines) in the core's {@code FrontierIncursionGameTests}.
- * The wave rosters check was the first half of the core's {@code theWaveRostersAndLoudMachinesLoad}; split step 4e moved it
+ * that needs the core's data (Create's machines as loud machines) in the core's {@code PackIncursionGameTests}.
+ * The wave rosters check was the first half of the core's former {@code theWaveRostersAndLoudMachinesLoad}; split step 4e moved it
  * here as {@code theWaveRostersLoad}, since the rosters are Frontier's own data.
  */
 @GameTestHolder(Frontier.MODID)
