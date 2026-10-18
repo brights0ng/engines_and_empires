@@ -304,8 +304,7 @@ public final class OreRecipesGameTests {
             for (String path : chipFiles) {
                 theTwinIsCreatesOwnRecipe(helper, level, path);
             }
-            // Rich ores crush into chips whatever the setting.
-            helper.assertTrue(SparseOresConfig.chipDrops(), "the setting is back");
+            helper.assertTrue(SparseOresConfig.chipDrops() == before, "the setting is back");
         }
         helper.succeed();
     }
