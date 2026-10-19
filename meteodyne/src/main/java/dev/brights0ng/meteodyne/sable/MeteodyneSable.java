@@ -1,3 +1,4 @@
+// Edited by ChatGPT: registered the optional ship instrument integration test.
 package dev.brights0ng.meteodyne.sable;
 
 import dev.brights0ng.meteodyne.heat.world.HeatShips;
@@ -5,6 +6,7 @@ import dev.brights0ng.meteodyne.sable.gametest.HeatShipGameTests;
 import dev.brights0ng.meteodyne.sable.gametest.ShipLightningGameTests;
 import dev.brights0ng.meteodyne.sable.gametest.ShipPersonClimateGameTests;
 import dev.brights0ng.meteodyne.sable.gametest.ShipWeatherGameTests;
+import dev.brights0ng.meteodyne.sable.gametest.ShipInstrumentGameTests;
 import dev.brights0ng.meteodyne.sable.gametest.WindGameTests;
 import dev.brights0ng.meteodyne.ships.Ships;
 import dev.brights0ng.paradynelib.sable.wind.WindCommand;
@@ -44,6 +46,7 @@ public final class MeteodyneSable {
         event.register(ShipLightningGameTests.class);
         event.register(ShipPersonClimateGameTests.class);
         event.register(ShipWeatherGameTests.class);
+        event.register(ShipInstrumentGameTests.class);
         event.register(WindGameTests.class);
     }
 }

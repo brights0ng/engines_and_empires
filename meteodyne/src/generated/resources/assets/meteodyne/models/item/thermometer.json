@@ -1,0 +1,206 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "meteodyne:item/thermometer_unknown"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "meteodyne:temperature": 1
+      },
+      "model": "meteodyne:item/thermometer_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 2
+      },
+      "model": "meteodyne:item/thermometer_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 3
+      },
+      "model": "meteodyne:item/thermometer_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 4
+      },
+      "model": "meteodyne:item/thermometer_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 5
+      },
+      "model": "meteodyne:item/thermometer_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 6
+      },
+      "model": "meteodyne:item/thermometer_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 7
+      },
+      "model": "meteodyne:item/thermometer_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 8
+      },
+      "model": "meteodyne:item/thermometer_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 9
+      },
+      "model": "meteodyne:item/thermometer_8"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 10
+      },
+      "model": "meteodyne:item/thermometer_9"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 11
+      },
+      "model": "meteodyne:item/thermometer_10"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 12
+      },
+      "model": "meteodyne:item/thermometer_11"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 13
+      },
+      "model": "meteodyne:item/thermometer_12"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 14
+      },
+      "model": "meteodyne:item/thermometer_13"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 15
+      },
+      "model": "meteodyne:item/thermometer_14"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 16
+      },
+      "model": "meteodyne:item/thermometer_15"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 17
+      },
+      "model": "meteodyne:item/thermometer_16"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 18
+      },
+      "model": "meteodyne:item/thermometer_17"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 19
+      },
+      "model": "meteodyne:item/thermometer_18"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 20
+      },
+      "model": "meteodyne:item/thermometer_19"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 21
+      },
+      "model": "meteodyne:item/thermometer_20"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 22
+      },
+      "model": "meteodyne:item/thermometer_21"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 23
+      },
+      "model": "meteodyne:item/thermometer_22"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 24
+      },
+      "model": "meteodyne:item/thermometer_23"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 25
+      },
+      "model": "meteodyne:item/thermometer_24"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 26
+      },
+      "model": "meteodyne:item/thermometer_25"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 27
+      },
+      "model": "meteodyne:item/thermometer_26"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 28
+      },
+      "model": "meteodyne:item/thermometer_27"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 29
+      },
+      "model": "meteodyne:item/thermometer_28"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 30
+      },
+      "model": "meteodyne:item/thermometer_29"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 31
+      },
+      "model": "meteodyne:item/thermometer_30"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 32
+      },
+      "model": "meteodyne:item/thermometer_31"
+    },
+    {
+      "predicate": {
+        "meteodyne:temperature": 33
+      },
+      "model": "meteodyne:item/thermometer_32"
+    }
+  ]
+}

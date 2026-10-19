@@ -1,0 +1,298 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "face": "meteodyne:block/wind_sensor_face",
+    "particle": "meteodyne:block/instrument_metal",
+    "instrument_metal": "meteodyne:block/instrument_metal",
+    "instrument_base_side": "meteodyne:block/instrument_base_side",
+    "instrument_support_top": "meteodyne:block/instrument_support_top",
+    "instrument_support_end": "meteodyne:block/instrument_support_end",
+    "wind_sensor_back": "meteodyne:block/wind_sensor_back",
+    "temperature_sensor_top": "meteodyne:block/temperature_sensor_top",
+    "wind_sensor_mast": "meteodyne:block/wind_sensor_mast",
+    "wind_sensor_mast_top": "meteodyne:block/wind_sensor_mast_top",
+    "rotor": "meteodyne:block/instrument_metal"
+  },
+  "elements": [
+    {
+      "from": [
+        0.0,
+        0.0,
+        14.0
+      ],
+      "to": [
+        16.0,
+        16.0,
+        16.0
+      ],
+      "faces": {
+        "north": {
+          "texture": "#instrument_metal",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#instrument_metal",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "east": {
+          "texture": "#instrument_base_side",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "rotation": 90
+        },
+        "west": {
+          "texture": "#instrument_base_side",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "rotation": 90
+        },
+        "up": {
+          "texture": "#instrument_base_side",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        },
+        "down": {
+          "texture": "#instrument_base_side",
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        1.0,
+        6.0,
+        10.0
+      ],
+      "to": [
+        15.0,
+        10.0,
+        14.0
+      ],
+      "faces": {
+        "north": {
+          "texture": "#instrument_support_top",
+          "uv": [
+            0,
+            0,
+            14,
+            4
+          ]
+        },
+        "south": {
+          "texture": "#instrument_support_top",
+          "uv": [
+            0,
+            0,
+            14,
+            4
+          ]
+        },
+        "east": {
+          "texture": "#instrument_support_end",
+          "uv": [
+            0,
+            0,
+            4,
+            4
+          ]
+        },
+        "west": {
+          "texture": "#instrument_support_end",
+          "uv": [
+            0,
+            0,
+            4,
+            4
+          ]
+        },
+        "up": {
+          "texture": "#instrument_support_top",
+          "uv": [
+            0,
+            0,
+            14,
+            4
+          ]
+        },
+        "down": {
+          "texture": "#instrument_support_top",
+          "uv": [
+            0,
+            0,
+            14,
+            4
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        5.0,
+        4.0,
+        8.0
+      ],
+      "to": [
+        11.0,
+        10.0,
+        10.0
+      ],
+      "faces": {
+        "north": {
+          "texture": "#face",
+          "uv": [
+            0,
+            0,
+            6,
+            6
+          ]
+        },
+        "south": {
+          "texture": "#wind_sensor_back",
+          "uv": [
+            0,
+            0,
+            6,
+            6
+          ]
+        },
+        "east": {
+          "texture": "#temperature_sensor_top",
+          "uv": [
+            0,
+            0,
+            6,
+            2
+          ],
+          "rotation": 90
+        },
+        "west": {
+          "texture": "#temperature_sensor_top",
+          "uv": [
+            0,
+            0,
+            6,
+            2
+          ],
+          "rotation": 90
+        },
+        "up": {
+          "texture": "#temperature_sensor_top",
+          "uv": [
+            0,
+            0,
+            6,
+            2
+          ]
+        },
+        "down": {
+          "texture": "#temperature_sensor_top",
+          "uv": [
+            0,
+            0,
+            6,
+            2
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        7.0,
+        8.0,
+        7.0
+      ],
+      "to": [
+        9.0,
+        13.0,
+        9.0
+      ],
+      "faces": {
+        "north": {
+          "texture": "#wind_sensor_mast",
+          "uv": [
+            0,
+            0,
+            5,
+            2
+          ],
+          "rotation": 90
+        },
+        "south": {
+          "texture": "#wind_sensor_mast",
+          "uv": [
+            0,
+            0,
+            5,
+            2
+          ],
+          "rotation": 90
+        },
+        "east": {
+          "texture": "#wind_sensor_mast",
+          "uv": [
+            0,
+            0,
+            5,
+            2
+          ],
+          "rotation": 90
+        },
+        "west": {
+          "texture": "#wind_sensor_mast",
+          "uv": [
+            0,
+            0,
+            5,
+            2
+          ],
+          "rotation": 90
+        },
+        "up": {
+          "texture": "#wind_sensor_mast_top",
+          "uv": [
+            0,
+            0,
+            2,
+            2
+          ]
+        },
+        "down": {
+          "texture": "#wind_sensor_mast_top",
+          "uv": [
+            0,
+            0,
+            2,
+            2
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+// Extended by ChatGPT: optional exact plot-block exclusion for instrument cover rays.
 package dev.brights0ng.paradynelib.sable.ships;
 
 import java.util.ArrayList;
@@ -283,6 +284,13 @@ public final class ShipCover {
      */
     public static int rayObstruction(Level level, double x, double y, double z, double dx, double dy, double dz,
                                      double from, double reach, java.util.function.ToIntFunction<BlockState> classify) {
+        return rayObstruction(level, x, y, z, dx, dy, dz, from, reach, classify, null);
+    }
+
+    /** Excludes exactly one plot block, so a sensor does not mistake its own housing for a wall. */
+    public static int rayObstruction(Level level, double x, double y, double z, double dx, double dy, double dz,
+                                     double from, double reach, java.util.function.ToIntFunction<BlockState> classify,
+                                     BlockPos ignored) {
         double ex = x + dx * reach;
         double ey = y + dy * reach;
         double ez = z + dz * reach;
@@ -309,7 +317,9 @@ public final class ShipCover {
                     continue;
                 }
                 pose.transformPositionInverse(p.set(px, py, pz));
-                int c = classify.applyAsInt(acc.getBlockState(m.set(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z))));
+                m.set(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z));
+                if (m.equals(ignored)) { continue; }
+                int c = classify.applyAsInt(acc.getBlockState(m));
                 if (c > worst) {
                     worst = c;
                     if (worst >= 2) {

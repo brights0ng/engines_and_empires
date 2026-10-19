@@ -1,3 +1,4 @@
+// Edited by ChatGPT: registered weather instruments and their assets.
 package dev.brights0ng.meteodyne;
 
 import org.slf4j.Logger;
@@ -9,6 +10,7 @@ import dev.brights0ng.meteodyne.climate.MeteodyneTemperature;
 import dev.brights0ng.meteodyne.gametest.GameTestCalendar;
 import dev.brights0ng.meteodyne.heat.HeatField;
 import dev.brights0ng.meteodyne.heat.world.HeatContent;
+import dev.brights0ng.meteodyne.instrument.InstrumentContent;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
 import dev.brights0ng.meteodyne.sable.MeteodyneSable;
 import dev.brights0ng.meteodyne.sky.MeteodyneStorms;
@@ -60,6 +62,7 @@ public final class Meteodyne {
         modEventBus.addListener(GameTestCalendar::onConfigReload);
         // Weather on the ground: glaze (freezing rain's ice layer) and the crops hail knocks back
         SurfaceContent.register(modEventBus);
+        InstrumentContent.register(modEventBus);
         // Ships (Sable sub-levels) as cover, rooms and decks. Sable is optional: everything that touches it is in the
         // sable sub-package, reached only from here, when it is loaded
         if (ModList.get().isLoaded("sable")) {

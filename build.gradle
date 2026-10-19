@@ -204,7 +204,8 @@ dependencies {
     // (split step 2c) and offers them to this client run.
     shaderRuntime(project(path: ':meteodyne', configuration: 'shaderRuntimeElements'))
     // GlitchCore 2.1.0.2, Serene Seasons' library, for the client run only (synced into run/mods like Iris and Sodium).
-    shaderRuntime("maven.modrinth:glitchcore:S2TfWrZR") { transitive = false }
+    // shaderRuntime("maven.modrinth:glitchcore:S2TfWrZR") { transitive = false }
+    colonyRuntime("maven.modrinth:glitchcore:S2TfWrZR") { transitive = false }
 
     // libs/ (git-ignored) holds Serene Seasons 10.1.0.9 for the client run.
     // The core mod compiles against Serene Seasons' API (weather/climate/compat) but only touches it when it is

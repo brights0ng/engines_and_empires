@@ -1,3 +1,4 @@
+// Extended by ChatGPT: point instrument probes and optional exclusion of the measuring block.
 package dev.brights0ng.paradynelib.wind;
 
 import it.unimi.dsi.fastutil.objects.Reference2BooleanMap;
@@ -75,6 +76,18 @@ public final class ShelterProbe {
         out[Shelter.EAST] = eastHits / (double) (nz * ny);
     }
 
+    /** The same five cover directions at one measuring point; only the supplied block is excluded. */
+    public static void measurePoint(ServerLevel level, net.minecraft.world.phys.Vec3 at, int sideReach, int roofReach,
+                                    BlockPos ignored, double[] out) {
+        BlockPos start = BlockPos.containing(at);
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        out[Shelter.TOP] = blocked(level, pos, start.getX(), start.getY(), start.getZ(), 0, 1, 0, roofReach, ignored);
+        out[Shelter.NORTH] = blocked(level, pos, start.getX(), start.getY(), start.getZ(), 0, 0, -1, sideReach, ignored);
+        out[Shelter.SOUTH] = blocked(level, pos, start.getX(), start.getY(), start.getZ(), 0, 0, 1, sideReach, ignored);
+        out[Shelter.WEST] = blocked(level, pos, start.getX(), start.getY(), start.getZ(), -1, 0, 0, sideReach, ignored);
+        out[Shelter.EAST] = blocked(level, pos, start.getX(), start.getY(), start.getZ(), 1, 0, 0, sideReach, ignored);
+    }
+
     /** How many probes along an edge of this length: one per 4 blocks or so, at least 2, at most 5. */
     static int probesAlong(double length) {
         return Math.max(2, Math.min(MAX_PER_EDGE, (int) Math.ceil(length / 4.0) + 1));
@@ -88,11 +101,17 @@ public final class ShelterProbe {
     /** 1 if the probe from (x, y, z) stepping (dx, dy, dz) meets a solid block within {@code reach} steps. */
     private static int blocked(ServerLevel level, BlockPos.MutableBlockPos pos, int x, int y, int z,
                                int dx, int dy, int dz, int reach) {
+        return blocked(level, pos, x, y, z, dx, dy, dz, reach, null);
+    }
+
+    private static int blocked(ServerLevel level, BlockPos.MutableBlockPos pos, int x, int y, int z,
+                               int dx, int dy, int dz, int reach, BlockPos ignored) {
         for (int step = 0; step < reach; step++) {
             pos.set(x + dx * step, y + dy * step, z + dz * step);
             if (level.isOutsideBuildHeight(pos) || !level.isLoaded(pos)) {
                 return 0;
             }
+            if (pos.equals(ignored)) { continue; }
             BlockState state = level.getBlockState(pos);
             if (isSolid(level, state)) {
                 return 1;
@@ -109,7 +128,7 @@ public final class ShelterProbe {
      * and the same cache by state, as Sable's {@code VoxelNeighborhoodState.isSolid}, which the probe used before
      * split step 2c, so shelter measures exactly as it did with Sable.
      */
-    static boolean isSolid(BlockGetter level, BlockState state) {
+    public static boolean isSolid(BlockGetter level, BlockState state) {
         if (SOLID.containsKey(state)) {
             return SOLID.getBoolean(state);
         }
