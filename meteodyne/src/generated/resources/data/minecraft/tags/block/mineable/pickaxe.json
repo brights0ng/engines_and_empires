@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    "meteodyne:temperature_sensor",
+    "meteodyne:wind_sensor"
+  ]
+}

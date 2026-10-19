@@ -1,3 +1,4 @@
+// Extended by ChatGPT: forward exact sensor-block exclusions to the shared ship cover reader.
 package dev.brights0ng.meteodyne.sable;
 
 import java.util.ArrayList;
@@ -60,6 +61,12 @@ final class SableShips implements Ships {
     @Override
     public boolean near(Level level, double x, double y, double z, double radius) {
         return ShipCover.near(level, x, y, z, radius);
+    }
+
+    @Override
+    public int rayObstruction(Level level, double x, double y, double z, double dx, double dy, double dz, double from,
+                              double reach, ToIntFunction<BlockState> classify, BlockPos ignored) {
+        return ShipCover.rayObstruction(level, x, y, z, dx, dy, dz, from, reach, classify, ignored);
     }
 
     @Override

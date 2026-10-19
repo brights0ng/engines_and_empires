@@ -1,3 +1,4 @@
+// Extended by ChatGPT: instrument cover rays can exclude their own plot block.
 package dev.brights0ng.meteodyne.ships;
 
 import java.util.List;
@@ -80,6 +81,12 @@ public interface Ships {
     default int rayObstruction(Level level, double x, double y, double z, double dx, double dy, double dz,
                                double from, double reach, ToIntFunction<BlockState> classify) {
         return 0;
+    }
+
+    /** Instrument variant, excluding only the named plot block; ordinary ray callers retain their existing behavior. */
+    default int rayObstruction(Level level, double x, double y, double z, double dx, double dy, double dz,
+                               double from, double reach, ToIntFunction<BlockState> classify, BlockPos ignored) {
+        return rayObstruction(level, x, y, z, dx, dy, dz, from, reach, classify);
     }
 
     /** The ships over a rectangle of world columns, for many lookups. */

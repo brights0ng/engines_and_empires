@@ -1,3 +1,4 @@
+// Edited by ChatGPT: normalize Windows paths before comparing class names; assertions are unchanged.
 package dev.brights0ng.meteodyne.mixin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -61,7 +62,7 @@ class MixinConfigTest {
         try (Stream<Path> files = Files.walk(root)) {
             files.map(p -> root.relativize(p).toString())
                     .filter(p -> p.endsWith(".class") && !p.contains("$"))
-                    .forEach(p -> found.add(p.substring(0, p.length() - ".class".length()).replace('/', '.')));
+                    .forEach(p -> found.add(p.substring(0, p.length() - ".class".length()).replace('/', '.').replace('\\', '.')));
         }
         assertEquals(found, new TreeSet<>(listed), "every class in " + PACKAGE + " should be listed exactly once");
         assertEquals(listed.size(), new TreeSet<>(listed).size(), "a mixin is listed twice");

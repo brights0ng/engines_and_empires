@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    " W ",
+    "IRI"
+  ],
+  "key": {
+    "W": {
+      "item": "meteodyne:wind_gauge"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    }
+  },
+  "result": {
+    "id": "meteodyne:wind_sensor",
+    "count": 1
+  }
+}

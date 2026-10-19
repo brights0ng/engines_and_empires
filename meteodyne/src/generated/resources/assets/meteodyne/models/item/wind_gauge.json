@@ -1,0 +1,1550 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "meteodyne:item/wind_gauge_unknown"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "meteodyne:wind": 1
+      },
+      "model": "meteodyne:item/wind_gauge_calm"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 2
+      },
+      "model": "meteodyne:item/wind_gauge_0_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 3
+      },
+      "model": "meteodyne:item/wind_gauge_0_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 4
+      },
+      "model": "meteodyne:item/wind_gauge_0_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 5
+      },
+      "model": "meteodyne:item/wind_gauge_0_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 6
+      },
+      "model": "meteodyne:item/wind_gauge_0_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 7
+      },
+      "model": "meteodyne:item/wind_gauge_0_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 8
+      },
+      "model": "meteodyne:item/wind_gauge_0_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 9
+      },
+      "model": "meteodyne:item/wind_gauge_0_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 10
+      },
+      "model": "meteodyne:item/wind_gauge_1_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 11
+      },
+      "model": "meteodyne:item/wind_gauge_1_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 12
+      },
+      "model": "meteodyne:item/wind_gauge_1_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 13
+      },
+      "model": "meteodyne:item/wind_gauge_1_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 14
+      },
+      "model": "meteodyne:item/wind_gauge_1_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 15
+      },
+      "model": "meteodyne:item/wind_gauge_1_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 16
+      },
+      "model": "meteodyne:item/wind_gauge_1_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 17
+      },
+      "model": "meteodyne:item/wind_gauge_1_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 18
+      },
+      "model": "meteodyne:item/wind_gauge_2_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 19
+      },
+      "model": "meteodyne:item/wind_gauge_2_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 20
+      },
+      "model": "meteodyne:item/wind_gauge_2_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 21
+      },
+      "model": "meteodyne:item/wind_gauge_2_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 22
+      },
+      "model": "meteodyne:item/wind_gauge_2_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 23
+      },
+      "model": "meteodyne:item/wind_gauge_2_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 24
+      },
+      "model": "meteodyne:item/wind_gauge_2_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 25
+      },
+      "model": "meteodyne:item/wind_gauge_2_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 26
+      },
+      "model": "meteodyne:item/wind_gauge_3_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 27
+      },
+      "model": "meteodyne:item/wind_gauge_3_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 28
+      },
+      "model": "meteodyne:item/wind_gauge_3_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 29
+      },
+      "model": "meteodyne:item/wind_gauge_3_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 30
+      },
+      "model": "meteodyne:item/wind_gauge_3_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 31
+      },
+      "model": "meteodyne:item/wind_gauge_3_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 32
+      },
+      "model": "meteodyne:item/wind_gauge_3_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 33
+      },
+      "model": "meteodyne:item/wind_gauge_3_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 34
+      },
+      "model": "meteodyne:item/wind_gauge_4_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 35
+      },
+      "model": "meteodyne:item/wind_gauge_4_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 36
+      },
+      "model": "meteodyne:item/wind_gauge_4_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 37
+      },
+      "model": "meteodyne:item/wind_gauge_4_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 38
+      },
+      "model": "meteodyne:item/wind_gauge_4_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 39
+      },
+      "model": "meteodyne:item/wind_gauge_4_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 40
+      },
+      "model": "meteodyne:item/wind_gauge_4_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 41
+      },
+      "model": "meteodyne:item/wind_gauge_4_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 42
+      },
+      "model": "meteodyne:item/wind_gauge_5_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 43
+      },
+      "model": "meteodyne:item/wind_gauge_5_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 44
+      },
+      "model": "meteodyne:item/wind_gauge_5_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 45
+      },
+      "model": "meteodyne:item/wind_gauge_5_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 46
+      },
+      "model": "meteodyne:item/wind_gauge_5_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 47
+      },
+      "model": "meteodyne:item/wind_gauge_5_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 48
+      },
+      "model": "meteodyne:item/wind_gauge_5_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 49
+      },
+      "model": "meteodyne:item/wind_gauge_5_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 50
+      },
+      "model": "meteodyne:item/wind_gauge_6_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 51
+      },
+      "model": "meteodyne:item/wind_gauge_6_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 52
+      },
+      "model": "meteodyne:item/wind_gauge_6_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 53
+      },
+      "model": "meteodyne:item/wind_gauge_6_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 54
+      },
+      "model": "meteodyne:item/wind_gauge_6_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 55
+      },
+      "model": "meteodyne:item/wind_gauge_6_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 56
+      },
+      "model": "meteodyne:item/wind_gauge_6_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 57
+      },
+      "model": "meteodyne:item/wind_gauge_6_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 58
+      },
+      "model": "meteodyne:item/wind_gauge_7_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 59
+      },
+      "model": "meteodyne:item/wind_gauge_7_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 60
+      },
+      "model": "meteodyne:item/wind_gauge_7_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 61
+      },
+      "model": "meteodyne:item/wind_gauge_7_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 62
+      },
+      "model": "meteodyne:item/wind_gauge_7_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 63
+      },
+      "model": "meteodyne:item/wind_gauge_7_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 64
+      },
+      "model": "meteodyne:item/wind_gauge_7_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 65
+      },
+      "model": "meteodyne:item/wind_gauge_7_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 66
+      },
+      "model": "meteodyne:item/wind_gauge_8_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 67
+      },
+      "model": "meteodyne:item/wind_gauge_8_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 68
+      },
+      "model": "meteodyne:item/wind_gauge_8_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 69
+      },
+      "model": "meteodyne:item/wind_gauge_8_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 70
+      },
+      "model": "meteodyne:item/wind_gauge_8_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 71
+      },
+      "model": "meteodyne:item/wind_gauge_8_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 72
+      },
+      "model": "meteodyne:item/wind_gauge_8_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 73
+      },
+      "model": "meteodyne:item/wind_gauge_8_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 74
+      },
+      "model": "meteodyne:item/wind_gauge_9_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 75
+      },
+      "model": "meteodyne:item/wind_gauge_9_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 76
+      },
+      "model": "meteodyne:item/wind_gauge_9_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 77
+      },
+      "model": "meteodyne:item/wind_gauge_9_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 78
+      },
+      "model": "meteodyne:item/wind_gauge_9_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 79
+      },
+      "model": "meteodyne:item/wind_gauge_9_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 80
+      },
+      "model": "meteodyne:item/wind_gauge_9_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 81
+      },
+      "model": "meteodyne:item/wind_gauge_9_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 82
+      },
+      "model": "meteodyne:item/wind_gauge_10_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 83
+      },
+      "model": "meteodyne:item/wind_gauge_10_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 84
+      },
+      "model": "meteodyne:item/wind_gauge_10_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 85
+      },
+      "model": "meteodyne:item/wind_gauge_10_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 86
+      },
+      "model": "meteodyne:item/wind_gauge_10_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 87
+      },
+      "model": "meteodyne:item/wind_gauge_10_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 88
+      },
+      "model": "meteodyne:item/wind_gauge_10_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 89
+      },
+      "model": "meteodyne:item/wind_gauge_10_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 90
+      },
+      "model": "meteodyne:item/wind_gauge_11_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 91
+      },
+      "model": "meteodyne:item/wind_gauge_11_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 92
+      },
+      "model": "meteodyne:item/wind_gauge_11_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 93
+      },
+      "model": "meteodyne:item/wind_gauge_11_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 94
+      },
+      "model": "meteodyne:item/wind_gauge_11_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 95
+      },
+      "model": "meteodyne:item/wind_gauge_11_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 96
+      },
+      "model": "meteodyne:item/wind_gauge_11_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 97
+      },
+      "model": "meteodyne:item/wind_gauge_11_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 98
+      },
+      "model": "meteodyne:item/wind_gauge_12_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 99
+      },
+      "model": "meteodyne:item/wind_gauge_12_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 100
+      },
+      "model": "meteodyne:item/wind_gauge_12_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 101
+      },
+      "model": "meteodyne:item/wind_gauge_12_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 102
+      },
+      "model": "meteodyne:item/wind_gauge_12_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 103
+      },
+      "model": "meteodyne:item/wind_gauge_12_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 104
+      },
+      "model": "meteodyne:item/wind_gauge_12_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 105
+      },
+      "model": "meteodyne:item/wind_gauge_12_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 106
+      },
+      "model": "meteodyne:item/wind_gauge_13_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 107
+      },
+      "model": "meteodyne:item/wind_gauge_13_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 108
+      },
+      "model": "meteodyne:item/wind_gauge_13_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 109
+      },
+      "model": "meteodyne:item/wind_gauge_13_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 110
+      },
+      "model": "meteodyne:item/wind_gauge_13_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 111
+      },
+      "model": "meteodyne:item/wind_gauge_13_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 112
+      },
+      "model": "meteodyne:item/wind_gauge_13_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 113
+      },
+      "model": "meteodyne:item/wind_gauge_13_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 114
+      },
+      "model": "meteodyne:item/wind_gauge_14_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 115
+      },
+      "model": "meteodyne:item/wind_gauge_14_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 116
+      },
+      "model": "meteodyne:item/wind_gauge_14_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 117
+      },
+      "model": "meteodyne:item/wind_gauge_14_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 118
+      },
+      "model": "meteodyne:item/wind_gauge_14_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 119
+      },
+      "model": "meteodyne:item/wind_gauge_14_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 120
+      },
+      "model": "meteodyne:item/wind_gauge_14_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 121
+      },
+      "model": "meteodyne:item/wind_gauge_14_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 122
+      },
+      "model": "meteodyne:item/wind_gauge_15_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 123
+      },
+      "model": "meteodyne:item/wind_gauge_15_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 124
+      },
+      "model": "meteodyne:item/wind_gauge_15_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 125
+      },
+      "model": "meteodyne:item/wind_gauge_15_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 126
+      },
+      "model": "meteodyne:item/wind_gauge_15_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 127
+      },
+      "model": "meteodyne:item/wind_gauge_15_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 128
+      },
+      "model": "meteodyne:item/wind_gauge_15_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 129
+      },
+      "model": "meteodyne:item/wind_gauge_15_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 130
+      },
+      "model": "meteodyne:item/wind_gauge_16_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 131
+      },
+      "model": "meteodyne:item/wind_gauge_16_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 132
+      },
+      "model": "meteodyne:item/wind_gauge_16_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 133
+      },
+      "model": "meteodyne:item/wind_gauge_16_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 134
+      },
+      "model": "meteodyne:item/wind_gauge_16_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 135
+      },
+      "model": "meteodyne:item/wind_gauge_16_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 136
+      },
+      "model": "meteodyne:item/wind_gauge_16_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 137
+      },
+      "model": "meteodyne:item/wind_gauge_16_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 138
+      },
+      "model": "meteodyne:item/wind_gauge_17_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 139
+      },
+      "model": "meteodyne:item/wind_gauge_17_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 140
+      },
+      "model": "meteodyne:item/wind_gauge_17_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 141
+      },
+      "model": "meteodyne:item/wind_gauge_17_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 142
+      },
+      "model": "meteodyne:item/wind_gauge_17_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 143
+      },
+      "model": "meteodyne:item/wind_gauge_17_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 144
+      },
+      "model": "meteodyne:item/wind_gauge_17_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 145
+      },
+      "model": "meteodyne:item/wind_gauge_17_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 146
+      },
+      "model": "meteodyne:item/wind_gauge_18_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 147
+      },
+      "model": "meteodyne:item/wind_gauge_18_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 148
+      },
+      "model": "meteodyne:item/wind_gauge_18_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 149
+      },
+      "model": "meteodyne:item/wind_gauge_18_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 150
+      },
+      "model": "meteodyne:item/wind_gauge_18_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 151
+      },
+      "model": "meteodyne:item/wind_gauge_18_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 152
+      },
+      "model": "meteodyne:item/wind_gauge_18_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 153
+      },
+      "model": "meteodyne:item/wind_gauge_18_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 154
+      },
+      "model": "meteodyne:item/wind_gauge_19_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 155
+      },
+      "model": "meteodyne:item/wind_gauge_19_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 156
+      },
+      "model": "meteodyne:item/wind_gauge_19_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 157
+      },
+      "model": "meteodyne:item/wind_gauge_19_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 158
+      },
+      "model": "meteodyne:item/wind_gauge_19_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 159
+      },
+      "model": "meteodyne:item/wind_gauge_19_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 160
+      },
+      "model": "meteodyne:item/wind_gauge_19_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 161
+      },
+      "model": "meteodyne:item/wind_gauge_19_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 162
+      },
+      "model": "meteodyne:item/wind_gauge_20_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 163
+      },
+      "model": "meteodyne:item/wind_gauge_20_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 164
+      },
+      "model": "meteodyne:item/wind_gauge_20_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 165
+      },
+      "model": "meteodyne:item/wind_gauge_20_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 166
+      },
+      "model": "meteodyne:item/wind_gauge_20_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 167
+      },
+      "model": "meteodyne:item/wind_gauge_20_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 168
+      },
+      "model": "meteodyne:item/wind_gauge_20_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 169
+      },
+      "model": "meteodyne:item/wind_gauge_20_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 170
+      },
+      "model": "meteodyne:item/wind_gauge_21_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 171
+      },
+      "model": "meteodyne:item/wind_gauge_21_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 172
+      },
+      "model": "meteodyne:item/wind_gauge_21_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 173
+      },
+      "model": "meteodyne:item/wind_gauge_21_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 174
+      },
+      "model": "meteodyne:item/wind_gauge_21_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 175
+      },
+      "model": "meteodyne:item/wind_gauge_21_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 176
+      },
+      "model": "meteodyne:item/wind_gauge_21_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 177
+      },
+      "model": "meteodyne:item/wind_gauge_21_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 178
+      },
+      "model": "meteodyne:item/wind_gauge_22_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 179
+      },
+      "model": "meteodyne:item/wind_gauge_22_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 180
+      },
+      "model": "meteodyne:item/wind_gauge_22_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 181
+      },
+      "model": "meteodyne:item/wind_gauge_22_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 182
+      },
+      "model": "meteodyne:item/wind_gauge_22_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 183
+      },
+      "model": "meteodyne:item/wind_gauge_22_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 184
+      },
+      "model": "meteodyne:item/wind_gauge_22_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 185
+      },
+      "model": "meteodyne:item/wind_gauge_22_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 186
+      },
+      "model": "meteodyne:item/wind_gauge_23_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 187
+      },
+      "model": "meteodyne:item/wind_gauge_23_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 188
+      },
+      "model": "meteodyne:item/wind_gauge_23_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 189
+      },
+      "model": "meteodyne:item/wind_gauge_23_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 190
+      },
+      "model": "meteodyne:item/wind_gauge_23_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 191
+      },
+      "model": "meteodyne:item/wind_gauge_23_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 192
+      },
+      "model": "meteodyne:item/wind_gauge_23_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 193
+      },
+      "model": "meteodyne:item/wind_gauge_23_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 194
+      },
+      "model": "meteodyne:item/wind_gauge_24_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 195
+      },
+      "model": "meteodyne:item/wind_gauge_24_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 196
+      },
+      "model": "meteodyne:item/wind_gauge_24_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 197
+      },
+      "model": "meteodyne:item/wind_gauge_24_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 198
+      },
+      "model": "meteodyne:item/wind_gauge_24_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 199
+      },
+      "model": "meteodyne:item/wind_gauge_24_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 200
+      },
+      "model": "meteodyne:item/wind_gauge_24_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 201
+      },
+      "model": "meteodyne:item/wind_gauge_24_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 202
+      },
+      "model": "meteodyne:item/wind_gauge_25_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 203
+      },
+      "model": "meteodyne:item/wind_gauge_25_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 204
+      },
+      "model": "meteodyne:item/wind_gauge_25_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 205
+      },
+      "model": "meteodyne:item/wind_gauge_25_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 206
+      },
+      "model": "meteodyne:item/wind_gauge_25_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 207
+      },
+      "model": "meteodyne:item/wind_gauge_25_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 208
+      },
+      "model": "meteodyne:item/wind_gauge_25_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 209
+      },
+      "model": "meteodyne:item/wind_gauge_25_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 210
+      },
+      "model": "meteodyne:item/wind_gauge_26_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 211
+      },
+      "model": "meteodyne:item/wind_gauge_26_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 212
+      },
+      "model": "meteodyne:item/wind_gauge_26_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 213
+      },
+      "model": "meteodyne:item/wind_gauge_26_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 214
+      },
+      "model": "meteodyne:item/wind_gauge_26_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 215
+      },
+      "model": "meteodyne:item/wind_gauge_26_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 216
+      },
+      "model": "meteodyne:item/wind_gauge_26_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 217
+      },
+      "model": "meteodyne:item/wind_gauge_26_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 218
+      },
+      "model": "meteodyne:item/wind_gauge_27_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 219
+      },
+      "model": "meteodyne:item/wind_gauge_27_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 220
+      },
+      "model": "meteodyne:item/wind_gauge_27_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 221
+      },
+      "model": "meteodyne:item/wind_gauge_27_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 222
+      },
+      "model": "meteodyne:item/wind_gauge_27_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 223
+      },
+      "model": "meteodyne:item/wind_gauge_27_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 224
+      },
+      "model": "meteodyne:item/wind_gauge_27_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 225
+      },
+      "model": "meteodyne:item/wind_gauge_27_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 226
+      },
+      "model": "meteodyne:item/wind_gauge_28_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 227
+      },
+      "model": "meteodyne:item/wind_gauge_28_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 228
+      },
+      "model": "meteodyne:item/wind_gauge_28_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 229
+      },
+      "model": "meteodyne:item/wind_gauge_28_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 230
+      },
+      "model": "meteodyne:item/wind_gauge_28_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 231
+      },
+      "model": "meteodyne:item/wind_gauge_28_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 232
+      },
+      "model": "meteodyne:item/wind_gauge_28_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 233
+      },
+      "model": "meteodyne:item/wind_gauge_28_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 234
+      },
+      "model": "meteodyne:item/wind_gauge_29_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 235
+      },
+      "model": "meteodyne:item/wind_gauge_29_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 236
+      },
+      "model": "meteodyne:item/wind_gauge_29_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 237
+      },
+      "model": "meteodyne:item/wind_gauge_29_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 238
+      },
+      "model": "meteodyne:item/wind_gauge_29_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 239
+      },
+      "model": "meteodyne:item/wind_gauge_29_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 240
+      },
+      "model": "meteodyne:item/wind_gauge_29_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 241
+      },
+      "model": "meteodyne:item/wind_gauge_29_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 242
+      },
+      "model": "meteodyne:item/wind_gauge_30_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 243
+      },
+      "model": "meteodyne:item/wind_gauge_30_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 244
+      },
+      "model": "meteodyne:item/wind_gauge_30_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 245
+      },
+      "model": "meteodyne:item/wind_gauge_30_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 246
+      },
+      "model": "meteodyne:item/wind_gauge_30_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 247
+      },
+      "model": "meteodyne:item/wind_gauge_30_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 248
+      },
+      "model": "meteodyne:item/wind_gauge_30_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 249
+      },
+      "model": "meteodyne:item/wind_gauge_30_7"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 250
+      },
+      "model": "meteodyne:item/wind_gauge_31_0"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 251
+      },
+      "model": "meteodyne:item/wind_gauge_31_1"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 252
+      },
+      "model": "meteodyne:item/wind_gauge_31_2"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 253
+      },
+      "model": "meteodyne:item/wind_gauge_31_3"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 254
+      },
+      "model": "meteodyne:item/wind_gauge_31_4"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 255
+      },
+      "model": "meteodyne:item/wind_gauge_31_5"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 256
+      },
+      "model": "meteodyne:item/wind_gauge_31_6"
+    },
+    {
+      "predicate": {
+        "meteodyne:wind": 257
+      },
+      "model": "meteodyne:item/wind_gauge_31_7"
+    }
+  ]
+}
