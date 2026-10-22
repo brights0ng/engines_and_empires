@@ -1,4 +1,4 @@
-// Written by Gemini; gods registered by Claude.
+// Written by Gemini; gods, config and Simple Spoilage compat registered by Claude.
 package dev.brights0ng.empire;
 
 import org.slf4j.Logger;
@@ -7,6 +7,7 @@ import com.mojang.logging.LogUtils;
 
 import dev.brights0ng.empire.bonfire.BonfireEvents;
 import dev.brights0ng.empire.compat.frontier.FrontierCompat;
+import dev.brights0ng.empire.compat.simplespoilage.SimpleSpoilageCompat;
 import dev.brights0ng.empire.compat.sparseores.SparseOresCompat;
 import dev.brights0ng.empire.god.Gods;
 import dev.brights0ng.empire.talc.TalcInteractions;
@@ -16,6 +17,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.data.event.GatherDataEvent;
 
@@ -37,6 +39,8 @@ public final class Empire {
         EmpireContent.register(modEventBus);
         FrontierCompat.registerIfLoaded();
         SparseOresCompat.registerIfLoaded();
+        SimpleSpoilageCompat.registerIfLoaded();
+        modContainer.registerConfig(ModConfig.Type.SERVER, EmpireConfig.SPEC);
         NeoForge.EVENT_BUS.register(BonfireEvents.class);
         NeoForge.EVENT_BUS.register(TalcInteractions.class);
         NeoForge.EVENT_BUS.addListener(Gods::onAddReloadListeners);

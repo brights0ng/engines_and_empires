@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; moved from bread to god sacrifices (founding meat, paying the demand) by Claude.
 package dev.brights0ng.empire.gametest;
 
 import dev.brights0ng.empire.Empire;
@@ -54,12 +54,12 @@ public final class SacrificeGameTests {
         BonfireItem.placeParts(helper.getLevel(), helper.absolutePos(SPOT));
 
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
-        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 5));
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 5));
 
         interactWithBonfire(helper, SPOT, player);
 
         helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 0,
-                "5 bread consumed on successful founding");
+                "5 beef consumed on successful founding");
 
         MinecraftServer server = helper.getLevel().getServer();
         EmpireSavedData data = EmpireSavedData.of(server);
@@ -102,22 +102,20 @@ public final class SacrificeGameTests {
         BonfireItem.placeParts(helper.getLevel(), helper.absolutePos(SPOT));
 
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
-        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 10));
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 10));
 
         // 1. Founding sacrifice
         interactWithBonfire(helper, SPOT, player);
         helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 5,
-                "5 bread consumed for first sacrifice (founding)");
-
-        // 2. Second sacrifice on the main bonfire
-        interactWithBonfire(helper, SPOT, player);
-        helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 0,
-                "5 bread consumed for second sacrifice");
+                "5 beef consumed for first sacrifice (founding)");
 
         MinecraftServer server = helper.getLevel().getServer();
         EmpireSavedData data = EmpireSavedData.of(server);
         EmpireRecord record = data.getEmpireByFounder(player.getUUID());
         helper.assertTrue(record != null, "Empire exists");
+
+        // 2. Paying the god's first demand in full on the main bonfire
+        GodSacrificeGameTests.payInFull(helper, helper.getLevel(), helper.absolutePos(SPOT), player, record);
         helper.assertTrue(record.state().dominion() == 15, "Dominion increased from 10 to 15");
         helper.assertTrue(record.state().stakedCount() == 9, "Staked chunks remain 9");
 
@@ -149,37 +147,37 @@ public final class SacrificeGameTests {
         BonfireItem.placeParts(helper.getLevel(), mainPos);
 
         Player player1 = helper.makeMockPlayer(GameType.SURVIVAL);
-        player1.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 5));
+        player1.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 5));
         interactWithBonfire(helper, SPOT, player1);
 
         helper.assertTrue(player1.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 5,
-                "Bread not consumed when bonfire is unlit");
+                "Beef not consumed when bonfire is unlit");
         helper.assertTrue(data.getEmpireByFounder(player1.getUUID()) == null,
                 "Empire not founded when bonfire is unlit");
 
-        // Sub-case B: < 5 bread
+        // Sub-case B: < 5 beef
         helper.setBlock(SPOT, EmpireContent.BONFIRE.get().defaultBlockState().setValue(BonfireBlock.LIT, true));
-        player1.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 4));
+        player1.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 4));
         interactWithBonfire(helper, SPOT, player1);
 
         helper.assertTrue(player1.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 4,
-                "Bread not consumed when count < 5");
+                "Beef not consumed when count < 5");
         helper.assertTrue(data.getEmpireByFounder(player1.getUUID()) == null,
-                "Empire not founded with < 5 bread");
+                "Empire not founded with < 5 beef");
 
         // Now found empire legitimately with player1
-        player1.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 5));
+        player1.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 5));
         interactWithBonfire(helper, SPOT, player1);
         EmpireRecord record = data.getEmpireByFounder(player1.getUUID());
         helper.assertTrue(record != null, "Empire founded");
 
-        // Sub-case C: Non-founder on claimed bonfire
+        // Sub-case C: Non-founder on claimed bonfire, offering beef the god's demand asks for
         Player player2 = helper.makeMockPlayer(GameType.SURVIVAL);
-        player2.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 5));
+        player2.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 5));
         interactWithBonfire(helper, SPOT, player2);
 
         helper.assertTrue(player2.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 5,
-                "Bread not consumed when non-founder offers sacrifice");
+                "Beef not consumed when non-founder offers sacrifice");
         helper.assertTrue(record.state().dominion() == 10,
                 "Dominion unchanged when non-founder attempts sacrifice");
 
@@ -188,11 +186,11 @@ public final class SacrificeGameTests {
         helper.getLevel().setBlock(secondaryPos, EmpireContent.BONFIRE.get().defaultBlockState().setValue(BonfireBlock.LIT, true), 3);
         data.onBonfirePlaced(secondaryPos, server);
 
-        player1.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 5));
+        player1.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 5));
         interactWithAbsolutePos(helper.getLevel(), secondaryPos, player1);
 
         helper.assertTrue(player1.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 5,
-                "Bread not consumed when sacrifice offered at secondary (non-main) bonfire");
+                "Beef not consumed when sacrifice offered at secondary (non-main) bonfire");
         helper.assertTrue(record.state().dominion() == 10,
                 "Dominion unchanged at secondary bonfire");
 
@@ -218,7 +216,7 @@ public final class SacrificeGameTests {
         BonfireItem.placeParts(helper.getLevel(), mainPos1);
 
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
-        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 10));
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 10));
 
         interactWithBonfire(helper, SPOT, player);
 
@@ -226,7 +224,7 @@ public final class SacrificeGameTests {
         EmpireSavedData data = EmpireSavedData.of(server);
         EmpireRecord record = data.getEmpireByFounder(player.getUUID());
         helper.assertTrue(record != null, "First empire founded");
-        helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 5, "5 bread remaining");
+        helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 5, "5 beef remaining");
 
         // Second unclaimed bonfire at a distant chunk (e.g. 100 chunks away)
         BlockPos distantPos = new BlockPos(1600, 64, 1600);
@@ -234,11 +232,11 @@ public final class SacrificeGameTests {
         long distantChunk = ChunkKeys.pack(distantChunkPos.x, distantChunkPos.z);
         server.overworld().setBlock(distantPos, EmpireContent.BONFIRE.get().defaultBlockState().setValue(BonfireBlock.LIT, true), 3);
 
-        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 5));
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 5));
         interactWithAbsolutePos(server.overworld(), distantPos, player);
 
         helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 5,
-                "Bread not consumed when founder tries to found a second empire");
+                "Beef not consumed when founder tries to found a second empire");
         helper.assertTrue(data.getEmpireByChunk(distantChunk) == null,
                 "Distant chunk remains unclaimed; second founding refused");
 

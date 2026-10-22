@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; founding meat count added by Claude.
 package dev.brights0ng.empire.rules;
 
 import java.util.ArrayList;
@@ -11,6 +11,8 @@ public final class EmpireState {
 
     public static final int FOUNDING_DOMINION = 10;
     public static final int DOMINION_PER_SACRIFICE = 5;
+    /** How many of one god's founding meat found an empire under it, or give a godless empire that god. */
+    public static final int FOUNDING_MEAT = 5;
     public static final int FOUNDING_RADIUS = 1;
 
     public record Dormant(long availableOnDay) {}

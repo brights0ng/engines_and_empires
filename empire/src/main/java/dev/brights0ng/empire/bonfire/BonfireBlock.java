@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; god sacrifices wired in by Claude.
 package dev.brights0ng.empire.bonfire;
 
 import org.jetbrains.annotations.Nullable;
@@ -196,9 +196,6 @@ public class BonfireBlock extends BaseEntityBlock {
 
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
-        if (stack.is(Items.BREAD)) {
-            return SacrificeInteractions.handleSacrifice(stack, state, level, pos, player, hand);
-        }
         if (stack.is(EmpireContent.RAW_TALC.get())) {
             return TalcInteractions.tryBless(level, pos, player, hand, stack);
         }
@@ -253,12 +250,25 @@ public class BonfireBlock extends BaseEntityBlock {
             }
         }
 
-        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        // Anything the bonfire does not use itself may be an offering to the gods (founding meat, or a demand payment).
+        return SacrificeInteractions.handleSacrifice(stack, state, level, pos, player, hand);
     }
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        return InteractionResult.PASS;
+        // An empty main hand reads out the god's demand, unless the off hand holds something the bonfire itself uses.
+        if (usesItself(state, player.getOffhandItem())) {
+            return InteractionResult.PASS;
+        }
+        return SacrificeInteractions.showDemand(level, pos, player);
+    }
+
+    /** Whether the bonfire has a use of its own for this item (as opposed to taking it as an offering). */
+    private static boolean usesItself(BlockState state, ItemStack stack) {
+        if (stack.is(EmpireContent.RAW_TALC.get())) {
+            return true;
+        }
+        return state.getValue(LIT) ? stack.is(ItemTags.SHOVELS) : stack.is(Items.FLINT_AND_STEEL) || stack.is(Items.FIRE_CHARGE);
     }
 
     @Override
