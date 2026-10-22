@@ -1,10 +1,11 @@
-// Written by Gemini.
+// Written by Gemini; loot condition type added by Claude.
 package dev.brights0ng.empire;
 
 import dev.brights0ng.empire.bonfire.BonfireBlock;
 import dev.brights0ng.empire.bonfire.BonfireBlockEntity;
 import dev.brights0ng.empire.bonfire.BonfireItem;
 import dev.brights0ng.empire.bonfire.BonfirePartBlock;
+import dev.brights0ng.empire.loot.CorrectToolForDrops;
 import dev.brights0ng.empire.talc.BlessedTalcItem;
 import dev.brights0ng.empire.talc.TarnishedTalcItem;
 import net.minecraft.core.registries.Registries;
@@ -16,6 +17,7 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.storage.loot.predicates.LootItemConditionType;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
@@ -29,6 +31,12 @@ public final class EmpireContent {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(Empire.MODID);
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITY_TYPES =
             DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, Empire.MODID);
+    public static final DeferredRegister<LootItemConditionType> LOOT_CONDITION_TYPES =
+            DeferredRegister.create(Registries.LOOT_CONDITION_TYPE, Empire.MODID);
+
+    /** {@code empire:correct_tool_for_drops} (levitite's loot tables). */
+    public static final DeferredHolder<LootItemConditionType, LootItemConditionType> CORRECT_TOOL_FOR_DROPS =
+            LOOT_CONDITION_TYPES.register("correct_tool_for_drops", () -> new LootItemConditionType(CorrectToolForDrops.CODEC));
 
     public static final DeferredBlock<BonfireBlock> BONFIRE = BLOCKS.register("bonfire",
             () -> new BonfireBlock(BlockBehaviour.Properties.of()
@@ -95,6 +103,7 @@ public final class EmpireContent {
         BLOCKS.register(modEventBus);
         ITEMS.register(modEventBus);
         BLOCK_ENTITY_TYPES.register(modEventBus);
+        LOOT_CONDITION_TYPES.register(modEventBus);
         modEventBus.addListener(EmpireContent::onBuildCreativeModeTabContents);
     }
 
