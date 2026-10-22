@@ -1,3 +1,4 @@
+// Edited by Gemini.
 plugins {
     id 'eae.mod-conventions'
 }
@@ -21,6 +22,9 @@ dependencies {
     // JUnit comes from the convention plugin. The chip tests read the recipes the mod builds as JSON (Minecraft ships
     // this same Gson), as the core's refining tests do.
     testImplementation 'com.google.code.gson:gson:2.10.1'
+
+    // Create: Diesel Generators is optional: Sparse Ores manages its multi-chunk shrinking oil reservoirs.
+    compileOnly("maven.modrinth:create-diesel-generators:${diesel_generators_version}") { transitive = false }
 
     // The same Create artifacts as the root's runs load. See https://wiki.createmod.net/developers/depend-on-create/neoforge-1.21.1
     datagenRuntimeOnly("com.simibubi.create:create-${minecraft_version}:${create_version}:slim") { transitive = false }

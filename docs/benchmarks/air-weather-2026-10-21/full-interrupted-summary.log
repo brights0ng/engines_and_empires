@@ -1,0 +1,144 @@
+# Extracted by ChatGPT from build/air-weather-final.log. No assertions altered.
+> Task :build-logic:extractPluginRequests UP-TO-DATE
+> Task :build-logic:generatePluginAdapters UP-TO-DATE
+> Task :build-logic:compileJava FROM-CACHE
+> Task :build-logic:compileGroovy FROM-CACHE
+> Task :build-logic:compileGroovyPlugins FROM-CACHE
+> Task :build-logic:pluginDescriptors UP-TO-DATE
+> Task :build-logic:processResources UP-TO-DATE
+> Task :build-logic:classes UP-TO-DATE
+> Task :build-logic:jar
+> Task :createMinecraftArtifacts UP-TO-DATE
+> Task :seismic-surveyance:createMinecraftArtifacts UP-TO-DATE
+> Task :sparse-ores:createMinecraftArtifacts UP-TO-DATE
+> Task :frontier:createMinecraftArtifacts UP-TO-DATE
+> Task :generateModMetadata UP-TO-DATE
+> Task :simple-spoilage:createMinecraftArtifacts UP-TO-DATE
+> Task :coreless:createMinecraftArtifacts UP-TO-DATE
+> Task :coreless:generateModMetadata UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :frontier:generateModMetadata UP-TO-DATE
+> Task :coreless:processResources UP-TO-DATE
+> Task :meteodyne:generateModMetadata UP-TO-DATE
+> Task :sable-fixes:createMinecraftArtifacts UP-TO-DATE
+> Task :frontier:processResources UP-TO-DATE
+> Task :paradyne-lib:generateModMetadata UP-TO-DATE
+> Task :paradyne-lib:processResources UP-TO-DATE
+> Task :sable-fixes:generateModMetadata UP-TO-DATE
+> Task :meteodyne:processResources UP-TO-DATE
+> Task :seismic-surveyance:generateModMetadata UP-TO-DATE
+> Task :sable-fixes:processResources UP-TO-DATE
+> Task :sable-fixes:compileJava UP-TO-DATE
+> Task :sable-fixes:classes UP-TO-DATE
+> Task :simple-spoilage:generateModMetadata UP-TO-DATE
+> Task :sparse-ores:generateModMetadata UP-TO-DATE
+> Task :seismic-surveyance:processResources UP-TO-DATE
+> Task :simple-spoilage:processResources UP-TO-DATE
+> Task :sable-fixes:compileTestJava UP-TO-DATE
+> Task :frontier:jarJar NO-SOURCE
+> Task :processTestResources UP-TO-DATE
+> Task :meteodyne:jarJar NO-SOURCE
+> Task :sparse-ores:processResources UP-TO-DATE
+> Task :seismic-surveyance:jarJar NO-SOURCE
+> Task :paradyne-lib:jarJar NO-SOURCE
+> Task :frontier:processTestResources NO-SOURCE
+> Task :coreless:processTestResources NO-SOURCE
+> Task :simple-spoilage:jarJar NO-SOURCE
+> Task :sparse-ores:jarJar NO-SOURCE
+> Task :paradyne-lib:processTestResources NO-SOURCE
+> Task :seismic-surveyance:processTestResources NO-SOURCE
+> Task :simple-spoilage:processTestResources NO-SOURCE
+> Task :meteodyne:processTestResources UP-TO-DATE
+> Task :sable-fixes:processTestResources NO-SOURCE
+> Task :sable-fixes:testClasses UP-TO-DATE
+> Task :sparse-ores:processTestResources NO-SOURCE
+> Task :downloadAssets UP-TO-DATE
+> Task :writeGameTestServerLegacyClasspath UP-TO-DATE
+> Task :sable-fixes:test UP-TO-DATE
+> Task :coreless:downloadAssets UP-TO-DATE
+> Task :coreless:writeGameTestServerLegacyClasspath UP-TO-DATE
+> Task :prepareGameTestMods
+> Task :frontier:writeGameTestServerLegacyClasspath UP-TO-DATE
+> Task :meteodyne:downloadAssets UP-TO-DATE
+> Task :verifyGameTestMods
+> Task :meteodyne:writeGameTestServerLegacyClasspath UP-TO-DATE
+> Task :frontier:downloadAssets UP-TO-DATE
+> Task :paradyne-lib:writeGameTestServerLegacyClasspath UP-TO-DATE
+> Task :paradyne-lib:downloadAssets UP-TO-DATE
+> Task :sable-fixes:downloadAssets UP-TO-DATE
+> Task :sable-fixes:writeGameTestServerLegacyClasspath UP-TO-DATE
+> Task :seismic-surveyance:writeGameTestServerLegacyClasspath UP-TO-DATE
+> Task :seismic-surveyance:downloadAssets UP-TO-DATE
+> Task :simple-spoilage:downloadAssets UP-TO-DATE
+> Task :sable-fixes:prepareGameTestServerRun UP-TO-DATE
+> Task :simple-spoilage:writeGameTestServerLegacyClasspath UP-TO-DATE
+> Task :sparse-ores:writeGameTestServerLegacyClasspath UP-TO-DATE
+> Task :sparse-ores:downloadAssets UP-TO-DATE
+> Task :meteodyne:createMinecraftArtifacts
+> Task :paradyne-lib:createMinecraftArtifacts
+> Task :paradyne-lib:compileJava UP-TO-DATE
+> Task :paradyne-lib:classes UP-TO-DATE
+> Task :paradyne-lib:compileTestJava UP-TO-DATE
+> Task :paradyne-lib:testClasses UP-TO-DATE
+> Task :meteodyne:compileJava UP-TO-DATE
+> Task :meteodyne:classes UP-TO-DATE
+> Task :sparse-ores:compileJava UP-TO-DATE
+> Task :simple-spoilage:compileJava UP-TO-DATE
+> Task :paradyne-lib:test UP-TO-DATE
+> Task :simple-spoilage:classes UP-TO-DATE
+> Task :sparse-ores:classes UP-TO-DATE
+> Task :paradyne-lib:jar UP-TO-DATE
+> Task :seismic-surveyance:compileJava UP-TO-DATE
+> Task :simple-spoilage:compileTestJava UP-TO-DATE
+> Task :seismic-surveyance:classes UP-TO-DATE
+> Task :sparse-ores:compileTestJava UP-TO-DATE
+> Task :sable-fixes:runGameTestServer
+> Task :seismic-surveyance:jar UP-TO-DATE
+> Task :seismic-surveyance:compileTestJava UP-TO-DATE
+> Task :frontier:compileJava UP-TO-DATE
+> Task :simple-spoilage:jar UP-TO-DATE
+> Task :sparse-ores:jar UP-TO-DATE
+> Task :frontier:classes UP-TO-DATE
+> Task :frontier:compileTestJava UP-TO-DATE
+> Task :frontier:jar UP-TO-DATE
+> Task :frontier:testClasses UP-TO-DATE
+> Task :frontier:test UP-TO-DATE
+> Task :seismic-surveyance:testClasses UP-TO-DATE
+> Task :seismic-surveyance:test UP-TO-DATE
+> Task :simple-spoilage:testClasses UP-TO-DATE
+> Task :simple-spoilage:test UP-TO-DATE
+> Task :sparse-ores:testClasses UP-TO-DATE
+> Task :sparse-ores:test UP-TO-DATE
+> Task :frontier:prepareGameTestServerRun UP-TO-DATE
+> Task :meteodyne:prepareGameTestServerRun UP-TO-DATE
+> Task :paradyne-lib:prepareGameTestServerRun UP-TO-DATE
+> Task :seismic-surveyance:prepareGameTestServerRun UP-TO-DATE
+> Task :simple-spoilage:prepareGameTestServerRun UP-TO-DATE
+> Task :sparse-ores:prepareGameTestServerRun UP-TO-DATE
+> Task :coreless:compileJava UP-TO-DATE
+> Task :coreless:classes UP-TO-DATE
+> Task :compileJava UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :coreless:compileTestJava NO-SOURCE
+> Task :coreless:testClasses UP-TO-DATE
+> Task :prepareGameTestServerRun UP-TO-DATE
+> Task :coreless:prepareGameTestServerRun
+> Task :compileTestJava UP-TO-DATE
+> Task :testClasses UP-TO-DATE
+> Task :meteodyne:compileTestJava UP-TO-DATE
+> Task :meteodyne:testClasses UP-TO-DATE
+> Task :meteodyne:jar
+> Task :coreless:test NO-SOURCE
+> Task :sable-fixes:runGameTestServer
+> Task :test
+> Task :sable-fixes:runGameTestServer
+[16:21:25] [Server thread/INFO] [minecraft/GameTestServer]: ========= 2 GAME TESTS COMPLETE IN 273.1 ms ======================
+[16:21:25] [Server thread/INFO] [minecraft/GameTestServer]: All 2 required tests passed :)
+> Task :runGameTestServer
+> Task :meteodyne:test
+> Task :runGameTestServer
+FAILURE: Build failed with an exception.
+Gradle build daemon has been stopped: stop command received
+[16:21:49] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_diagnostics:0' (1 tests)...
+[16:21:51] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_weather:0' (1 tests)...
+[16:22:00] [Server thread/ERROR] [minecraft/LogTestReporter]: everyorereciperesolvesasitdidbeforestep4c failed at -7235543, -60, -6346879! 2 recipe lines missing, 0 new (all resolved lines: C:\Users\sdcol\AppData\Local\Temp\pack-recipes-14065001731064785169.txt); first missing: minecraft:crafting minecraft:gravel domum_ornamentum:beige_bricks {"category":"equipment","ingredients":[{"item":"minecraft:gravel"},{"item":"minecraft:gravel"},{"item":"minecraft:brick"},{"item":"minecraft:brick"}],"result":{"count":4,"id":"domum_ornamentum:beige_bricks"},"type":"minecraft:crafting_shapeless"}; first new: none

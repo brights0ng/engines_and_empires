@@ -1,0 +1,177 @@
+# Extracted by ChatGPT from build/air-weather-scene-full.log.
+> Task :build-logic:extractPluginRequests UP-TO-DATE
+> Task :build-logic:generatePluginAdapters UP-TO-DATE
+> Task :build-logic:compileJava UP-TO-DATE
+> Task :build-logic:compileGroovy UP-TO-DATE
+> Task :build-logic:compileGroovyPlugins UP-TO-DATE
+> Task :build-logic:pluginDescriptors UP-TO-DATE
+> Task :build-logic:processResources UP-TO-DATE
+> Task :build-logic:classes UP-TO-DATE
+> Task :build-logic:jar UP-TO-DATE
+> Task :paradyne-lib:createMinecraftArtifacts UP-TO-DATE
+> Task :meteodyne:createMinecraftArtifacts UP-TO-DATE
+> Task :paradyne-lib:compileJava UP-TO-DATE
+> Task :meteodyne:compileJava UP-TO-DATE
+> Task :frontier:createMinecraftArtifacts
+> Task :sparse-ores:createMinecraftArtifacts
+> Task :simple-spoilage:createMinecraftArtifacts
+> Task :sparse-ores:compileJava UP-TO-DATE
+> Task :coreless:createMinecraftArtifacts
+> Task :frontier:createMinecraftArtifacts
+> Task :seismic-surveyance:createMinecraftArtifacts
+> Task :generateModMetadata UP-TO-DATE
+> Task :coreless:generateModMetadata UP-TO-DATE
+> Task :simple-spoilage:createMinecraftArtifacts
+> Task :coreless:processResources UP-TO-DATE
+> Task :frontier:generateModMetadata UP-TO-DATE
+> Task :createMinecraftArtifacts
+> Task :frontier:processResources UP-TO-DATE
+> Task :meteodyne:generateModMetadata UP-TO-DATE
+> Task :sable-fixes:createMinecraftArtifacts
+> Task :simple-spoilage:compileJava UP-TO-DATE
+> Task :paradyne-lib:generateModMetadata UP-TO-DATE
+> Task :paradyne-lib:processResources UP-TO-DATE
+> Task :paradyne-lib:classes UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :sable-fixes:generateModMetadata UP-TO-DATE
+> Task :sable-fixes:processResources UP-TO-DATE
+> Task :seismic-surveyance:generateModMetadata UP-TO-DATE
+> Task :seismic-surveyance:processResources UP-TO-DATE
+> Task :simple-spoilage:generateModMetadata UP-TO-DATE
+> Task :paradyne-lib:compileTestJava UP-TO-DATE
+> Task :sparse-ores:generateModMetadata UP-TO-DATE
+> Task :simple-spoilage:processResources UP-TO-DATE
+> Task :simple-spoilage:classes UP-TO-DATE
+> Task :simple-spoilage:compileTestJava UP-TO-DATE
+> Task :processTestResources UP-TO-DATE
+> Task :frontier:jarJar NO-SOURCE
+> Task :meteodyne:jarJar NO-SOURCE
+> Task :paradyne-lib:jarJar NO-SOURCE
+> Task :paradyne-lib:jar UP-TO-DATE
+> Task :seismic-surveyance:jarJar NO-SOURCE
+> Task :simple-spoilage:jarJar NO-SOURCE
+> Task :simple-spoilage:jar UP-TO-DATE
+> Task :sparse-ores:jarJar NO-SOURCE
+> Task :coreless:processTestResources NO-SOURCE
+> Task :frontier:processTestResources NO-SOURCE
+> Task :meteodyne:processTestResources UP-TO-DATE
+> Task :paradyne-lib:processTestResources NO-SOURCE
+> Task :paradyne-lib:testClasses UP-TO-DATE
+> Task :sparse-ores:processResources UP-TO-DATE
+> Task :sparse-ores:classes UP-TO-DATE
+> Task :paradyne-lib:test UP-TO-DATE
+> Task :sparse-ores:jar UP-TO-DATE
+> Task :sable-fixes:processTestResources NO-SOURCE
+> Task :seismic-surveyance:processTestResources NO-SOURCE
+> Task :simple-spoilage:processTestResources NO-SOURCE
+> Task :simple-spoilage:testClasses UP-TO-DATE
+> Task :sparse-ores:compileTestJava UP-TO-DATE
+> Task :simple-spoilage:test UP-TO-DATE
+> Task :sparse-ores:processTestResources NO-SOURCE
+> Task :sparse-ores:testClasses UP-TO-DATE
+> Task :sparse-ores:test UP-TO-DATE
+> Task :prepareGameTestMods
+> Task :verifyGameTestMods
+> Task :writeGameTestServerLegacyClasspath
+> Task :meteodyne:processResources
+> Task :meteodyne:classes
+> Task :meteodyne:compileTestJava UP-TO-DATE
+> Task :meteodyne:jar UP-TO-DATE
+> Task :meteodyne:testClasses UP-TO-DATE
+> Task :seismic-surveyance:createMinecraftArtifacts
+> Task :downloadAssets
+> Task :coreless:writeGameTestServerLegacyClasspath
+> Task :createMinecraftArtifacts
+> Task :coreless:downloadAssets
+> Task :sable-fixes:createMinecraftArtifacts
+> Task :seismic-surveyance:createMinecraftArtifacts
+> Task :sable-fixes:compileJava UP-TO-DATE
+> Task :sable-fixes:classes UP-TO-DATE
+> Task :meteodyne:downloadAssets UP-TO-DATE
+> Task :frontier:writeGameTestServerLegacyClasspath
+> Task :meteodyne:writeGameTestServerLegacyClasspath UP-TO-DATE
+> Task :sable-fixes:compileTestJava UP-TO-DATE
+> Task :sable-fixes:testClasses UP-TO-DATE
+> Task :sable-fixes:test UP-TO-DATE
+> Task :meteodyne:prepareGameTestServerRun
+> Task :seismic-surveyance:compileJava UP-TO-DATE
+> Task :frontier:compileJava UP-TO-DATE
+> Task :paradyne-lib:writeGameTestServerLegacyClasspath
+> Task :compileJava UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :coreless:compileJava UP-TO-DATE
+> Task :coreless:classes UP-TO-DATE
+> Task :coreless:compileTestJava NO-SOURCE
+> Task :frontier:classes UP-TO-DATE
+> Task :frontier:compileTestJava UP-TO-DATE
+> Task :seismic-surveyance:classes UP-TO-DATE
+> Task :seismic-surveyance:compileTestJava UP-TO-DATE
+> Task :frontier:jar UP-TO-DATE
+> Task :seismic-surveyance:jar UP-TO-DATE
+> Task :coreless:testClasses UP-TO-DATE
+> Task :coreless:test NO-SOURCE
+> Task :frontier:testClasses UP-TO-DATE
+> Task :frontier:test UP-TO-DATE
+> Task :seismic-surveyance:testClasses UP-TO-DATE
+> Task :seismic-surveyance:test UP-TO-DATE
+> Task :prepareGameTestServerRun
+> Task :compileTestJava UP-TO-DATE
+> Task :testClasses UP-TO-DATE
+> Task :coreless:prepareGameTestServerRun
+> Task :frontier:downloadAssets
+> Task :paradyne-lib:downloadAssets
+> Task :frontier:prepareGameTestServerRun
+> Task :paradyne-lib:prepareGameTestServerRun
+> Task :sable-fixes:writeGameTestServerLegacyClasspath
+> Task :seismic-surveyance:writeGameTestServerLegacyClasspath
+> Task :meteodyne:runGameTestServer
+> Task :sable-fixes:downloadAssets
+> Task :sable-fixes:prepareGameTestServerRun
+> Task :simple-spoilage:writeGameTestServerLegacyClasspath
+> Task :seismic-surveyance:downloadAssets
+> Task :simple-spoilage:downloadAssets
+> Task :meteodyne:runGameTestServer
+> Task :simple-spoilage:prepareGameTestServerRun
+> Task :seismic-surveyance:prepareGameTestServerRun
+> Task :sparse-ores:writeGameTestServerLegacyClasspath
+> Task :test
+> Task :sparse-ores:downloadAssets
+> Task :sparse-ores:prepareGameTestServerRun
+> Task :meteodyne:runGameTestServer
+[16:34:57] [Server thread/INFO] [minecraft/GameTestServer]: ========= 97 GAME TESTS COMPLETE IN 9.960 s ======================
+[16:34:57] [Server thread/INFO] [minecraft/GameTestServer]: All 97 required tests passed :)
+> Task :runGameTestServer
+> Task :meteodyne:test
+> Task :runGameTestServer
+[16:35:30] [Server thread/INFO] [minecraft/GameTestServer]: ========= 262 GAME TESTS COMPLETE IN 13.56 s ======================
+[16:35:30] [Server thread/INFO] [minecraft/GameTestServer]: All 262 required tests passed :)
+> Task :coreless:runGameTestServer
+[16:35:58] [Server thread/INFO] [minecraft/GameTestServer]: ========= 212 GAME TESTS COMPLETE IN 11.73 s ======================
+[16:35:58] [Server thread/INFO] [minecraft/GameTestServer]: All 212 required tests passed :)
+> Task :frontier:runGameTestServer
+[16:36:09] [Server thread/INFO] [minecraft/GameTestServer]: ========= 17 GAME TESTS COMPLETE IN 1.068 s ======================
+[16:36:09] [Server thread/INFO] [minecraft/GameTestServer]: All 17 required tests passed :)
+> Task :paradyne-lib:runGameTestServer
+[16:36:18] [Server thread/INFO] [minecraft/GameTestServer]: ========= 3 GAME TESTS COMPLETE IN 256.8 ms ======================
+[16:36:18] [Server thread/INFO] [minecraft/GameTestServer]: All 3 required tests passed :)
+> Task :sable-fixes:runGameTestServer
+[16:36:29] [Server thread/INFO] [minecraft/GameTestServer]: ========= 2 GAME TESTS COMPLETE IN 276.2 ms ======================
+[16:36:29] [Server thread/INFO] [minecraft/GameTestServer]: All 2 required tests passed :)
+> Task :seismic-surveyance:runGameTestServer
+[16:36:41] [Server thread/INFO] [minecraft/GameTestServer]: ========= 20 GAME TESTS COMPLETE IN 448.8 ms ======================
+[16:36:41] [Server thread/INFO] [minecraft/GameTestServer]: All 20 required tests passed :)
+> Task :simple-spoilage:runGameTestServer
+[16:36:50] [Server thread/INFO] [minecraft/GameTestServer]: ========= 34 GAME TESTS COMPLETE IN 610.3 ms ======================
+[16:36:50] [Server thread/INFO] [minecraft/GameTestServer]: All 34 required tests passed :)
+> Task :sparse-ores:runGameTestServer
+[16:37:00] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 431.3 ms ======================
+[16:37:00] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+> Task :sparse-ores:compileDatagenJava NO-SOURCE
+> Task :sparse-ores:processDatagenResources NO-SOURCE
+> Task :sparse-ores:datagenClasses UP-TO-DATE
+> Task :sparse-ores:writeGameTestServerWithCreateLegacyClasspath
+> Task :sparse-ores:prepareGameTestServerWithCreateRun
+> Task :sparse-ores:runGameTestServerWithCreate
+[16:37:12] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 421.7 ms ======================
+[16:37:12] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+BUILD SUCCESSFUL in 2m 57s

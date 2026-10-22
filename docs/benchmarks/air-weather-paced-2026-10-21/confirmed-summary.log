@@ -1,0 +1,38 @@
+# Extracted by ChatGPT from build/air-weather-scene-confirmed.log.
+> Task :build-logic:extractPluginRequests UP-TO-DATE
+> Task :build-logic:generatePluginAdapters UP-TO-DATE
+> Task :build-logic:compileJava UP-TO-DATE
+> Task :build-logic:compileGroovy UP-TO-DATE
+> Task :build-logic:compileGroovyPlugins UP-TO-DATE
+> Task :build-logic:pluginDescriptors UP-TO-DATE
+> Task :build-logic:processResources UP-TO-DATE
+> Task :build-logic:classes UP-TO-DATE
+> Task :build-logic:jar UP-TO-DATE
+> Task :paradyne-lib:processTestResources NO-SOURCE
+> Task :paradyne-lib:generateModMetadata UP-TO-DATE
+> Task :meteodyne:generateModMetadata UP-TO-DATE
+> Task :meteodyne:processTestResources UP-TO-DATE
+> Task :paradyne-lib:processResources UP-TO-DATE
+> Task :paradyne-lib:jarJar NO-SOURCE
+> Task :meteodyne:writeGameTestServerLegacyClasspath UP-TO-DATE
+> Task :meteodyne:downloadAssets UP-TO-DATE
+> Task :paradyne-lib:createMinecraftArtifacts UP-TO-DATE
+> Task :meteodyne:createMinecraftArtifacts UP-TO-DATE
+> Task :paradyne-lib:compileJava UP-TO-DATE
+> Task :paradyne-lib:classes UP-TO-DATE
+> Task :paradyne-lib:jar UP-TO-DATE
+> Task :paradyne-lib:compileTestJava UP-TO-DATE
+> Task :paradyne-lib:testClasses UP-TO-DATE
+> Task :paradyne-lib:test FROM-CACHE
+> Task :meteodyne:compileJava UP-TO-DATE
+> Task :meteodyne:processResources
+> Task :meteodyne:classes
+> Task :meteodyne:compileTestJava UP-TO-DATE
+> Task :meteodyne:testClasses UP-TO-DATE
+> Task :meteodyne:prepareGameTestServerRun
+> Task :meteodyne:runGameTestServer
+> Task :meteodyne:test
+> Task :meteodyne:runGameTestServer
+[16:40:27] [Server thread/INFO] [minecraft/GameTestServer]: ========= 97 GAME TESTS COMPLETE IN 8.909 s ======================
+[16:40:27] [Server thread/INFO] [minecraft/GameTestServer]: All 97 required tests passed :)
+BUILD SUCCESSFUL in 25s

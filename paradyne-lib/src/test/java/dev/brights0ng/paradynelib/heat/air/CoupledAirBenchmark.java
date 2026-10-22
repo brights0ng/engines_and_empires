@@ -1,0 +1,247 @@
+// Written by ChatGPT; extended by ChatGPT with thermal/flow controls, phase counters, and long-run calibration.
+// House layout adapted from AirGridTest (original fixture authorship unmarked).
+package dev.brights0ng.paradynelib.heat.air;
+
+import com.google.gson.GsonBuilder;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.StandardCopyOption;
+
+/** Offline two-way source/temperature/momentum evidence. No timing thresholds or gameplay retuning.
+ * Run performance in separate JVM forks; calibration retains the accepted legacy house as a control.
+ */
+public final class CoupledAirBenchmark {
+    public static void main(String[] args) throws Exception {
+        String mode = args.length > 1 ? args[1] : "performance";
+        var thermalMode = args.length > 2 ? ThermalTransport.Mode.valueOf(args[2]) : ThermalTransport.DEFAULT_MODE;
+        boolean cacheSamplingOrigins = args.length <= 3 || Boolean.parseBoolean(args[3]);
+        var kernel = args.length > 4 ? FlowGrid.Kernel.valueOf(args[4]) : FlowGrid.DEFAULT_KERNEL;
+        Path output = Path.of(args.length > 0 ? args[0] : "build/benchmarks/coupled-air/" + mode + ".json");
+        var report = new LinkedHashMap<String, Object>();
+        System.out.println("Benchmark PID: "+ProcessHandle.current().pid());
+        report.put("writtenBy", "ChatGPT"); report.put("schema", "coupled-air-v2"); report.put("mode", mode);
+        report.put("thermalTraversal", thermalMode);
+        report.put("cachedSamplingOrigins", cacheSamplingOrigins);
+        report.put("flowKernel", kernel);
+        report.put("timeUtc", Instant.now().toString()); report.put("java", System.getProperty("java.runtime.version"));
+        report.put("cpu", System.getenv("PROCESSOR_IDENTIFIER")); report.put("processors", Runtime.getRuntime().availableProcessors());
+        report.put("heapBytes", Runtime.getRuntime().maxMemory());
+        report.put("vmArguments", java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments());
+        report.put("flowSettings", FlowSettings.DEFAULT.toString()); report.put("thermalSettings", ThermalTransport.Settings.defaults().toString());
+        report.put("sequence", "half thermal -> velocity transport/buoyancy/pressure -> half thermal; atomic commit");
+        var checkpointRows=new ArrayList<Object>();
+        Consumer<Map<String,Object>> checkpoint=row->{
+            checkpointRows.add(row);report.put("results",checkpointRows);report.put("complete",false);
+            try { save(output,report); } catch(IOException e) { throw new UncheckedIOException(e); }
+        };
+        if (mode.equals("performance")) { report.put("results", performance(thermalMode, cacheSamplingOrigins, kernel)); }
+        else if (mode.equals("calibration")) { report.put("results", calibration(thermalMode, cacheSamplingOrigins, kernel)); }
+        else if (mode.equals("equilibrium")) {
+            String protocol=args.length>5?args[5]:"long";report.put("equilibriumProtocol",protocol);
+            double step=args.length>8?Double.parseDouble(args[8]):1;report.put("equilibriumPhysicalStep",step);
+            report.put("results", CoupledAirCalibration.run(thermalMode, cacheSamplingOrigins, kernel,CoupledAirCalibration.Protocol.named(protocol),step,checkpoint));
+        }
+        else if (mode.equals("timesteps")) { report.put("results", CoupledAirQualification.timesteps(thermalMode,cacheSamplingOrigins,kernel,checkpoint)); }
+        else if (mode.equals("responses")) {
+            double step=args.length>6?Double.parseDouble(args[6]):.5;
+            report.put("results", CoupledAirQualification.responses(thermalMode,cacheSamplingOrigins,kernel,step,checkpoint));
+        }
+        else if (mode.equals("boundaries")) {
+            double step=args.length>6?Double.parseDouble(args[6]):.5;
+            report.put("results", CoupledAirQualification.boundaries(thermalMode,cacheSamplingOrigins,kernel,step,checkpoint));
+        }
+        else if (mode.equals("ground")) {
+            double step=args.length>6?Double.parseDouble(args[6]):.5;
+            report.put("results", CoupledAirQualification.ground(thermalMode,cacheSamplingOrigins,kernel,step,checkpoint));
+        }
+        else if(mode.equals("qualification-case")) {
+            double step=args.length>6?Double.parseDouble(args[6]):.5;
+            String specification=args.length>7?args[7]:"0,8,8,3";
+            report.put("results",CoupledAirQualification.one(thermalMode,cacheSamplingOrigins,kernel,step,specification));
+        }
+        else { throw new IllegalArgumentException("Unknown benchmark mode: "+mode); }
+        report.put("complete",true);save(output,report);
+        System.out.println("Report: " + output.toAbsolutePath());
+    }
+
+    private static void save(Path output,Map<String,Object> report) throws IOException {
+        Path target=output.toAbsolutePath();Files.createDirectories(target.getParent());
+        Path temporary=target.resolveSibling(target.getFileName()+".tmp");
+        Files.writeString(temporary,new GsonBuilder().setPrettyPrinting().create().toJson(report));
+        Files.move(temporary,target,StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    private static List<Object> performance(ThermalTransport.Mode mode, boolean cacheSamplingOrigins, FlowGrid.Kernel kernel) {
+        var rows = new ArrayList<Object>();
+        for (var scene : List.of(new ThermalBenchmark.Scene("multiroom32", 32, 32, 32, 4),
+                new ThermalBenchmark.Scene("stress48", 48, 48, 48, 4),
+                new ThermalBenchmark.Scene("partial-block-house", 24, 16, 24, 3))) {
+            var fixture = ThermalBenchmark.fixture(scene);
+            var builder = new FlowGeometry.Builder(scene.nx(), scene.ny(), scene.nz()).openExterior(true);
+            var partial = new FlowShape.Builder().solidBox(0, 0, 0, 16, 2, 16).build();
+            for (int z = 0; z < scene.nz(); z++) for (int y = 0; y < scene.ny(); y++) for (int x = 0; x < scene.nx(); x++) {
+                int i = fixture.index(x, y, z);
+                if (fixture.kinds()[i] == AirGrid.SOLID) { builder.cell(x, y, z, fixture.open()[i] != 0 ? partial : FlowShape.FULL); }
+            }
+            var f = builder.build(); double[] k = new double[scene.cells()], c = new double[k.length]; Arrays.fill(k, 1); Arrays.fill(c, 1);
+            var g = new ThermalGeometry(f, k, c, ThermalGeometry.Coefficients.legacyMaterials());
+            double[] bg = new double[f.nodes()], ext = new double[f.faces()]; Arrays.fill(bg, 20); Arrays.fill(ext, 20);
+            for (double[] setting : new double[][]{{.25, 1}, {.5, 1}, {1, 1}, {1, .5}, {1, 2}}) {
+                double dt = setting[0], scale = setting[1];
+                long setup = System.nanoTime(), setupBytes = ThermalTiming.allocated();
+                var grid = new CoupledAirGrid(g, FlowBoundary.wind(f, 6, 0, 2), FlowSettings.DEFAULT, ThermalTransport.Settings.defaults(), mode, cacheSamplingOrigins, kernel);
+                for (int i = 0; i < g.states(); i++) { grid.setTemperature(i, 20); }
+                var initialized = grid.initialize(6, 0, 2);
+                long setupNanos = System.nanoTime() - setup, bytes = ThermalTiming.difference(setupBytes, ThermalTiming.allocated());
+                if (!initialized.ready()) { throw new IllegalStateException(initialized.toString()); }
+                int source = f.nodeAt(scene.nx() / 2.0 + .5, 3.5, scene.nz() / 2.0 + .5);
+                if (source < 0) { throw new IllegalStateException("Fixture source must be represented air"); }
+                grid.setSources(new ThermalTransport.Source(source, AirParams.DEFAULT.gridPower(1, .5), 65));
+                var wall = new ThermalTiming.Samples(); var cpu = new ThermalTiming.Samples(); var allocation = new ThermalTiming.Samples();
+                var thermal = new ThermalTiming.Samples(); var pressure = new ThermalTiming.Samples(); var velocity = new ThermalTiming.Samples();
+                var thermalSweeps = new ThermalTiming.Samples(); var thermalQuality = new ThermalTiming.Samples();
+                Map<String, Integer> rejected = new LinkedHashMap<>(); int accepted = 0, warmupRejected = 0, iterations = 0, sweeps = 0;
+                int checks = 0;
+                double error = 0, divergence = 0, progress = 0;
+                for (int i = 0; i < 15; i++) {
+                    long begin = System.nanoTime(), cpuBefore = ThermalTiming.cpu(), allocationBefore = ThermalTiming.allocated();
+                    var result = grid.step(dt, scale, bg, ext);
+                    long elapsed = System.nanoTime() - begin, cpuNanos = ThermalTiming.difference(cpuBefore, ThermalTiming.cpu());
+                    long allocated = ThermalTiming.difference(allocationBefore, ThermalTiming.allocated());
+                    if (result.ready()) { progress += dt; }
+                    if (i < 5) { if (!result.ready()) { warmupRejected++; } continue; }
+                    wall.add(elapsed); cpu.add(cpuNanos); allocation.add(allocated);
+                    if (!result.ready()) { rejected.merge(result.status().name(), 1, Integer::sum); continue; }
+                    accepted++; error = Math.max(error, Math.abs(result.energyError()));
+                    divergence = Math.max(divergence, result.flow().pressure().maxDivergence());
+                    iterations = Math.max(iterations, result.flow().pressure().iterations());
+                    sweeps = Math.max(sweeps, Math.max(result.first().sweeps(), result.second().sweeps()));
+                    checks = Math.max(checks, Math.max(result.first().residualChecks(), result.second().residualChecks()));
+                    thermalSweeps.add(result.first().sweepNanos() + result.second().sweepNanos());
+                    thermalQuality.add(result.first().qualityNanos() + result.second().qualityNanos());
+                    thermal.add(result.first().nanos() + result.second().nanos()); pressure.add(result.flow().pressureNanos()); velocity.add(result.flow().transportNanos());
+                }
+                var row = new LinkedHashMap<String, Object>(); row.put("scene", scene.name()); row.put("physicalStep", dt); row.put("responseScale", scale);
+                row.put("warmupSteps", 5); row.put("measuredSteps", 10); row.put("accepted", accepted); row.put("rejected", rejected); row.put("warmupRejected", warmupRejected);
+                row.put("completedPhysicalSecondsIncludingWarmup", progress); row.put("sourcePower", 75); row.put("sourceLimitC", 65);
+                row.put("airNodes", f.nodes()); row.put("states", g.states()); row.put("faces", f.faces());
+                row.put("geometryFingerprint", Arrays.hashCode(f.area) * 31L + Arrays.hashCode(f.nodeCell));
+                row.put("ownerConstructionAndInitializationMs", setupNanos / 1e6); row.put("ownerConstructionAndInitializationAllocatedBytes", bytes);
+                row.put("wallMs", wall.summary(1e6)); row.put("cpuMs", cpu.summary(1e6)); row.put("allocatedBytes", allocation.summary(1));
+                row.put("acceptedThermalMs", thermal.summary(1e6)); row.put("acceptedPressureMs", pressure.summary(1e6)); row.put("acceptedVelocityMs", velocity.summary(1e6));
+                row.put("acceptedThermalSweepsMs", thermalSweeps.summary(1e6)); row.put("acceptedThermalQualityMs", thermalQuality.summary(1e6));
+                row.put("maxThermalHalfChecks", checks);
+                row.put("maxPressureIterations", iterations); row.put("maxThermalHalfSweeps", sweeps); row.put("maxEnergyError", error); row.put("maxDivergence", divergence);
+                rows.add(row); System.out.println(scene.name() + " dt=" + dt + " scale=" + scale + " accepted=" + accepted
+                        + " rejected=" + rejected + " ms=" + wall.summary(1e6).mean());
+            }
+        }
+        return rows;
+    }
+
+    record House(AirGrid legacy, FlowGeometry flow, ThermalGeometry thermal, int x0, int x1, int y0, int y1, int mid) {
+        double legacyMean() { return legacy.meanAirOffset(x0 + 1, y0 + 1, x0 + 1, x1 - 1, y1 - 1, x1 - 1); }
+        double mean(CoupledAirGrid grid) {
+            double sum = 0; int count = 0;
+            for (int z = x0 + 1; z < x1; z++) for (int y = y0 + 1; y < y1; y++) for (int x = x0 + 1; x < x1; x++) {
+                sum += grid.temperature(flow.nodeAt(x + .5, y + .5, z + .5)) - 20; count++;
+            }
+            return sum / count;
+        }
+        double materialMean(CoupledAirGrid grid) {
+            double sum = 0; int count = 0;
+            for (int z = x0; z <= x1; z++) for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++) {
+                int state = thermal.materialState(flow.index(x, y, z));
+                if (state >= 0) { sum += grid.temperature(state) - 20; count++; }
+            }
+            return sum / count;
+        }
+    }
+
+    /** Same 10x10x5 block layout/materials/virtual air source as the accepted AirGridTest house.
+     * The coupled model has a pressure-open exterior rather than the legacy zero-offset outer cell layer.
+     */
+    static House house(int opening) {
+        return house(opening,6,6);
+    }
+
+    /** Padding is air cells between the house/roof and the outermost cell layer; the house itself is unchanged. */
+    static House house(int opening,int padding,int topPadding) {
+        return house(opening,padding,topPadding,3);
+    }
+
+    static House house(int opening,int padding,int topPadding,int groundDepth) {
+        if(opening<0 || opening>2 || padding<1 || topPadding<1 || groundDepth<1) { throw new IllegalArgumentException("Invalid house fixture"); }
+        int nx = Math.addExact(12,Math.multiplyExact(2,padding)), ny = Math.addExact(Math.addExact(7,groundDepth),topPadding);
+        int x0 = padding+1, x1 = x0+9, y0 = groundDepth+1, y1 = y0+4, mid = x0+4;
+        var legacy = new AirGrid(nx, ny, nx, AirParams.DEFAULT); var builder = new FlowGeometry.Builder(nx, ny, nx).openExterior(true);
+        double[] k = new double[nx * ny * nx], c = new double[k.length]; Arrays.fill(k, 1); Arrays.fill(c, 1);
+        for (int z = 1; z < nx - 1; z++) for (int y = 1; y < ny - 1; y++) for (int x = 1; x < nx - 1; x++) {
+            boolean inside = x >= x0 && x <= x1 && z >= x0 && z <= x1 && y <= y1;
+            boolean solid = y <= groundDepth || inside && (x == x0 || x == x1 || z == x0 || z == x1 || y == y0 || y == y1);
+            boolean door = x == mid && z == x0 && (y == y0 + 1 || y == y0 + 2);
+            boolean gap = opening == 1 && x == x1 && y == y0 + 2 && z == mid
+                    || opening == 2 && x == x1 && y > y0 && y < y1 && z > x0 && z < x1;
+            int cell = (z * ny + y) * nx + x;
+            if ((solid || door) && !gap) {
+                k[cell] = y <= groundDepth ? .6 : door ? .25 : 1; c[cell] = y <= groundDepth ? .8 : door ? .5 : 1;
+                builder.cell(x, y, z, FlowShape.FULL); legacy.setSolid(x, y, z, k[cell], c[cell], 0);
+            } else { legacy.setAir(x, y, z, !inside); }
+        }
+        legacy.addSource(mid, y0 + 1, mid, AirParams.DEFAULT.gridPower(1, .5), Double.NaN);
+        var f = builder.build(); return new House(legacy, f, new ThermalGeometry(f, k, c, ThermalGeometry.Coefficients.legacyMaterials()), x0, x1, y0, y1, mid);
+    }
+
+    private static List<Object> calibration(ThermalTransport.Mode mode, boolean cacheSamplingOrigins, FlowGrid.Kernel kernel) {
+        var rows = new ArrayList<Object>();
+        for (int opening = 0; opening < 3; opening++) {
+            var h = house(opening); var equilibrium = house(opening); equilibrium.legacy.settle(3000);
+            double target = equilibrium.legacyMean();
+            var grid = new CoupledAirGrid(h.thermal, FlowBoundary.wind(h.flow, 0, 0, 0), FlowSettings.DEFAULT, ThermalTransport.Settings.defaults(), mode, cacheSamplingOrigins, kernel);
+            for (int i = 0; i < h.thermal.states(); i++) { grid.setTemperature(i, 20); }
+            if (!grid.initialize(0, 0, 0).ready()) { throw new IllegalStateException("House initialization failed"); }
+            grid.setSources(new ThermalTransport.Source(h.flow.nodeAt(h.mid + .5, h.y0 + 1.5, h.mid + .5), 75, Double.NaN));
+            double[] bg = new double[h.flow.nodes()], ext = new double[h.flow.faces()]; Arrays.fill(bg, 20); Arrays.fill(ext, 20);
+            var samples = new ArrayList<Object>(); var timing = new ThermalTiming.Samples();
+            String failure = ""; int completed = 0, legacy95 = -1, coupled95LegacyTarget = -1;
+            double energyStart = grid.energy(), sourceEnergy = 0, exteriorEnergy = 0, maxError = 0;
+            for (int second = 1; second <= 680; second++) {
+                if (second == 601) { h.legacy.clearSources(); grid.setSources(); }
+                var result = grid.step(1, 1, bg, ext);
+                if (!result.ready()) { failure = result.toString(); break; }
+                h.legacy.step(1); completed = second; timing.add(result.nanos());
+                sourceEnergy += result.sourceEnergy(); exteriorEnergy += result.exteriorEnergy(); maxError = Math.max(maxError, Math.abs(result.energyError()));
+                if (second <= 600 && legacy95 < 0 && h.legacyMean() >= .95 * target) { legacy95 = second; }
+                if (second <= 600 && coupled95LegacyTarget < 0 && h.mean(grid) >= .95 * target) { coupled95LegacyTarget = second; }
+                if (second == 15 || second == 60 || second == 120 || second == 240 || second == 300 || second == 360
+                        || second == 600 || second == 640 || second == 680) {
+                    var sample = new LinkedHashMap<String, Object>(); sample.put("physicalSecond", second);
+                    sample.put("legacyMeanOffsetC", h.legacyMean()); sample.put("coupledMeanOffsetC", h.mean(grid));
+                    sample.put("coupledMeanMaterialOffsetC", h.materialMean(grid));
+                    sample.put("legacyNearSourceOffsetC", h.legacy.offset(h.mid + 1, h.y0 + 1, h.mid));
+                    sample.put("coupledNearSourceOffsetC", grid.temperature(h.flow.nodeAt(h.mid + 1.5, h.y0 + 1.5, h.mid + .5)) - 20);
+                    samples.add(sample); System.out.println("house opening=" + opening + " second=" + second
+                            + " legacy=" + h.legacyMean() + " coupled=" + h.mean(grid));
+                }
+            }
+            var row = new LinkedHashMap<String, Object>(); row.put("opening", List.of("sealed", "window", "missing-wall").get(opening));
+            row.put("sourcePower", 75); row.put("sourceLimit", "unlimited, matching AirGridTest calibration fixture");
+            row.put("physicalStep", 1); row.put("responseScale", 1); row.put("completedPhysicalSeconds", completed); row.put("firstFailure", failure);
+            row.put("legacyEquilibriumOffsetC", target); row.put("legacySecondsTo95Percent", legacy95);
+            row.put("coupledSecondsTo95PercentOfLegacyEquilibrium", coupled95LegacyTarget);
+            row.put("coupledEquilibriumQualified", false); row.put("samples", samples); row.put("stepWallMs", timing.summary(1e6));
+            row.put("maxStepEnergyError", maxError); row.put("totalEnergyBudgetError", grid.energy() - energyStart - sourceEnergy - exteriorEnergy);
+            rows.add(row);
+        }
+        return rows;
+    }
+}

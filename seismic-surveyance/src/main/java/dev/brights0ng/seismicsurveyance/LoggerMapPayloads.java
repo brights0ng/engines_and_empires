@@ -1,3 +1,4 @@
+// Edited by Gemini: added SetTab payload for smart logger ORES/OIL tab switching.
 package dev.brights0ng.seismicsurveyance;
 
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
@@ -54,6 +55,31 @@ public final class LoggerMapPayloads {
                 BlockPos.STREAM_CODEC, Send::pos,
                 ByteBufCodecs.VAR_INT, Send::number,
                 Send::new);
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * Switch the logger's active tab between ORES and OIL.
+     */
+    public record SetTab(BlockPos pos, byte tab) implements CustomPacketPayload {
+
+        public static final CustomPacketPayload.Type<SetTab> TYPE = new CustomPacketPayload.Type<>(
+                SeismicSurveyance.id("logger_map_tab"));
+
+        public static final StreamCodec<ByteBuf, SetTab> STREAM_CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, SetTab::pos,
+                ByteBufCodecs.BYTE, SetTab::tab,
+                SetTab::new);
+
+        public LoggerDisplay.Tab tabEnum() {
+            int ordinal = tab & 0xFF;
+            LoggerDisplay.Tab[] values = LoggerDisplay.Tab.values();
+            return (ordinal >= 0 && ordinal < values.length) ? values[ordinal] : LoggerDisplay.Tab.ORES;
+        }
 
         @Override
         public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {

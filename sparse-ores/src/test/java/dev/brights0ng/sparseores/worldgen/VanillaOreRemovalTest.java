@@ -1,3 +1,4 @@
+// Edited by Gemini: checked BUILTIN ores instead of dynamic ALL.
 package dev.brights0ng.sparseores.worldgen;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -65,7 +66,7 @@ class VanillaOreRemovalTest {
     void everyOreWeGenerateHasItsVanillaVeinsRemovedInTheRightDimension() throws IOException {
         Set<String> overworld = overworldRemovals();
         Set<String> nether = featuresRemovedBy("remove_vanilla_ores_nether.json");
-        for (OreType type : OreTypes.ALL) {
+        for (OreType type : OreTypes.BUILTIN) {
             List<String> features = FEATURES_OF.get(type.id());
             if (type.id().equals("crystal")) {
                 assertNull(features, "crystal replaces geodes, which are deliberately left alone");
@@ -83,7 +84,7 @@ class VanillaOreRemovalTest {
     void nothingIsRemovedExceptTheOreVeinsWeReplace() throws IOException {
         Set<String> expectedOverworld = new HashSet<>();
         Set<String> expectedNether = new HashSet<>();
-        for (OreType type : OreTypes.ALL) {
+        for (OreType type : OreTypes.BUILTIN) {
             List<String> features = FEATURES_OF.get(type.id());
             if (features != null) {
                 (type.realm() == Realm.NETHER ? expectedNether : expectedOverworld).addAll(features);

@@ -1,3 +1,4 @@
+// Updated by Gemini: removed MineColonies guard registration.
 package dev.brights0ng.enginesandempires;
 
 import org.slf4j.Logger;
@@ -6,7 +7,6 @@ import com.mojang.logging.LogUtils;
 
 import dev.brights0ng.enginesandempires.food.compat.AppleSkinCompat;
 import dev.brights0ng.enginesandempires.food.compat.DietCompat;
-import dev.brights0ng.enginesandempires.frontier.guard.compat.MineColoniesGuardSource;
 import dev.brights0ng.enginesandempires.frontier.incursion.CreateLoudMachines;
 import dev.brights0ng.enginesandempires.oregen.refining.RefiningDataGen;
 import dev.brights0ng.enginesandempires.weather.climate.compat.ColdSweatCompat;
@@ -63,8 +63,6 @@ public final class EnginesAndEmpires {
         // Serene Seasons: its calendar runs Meteodyne's year in place of the built-in one (only if Serene Seasons is installed)
         SereneSeasonsCompat.registerIfLoaded();
 
-        // MineColonies: colonists working a guard job count as Frontier's guards (only if MineColonies is installed)
-        MineColoniesGuardSource.registerIfLoaded();
         // Create's machines run (for Frontier's loud machines) while they turn
         CreateLoudMachines.register();
     }

@@ -1,3 +1,4 @@
+// Edited by Gemini: checked BUILTIN ores instead of dynamic ALL.
 package dev.brights0ng.sparseores.rich;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,7 +36,7 @@ class RichOresTest {
             withRich.add(spec.oreId());
         }
         Set<String> expected = new HashSet<>();
-        for (OreType type : OreTypes.ALL) {
+        for (OreType type : OreTypes.BUILTIN) {
             expected.add(type.id());
         }
         expected.remove("crystal"); // amethyst has no rich look yet

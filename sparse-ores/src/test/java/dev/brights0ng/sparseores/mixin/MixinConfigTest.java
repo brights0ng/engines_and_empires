@@ -1,3 +1,5 @@
+// Updated by ChatGPT: normalized Windows class-file paths without changing mixin coverage assertions.
+// Updated by Gemini: added createdieselgenerators mixin gating.
 package dev.brights0ng.sparseores.mixin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,7 +34,8 @@ class MixinConfigTest {
     private static final String PACKAGE = "dev.brights0ng.sparseores.mixin";
     private static final String PLUGIN = "dev.brights0ng.sparseores.SparseOresMixinPlugin";
     /** The mixins that need another mod loaded, and that mod's id; every other mixin always applies. */
-    private static final Map<String, String> GATED = Map.ofEntries();
+    private static final Map<String, String> GATED = Map.ofEntries(
+            Map.entry("compat.dieselgenerators.OilChunksSavedDataMixin", "createdieselgenerators"));
 
     @Test
     void theConfigListsOnlyMixinClassesThatExist() throws IOException {
@@ -61,7 +64,7 @@ class MixinConfigTest {
         try (Stream<Path> files = Files.walk(root)) {
             files.map(p -> root.relativize(p).toString())
                     .filter(p -> p.endsWith(".class") && !p.contains("$"))
-                    .forEach(p -> found.add(p.substring(0, p.length() - ".class".length()).replace('/', '.')));
+                    .forEach(p -> found.add(p.substring(0, p.length() - ".class".length()).replace('/', '.').replace('\\', '.')));
         }
         assertEquals(found, new TreeSet<>(listed), "every class in " + PACKAGE + " should be listed exactly once");
         assertEquals(listed.size(), new TreeSet<>(listed).size(), "a mixin is listed twice");

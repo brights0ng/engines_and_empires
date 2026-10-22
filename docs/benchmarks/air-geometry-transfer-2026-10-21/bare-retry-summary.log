@@ -1,0 +1,5 @@
+Calculating task graph as configuration cache cannot be reused because the set of Gradle properties has changed: 'meteodyne.airScene' was removed.
+[12:20:29] [Server thread/INFO] [minecraft/GameTestServer]: ========= 95 GAME TESTS COMPLETE IN 11.93 s ======================
+[12:20:29] [Server thread/INFO] [minecraft/GameTestServer]: All 95 required tests passed :)
+BUILD SUCCESSFUL in 29s
+Configuration cache entry stored.

@@ -1,3 +1,4 @@
+// Updated by ChatGPT: tracked independent snapshot/source revisions and material dirtiness.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.List;
@@ -97,6 +98,46 @@ public final class HeatRegion {
     boolean naturalOnly;
     /** Whether the blocks inside changed since the geometry was last taken. */
     boolean geometryDirty = true;
+    boolean materialDirty = true;
+    long geometryRevision = 1, materialRevision = 1, sourceRevision;
+    long preparedGeometryRevision, preparedMaterialRevision;
+    /** Main-thread private work; workers only receive a completed immutable Geometry. */
+    HeatGeometryUpdate geometryUpdate;
+    boolean fullGeometryDirty = true;
+
+    void invalidate(boolean physical, boolean material) {
+        geometryUpdate = null;
+        fullGeometryDirty = true;
+        if (physical) {
+            geometryDirty = true;
+            geometryRevision++;
+        }
+        if (material) {
+            materialDirty = true;
+            materialRevision++;
+        }
+    }
+
+    void invalidateAt(int x, int y, int z, boolean physical, boolean material) {
+        if (physical) { geometryDirty = true; geometryRevision++; }
+        if (material) { materialDirty = true; materialRevision++; }
+        if (geometry != null && !fullGeometryDirty) {
+            if (geometryUpdate == null) {
+                geometryUpdate = new HeatGeometryUpdate(this, dev.brights0ng.paradynelib.wind.WindConfig.params(), false);
+            }
+            geometryUpdate.dirty(x, y, z, physical);
+        } else if (geometryUpdate != null) {
+            geometryUpdate.dirty(x, y, z, physical);
+        }
+    }
+
+    /** Includes shelter's sampled margin, shape neighbors and the full heightmap column. */
+    boolean affectedBy(int x, int y, int z, int sideReach, boolean heightmap) {
+        boolean column = x >= box[0] && x <= box[3] && z >= box[2] && z <= box[5];
+        int reach = Math.max(1, sideReach);
+        return (column && heightmap) || (x >= box[0] - reach && x <= box[3] + reach
+                && z >= box[2] - reach && z <= box[5] + reach && y >= box[1] - 1 && y <= box[4] + 1);
+    }
     /** The latest geometry taken (main thread's copy, for placing sources). */
     Geometry geometry;
     /** Geometry not yet handed to a job. */

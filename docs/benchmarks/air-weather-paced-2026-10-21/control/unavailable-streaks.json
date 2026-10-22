@@ -1,0 +1,26 @@
+[
+  {
+    "phase": 0,
+    "longestUnavailableSamples": 283
+  },
+  {
+    "phase": 1,
+    "longestUnavailableSamples": 159
+  },
+  {
+    "phase": 2,
+    "longestUnavailableSamples": 160
+  },
+  {
+    "phase": 3,
+    "longestUnavailableSamples": 335
+  },
+  {
+    "phase": 4,
+    "longestUnavailableSamples": 1
+  },
+  {
+    "phase": 5,
+    "longestUnavailableSamples": 1
+  }
+]

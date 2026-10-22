@@ -95,7 +95,7 @@ Core mod for the Engines and Empires modpack.
     side="BOTH"
 
 # Meteodyne (clouds, weather, temperature; split step 2c: a mod of its own). The core's compat (Cold Sweat, Serene
-# Seasons, MineColonies, the machines' heat) hooks into it, so it loads first.
+# Seasons, the machines' heat) hooks into it, so it loads first.
 [[dependencies.${mod_id}]]
     modId="meteodyne"
     type="required"
@@ -122,7 +122,7 @@ Core mod for the Engines and Empires modpack.
     side="BOTH"
 
 # Frontier (how civilised the land is, spawning and incursions; split step 2d: a mod of its own). The core registers
-# MineColonies' guards and Create's running machines with it and draws its tiers on Seismic Surveyance's maps, so it
+# Create's running machines with it and draws its tiers on Seismic Surveyance's maps, so it
 # loads first.
 [[dependencies.${mod_id}]]
     modId="frontier"
@@ -216,16 +216,6 @@ Core mod for the Engines and Empires modpack.
     modId="cold_sweat"
     type="optional"
     versionRange="[2.4.3,)"
-    ordering="NONE"
-    side="BOTH"
-
-# MineColonies (optional). Its colonists follow the local weather (the compat.minecolonies mixins, applied only when it
-# is installed), and its guards count as Frontier's guards (frontier/guard/compat/MineColoniesGuardSource). Built against
-# 1.1.1397.
-[[dependencies.${mod_id}]]
-    modId="minecolonies"
-    type="optional"
-    versionRange="[1.1,)"
     ordering="NONE"
     side="BOTH"
 

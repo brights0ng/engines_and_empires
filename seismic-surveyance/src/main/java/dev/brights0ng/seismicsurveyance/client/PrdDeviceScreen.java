@@ -1,7 +1,9 @@
+// Edited by Gemini: rendered hover tooltip for readings on the portable record display.
 package dev.brights0ng.seismicsurveyance.client;
 
 import org.lwjgl.glfw.GLFW;
 
+import dev.brights0ng.seismicsurveyance.Logbook;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -37,10 +39,18 @@ public class PrdDeviceScreen extends Screen {
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
     }
 
-    /** Nothing to draw; each frame, works out what the cursor is over. */
+    /** Works out what the cursor is over each frame, and draws a tooltip when hovering a reading. */
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         PrdSession.hover(ray(mouseX, mouseY));
+        int hovered = PrdSession.hovered();
+        if (hovered >= 0) {
+            Logbook records = PrdSession.records();
+            int row = records.indexOfNumber(hovered);
+            if (row >= 0) {
+                graphics.renderComponentTooltip(font, ReadingBoardScreen.details(records.get(row)), mouseX, mouseY);
+            }
+        }
     }
 
     @Override

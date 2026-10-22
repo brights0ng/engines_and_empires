@@ -1,3 +1,4 @@
+// Edited by Gemini: scan and ping CDG oil chunks when brass geophones are listening.
 package dev.brights0ng.seismicsurveyance;
 
 import java.util.ArrayList;
@@ -16,6 +17,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.common.NeoForge;
 
 /**
@@ -128,6 +130,15 @@ public final class SeismicShots {
         if (shot != null) {
             NeoForge.EVENT_BUS.post(new EchoesEvent(level, shot, echoers));
         }
+
+        // Create: Diesel Generators oil deposits can be heard by brass geophones and recorded by Smart Loggers.
+        List<GeophoneRegistry.Entry> brassGeophones = geophones.stream()
+                .filter(g -> g.tier() == GeophoneTier.BRASS).toList();
+        if (!brassGeophones.isEmpty() && ModList.get().isLoaded("createdieselgenerators")) {
+            echoers.addAll(dev.brights0ng.seismicsurveyance.compat.dieselgenerators.DieselGeneratorsCompat.scanOilEchoers(
+                    level, source, range, brassGeophones));
+        }
+
         List<SeismicWave.Receiver> receivers = new ArrayList<>();
         for (GeophoneRegistry.Entry geophone : geophones) {
             Vec3 spike = geophone.position();
@@ -144,16 +155,18 @@ public final class SeismicShots {
             }
         }
 
-        // Wind-up readers listen through the geophones around them, and record where the nearest deposit they heard is. A
-        // reader hears through geophones up to LISTEN_RADIUS from it, which are themselves at most twice the range from the
-        // source, so that bounds which readers can matter.
+        // Wind-up readers listen through the geophones around them, and record where the nearest deposit they heard is.
+        // Wind-up readers only record ores, not oil.
+        List<SeismicWave.Echoer> oreEchoers = echoers.stream().filter(e -> !OilTiers.isOil(e.oreId())).toList();
+        List<SeismicWave.Pulse> orePulses = pulses.stream().filter(p -> !OilTiers.isOil(p.oreId())).toList();
+
         String dimension = level.dimension().location().toString();
         // How far off any reading from this vibration may be: set by what made it (see ReaderAccuracy).
         double maxError = ReaderAccuracy.maxErrorFor(range);
         for (ReaderRegistry.Entry reader : ReaderRegistry.within(level, source, 2.0 * range + ReaderRecorder.LISTEN_RADIUS)) {
             Vec3 standing = reader.position();
             ReaderRecorder.Recording recording = ReaderRecorder.choose(
-                    new ReaderRecorder.Reader(reader.entityId(), standing.x, standing.y, standing.z), echoers, receivers, pulses,
+                    new ReaderRecorder.Reader(reader.entityId(), standing.x, standing.y, standing.z), oreEchoers, receivers, orePulses,
                     maxError);
             if (recording != null && level.getEntity(reader.entityId()) instanceof WindupReaderEntity entity) {
                 entity.receive(start + recording.readyTicks(), reading(dimension, start, recording));

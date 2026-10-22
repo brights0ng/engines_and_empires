@@ -1,0 +1,1201 @@
+{
+  "writtenBy": "ChatGPT",
+  "schema": "thermal-baseline-v2",
+  "fork": 1,
+  "timeUtc": "2026-10-19T18:06:49.135940100Z",
+  "java": "21.0.12.1+1-LTS",
+  "vm": "OpenJDK 64-Bit Server VM",
+  "os": "Windows 11 amd64",
+  "processors": 6,
+  "cpu": "AMD64 Family 25 Model 97 Stepping 2, AuthenticAMD",
+  "heapBytes": 536870912,
+  "vmArguments": [
+    "-Xms512m",
+    "-Xmx512m",
+    "-XX:+UseG1GC"
+  ],
+  "revision": "3c02556efbf48aa4340c17e36bc51935419a764b",
+  "dirty": true,
+  "minimumWarmupOperations": 30,
+  "minimumWarmupWallMs": 300,
+  "samplesPerPhase": 100,
+  "operationsPerSample": 10,
+  "sampleUnit": "Per-operation averages of ten-operation batches; CPU timer resolution is coarse on some Windows JVMs. Percentiles describe batch averages, not individual operation latency.",
+  "ambientWindMps": [
+    6,
+    2
+  ],
+  "airParameters": "AirParams[airMix\u003d1.0, openingMix\u003d4.0, film\u003d0.15, wallK\u003d0.035, solidCap\u003d3.5, exposedLoss\u003d0.8, exposedWind\u003d0.1, convect\u003d0.15, convectMax\u003d4.0, stable\u003d0.5, rise\u003d0.01, riseMax\u003d0.5, maxStep\u003d10.0, sweeps\u003d4, powerUnit\u003d150.0, radiantK\u003d12.0, radiantMin\u003d1.0, radiantFloor\u003d0.25]",
+  "results": [
+    {
+      "scene": "open16",
+      "dimensions": [
+        16,
+        16,
+        16
+      ],
+      "cells": 4096,
+      "geometryFingerprint": 1336720640,
+      "phase": "grid-create",
+      "simulatedSeconds": 0,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.022060100000000006,
+        "p50": 0.02088,
+        "p95": 0.02271,
+        "p99": 0.02572,
+        "max": 0.1292,
+        "total": 2.2060100000000005
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.03125,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 3.125
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 254355.72,
+        "p50": 254354.0,
+        "p95": 254364.0,
+        "p99": 254394.0,
+        "max": 254400.0,
+        "total": 2.5435572E7
+      }
+    },
+    {
+      "scene": "open16",
+      "dimensions": [
+        16,
+        16,
+        16
+      ],
+      "cells": 4096,
+      "geometryFingerprint": 1336720640,
+      "phase": "step-1s",
+      "simulatedSeconds": 1,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.08441180000000002,
+        "p50": 0.08158,
+        "p95": 0.10147,
+        "p99": 0.10356,
+        "max": 0.11228,
+        "total": 8.441180000000003
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.09375,
+        "p50": 0.0,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 9.375
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 67.45,
+        "p50": 66.0,
+        "p95": 74.0,
+        "p99": 97.0,
+        "max": 112.0,
+        "total": 6745.0
+      }
+    },
+    {
+      "scene": "open16",
+      "dimensions": [
+        16,
+        16,
+        16
+      ],
+      "cells": 4096,
+      "geometryFingerprint": 1336720640,
+      "phase": "step-10s",
+      "simulatedSeconds": 10,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.2475588000000001,
+        "p50": 0.2398,
+        "p95": 0.28302,
+        "p99": 0.30502,
+        "max": 0.31283,
+        "total": 24.755880000000012
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.25,
+        "p50": 0.0,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 25.0
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 67.38,
+        "p50": 66.0,
+        "p95": 74.0,
+        "p99": 97.0,
+        "max": 112.0,
+        "total": 6738.0
+      }
+    },
+    {
+      "scene": "open16",
+      "dimensions": [
+        16,
+        16,
+        16
+      ],
+      "cells": 4096,
+      "geometryFingerprint": 1336720640,
+      "phase": "geometry-apply-and-step-1s",
+      "simulatedSeconds": 1,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.1272767,
+        "p50": 0.11925,
+        "p95": 0.15453,
+        "p99": 0.19743,
+        "max": 0.31223,
+        "total": 12.727669999999998
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.125,
+        "p50": 0.0,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 12.5
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 98419.38,
+        "p50": 98418.0,
+        "p95": 98426.0,
+        "p99": 98449.0,
+        "max": 98464.0,
+        "total": 9841938.0
+      }
+    },
+    {
+      "scene": "open16",
+      "dimensions": [
+        16,
+        16,
+        16
+      ],
+      "cells": 4096,
+      "geometryFingerprint": 1336720640,
+      "phase": "publication",
+      "simulatedSeconds": 0,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.0024995,
+        "p50": 0.00243,
+        "p95": 0.00266,
+        "p99": 0.00419,
+        "max": 0.00425,
+        "total": 0.24995
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.0,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0,
+        "total": 0.0
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 36947.38,
+        "p50": 36946.0,
+        "p95": 36954.0,
+        "p99": 36977.0,
+        "max": 36992.0,
+        "total": 3694738.0
+      }
+    },
+    {
+      "scene": "sealed-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": 973433728,
+      "phase": "grid-create",
+      "simulatedSeconds": 0,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.050366399999999985,
+        "p50": 0.04864,
+        "p95": 0.05806,
+        "p99": 0.09118,
+        "max": 0.09897,
+        "total": 5.0366399999999985
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.046875,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 4.6875
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 571795.38,
+        "p50": 571794.0,
+        "p95": 571802.0,
+        "p99": 571825.0,
+        "max": 571840.0,
+        "total": 5.7179538E7
+      }
+    },
+    {
+      "scene": "sealed-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": 973433728,
+      "phase": "step-1s",
+      "simulatedSeconds": 1,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.19261550000000008,
+        "p50": 0.18891,
+        "p95": 0.21705,
+        "p99": 0.23706,
+        "max": 0.24883,
+        "total": 19.261550000000007
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.1875,
+        "p50": 0.0,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 18.75
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 67.38,
+        "p50": 66.0,
+        "p95": 74.0,
+        "p99": 97.0,
+        "max": 112.0,
+        "total": 6738.0
+      }
+    },
+    {
+      "scene": "sealed-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": 973433728,
+      "phase": "step-10s",
+      "simulatedSeconds": 10,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.6045740000000002,
+        "p50": 0.58692,
+        "p95": 0.66448,
+        "p99": 0.67903,
+        "max": 0.70249,
+        "total": 60.45740000000002
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.609375,
+        "p50": 0.0,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 60.9375
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 67.38,
+        "p50": 66.0,
+        "p95": 74.0,
+        "p99": 97.0,
+        "max": 112.0,
+        "total": 6738.0
+      }
+    },
+    {
+      "scene": "sealed-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": 973433728,
+      "phase": "geometry-apply-and-step-1s",
+      "simulatedSeconds": 1,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.2854302,
+        "p50": 0.27395,
+        "p95": 0.3303,
+        "p99": 0.34804,
+        "max": 0.34873,
+        "total": 28.543020000000002
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.296875,
+        "p50": 0.0,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 29.6875
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 221299.38,
+        "p50": 221298.0,
+        "p95": 221306.0,
+        "p99": 221329.0,
+        "max": 221344.0,
+        "total": 2.2129938E7
+      }
+    },
+    {
+      "scene": "sealed-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": 973433728,
+      "phase": "publication",
+      "simulatedSeconds": 0,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.005608600000000002,
+        "p50": 0.00551,
+        "p95": 0.00617,
+        "p99": 0.00729,
+        "max": 0.00731,
+        "total": 0.5608600000000001
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.0,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0,
+        "total": 0.0
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 83027.38,
+        "p50": 83026.0,
+        "p95": 83034.0,
+        "p99": 83057.0,
+        "max": 83072.0,
+        "total": 8302738.0
+      }
+    },
+    {
+      "scene": "doorway-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": -750426108,
+      "phase": "grid-create",
+      "simulatedSeconds": 0,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.05012680000000001,
+        "p50": 0.04852,
+        "p95": 0.05726,
+        "p99": 0.08937,
+        "max": 0.09646,
+        "total": 5.012680000000001
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.046875,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 4.6875
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 571795.38,
+        "p50": 571794.0,
+        "p95": 571802.0,
+        "p99": 571825.0,
+        "max": 571840.0,
+        "total": 5.7179538E7
+      }
+    },
+    {
+      "scene": "doorway-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": -750426108,
+      "phase": "step-1s",
+      "simulatedSeconds": 1,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.19862269999999999,
+        "p50": 0.1898,
+        "p95": 0.2288,
+        "p99": 0.23843,
+        "max": 0.23929,
+        "total": 19.86227
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.203125,
+        "p50": 0.0,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 20.3125
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 67.38,
+        "p50": 66.0,
+        "p95": 74.0,
+        "p99": 97.0,
+        "max": 112.0,
+        "total": 6738.0
+      }
+    },
+    {
+      "scene": "doorway-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": -750426108,
+      "phase": "step-10s",
+      "simulatedSeconds": 10,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.5941860999999998,
+        "p50": 0.58418,
+        "p95": 0.65707,
+        "p99": 0.70523,
+        "max": 0.71168,
+        "total": 59.41860999999998
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.59375,
+        "p50": 0.0,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 59.375
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 67.38,
+        "p50": 66.0,
+        "p95": 74.0,
+        "p99": 97.0,
+        "max": 112.0,
+        "total": 6738.0
+      }
+    },
+    {
+      "scene": "doorway-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": -750426108,
+      "phase": "geometry-apply-and-step-1s",
+      "simulatedSeconds": 1,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.28639749999999986,
+        "p50": 0.2761,
+        "p95": 0.33201,
+        "p99": 0.35167,
+        "max": 0.38395,
+        "total": 28.639749999999985
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.28125,
+        "p50": 0.0,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 28.125
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 221299.38,
+        "p50": 221298.0,
+        "p95": 221306.0,
+        "p99": 221329.0,
+        "max": 221344.0,
+        "total": 2.2129938E7
+      }
+    },
+    {
+      "scene": "doorway-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": -750426108,
+      "phase": "publication",
+      "simulatedSeconds": 0,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.004907099999999999,
+        "p50": 0.0045,
+        "p95": 0.00512,
+        "p99": 0.00572,
+        "max": 0.04326,
+        "total": 0.4907099999999999
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.0,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0,
+        "total": 0.0
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 83027.38,
+        "p50": 83026.0,
+        "p95": 83034.0,
+        "p99": 83057.0,
+        "max": 83072.0,
+        "total": 8302738.0
+      }
+    },
+    {
+      "scene": "partial-block-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": -1852647674,
+      "phase": "grid-create",
+      "simulatedSeconds": 0,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.05026000000000003,
+        "p50": 0.04795,
+        "p95": 0.05622,
+        "p99": 0.10017,
+        "max": 0.10535,
+        "total": 5.0260000000000025
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.0625,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 6.25
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 571795.38,
+        "p50": 571794.0,
+        "p95": 571802.0,
+        "p99": 571825.0,
+        "max": 571840.0,
+        "total": 5.7179538E7
+      }
+    },
+    {
+      "scene": "partial-block-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": -1852647674,
+      "phase": "step-1s",
+      "simulatedSeconds": 1,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.1960138,
+        "p50": 0.18875,
+        "p95": 0.23004,
+        "p99": 0.24674,
+        "max": 0.25223,
+        "total": 19.60138
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.1875,
+        "p50": 0.0,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 18.75
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 67.38,
+        "p50": 66.0,
+        "p95": 74.0,
+        "p99": 97.0,
+        "max": 112.0,
+        "total": 6738.0
+      }
+    },
+    {
+      "scene": "partial-block-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": -1852647674,
+      "phase": "step-10s",
+      "simulatedSeconds": 10,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.5912851000000005,
+        "p50": 0.5838,
+        "p95": 0.65986,
+        "p99": 0.69312,
+        "max": 0.77278,
+        "total": 59.12851000000005
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.578125,
+        "p50": 0.0,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 57.8125
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 67.38,
+        "p50": 66.0,
+        "p95": 74.0,
+        "p99": 97.0,
+        "max": 112.0,
+        "total": 6738.0
+      }
+    },
+    {
+      "scene": "partial-block-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": -1852647674,
+      "phase": "geometry-apply-and-step-1s",
+      "simulatedSeconds": 1,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.28937070000000004,
+        "p50": 0.27816,
+        "p95": 0.33647,
+        "p99": 0.3559,
+        "max": 0.35743,
+        "total": 28.937070000000002
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.28125,
+        "p50": 0.0,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 28.125
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 221299.38,
+        "p50": 221298.0,
+        "p95": 221306.0,
+        "p99": 221329.0,
+        "max": 221344.0,
+        "total": 2.2129938E7
+      }
+    },
+    {
+      "scene": "partial-block-house",
+      "dimensions": [
+        24,
+        16,
+        24
+      ],
+      "cells": 9216,
+      "geometryFingerprint": -1852647674,
+      "phase": "publication",
+      "simulatedSeconds": 0,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.0055125999999999994,
+        "p50": 0.00552,
+        "p95": 0.00644,
+        "p99": 0.00703,
+        "max": 0.00727,
+        "total": 0.55126
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.015625,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 1.5625,
+        "total": 1.5625
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 83027.38,
+        "p50": 83026.0,
+        "p95": 83034.0,
+        "p99": 83057.0,
+        "max": 83072.0,
+        "total": 8302738.0
+      }
+    },
+    {
+      "scene": "multiroom32",
+      "dimensions": [
+        32,
+        32,
+        32
+      ],
+      "cells": 32768,
+      "geometryFingerprint": -105113074,
+      "phase": "grid-create",
+      "simulatedSeconds": 0,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.17640759999999994,
+        "p50": 0.16738,
+        "p95": 0.22829,
+        "p99": 0.25974,
+        "max": 0.26285,
+        "total": 17.640759999999993
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.140625,
+        "p50": 0.0,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 14.0625
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 2032019.38,
+        "p50": 2032018.0,
+        "p95": 2032026.0,
+        "p99": 2032049.0,
+        "max": 2032064.0,
+        "total": 2.03201938E8
+      }
+    },
+    {
+      "scene": "multiroom32",
+      "dimensions": [
+        32,
+        32,
+        32
+      ],
+      "cells": 32768,
+      "geometryFingerprint": -105113074,
+      "phase": "step-1s",
+      "simulatedSeconds": 1,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.8415564999999999,
+        "p50": 0.83124,
+        "p95": 0.9151,
+        "p99": 0.92775,
+        "max": 0.93325,
+        "total": 84.15565
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.84375,
+        "p50": 1.5625,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 84.375
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 67.38,
+        "p50": 66.0,
+        "p95": 74.0,
+        "p99": 97.0,
+        "max": 112.0,
+        "total": 6738.0
+      }
+    },
+    {
+      "scene": "multiroom32",
+      "dimensions": [
+        32,
+        32,
+        32
+      ],
+      "cells": 32768,
+      "geometryFingerprint": -105113074,
+      "phase": "step-10s",
+      "simulatedSeconds": 10,
+      "wallMs": {
+        "count": 100,
+        "mean": 2.548689800000002,
+        "p50": 2.54466,
+        "p95": 2.63748,
+        "p99": 2.65101,
+        "max": 2.68015,
+        "total": 254.86898000000016
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 2.546875,
+        "p50": 3.125,
+        "p95": 3.125,
+        "p99": 3.125,
+        "max": 3.125,
+        "total": 254.6875
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 67.38,
+        "p50": 66.0,
+        "p95": 74.0,
+        "p99": 97.0,
+        "max": 112.0,
+        "total": 6738.0
+      }
+    },
+    {
+      "scene": "multiroom32",
+      "dimensions": [
+        32,
+        32,
+        32
+      ],
+      "cells": 32768,
+      "geometryFingerprint": -105113074,
+      "phase": "geometry-apply-and-step-1s",
+      "simulatedSeconds": 1,
+      "wallMs": {
+        "count": 100,
+        "mean": 1.1941469999999998,
+        "p50": 1.19437,
+        "p95": 1.29147,
+        "p99": 1.30689,
+        "max": 1.31379,
+        "total": 119.41469999999998
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 1.1875,
+        "p50": 1.5625,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 118.75
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 786547.38,
+        "p50": 786546.0,
+        "p95": 786554.0,
+        "p99": 786577.0,
+        "max": 786592.0,
+        "total": 7.8654738E7
+      }
+    },
+    {
+      "scene": "multiroom32",
+      "dimensions": [
+        32,
+        32,
+        32
+      ],
+      "cells": 32768,
+      "geometryFingerprint": -105113074,
+      "phase": "publication",
+      "simulatedSeconds": 0,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.01923409999999999,
+        "p50": 0.0191,
+        "p95": 0.02222,
+        "p99": 0.02368,
+        "max": 0.02477,
+        "total": 1.9234099999999992
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.015625,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 1.5625,
+        "total": 1.5625
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 294995.38,
+        "p50": 294994.0,
+        "p95": 295002.0,
+        "p99": 295025.0,
+        "max": 295040.0,
+        "total": 2.9499538E7
+      }
+    },
+    {
+      "scene": "stress48",
+      "dimensions": [
+        48,
+        48,
+        48
+      ],
+      "cells": 110592,
+      "geometryFingerprint": -393673826,
+      "phase": "grid-create",
+      "simulatedSeconds": 0,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.6078349,
+        "p50": 0.60269,
+        "p95": 0.67047,
+        "p99": 0.68552,
+        "max": 0.69094,
+        "total": 60.78349
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.578125,
+        "p50": 0.0,
+        "p95": 1.5625,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 57.8125
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 6857107.38,
+        "p50": 6857106.0,
+        "p95": 6857114.0,
+        "p99": 6857137.0,
+        "max": 6857152.0,
+        "total": 6.85710738E8
+      }
+    },
+    {
+      "scene": "stress48",
+      "dimensions": [
+        48,
+        48,
+        48
+      ],
+      "cells": 110592,
+      "geometryFingerprint": -393673826,
+      "phase": "step-1s",
+      "simulatedSeconds": 1,
+      "wallMs": {
+        "count": 100,
+        "mean": 2.6690457999999997,
+        "p50": 2.66316,
+        "p95": 2.76189,
+        "p99": 2.78077,
+        "max": 2.80883,
+        "total": 266.90457999999995
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 2.65625,
+        "p50": 3.125,
+        "p95": 3.125,
+        "p99": 3.125,
+        "max": 3.125,
+        "total": 265.625
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 67.38,
+        "p50": 66.0,
+        "p95": 74.0,
+        "p99": 97.0,
+        "max": 112.0,
+        "total": 6738.0
+      }
+    },
+    {
+      "scene": "stress48",
+      "dimensions": [
+        48,
+        48,
+        48
+      ],
+      "cells": 110592,
+      "geometryFingerprint": -393673826,
+      "phase": "step-10s",
+      "simulatedSeconds": 10,
+      "wallMs": {
+        "count": 100,
+        "mean": 8.050401799999998,
+        "p50": 8.0345,
+        "p95": 8.30554,
+        "p99": 8.38728,
+        "max": 8.87466,
+        "total": 805.0401799999999
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 7.9375,
+        "p50": 7.8125,
+        "p95": 9.375,
+        "p99": 9.375,
+        "max": 9.375,
+        "total": 793.75
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 67.38,
+        "p50": 66.0,
+        "p95": 74.0,
+        "p99": 97.0,
+        "max": 112.0,
+        "total": 6738.0
+      }
+    },
+    {
+      "scene": "stress48",
+      "dimensions": [
+        48,
+        48,
+        48
+      ],
+      "cells": 110592,
+      "geometryFingerprint": -393673826,
+      "phase": "geometry-apply-and-step-1s",
+      "simulatedSeconds": 1,
+      "wallMs": {
+        "count": 100,
+        "mean": 3.8598296999999993,
+        "p50": 3.84768,
+        "p95": 4.05132,
+        "p99": 4.07229,
+        "max": 4.09319,
+        "total": 385.9829699999999
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 3.8125,
+        "p50": 3.125,
+        "p95": 4.6875,
+        "p99": 4.6875,
+        "max": 4.6875,
+        "total": 381.25
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 2654323.38,
+        "p50": 2654322.0,
+        "p95": 2654330.0,
+        "p99": 2654353.0,
+        "max": 2654368.0,
+        "total": 2.65432338E8
+      }
+    },
+    {
+      "scene": "stress48",
+      "dimensions": [
+        48,
+        48,
+        48
+      ],
+      "cells": 110592,
+      "geometryFingerprint": -393673826,
+      "phase": "publication",
+      "simulatedSeconds": 0,
+      "wallMs": {
+        "count": 100,
+        "mean": 0.0636543,
+        "p50": 0.06013,
+        "p95": 0.07756,
+        "p99": 0.11609,
+        "max": 0.11858,
+        "total": 6.36543
+      },
+      "cpuMs": {
+        "count": 100,
+        "mean": 0.0625,
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 1.5625,
+        "max": 1.5625,
+        "total": 6.25
+      },
+      "allocatedBytes": {
+        "count": 100,
+        "mean": 995411.38,
+        "p50": 995410.0,
+        "p95": 995418.0,
+        "p99": 995441.0,
+        "max": 995456.0,
+        "total": 9.9541138E7
+      }
+    }
+  ]
+}

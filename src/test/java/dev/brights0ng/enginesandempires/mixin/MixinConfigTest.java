@@ -1,3 +1,4 @@
+// Updated by ChatGPT: normalized Windows class-file paths without changing mixin coverage assertions; updated by Gemini: removed MineColonies mixins.
 package dev.brights0ng.enginesandempires.mixin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,13 +34,6 @@ class MixinConfigTest {
     private static final String PLUGIN = "dev.brights0ng.enginesandempires.EnginesAndEmpiresMixinPlugin";
     /** The mixins that need another mod loaded, and that mod's id; every other mixin always applies. */
     private static final Map<String, String> GATED = Map.ofEntries(
-            Map.entry("compat.minecolonies.AISkeletonAccessor", "minecolonies"),
-            Map.entry("compat.minecolonies.CitizenAIWeatherMixin", "minecolonies"),
-            Map.entry("compat.minecolonies.CitizenWanderWeatherMixin", "minecolonies"),
-            Map.entry("compat.minecolonies.ColonySoundWeatherMixin", "minecolonies"),
-            Map.entry("compat.minecolonies.CookSeatingWeatherMixin", "minecolonies"),
-            Map.entry("compat.minecolonies.CraftingIdleWeatherMixin", "minecolonies"),
-            Map.entry("compat.minecolonies.LeisureSiteWeatherMixin", "minecolonies"),
             Map.entry("compat.coldsweat.HearthFuelAccessor", "cold_sweat"),
             Map.entry("compat.coldsweat.HearthKinSmartMixin", "cold_sweat"),
             Map.entry("compat.coldsweat.HearthReplacedMixin", "cold_sweat"),
@@ -72,7 +66,7 @@ class MixinConfigTest {
         try (Stream<Path> files = Files.walk(root)) {
             files.map(p -> root.relativize(p).toString())
                     .filter(p -> p.endsWith(".class") && !p.contains("$"))
-                    .forEach(p -> found.add(p.substring(0, p.length() - ".class".length()).replace('/', '.')));
+                    .forEach(p -> found.add(p.substring(0, p.length() - ".class".length()).replace('/', '.').replace('\\', '.')));
         }
         assertEquals(found, new TreeSet<>(listed), "every class in " + PACKAGE + " should be listed exactly once");
         assertEquals(listed.size(), new TreeSet<>(listed).size(), "a mixin is listed twice");
@@ -125,7 +119,7 @@ class MixinConfigTest {
     /**
      * "required" makes any mixin failure fatal. The plugin skips a mixin whose mod is absent before Mixin tries it, and the
      * CloudWorks mixin is {@code @Pseudo}, so a skipped mixin is not a failure, but a broken injection is (split step 2f:
-     * an aggregate game test run without MineColonies, Cold Sweat and Diet proved the gate, as the library's and Sable
+     * an aggregate game test run without Cold Sweat and Diet proved the gate, as the library's and Sable
      * Fixes' bare runs did theirs in 2b).
      */
     @Test

@@ -1,0 +1,13 @@
+> Task :paradyne-lib:testClasses UP-TO-DATE
+> Task :paradyne-lib:test FROM-CACHE
+> Task :meteodyne:testClasses UP-TO-DATE
+> Task :meteodyne:runGameTestServer
+> Task :meteodyne:test
+> Task :meteodyne:runGameTestServer
+[13:29:27] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_history:0' (1 tests)...
+[13:29:34] [Server thread/INFO] [minecraft/GameTestServer]: All 96 required tests passed :)
+> Task :coreless:runGameTestServer
+[13:29:55] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_history:0' (1 tests)...
+[13:30:00] [Server thread/INFO] [minecraft/GameTestServer]: All 212 required tests passed :)
+BUILD SUCCESSFUL in 49s
+54 actionable tasks: 7 executed, 4 from cache, 43 up-to-date

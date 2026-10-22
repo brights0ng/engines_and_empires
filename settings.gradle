@@ -1,4 +1,5 @@
-// One multi-project build, one Gradle project per mod of the family (split step 2b, docs/build-layout.md).
+// Written by Claude; updated by Gemini.
+// One multi-project build, one Gradle project per mod of the family (split step 2b, docs/history/build-layout.md).
 // The root project is the core mod and the dev aggregator at the same time.
 pluginManagement {
     // The shared settings live in a convention plugin built from build-logic/ (an included build).
@@ -21,5 +22,6 @@ include 'sparse-ores'
 include 'seismic-surveyance'
 include 'simple-spoilage'
 include 'frontier'
+include 'empire'
 // Not a mod: the seven feature mods' combined game test run, without the core (split step 4b).
 include 'coreless'

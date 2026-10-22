@@ -1,3 +1,4 @@
+// Edited by Gemini: registered SetTab payload for smart logger.
 package dev.brights0ng.seismicsurveyance;
 
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
@@ -18,7 +19,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 public final class SeismicNetwork {
 
     /** Bumped if a message's format ever changes, so old and new clients are told apart. */
-    private static final String VERSION = "4";
+    private static final String VERSION = "5";
 
     @SubscribeEvent
     static void onRegisterPayloads(RegisterPayloadHandlersEvent event) {
@@ -29,6 +30,7 @@ public final class SeismicNetwork {
                 (payload, context) -> PrdItem.act(context.player(), payload.slot(), payload.action(), payload.number(), payload.name()));
         registrar.playToServer(LoggerMapPayloads.View.TYPE, LoggerMapPayloads.View.STREAM_CODEC, SeismicNetwork::onLoggerView);
         registrar.playToServer(LoggerMapPayloads.Send.TYPE, LoggerMapPayloads.Send.STREAM_CODEC, SeismicNetwork::onLoggerSend);
+        registrar.playToServer(LoggerMapPayloads.SetTab.TYPE, LoggerMapPayloads.SetTab.STREAM_CODEC, SeismicNetwork::onLoggerTab);
     }
 
     /** The logger at {@code pos}, if it is loaded and the player is near enough to work it. */
@@ -51,6 +53,13 @@ public final class SeismicNetwork {
         SmartLoggerBlockEntity logger = logger(context.player(), payload.pos());
         if (logger != null) {
             logger.sendToDisplay(context.player(), payload.number());
+        }
+    }
+
+    private static void onLoggerTab(LoggerMapPayloads.SetTab payload, IPayloadContext context) {
+        SmartLoggerBlockEntity logger = logger(context.player(), payload.pos());
+        if (logger != null) {
+            logger.setActiveTab(payload.tabEnum());
         }
     }
 

@@ -1,0 +1,5 @@
+Reusing configuration cache.
+> Task :prepareGameTestMods
+> Task :verifyGameTestMods
+BUILD SUCCESSFUL in 714ms
+Configuration cache entry reused.

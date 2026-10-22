@@ -1,0 +1,132 @@
+{
+  "writtenBy": "ChatGPT",
+  "description": "JFR execution samples on main thread inside CoupledAirGrid.step; includes warmup, all scenes and settings; excludes setup",
+  "sampleCount": 1525,
+  "methods": [
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/ThermalTransport.advance",
+      "samples": 542,
+      "percent": 35.540983606557376
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/PressureStencil.precondition",
+      "samples": 330,
+      "percent": 21.639344262295083
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/FlowGeometry.trace",
+      "samples": 267,
+      "percent": 17.508196721311474
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/PressureStencil.applyAndDot",
+      "samples": 221,
+      "percent": 14.491803278688524
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/PressureProjector.projectCandidate",
+      "samples": 51,
+      "percent": 3.3442622950819674
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/FlowGrid.prepareStep",
+      "samples": 43,
+      "percent": 2.819672131147541
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/FlowGrid.reconstruct",
+      "samples": 15,
+      "percent": 0.9836065573770492
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/ThermalStencil.assemble",
+      "samples": 12,
+      "percent": 0.7868852459016393
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/PressureStencil.apply",
+      "samples": 10,
+      "percent": 0.6557377049180327
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/ThermalTransport.energy",
+      "samples": 6,
+      "percent": 0.39344262295081966
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/PressureProjector.divergence",
+      "samples": 5,
+      "percent": 0.32786885245901637
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/PressureProjector.quality",
+      "samples": 3,
+      "percent": 0.19672131147540983
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/ThermalTransport.prepareDirectedOrder",
+      "samples": 3,
+      "percent": 0.19672131147540983
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/ThermalTransport.deliveredPower",
+      "samples": 2,
+      "percent": 0.13114754098360656
+    },
+    {
+      "method": "java/util/Arrays.fill",
+      "samples": 2,
+      "percent": 0.13114754098360656
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/PressureProjector.correct",
+      "samples": 2,
+      "percent": 0.13114754098360656
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/FlowGeometry.nodeAt",
+      "samples": 2,
+      "percent": 0.13114754098360656
+    },
+    {
+      "method": "java/lang/Double.isFinite",
+      "samples": 2,
+      "percent": 0.13114754098360656
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/PressureProjector.dot",
+      "samples": 1,
+      "percent": 0.06557377049180328
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/ThermalStencil.reference",
+      "samples": 1,
+      "percent": 0.06557377049180328
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/PressureProjector.apply",
+      "samples": 1,
+      "percent": 0.06557377049180328
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/FlowGrid.projectCandidate",
+      "samples": 1,
+      "percent": 0.06557377049180328
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/FlowGrid.copyPreparedFlux",
+      "samples": 1,
+      "percent": 0.06557377049180328
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/ThermalTransport.setMixingReference",
+      "samples": 1,
+      "percent": 0.06557377049180328
+    },
+    {
+      "method": "dev/brights0ng/paradynelib/heat/air/CoupledAirGrid.step",
+      "samples": 1,
+      "percent": 0.06557377049180328
+    }
+  ]
+}

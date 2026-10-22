@@ -1,0 +1,316 @@
+{
+  "writtenBy": "ChatGPT",
+  "schema": "coupled-air-v2",
+  "mode": "calibration",
+  "thermalTraversal": "COMPACT_CACHED",
+  "cachedSamplingOrigins": true,
+  "timeUtc": "2026-10-20T15:55:19.426083600Z",
+  "java": "21.0.12.1+1-LTS",
+  "cpu": "AMD64 Family 25 Model 97 Stepping 2, AuthenticAMD",
+  "processors": 6,
+  "heapBytes": 1073741824,
+  "vmArguments": [
+    "-Xms512m",
+    "-Xmx1g",
+    "-XX:+UseG1GC"
+  ],
+  "flowSettings": "FlowSettings[pressureIterations\u003d512, relativeResidual\u003d1.0E-8, absoluteResidual\u003d1.0E-10, divergenceTolerance\u003d1.0E-7, maxStep\u003d1.0, damping\u003d0.05, buoyancyScale\u003d1.0, maxSpeed\u003d100.0, maxTemperatureC\u003d3000.0]",
+  "thermalSettings": "Settings[maxSweeps\u003d512, temperatureTolerance\u003d1.0E-9, energyTolerance\u003d1.0E-8, maxDivergence\u003d1.0E-7]",
+  "sequence": "half thermal -\u003e velocity transport/buoyancy/pressure -\u003e half thermal; atomic commit",
+  "results": [
+    {
+      "opening": "sealed",
+      "sourcePower": 75,
+      "sourceLimit": "unlimited, matching AirGridTest calibration fixture",
+      "physicalStep": 1,
+      "responseScale": 1,
+      "completedPhysicalSeconds": 680,
+      "firstFailure": "",
+      "legacyEquilibriumOffsetC": 11.471301526457417,
+      "legacySecondsTo95Percent": 296,
+      "coupledSecondsTo95PercentOfLegacyEquilibrium": 197,
+      "coupledEquilibriumQualified": false,
+      "samples": [
+        {
+          "physicalSecond": 15,
+          "legacyMeanOffsetC": 3.160740196607755,
+          "coupledMeanOffsetC": 3.788808610692018,
+          "coupledMeanMaterialOffsetC": 0.34340873520137644,
+          "legacyNearSourceOffsetC": 7.948543111171671,
+          "coupledNearSourceOffsetC": 8.746839154893905
+        },
+        {
+          "physicalSecond": 60,
+          "legacyMeanOffsetC": 6.919104245637908,
+          "coupledMeanOffsetC": 7.386512640868012,
+          "coupledMeanMaterialOffsetC": 2.0757856586573316,
+          "legacyNearSourceOffsetC": 11.546956139406275,
+          "coupledNearSourceOffsetC": 12.48838131805379
+        },
+        {
+          "physicalSecond": 120,
+          "legacyMeanOffsetC": 9.005624397099256,
+          "coupledMeanOffsetC": 9.501164935669697,
+          "coupledMeanMaterialOffsetC": 3.603723695404697,
+          "legacyNearSourceOffsetC": 13.348787269746277,
+          "coupledNearSourceOffsetC": 14.703678930592751
+        },
+        {
+          "physicalSecond": 240,
+          "legacyMeanOffsetC": 10.601196615198333,
+          "coupledMeanOffsetC": 11.363411707083488,
+          "coupledMeanMaterialOffsetC": 5.003715881773169,
+          "legacyNearSourceOffsetC": 14.6474978480282,
+          "coupledNearSourceOffsetC": 16.67562103044648
+        },
+        {
+          "physicalSecond": 300,
+          "legacyMeanOffsetC": 10.9169887295974,
+          "coupledMeanOffsetC": 11.783540630952011,
+          "coupledMeanMaterialOffsetC": 5.324823478380522,
+          "legacyNearSourceOffsetC": 14.897563012506781,
+          "coupledNearSourceOffsetC": 17.130835387466348
+        },
+        {
+          "physicalSecond": 360,
+          "legacyMeanOffsetC": 11.105482016758993,
+          "coupledMeanOffsetC": 12.05413771149599,
+          "coupledMeanMaterialOffsetC": 5.534236909673782,
+          "legacyNearSourceOffsetC": 15.047070589092113,
+          "coupledNearSourceOffsetC": 17.41719617047427
+        },
+        {
+          "physicalSecond": 600,
+          "legacyMeanOffsetC": 11.385880354458138,
+          "coupledMeanOffsetC": 12.520630818921255,
+          "coupledMeanMaterialOffsetC": 5.9030574293918505,
+          "legacyNearSourceOffsetC": 15.271001308683172,
+          "coupledNearSourceOffsetC": 17.92247636243676
+        },
+        {
+          "physicalSecond": 640,
+          "legacyMeanOffsetC": 5.63056886573517,
+          "coupledMeanOffsetC": 6.309482551258399,
+          "coupledMeanMaterialOffsetC": 4.582731305852829,
+          "legacyNearSourceOffsetC": 5.531262024875923,
+          "coupledNearSourceOffsetC": 6.750501202815332
+        },
+        {
+          "physicalSecond": 680,
+          "legacyMeanOffsetC": 3.640920391003434,
+          "coupledMeanOffsetC": 4.3569818337044515,
+          "coupledMeanMaterialOffsetC": 3.3051102652219226,
+          "legacyNearSourceOffsetC": 3.7478625735915245,
+          "coupledNearSourceOffsetC": 4.669962544616158
+        }
+      ],
+      "stepWallMs": {
+        "count": 680,
+        "mean": 12.664752941176475,
+        "p50": 11.8334,
+        "p95": 13.6128,
+        "p99": 21.1902,
+        "max": 170.4901,
+        "total": 8612.032000000003
+      },
+      "maxStepEnergyError": 1.9891913893843594E-8,
+      "totalEnergyBudgetError": -8.152441296260804E-6
+    },
+    {
+      "opening": "window",
+      "sourcePower": 75,
+      "sourceLimit": "unlimited, matching AirGridTest calibration fixture",
+      "physicalStep": 1,
+      "responseScale": 1,
+      "completedPhysicalSeconds": 680,
+      "firstFailure": "",
+      "legacyEquilibriumOffsetC": 10.801665743106257,
+      "legacySecondsTo95Percent": 281,
+      "coupledSecondsTo95PercentOfLegacyEquilibrium": 175,
+      "coupledEquilibriumQualified": false,
+      "samples": [
+        {
+          "physicalSecond": 15,
+          "legacyMeanOffsetC": 3.1360545321714905,
+          "coupledMeanOffsetC": 3.758666881041302,
+          "coupledMeanMaterialOffsetC": 0.3432640596869158,
+          "legacyNearSourceOffsetC": 7.925823601855134,
+          "coupledNearSourceOffsetC": 8.709158556757835
+        },
+        {
+          "physicalSecond": 60,
+          "legacyMeanOffsetC": 6.7324136863916815,
+          "coupledMeanOffsetC": 7.235852230739642,
+          "coupledMeanMaterialOffsetC": 2.051152296932016,
+          "legacyNearSourceOffsetC": 11.377139494047382,
+          "coupledNearSourceOffsetC": 12.298989573892285
+        },
+        {
+          "physicalSecond": 120,
+          "legacyMeanOffsetC": 8.649968923211514,
+          "coupledMeanOffsetC": 9.244273988676015,
+          "coupledMeanMaterialOffsetC": 3.533543427151741,
+          "legacyNearSourceOffsetC": 13.049943104192335,
+          "coupledNearSourceOffsetC": 14.393513316022343
+        },
+        {
+          "physicalSecond": 240,
+          "legacyMeanOffsetC": 10.061424365377686,
+          "coupledMeanOffsetC": 10.971999686341597,
+          "coupledMeanMaterialOffsetC": 4.860396162735988,
+          "legacyNearSourceOffsetC": 14.223546123282489,
+          "coupledNearSourceOffsetC": 16.21213843729496
+        },
+        {
+          "physicalSecond": 300,
+          "legacyMeanOffsetC": 10.332655511739853,
+          "coupledMeanOffsetC": 11.353067867335234,
+          "coupledMeanMaterialOffsetC": 5.158425868089407,
+          "legacyNearSourceOffsetC": 14.443969454180872,
+          "coupledNearSourceOffsetC": 16.617844174966606
+        },
+        {
+          "physicalSecond": 360,
+          "legacyMeanOffsetC": 10.492903401045584,
+          "coupledMeanOffsetC": 11.59643244141948,
+          "coupledMeanMaterialOffsetC": 5.351238702234101,
+          "legacyNearSourceOffsetC": 14.574193529406188,
+          "coupledNearSourceOffsetC": 16.879148083253213
+        },
+        {
+          "physicalSecond": 600,
+          "legacyMeanOffsetC": 10.729709187761932,
+          "coupledMeanOffsetC": 12.012337678034838,
+          "coupledMeanMaterialOffsetC": 5.688064785300874,
+          "legacyNearSourceOffsetC": 14.768326768023208,
+          "coupledNearSourceOffsetC": 17.32766650049325
+        },
+        {
+          "physicalSecond": 640,
+          "legacyMeanOffsetC": 5.082690642037674,
+          "coupledMeanOffsetC": 5.903609158196169,
+          "coupledMeanMaterialOffsetC": 4.3764407398079745,
+          "legacyNearSourceOffsetC": 5.0496072491676705,
+          "coupledNearSourceOffsetC": 6.304395708026686
+        },
+        {
+          "physicalSecond": 680,
+          "legacyMeanOffsetC": 3.2162257557468643,
+          "coupledMeanOffsetC": 4.037267055510644,
+          "coupledMeanMaterialOffsetC": 3.1282865514673386,
+          "legacyNearSourceOffsetC": 3.3434313352070255,
+          "coupledNearSourceOffsetC": 4.320570415003562
+        }
+      ],
+      "stepWallMs": {
+        "count": 680,
+        "mean": 12.085483088235314,
+        "p50": 11.9122,
+        "p95": 13.5504,
+        "p99": 14.2524,
+        "max": 18.3004,
+        "total": 8218.128500000013
+      },
+      "maxStepEnergyError": 1.991710263382629E-8,
+      "totalEnergyBudgetError": -8.089009497780353E-6
+    },
+    {
+      "opening": "missing-wall",
+      "sourcePower": 75,
+      "sourceLimit": "unlimited, matching AirGridTest calibration fixture",
+      "physicalStep": 1,
+      "responseScale": 1,
+      "completedPhysicalSeconds": 680,
+      "firstFailure": "",
+      "legacyEquilibriumOffsetC": 6.857761329453872,
+      "legacySecondsTo95Percent": 188,
+      "coupledSecondsTo95PercentOfLegacyEquilibrium": 96,
+      "coupledEquilibriumQualified": false,
+      "samples": [
+        {
+          "physicalSecond": 15,
+          "legacyMeanOffsetC": 2.891844383315639,
+          "coupledMeanOffsetC": 3.459877440402575,
+          "coupledMeanMaterialOffsetC": 0.33888910516328613,
+          "legacyNearSourceOffsetC": 7.752537167441778,
+          "coupledNearSourceOffsetC": 8.396725283965264
+        },
+        {
+          "physicalSecond": 60,
+          "legacyMeanOffsetC": 5.243698569129899,
+          "coupledMeanOffsetC": 5.801512617485801,
+          "coupledMeanMaterialOffsetC": 1.8034651383872888,
+          "legacyNearSourceOffsetC": 10.128047301264612,
+          "coupledNearSourceOffsetC": 10.486784175322843
+        },
+        {
+          "physicalSecond": 120,
+          "legacyMeanOffsetC": 6.141351965706321,
+          "coupledMeanOffsetC": 6.833329586964065,
+          "coupledMeanMaterialOffsetC": 2.8508047179701705,
+          "legacyNearSourceOffsetC": 10.993098531739108,
+          "coupledNearSourceOffsetC": 11.359917473530544
+        },
+        {
+          "physicalSecond": 240,
+          "legacyMeanOffsetC": 6.644765072567019,
+          "coupledMeanOffsetC": 7.527515267602333,
+          "coupledMeanMaterialOffsetC": 3.572132196348539,
+          "legacyNearSourceOffsetC": 11.478520745066445,
+          "coupledNearSourceOffsetC": 12.10098062718015
+        },
+        {
+          "physicalSecond": 300,
+          "legacyMeanOffsetC": 6.724811325028249,
+          "coupledMeanOffsetC": 7.6481835630601145,
+          "coupledMeanMaterialOffsetC": 3.7046115541566134,
+          "legacyNearSourceOffsetC": 11.557556402725874,
+          "coupledNearSourceOffsetC": 12.211725641970226
+        },
+        {
+          "physicalSecond": 360,
+          "legacyMeanOffsetC": 6.7703536239101405,
+          "coupledMeanOffsetC": 7.720714283854548,
+          "coupledMeanMaterialOffsetC": 3.7848205759428,
+          "legacyNearSourceOffsetC": 11.603096306718117,
+          "coupledNearSourceOffsetC": 12.27794088655508
+        },
+        {
+          "physicalSecond": 600,
+          "legacyMeanOffsetC": 6.837462304360269,
+          "coupledMeanOffsetC": 7.839295890802518,
+          "coupledMeanMaterialOffsetC": 3.919447757401295,
+          "legacyNearSourceOffsetC": 11.67109601320101,
+          "coupledNearSourceOffsetC": 12.391078793891815
+        },
+        {
+          "physicalSecond": 640,
+          "legacyMeanOffsetC": 2.191435265622158,
+          "coupledMeanOffsetC": 2.891424408826776,
+          "coupledMeanMaterialOffsetC": 2.7437413509785955,
+          "legacyNearSourceOffsetC": 2.3968391262391404,
+          "coupledNearSourceOffsetC": 3.0610511695922185
+        },
+        {
+          "physicalSecond": 680,
+          "legacyMeanOffsetC": 1.200952253723788,
+          "coupledMeanOffsetC": 1.8445130069672075,
+          "coupledMeanMaterialOffsetC": 1.8077623586803666,
+          "legacyNearSourceOffsetC": 1.3400296377199499,
+          "coupledNearSourceOffsetC": 1.9772160527932883
+        }
+      ],
+      "stepWallMs": {
+        "count": 680,
+        "mean": 11.852881323529418,
+        "p50": 11.7464,
+        "p95": 13.3786,
+        "p99": 13.9558,
+        "max": 15.8515,
+        "total": 8059.959300000004
+      },
+      "maxStepEnergyError": 1.9850730836878938E-8,
+      "totalEnergyBudgetError": -7.95390224084258E-6
+    }
+  ]
+}

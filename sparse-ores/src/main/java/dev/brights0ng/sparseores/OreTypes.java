@@ -1,10 +1,12 @@
+// Edited by Gemini: added dynamic ore registration support for SparseOresApi.
 package dev.brights0ng.sparseores;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import dev.brights0ng.sparseores.shape.BodyShape;
 import dev.brights0ng.sparseores.shape.DisseminatedShape;
@@ -78,24 +80,47 @@ public final class OreTypes {
     public static final OreType NETHER_QUARTZ = nether("nether_quartz", 128, PocketShape.QUARTZ, size(120, 0.40, 40, 300), DepthProfile.deepThroughout(10, 110), 0.25);
     public static final OreType NETHER_GOLD = nether("nether_gold", 384, VeinShape.GOLD, size(150, 0.40, 40, 300), DepthProfile.deepThroughout(10, 110), 0.30);
 
-    public static final List<OreType> ALL = List.of(
+    public static final List<OreType> BUILTIN = List.of(
             COAL, IRON, COPPER, ZINC, REDSTONE, LAPIS, CRYSTAL, GOLD, EMERALD, DIAMOND,
             NETHER_QUARTZ, NETHER_GOLD);
 
-    private static final Map<String, OreType> BY_ID = new HashMap<>();
+    private static final List<OreType> REGISTERED = new CopyOnWriteArrayList<>(BUILTIN);
+
+    public static final List<OreType> ALL = Collections.unmodifiableList(REGISTERED);
+
+    private static final Map<String, OreType> BY_ID = new ConcurrentHashMap<>();
     private static final Map<Realm, List<OreType>> BY_REALM = new EnumMap<>(Realm.class);
 
     static {
         for (Realm realm : Realm.values()) {
-            BY_REALM.put(realm, new ArrayList<>());
+            BY_REALM.put(realm, new CopyOnWriteArrayList<>());
         }
-        for (OreType type : ALL) {
-            if (BY_ID.put(type.id(), type) != null) {
-                throw new IllegalStateException("Two ores share the id '" + type.id() + "'");
-            }
+        for (OreType type : REGISTERED) {
+            BY_ID.put(type.id(), type);
             BY_REALM.get(type.realm()).add(type);
         }
-        BY_REALM.replaceAll((realm, types) -> List.copyOf(types));
+    }
+
+    public static synchronized void register(OreType type) {
+        if (BY_ID.containsKey(type.id())) {
+            throw new IllegalStateException("Two ores share the id '" + type.id() + "'");
+        }
+        REGISTERED.add(type);
+        BY_ID.put(type.id(), type);
+        BY_REALM.get(type.realm()).add(type);
+    }
+
+    public static synchronized void resetForTesting() {
+        REGISTERED.clear();
+        REGISTERED.addAll(BUILTIN);
+        BY_ID.clear();
+        for (Realm realm : Realm.values()) {
+            BY_REALM.get(realm).clear();
+        }
+        for (OreType type : BUILTIN) {
+            BY_ID.put(type.id(), type);
+            BY_REALM.get(type.realm()).add(type);
+        }
     }
 
     /** The ore with this id. */
@@ -109,7 +134,7 @@ public final class OreTypes {
 
     /** The ores that generate in this realm, in {@link #ALL} order. */
     public static List<OreType> forRealm(Realm realm) {
-        return BY_REALM.get(realm);
+        return Collections.unmodifiableList(BY_REALM.get(realm));
     }
 
     private static OreType overworld(String id, int scale, BodyShape shape,

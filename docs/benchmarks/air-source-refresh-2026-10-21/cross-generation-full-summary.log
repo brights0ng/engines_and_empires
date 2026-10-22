@@ -1,0 +1,12 @@
+[11:43:17] [Server thread/INFO] [minecraft/GameTestServer]: ========= 2 GAME TESTS COMPLETE IN 337.0 ms ======================
+[11:43:49] [Server thread/INFO] [minecraft/GameTestServer]: ========= 262 GAME TESTS COMPLETE IN 12.54 s ======================
+[11:44:10] [Server thread/ERROR] [minecraft/LogTestReporter]: campfirecoldstartwarmsandinvalidationwithholdsthefield failed at 14162955, -60, 14236891! Unlit source adds no further heat to the retained ledger
+[11:44:15] [Server thread/INFO] [minecraft/GameTestServer]: ========= 211 GAME TESTS COMPLETE IN 11.82 s ======================
+[11:44:27] [Server thread/INFO] [minecraft/GameTestServer]: ========= 18 GAME TESTS COMPLETE IN 1.068 s ======================
+[11:44:48] [Server thread/INFO] [minecraft/GameTestServer]: ========= 95 GAME TESTS COMPLETE IN 11.72 s ======================
+[11:45:01] [Server thread/INFO] [minecraft/GameTestServer]: ========= 3 GAME TESTS COMPLETE IN 301.6 ms ======================
+[11:45:13] [Server thread/INFO] [minecraft/GameTestServer]: ========= 20 GAME TESTS COMPLETE IN 712.3 ms ======================
+[11:45:22] [Server thread/INFO] [minecraft/GameTestServer]: ========= 34 GAME TESTS COMPLETE IN 584.2 ms ======================
+[11:45:30] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 469.2 ms ======================
+[11:45:42] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 481.6 ms ======================
+BUILD FAILED in 2m 38s

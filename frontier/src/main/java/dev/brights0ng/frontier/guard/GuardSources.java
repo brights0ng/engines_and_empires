@@ -5,7 +5,7 @@ import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Guards a tag can't pick out (split seam S12), such as MineColonies' colonists working a guard job: another mod
+ * Guards a tag can't pick out (split seam S12): another mod
  * registers a {@link Source} at mod setup with {@code GuardTypes.SOURCES.register}. None by default: then only the
  * {@code guards} tag counts (see {@link GuardTypes}).
  *

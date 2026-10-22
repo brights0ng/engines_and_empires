@@ -1,0 +1,522 @@
+{
+  "writtenBy": "ChatGPT",
+  "schema": "thermal-live-v3",
+  "timeUtc": "2026-10-21T06:06:39.995416300Z",
+  "elapsedWallSeconds": 0.0436421,
+  "requestedGameSeconds": 60,
+  "stoppedEarly": true,
+  "warmupGameSeconds": 0,
+  "java": "21.0.12.1+1-LTS",
+  "processors": 6,
+  "heatSettings": "HeatSettings[enabled\u003dtrue, budgetCores\u003d0.25, threads\u003d1, nearStep\u003d1.0, farStep\u003d10.0, naturalReach\u003d32, margin\u003d12, maxSize\u003d48, responseScale\u003d1.0]",
+  "dimension": "minecraft:overworld",
+  "position": "(1.20050025E7, -57.5, -9267863.5)",
+  "simulatedSecondsAcrossJobs": 42.5,
+  "gameSecondsAcrossJobs": 42.5,
+  "thermalTimeScope": "simulatedSecondsAcrossJobs and jobs.csv simulated_seconds are thermal seconds after response scaling, excluding natural initialization. gameSecondsAcrossJobs and game_seconds are unscaled elapsed game time. response_scale_at_dispatch is the selected rate, not necessarily the interval-average rate if it changed while a region waited.",
+  "completedMeasuredJobs": 5,
+  "processedCells": 207712,
+  "geometryRebuildJobs": 1,
+  "settleJobs": 0,
+  "invalidationEvents": {
+    "region_created": 1,
+    "source_inputs": 1
+  },
+  "blockStateChanges": {},
+  "snapshotWork": {
+    "sampled_blocks": 189511,
+    "line_column_units": 5607,
+    "incremental_completions": 1,
+    "thermal_noop_completions": 1,
+    "local_air_charged_cell_units": 125,
+    "local_air_plan_jobs": 1,
+    "unit_cap_slices": 22,
+    "local_air_bake_jobs": 1,
+    "full_completions": 1,
+    "local_air_initialize_jobs": 1,
+    "local_air_step_jobs": 11
+  },
+  "snapshotScope": "snapshot_prepare_ms is per-tick shared preparation, outside planning_ms but inside thermal_tick_ms. snapshot_slice_ms is one region\u0027s batch of at most eight lines/columns. geometry_snapshot_ms, geometry_incremental_ms and material_snapshot_ms sum active slice time for a completed update, excluding time waiting between ticks. Completed updates can overlap capture boundaries. Live preparation targets 2 ms and caps 256 line/column units per tick across all regions; atomic units, allocation, source refresh and scheduling can exceed the soft time target.",
+  "invalidationScope": "Region invalidations coalesce before snapshots; source changes count prepared source-list changes. Block state pairs count relevant hook events once, capped at 128 distinct pairs plus overflow. No event history is retained outside a capture.",
+  "scope": "Heat pipeline, including explicitly active local-air diagnostics. thermal_tick_ms contains planning_ms, legacy snapshot_prepare_ms, and local_air_snapshot_advance_ms; these timings overlap and must not be added. local_air_\u003cstage\u003e_wall_ms/cpu_ms/queue_ms require dispatch and collection within this capture; unfinished tail jobs are excluded. local_air_worker_ms is the broader collect-time series and may include jobs dispatched earlier. Legacy worker_* metrics and raw jobs remain legacy-only. This does not measure whole-server MSPT or client FPS.",
+  "localAirAtEnd": {
+    "preparation": "PREPARED",
+    "run": "READY",
+    "reason": "",
+    "physicalJobInFlight": false,
+    "sharedBudgetMs": 250.0,
+    "snapshotAdvanceMs": 0.2864,
+    "snapshotChargedUnits": 125,
+    "attempts": 1,
+    "workerTimings": {
+      "STEP": {
+        "jobs": 11,
+        "failed": 0,
+        "discarded": 0,
+        "wallNanos": 18458000,
+        "queueNanos": 3348200,
+        "cpuNanos": 15625000,
+        "cpuSamples": 11,
+        "maxWallNanos": 6039500,
+        "maxQueueNanos": 1137900
+      },
+      "BAKE": {
+        "jobs": 1,
+        "failed": 0,
+        "discarded": 0,
+        "wallNanos": 4841800,
+        "queueNanos": 13700,
+        "cpuNanos": 0,
+        "cpuSamples": 1,
+        "maxWallNanos": 4841800,
+        "maxQueueNanos": 13700
+      },
+      "PLAN": {
+        "jobs": 1,
+        "failed": 0,
+        "discarded": 0,
+        "wallNanos": 323700,
+        "queueNanos": 29800,
+        "cpuNanos": 0,
+        "cpuSamples": 1,
+        "maxWallNanos": 323700,
+        "maxQueueNanos": 29800
+      },
+      "INITIALIZE": {
+        "jobs": 1,
+        "failed": 0,
+        "discarded": 0,
+        "wallNanos": 8608400,
+        "queueNanos": 15600,
+        "cpuNanos": 15625000,
+        "cpuSamples": 1,
+        "maxWallNanos": 8608400,
+        "maxQueueNanos": 15600
+      }
+    },
+    "fieldAvailable": true,
+    "frameTick": 14739,
+    "ageTicks": 3,
+    "acceptedSteps": 20,
+    "airNodes": 27,
+    "faces": 54,
+    "geometryRevision": 0,
+    "materialRevision": 7,
+    "quality": {
+      "maxDivergence": 2.2476360495016223E-9,
+      "maxPressureResidual": 1.8952131122676293E-9,
+      "maxThermalResidual": 8.271349037790464E-11,
+      "maxStepEnergyError": 1.5626042682015395E-9,
+      "pressureIterations": 228,
+      "thermalSweeps": 919,
+      "energyBalanceError": -1.7186721379403025E-8
+    }
+  },
+  "responseScaleAtEnd": 1.0,
+  "responseScaleMode": "config",
+  "regionsAtEnd": [
+    {
+      "id": 37,
+      "box": [
+        12004989,
+        -64,
+        -9268019,
+        12005032,
+        -28,
+        -9267994
+      ],
+      "sources": 6,
+      "windMps": [
+        -0.5742660128008705,
+        0.6181449522176122
+      ],
+      "naturalOnly": false,
+      "geometryRevision": 2,
+      "materialRevision": 2,
+      "sourceRevision": 1,
+      "preparedGeometryRevision": 2,
+      "preparedMaterialRevision": 2,
+      "snapshotPending": false,
+      "ship": false,
+      "publishedAgeTicks": 78,
+      "inFlight": false
+    },
+    {
+      "id": 38,
+      "box": [
+        12004989,
+        -64,
+        -9267993,
+        12005032,
+        -28,
+        -9267968
+      ],
+      "sources": 1,
+      "windMps": [
+        -0.5716048887295355,
+        0.610493200998786
+      ],
+      "naturalOnly": false,
+      "geometryRevision": 2,
+      "materialRevision": 2,
+      "sourceRevision": 1,
+      "preparedGeometryRevision": 2,
+      "preparedMaterialRevision": 2,
+      "snapshotPending": false,
+      "ship": false,
+      "publishedAgeTicks": 66,
+      "inFlight": false
+    },
+    {
+      "id": 42,
+      "box": [
+        12004992,
+        -64,
+        -9267889,
+        12005039,
+        -45,
+        -9267850
+      ],
+      "sources": 9,
+      "windMps": [
+        -0.558659174741419,
+        0.5790440441724671
+      ],
+      "naturalOnly": false,
+      "geometryRevision": 1,
+      "materialRevision": 1,
+      "sourceRevision": 1,
+      "preparedGeometryRevision": 1,
+      "preparedMaterialRevision": 1,
+      "snapshotPending": false,
+      "ship": false,
+      "publishedAgeTicks": 180,
+      "inFlight": false
+    },
+    {
+      "id": 40,
+      "box": [
+        12005033,
+        -64,
+        -9268019,
+        12005076,
+        -28,
+        -9267994
+      ],
+      "sources": 7,
+      "windMps": [
+        -0.5654990735929627,
+        0.6218842244338305
+      ],
+      "naturalOnly": false,
+      "geometryRevision": 2,
+      "materialRevision": 2,
+      "sourceRevision": 1,
+      "preparedGeometryRevision": 2,
+      "preparedMaterialRevision": 2,
+      "snapshotPending": false,
+      "ship": false,
+      "publishedAgeTicks": 156,
+      "inFlight": false
+    },
+    {
+      "id": 41,
+      "box": [
+        12005033,
+        -64,
+        -9267993,
+        12005076,
+        -28,
+        -9267968
+      ],
+      "sources": 1,
+      "windMps": [
+        -0.5629402552149395,
+        0.6141921073350323
+      ],
+      "naturalOnly": false,
+      "geometryRevision": 2,
+      "materialRevision": 2,
+      "sourceRevision": 1,
+      "preparedGeometryRevision": 2,
+      "preparedMaterialRevision": 2,
+      "snapshotPending": false,
+      "ship": false,
+      "publishedAgeTicks": 150,
+      "inFlight": false
+    }
+  ],
+  "metrics": {
+    "snapshot_slice_ms": {
+      "count": 701,
+      "mean": 0.007080599144079883,
+      "p50": 0.0041,
+      "p95": 0.0165,
+      "p99": 0.0196,
+      "max": 0.028,
+      "total": 4.963499999999998
+    },
+    "geometry_incremental_ms": {
+      "count": 1,
+      "mean": 0.011,
+      "p50": 0.011,
+      "p95": 0.011,
+      "p99": 0.011,
+      "max": 0.011,
+      "total": 0.011
+    },
+    "cover_incremental_ms": {
+      "count": 1,
+      "mean": 0.0101,
+      "p50": 0.0101,
+      "p95": 0.0101,
+      "p99": 0.0101,
+      "max": 0.0101,
+      "total": 0.0101
+    },
+    "snapshot_prepare_ms": {
+      "count": 222,
+      "mean": 0.0258,
+      "p50": 3.0E-4,
+      "p95": 0.1801,
+      "p99": 0.4835,
+      "max": 0.5034,
+      "total": 5.7276
+    },
+    "local_air_snapshot_advance_ms": {
+      "count": 222,
+      "mean": 0.0012900900900900904,
+      "p50": 3.0E-4,
+      "p95": 0.0091,
+      "p99": 0.0175,
+      "max": 0.0267,
+      "total": 0.28640000000000004
+    },
+    "thermal_tick_ms": {
+      "count": 222,
+      "mean": 0.047741891891891895,
+      "p50": 0.003,
+      "p95": 0.2364,
+      "p99": 0.5343,
+      "max": 1.4727,
+      "total": 10.598700000000001
+    },
+    "local_air_worker_ms": {
+      "count": 14,
+      "mean": 2.302278571428571,
+      "p50": 1.0198,
+      "p95": 8.6084,
+      "p99": 8.6084,
+      "max": 8.6084,
+      "total": 32.231899999999996
+    },
+    "local_air_plan_wall_ms": {
+      "count": 1,
+      "mean": 0.3237,
+      "p50": 0.3237,
+      "p95": 0.3237,
+      "p99": 0.3237,
+      "max": 0.3237,
+      "total": 0.3237
+    },
+    "local_air_plan_queue_ms": {
+      "count": 1,
+      "mean": 0.0298,
+      "p50": 0.0298,
+      "p95": 0.0298,
+      "p99": 0.0298,
+      "max": 0.0298,
+      "total": 0.0298
+    },
+    "local_air_plan_cpu_ms": {
+      "count": 1,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "p99": 0.0,
+      "max": 0.0,
+      "total": 0.0
+    },
+    "planning_ms": {
+      "count": 11,
+      "mean": 0.16765454545454547,
+      "p50": 0.105,
+      "p95": 0.5383,
+      "p99": 0.5383,
+      "max": 0.5383,
+      "total": 1.8442
+    },
+    "local_air_bake_wall_ms": {
+      "count": 1,
+      "mean": 4.8418,
+      "p50": 4.8418,
+      "p95": 4.8418,
+      "p99": 4.8418,
+      "max": 4.8418,
+      "total": 4.8418
+    },
+    "local_air_bake_queue_ms": {
+      "count": 1,
+      "mean": 0.0137,
+      "p50": 0.0137,
+      "p95": 0.0137,
+      "p99": 0.0137,
+      "max": 0.0137,
+      "total": 0.0137
+    },
+    "local_air_bake_cpu_ms": {
+      "count": 1,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "p99": 0.0,
+      "max": 0.0,
+      "total": 0.0
+    },
+    "geometry_snapshot_ms": {
+      "count": 1,
+      "mean": 4.9525,
+      "p50": 4.9525,
+      "p95": 4.9525,
+      "p99": 4.9525,
+      "max": 4.9525,
+      "total": 4.9525
+    },
+    "cover_snapshot_ms": {
+      "count": 1,
+      "mean": 3.7461,
+      "p50": 3.7461,
+      "p95": 3.7461,
+      "p99": 3.7461,
+      "max": 3.7461,
+      "total": 3.7461
+    },
+    "local_air_initialize_wall_ms": {
+      "count": 1,
+      "mean": 8.6084,
+      "p50": 8.6084,
+      "p95": 8.6084,
+      "p99": 8.6084,
+      "max": 8.6084,
+      "total": 8.6084
+    },
+    "local_air_initialize_queue_ms": {
+      "count": 1,
+      "mean": 0.0156,
+      "p50": 0.0156,
+      "p95": 0.0156,
+      "p99": 0.0156,
+      "max": 0.0156,
+      "total": 0.0156
+    },
+    "local_air_initialize_cpu_ms": {
+      "count": 1,
+      "mean": 15.625,
+      "p50": 15.625,
+      "p95": 15.625,
+      "p99": 15.625,
+      "max": 15.625,
+      "total": 15.625
+    },
+    "worker_wall_ms": {
+      "count": 5,
+      "mean": 0.9064599999999998,
+      "p50": 1.1508,
+      "p95": 1.2025,
+      "p99": 1.2025,
+      "max": 1.2025,
+      "total": 4.532299999999999
+    },
+    "worker_cpu_ms": {
+      "count": 5,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "p99": 0.0,
+      "max": 0.0,
+      "total": 0.0
+    },
+    "worker_allocated_bytes": {
+      "count": 5,
+      "mean": 540492.8,
+      "p50": 550680.0,
+      "p95": 550704.0,
+      "p99": 550704.0,
+      "max": 550704.0,
+      "total": 2702464.0
+    },
+    "queue_wait_ms": {
+      "count": 5,
+      "mean": 2.4587,
+      "p50": 1.6079,
+      "p95": 6.0417,
+      "p99": 6.0417,
+      "max": 6.0417,
+      "total": 12.2935
+    },
+    "worker_solve_ms": {
+      "count": 5,
+      "mean": 0.7925,
+      "p50": 1.0656,
+      "p95": 1.1155,
+      "p99": 1.1155,
+      "max": 1.1155,
+      "total": 3.9625
+    },
+    "worker_publication_ms": {
+      "count": 5,
+      "mean": 0.03358,
+      "p50": 0.0351,
+      "p95": 0.0417,
+      "p99": 0.0417,
+      "max": 0.0417,
+      "total": 0.1679
+    },
+    "worker_rebuild_wall_ms": {
+      "count": 1,
+      "mean": 0.233,
+      "p50": 0.233,
+      "p95": 0.233,
+      "p99": 0.233,
+      "max": 0.233,
+      "total": 0.233
+    },
+    "worker_clean_wall_ms": {
+      "count": 4,
+      "mean": 1.074825,
+      "p50": 1.1508,
+      "p95": 1.2025,
+      "p99": 1.2025,
+      "max": 1.2025,
+      "total": 4.2993
+    },
+    "local_air_step_wall_ms": {
+      "count": 11,
+      "mean": 1.678,
+      "p50": 1.0198,
+      "p95": 6.0395,
+      "p99": 6.0395,
+      "max": 6.0395,
+      "total": 18.458
+    },
+    "local_air_step_queue_ms": {
+      "count": 11,
+      "mean": 0.3043818181818182,
+      "p50": 0.0339,
+      "p95": 1.1379,
+      "p99": 1.1379,
+      "max": 1.1379,
+      "total": 3.3482000000000003
+    },
+    "local_air_step_cpu_ms": {
+      "count": 11,
+      "mean": 1.4204545454545454,
+      "p50": 0.0,
+      "p95": 15.625,
+      "p99": 15.625,
+      "max": 15.625,
+      "total": 15.625
+    }
+  },
+  "workerCpuCoreFraction": 0.0
+}

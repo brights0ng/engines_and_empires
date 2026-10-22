@@ -1,0 +1,629 @@
+{
+  "writtenBy": "ChatGPT",
+  "cells": 1008,
+  "origin": [
+    762813,
+    306,
+    11704462
+  ],
+  "elapsedTicks": 1461,
+  "maxTickMs": 180.8227,
+  "lateTickDeadlines": 1,
+  "phases": [
+    {
+      "phase": 0,
+      "elapsedTicks": 486,
+      "firstFieldTicks": 286,
+      "availableTicks": 201,
+      "unavailableTicks": 286,
+      "maxAgeTicks": 10,
+      "frameTick": 544,
+      "ambient": -14.679218286065101,
+      "weather": {
+        "ambient": -14.679218286065101,
+        "windX": 0.5,
+        "windZ": 0.0
+      },
+      "weatherRevision": 1,
+      "probeC": 11.513879873869264,
+      "probeVx": 0.15885297688194722,
+      "energy": -26882.263790209683,
+      "sourceEnergy": 750.0,
+      "exteriorEnergy": -117.9040151565201,
+      "geometryEnergy": 0.0,
+      "quality": {
+        "maxDivergence": 8.942997398175834E-9,
+        "maxPressureResidual": 1.9338876808950134E-9,
+        "maxThermalResidual": 7.014122616055829E-11,
+        "maxStepEnergyError": 9.9792387686648E-9,
+        "pressureIterations": 407,
+        "thermalSweeps": 909,
+        "energyBalanceError": -1.0988915732923488E-7
+      },
+      "report": {
+        "preparation": "PREPARED",
+        "forcingMode": "LIVE_CENTER",
+        "weatherSampleTick": 539,
+        "weatherSampleMs": 4.0094,
+        "sampledWeather": {
+          "ambient": -14.679218286065101,
+          "windX": 0.5,
+          "windZ": 0.0
+        },
+        "run": "READY",
+        "reason": "",
+        "physicalJobInFlight": false,
+        "sharedBudgetMs": 250.0,
+        "snapshotAdvanceMs": 7.7341,
+        "snapshotChargedUnits": 2248,
+        "attempts": 1,
+        "captureReadCells": 1008,
+        "captureReusedCells": 0,
+        "workerTimings": {
+          "BAKE": {
+            "jobs": 1,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 14762400,
+            "queueNanos": 38000,
+            "cpuNanos": 15625000,
+            "cpuSamples": 1,
+            "maxWallNanos": 14762400,
+            "maxQueueNanos": 38000
+          },
+          "STEP": {
+            "jobs": 20,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 61289000,
+            "queueNanos": 676100,
+            "cpuNanos": 31250000,
+            "cpuSamples": 20,
+            "maxWallNanos": 15482700,
+            "maxQueueNanos": 61400
+          },
+          "PLAN": {
+            "jobs": 1,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 10143400,
+            "queueNanos": 164300,
+            "cpuNanos": 15625000,
+            "cpuSamples": 1,
+            "maxWallNanos": 10143400,
+            "maxQueueNanos": 164300
+          },
+          "INITIALIZE": {
+            "jobs": 1,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 18239900,
+            "queueNanos": 23500,
+            "cpuNanos": 15625000,
+            "cpuSamples": 1,
+            "maxWallNanos": 18239900,
+            "maxQueueNanos": 23500
+          }
+        },
+        "fieldAvailable": true,
+        "frameTick": 544,
+        "ageTicks": 1,
+        "acceptedSteps": 20,
+        "airNodes": 662,
+        "faces": 1917,
+        "geometryRevision": 0,
+        "materialRevision": 6,
+        "sourceRevision": 0,
+        "weatherRevision": 1,
+        "weather": {
+          "ambient": -14.679218286065101,
+          "windX": 0.5,
+          "windZ": 0.0
+        },
+        "geometryTransfers": 0,
+        "geometryExchangeEnergy": 0.0,
+        "quality": {
+          "maxDivergence": 8.942997398175834E-9,
+          "maxPressureResidual": 1.9338876808950134E-9,
+          "maxThermalResidual": 7.014122616055829E-11,
+          "maxStepEnergyError": 9.9792387686648E-9,
+          "pressureIterations": 407,
+          "thermalSweeps": 909,
+          "energyBalanceError": -1.0988915732923488E-7
+        }
+      }
+    },
+    {
+      "phase": 1,
+      "elapsedTicks": 201,
+      "firstFieldTicks": 161,
+      "availableTicks": 41,
+      "unavailableTicks": 160,
+      "maxAgeTicks": 147,
+      "frameTick": 745,
+      "ambient": -2.679218783200728,
+      "weather": {
+        "ambient": -2.679218783200728,
+        "windX": 2.0,
+        "windZ": 0.0
+      },
+      "weatherRevision": 2,
+      "probeC": 18.014382646521106,
+      "probeVx": 0.33625812882315537,
+      "energy": -19282.783489773028,
+      "sourceEnergy": 1503.75,
+      "exteriorEnergy": 6727.833489000127,
+      "geometryEnergy": -0.007203581338836251,
+      "quality": {
+        "maxDivergence": 1.2181381187698687E-8,
+        "maxPressureResidual": 3.302898349958224E-9,
+        "maxThermalResidual": 1.6576962025283137E-10,
+        "maxStepEnergyError": 1.7441976751797483E-8,
+        "pressureIterations": 883,
+        "thermalSweeps": 1959,
+        "energyBalanceError": -2.485424550613402E-7
+      },
+      "report": {
+        "preparation": "PREPARED",
+        "forcingMode": "LIVE_CENTER",
+        "weatherSampleTick": 739,
+        "weatherSampleMs": 4.9234,
+        "sampledWeather": {
+          "ambient": -2.679218783200728,
+          "windX": 2.0,
+          "windZ": 0.0
+        },
+        "run": "READY",
+        "reason": "",
+        "physicalJobInFlight": false,
+        "sharedBudgetMs": 250.0,
+        "snapshotAdvanceMs": 11.7714,
+        "snapshotChargedUnits": 3490,
+        "attempts": 3,
+        "captureReadCells": 1010,
+        "captureReusedCells": 1006,
+        "workerTimings": {
+          "BAKE": {
+            "jobs": 2,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 22305700,
+            "queueNanos": 102700,
+            "cpuNanos": 31250000,
+            "cpuSamples": 2,
+            "maxWallNanos": 14762400,
+            "maxQueueNanos": 64700
+          },
+          "STEP": {
+            "jobs": 34,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 92640400,
+            "queueNanos": 1032200,
+            "cpuNanos": 62500000,
+            "cpuSamples": 34,
+            "maxWallNanos": 15482700,
+            "maxQueueNanos": 61400
+          },
+          "PLAN": {
+            "jobs": 2,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 10755600,
+            "queueNanos": 184000,
+            "cpuNanos": 15625000,
+            "cpuSamples": 2,
+            "maxWallNanos": 10143400,
+            "maxQueueNanos": 164300
+          },
+          "INITIALIZE": {
+            "jobs": 2,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 34663400,
+            "queueNanos": 47600,
+            "cpuNanos": 15625000,
+            "cpuSamples": 2,
+            "maxWallNanos": 18239900,
+            "maxQueueNanos": 24100
+          }
+        },
+        "fieldAvailable": true,
+        "frameTick": 745,
+        "ageTicks": 1,
+        "acceptedSteps": 42,
+        "airNodes": 662,
+        "faces": 1919,
+        "geometryRevision": 2,
+        "materialRevision": 6,
+        "sourceRevision": 0,
+        "weatherRevision": 2,
+        "weather": {
+          "ambient": -2.679218783200728,
+          "windX": 2.0,
+          "windZ": 0.0
+        },
+        "geometryTransfers": 1,
+        "geometryExchangeEnergy": -0.007203581338836251,
+        "quality": {
+          "maxDivergence": 1.2181381187698687E-8,
+          "maxPressureResidual": 3.302898349958224E-9,
+          "maxThermalResidual": 1.6576962025283137E-10,
+          "maxStepEnergyError": 1.7441976751797483E-8,
+          "pressureIterations": 883,
+          "thermalSweeps": 1959,
+          "energyBalanceError": -2.485424550613402E-7
+        }
+      }
+    },
+    {
+      "phase": 2,
+      "elapsedTicks": 202,
+      "firstFieldTicks": 162,
+      "availableTicks": 41,
+      "unavailableTicks": 161,
+      "maxAgeTicks": 149,
+      "frameTick": 947,
+      "ambient": -14.679218286065101,
+      "weather": {
+        "ambient": -14.679218286065101,
+        "windX": -2.0,
+        "windZ": 0.0
+      },
+      "weatherRevision": 3,
+      "probeC": -13.71957139809245,
+      "probeVx": 0.04647726840381958,
+      "energy": -25365.33752726456,
+      "sourceEnergy": 1507.5,
+      "exteriorEnergy": 640.5096354106358,
+      "geometryEnergy": 1.0126123400995597,
+      "quality": {
+        "maxDivergence": 2.0769230335559996E-8,
+        "maxPressureResidual": 5.269306943123427E-9,
+        "maxThermalResidual": 1.6576962025283137E-10,
+        "maxStepEnergyError": 1.819864792196313E-8,
+        "pressureIterations": 1368,
+        "thermalSweeps": 2985,
+        "energyBalanceError": -7.202236829151332E-8
+      },
+      "report": {
+        "preparation": "PREPARED",
+        "forcingMode": "LIVE_CENTER",
+        "weatherSampleTick": 939,
+        "weatherSampleMs": 5.9931,
+        "sampledWeather": {
+          "ambient": -14.679218286065101,
+          "windX": -2.0,
+          "windZ": 0.0
+        },
+        "run": "READY",
+        "reason": "",
+        "physicalJobInFlight": false,
+        "sharedBudgetMs": 250.0,
+        "snapshotAdvanceMs": 13.1615,
+        "snapshotChargedUnits": 4732,
+        "attempts": 5,
+        "captureReadCells": 1012,
+        "captureReusedCells": 2012,
+        "workerTimings": {
+          "BAKE": {
+            "jobs": 3,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 39967400,
+            "queueNanos": 130800,
+            "cpuNanos": 46875000,
+            "cpuSamples": 3,
+            "maxWallNanos": 17661700,
+            "maxQueueNanos": 64700
+          },
+          "STEP": {
+            "jobs": 48,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 121163500,
+            "queueNanos": 14273300,
+            "cpuNanos": 93750000,
+            "cpuSamples": 48,
+            "maxWallNanos": 15482700,
+            "maxQueueNanos": 12493700
+          },
+          "PLAN": {
+            "jobs": 3,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 11398900,
+            "queueNanos": 212700,
+            "cpuNanos": 31250000,
+            "cpuSamples": 3,
+            "maxWallNanos": 10143400,
+            "maxQueueNanos": 164300
+          },
+          "INITIALIZE": {
+            "jobs": 3,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 39084300,
+            "queueNanos": 75800,
+            "cpuNanos": 15625000,
+            "cpuSamples": 3,
+            "maxWallNanos": 18239900,
+            "maxQueueNanos": 28200
+          }
+        },
+        "fieldAvailable": true,
+        "frameTick": 947,
+        "ageTicks": 1,
+        "acceptedSteps": 64,
+        "airNodes": 662,
+        "faces": 1917,
+        "geometryRevision": 4,
+        "materialRevision": 6,
+        "sourceRevision": 1,
+        "weatherRevision": 3,
+        "weather": {
+          "ambient": -14.679218286065101,
+          "windX": -2.0,
+          "windZ": 0.0
+        },
+        "geometryTransfers": 2,
+        "geometryExchangeEnergy": 1.0126123400995597,
+        "quality": {
+          "maxDivergence": 2.0769230335559996E-8,
+          "maxPressureResidual": 5.269306943123427E-9,
+          "maxThermalResidual": 1.6576962025283137E-10,
+          "maxStepEnergyError": 1.819864792196313E-8,
+          "pressureIterations": 1368,
+          "thermalSweeps": 2985,
+          "energyBalanceError": -7.202236829151332E-8
+        }
+      }
+    },
+    {
+      "phase": 3,
+      "elapsedTicks": 365,
+      "firstFieldTicks": 2,
+      "availableTicks": 27,
+      "unavailableTicks": 338,
+      "maxAgeTicks": 9,
+      "frameTick": 1309,
+      "ambient": -14.679218286065101,
+      "weather": {
+        "ambient": -14.679218286065101,
+        "windX": 1.0,
+        "windZ": 0.5
+      },
+      "weatherRevision": 40,
+      "probeC": -14.233619135111358,
+      "probeVx": 0.2600542210965721,
+      "energy": -25997.331716297886,
+      "sourceEnergy": 1582.5,
+      "exteriorEnergy": -65.9916860318302,
+      "geometryEnergy": 0.5197445360653248,
+      "quality": {
+        "maxDivergence": 2.0769230335559996E-8,
+        "maxPressureResidual": 5.269306943123427E-9,
+        "maxThermalResidual": 1.6576962025283137E-10,
+        "maxStepEnergyError": 1.819864792196313E-8,
+        "pressureIterations": 3021,
+        "thermalSweeps": 4584,
+        "energyBalanceError": 1.411531016515255E-7
+      },
+      "report": {
+        "preparation": "PREPARED",
+        "forcingMode": "LIVE_CENTER",
+        "weatherSampleTick": 1309,
+        "weatherSampleMs": 8.1199,
+        "sampledWeather": {
+          "ambient": -14.679218286065101,
+          "windX": 1.0,
+          "windZ": 0.5
+        },
+        "run": "READY",
+        "reason": "",
+        "physicalJobInFlight": true,
+        "sharedBudgetMs": 250.0,
+        "snapshotAdvanceMs": 15.4474,
+        "snapshotChargedUnits": 7217,
+        "attempts": 9,
+        "captureReadCells": 1017,
+        "captureReusedCells": 4023,
+        "workerTimings": {
+          "BAKE": {
+            "jobs": 5,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 71083000,
+            "queueNanos": 227300,
+            "cpuNanos": 62500000,
+            "cpuSamples": 5,
+            "maxWallNanos": 17661700,
+            "maxQueueNanos": 64700
+          },
+          "STEP": {
+            "jobs": 71,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 201040600,
+            "queueNanos": 15025700,
+            "cpuNanos": 156250000,
+            "cpuSamples": 71,
+            "maxWallNanos": 15482700,
+            "maxQueueNanos": 12493700
+          },
+          "PLAN": {
+            "jobs": 5,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 12545900,
+            "queueNanos": 276000,
+            "cpuNanos": 31250000,
+            "cpuSamples": 5,
+            "maxWallNanos": 10143400,
+            "maxQueueNanos": 164300
+          },
+          "INITIALIZE": {
+            "jobs": 5,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 43876600,
+            "queueNanos": 126500,
+            "cpuNanos": 15625000,
+            "cpuSamples": 5,
+            "maxWallNanos": 18239900,
+            "maxQueueNanos": 28200
+          }
+        },
+        "fieldAvailable": true,
+        "frameTick": 1309,
+        "ageTicks": 4,
+        "acceptedSteps": 106,
+        "airNodes": 662,
+        "faces": 1917,
+        "geometryRevision": 8,
+        "materialRevision": 6,
+        "sourceRevision": 3,
+        "weatherRevision": 40,
+        "weather": {
+          "ambient": -14.679218286065101,
+          "windX": 1.0,
+          "windZ": 0.5
+        },
+        "geometryTransfers": 4,
+        "geometryExchangeEnergy": 0.5197445360653248,
+        "quality": {
+          "maxDivergence": 2.0769230335559996E-8,
+          "maxPressureResidual": 5.269306943123427E-9,
+          "maxThermalResidual": 1.6576962025283137E-10,
+          "maxStepEnergyError": 1.819864792196313E-8,
+          "pressureIterations": 3021,
+          "thermalSweeps": 4584,
+          "energyBalanceError": 1.411531016515255E-7
+        }
+      }
+    },
+    {
+      "phase": 4,
+      "elapsedTicks": 207,
+      "firstFieldTicks": 1,
+      "availableTicks": 206,
+      "unavailableTicks": 1,
+      "maxAgeTicks": 10,
+      "frameTick": 1519,
+      "ambient": -14.679218286065101,
+      "weather": {
+        "ambient": -14.679218286065101,
+        "windX": 0.0,
+        "windZ": 0.0
+      },
+      "weatherRevision": 41,
+      "probeC": -14.221642375289765,
+      "probeVx": -0.010677291522030938,
+      "energy": -26195.28334137092,
+      "sourceEnergy": 1582.5,
+      "exteriorEnergy": -263.94331109729194,
+      "geometryEnergy": 0.5197445360653248,
+      "quality": {
+        "maxDivergence": 2.0769230335559996E-8,
+        "maxPressureResidual": 5.269306943123427E-9,
+        "maxThermalResidual": 1.6576962025283137E-10,
+        "maxStepEnergyError": 1.819864792196313E-8,
+        "pressureIterations": 3418,
+        "thermalSweeps": 5435,
+        "energyBalanceError": 1.3358090455994898E-7
+      },
+      "report": {
+        "preparation": "PREPARED",
+        "forcingMode": "LIVE_CENTER",
+        "weatherSampleTick": 1519,
+        "weatherSampleMs": 9.0859,
+        "sampledWeather": {
+          "ambient": -14.679218286065101,
+          "windX": 0.0,
+          "windZ": 0.0
+        },
+        "run": "READY",
+        "reason": "",
+        "physicalJobInFlight": false,
+        "sharedBudgetMs": 250.0,
+        "snapshotAdvanceMs": 15.5127,
+        "snapshotChargedUnits": 7217,
+        "attempts": 9,
+        "captureReadCells": 1017,
+        "captureReusedCells": 4023,
+        "workerTimings": {
+          "BAKE": {
+            "jobs": 5,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 71083000,
+            "queueNanos": 227300,
+            "cpuNanos": 62500000,
+            "cpuSamples": 5,
+            "maxWallNanos": 17661700,
+            "maxQueueNanos": 64700
+          },
+          "STEP": {
+            "jobs": 93,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 218150000,
+            "queueNanos": 15769700,
+            "cpuNanos": 156250000,
+            "cpuSamples": 93,
+            "maxWallNanos": 15482700,
+            "maxQueueNanos": 12493700
+          },
+          "PLAN": {
+            "jobs": 5,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 12545900,
+            "queueNanos": 276000,
+            "cpuNanos": 31250000,
+            "cpuSamples": 5,
+            "maxWallNanos": 10143400,
+            "maxQueueNanos": 164300
+          },
+          "INITIALIZE": {
+            "jobs": 5,
+            "failed": 0,
+            "discarded": 0,
+            "wallNanos": 43876600,
+            "queueNanos": 126500,
+            "cpuNanos": 15625000,
+            "cpuSamples": 5,
+            "maxWallNanos": 18239900,
+            "maxQueueNanos": 28200
+          }
+        },
+        "fieldAvailable": true,
+        "frameTick": 1519,
+        "ageTicks": 1,
+        "acceptedSteps": 128,
+        "airNodes": 662,
+        "faces": 1917,
+        "geometryRevision": 8,
+        "materialRevision": 6,
+        "sourceRevision": 3,
+        "weatherRevision": 41,
+        "weather": {
+          "ambient": -14.679218286065101,
+          "windX": 0.0,
+          "windZ": 0.0
+        },
+        "geometryTransfers": 4,
+        "geometryExchangeEnergy": 0.5197445360653248,
+        "quality": {
+          "maxDivergence": 2.0769230335559996E-8,
+          "maxPressureResidual": 5.269306943123427E-9,
+          "maxThermalResidual": 1.6576962025283137E-10,
+          "maxStepEnergyError": 1.819864792196313E-8,
+          "pressureIterations": 3418,
+          "thermalSweeps": 5435,
+          "energyBalanceError": 1.3358090455994898E-7
+        }
+      }
+    }
+  ]
+}

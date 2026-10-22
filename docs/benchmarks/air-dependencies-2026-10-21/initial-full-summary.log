@@ -1,0 +1,49 @@
+> Task :sable-fixes:testClasses UP-TO-DATE
+> Task :sable-fixes:test UP-TO-DATE
+> Task :paradyne-lib:testClasses UP-TO-DATE
+> Task :simple-spoilage:testClasses UP-TO-DATE
+> Task :sparse-ores:testClasses UP-TO-DATE
+> Task :simple-spoilage:test UP-TO-DATE
+> Task :sable-fixes:runGameTestServer
+> Task :sparse-ores:test UP-TO-DATE
+> Task :seismic-surveyance:testClasses UP-TO-DATE
+> Task :seismic-surveyance:test UP-TO-DATE
+> Task :frontier:testClasses UP-TO-DATE
+> Task :frontier:test UP-TO-DATE
+> Task :meteodyne:testClasses UP-TO-DATE
+> Task :paradyne-lib:test FROM-CACHE
+> Task :testClasses UP-TO-DATE
+> Task :sable-fixes:runGameTestServer
+> Task :coreless:testClasses UP-TO-DATE
+> Task :coreless:test NO-SOURCE
+> Task :sable-fixes:runGameTestServer
+> Task :test
+> Task :sable-fixes:runGameTestServer
+[12:30:42] [Server thread/INFO] [minecraft/GameTestServer]: All 2 required tests passed :)
+> Task :runGameTestServer
+> Task :meteodyne:test
+> Task :runGameTestServer
+[12:31:46] [Server thread/INFO] [minecraft/GameTestServer]: All 262 required tests passed :)
+> Task :coreless:runGameTestServer
+[12:32:25] [Server thread/ERROR] [minecraft/LogTestReporter]: sharedworkersretainunrelatededitsandrebuilddependencies failed at -14985038, -60, -12087885! Shared pool publishes prepared geometry
+[12:32:42] [Server thread/INFO] [minecraft/GameTestServer]: 1 required tests failed :(
+> Task :coreless:runGameTestServer FAILED
+> Task :frontier:runGameTestServer
+[12:33:01] [Server thread/INFO] [minecraft/GameTestServer]: All 18 required tests passed :)
+> Task :meteodyne:runGameTestServer
+[12:33:31] [Server thread/ERROR] [minecraft/LogTestReporter]: sharedworkersretainunrelatededitsandrebuilddependencies failed at -3466870, -60, -3616765! Shared pool publishes prepared geometry
+[12:33:36] [Server thread/ERROR] [minecraft/LogTestReporter]: campfirecoldstartwarmsandinvalidationwithholdsthefield failed at -3466918, -60, -3616752! External invalidation cold-starts with no unlit source energy
+[12:33:38] [Server thread/INFO] [minecraft/GameTestServer]: 2 required tests failed :(
+> Task :meteodyne:runGameTestServer FAILED
+> Task :paradyne-lib:runGameTestServer
+[12:33:53] [Server thread/INFO] [minecraft/GameTestServer]: All 3 required tests passed :)
+> Task :seismic-surveyance:runGameTestServer
+[12:34:11] [Server thread/INFO] [minecraft/GameTestServer]: All 20 required tests passed :)
+> Task :simple-spoilage:runGameTestServer
+[12:34:27] [Server thread/INFO] [minecraft/GameTestServer]: All 34 required tests passed :)
+> Task :sparse-ores:runGameTestServer
+[12:34:41] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+> Task :sparse-ores:runGameTestServerWithCreate
+[12:35:01] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+BUILD FAILED in 4m 52s
+109 actionable tasks: 20 executed, 4 from cache, 85 up-to-date

@@ -1,8 +1,11 @@
+// Updated by ChatGPT: expose the explicitly paced larger local-air diagnostic.
 plugins {
     id 'eae.mod-conventions'
 }
 
 requireMod(':paradyne-lib')
+def airSceneEnabled = providers.gradleProperty('meteodyne.airScene').map { it.toBoolean() }.getOrElse(false)
+def airWeatherSceneEnabled = providers.gradleProperty('meteodyne.airWeatherScene').map { it.toBoolean() }.getOrElse(false)
 
 configurations {
     // Iris and Sodium, for testing the clouds with shader packs in the dev client (the pack ships them from Modrinth).
@@ -33,11 +36,27 @@ neoForge {
         // The bare game test run (the convention plugin's): the headless climatology year
         // (gametest/ClimatologyDiagnosticRun), off unless asked for with -Pmeteodyne.climatologyDays=...
         gameTestServer {
+            if (airSceneEnabled || airWeatherSceneEnabled) {
+                systemProperty 'neoforge.enabledGameTestNamespaces', 'meteodyne_air_scene'
+                systemProperty 'meteodyne.airScene', airSceneEnabled.toString()
+                systemProperty 'meteodyne.airWeatherScene', airWeatherSceneEnabled.toString()
+                systemProperty 'meteodyne.airSceneOutput', layout.buildDirectory.dir('reports/air-scene').get().asFile.absolutePath
+            }
             ['meteodyne.climatologyDays', 'meteodyne.climatologyX', 'meteodyne.climatologyZ'].each { key ->
                 if (project.hasProperty(key)) {
                     systemProperty key, project.property(key).toString()
                 }
             }
+        }
+    }
+}
+
+// The opt-in benchmark has its own template namespace so ordinary fixtures cannot mutate its world concurrently.
+// Copy the existing generated empty structure; preserve its original generated content.
+if (airSceneEnabled || airWeatherSceneEnabled) {
+    tasks.named('processResources') {
+        from('src/generated/resources/data/meteodyne/structure/gametest/empty.nbt') {
+            into('data/meteodyne_air_scene/structure/gametest')
         }
     }
 }
@@ -52,6 +71,7 @@ tasks.named('test') {
 }
 
 tasks.named('jar', Jar) {
+    exclude('data/meteodyne_air_scene/**')
     // Game test code only the game tests use, left out of the release jar with the game tests themselves (convention
     // plugin): the climatology year is a @GameTestHolder, and GameTestSky is the lightning tests' open-sky helper.
     exclude('**/gametest/ClimatologyDiagnosticRun.class', '**/gametest/GameTestSky.class')

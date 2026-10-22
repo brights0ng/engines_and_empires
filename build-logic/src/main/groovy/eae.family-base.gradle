@@ -1,3 +1,4 @@
+// Updated by Gemini: removed CurseMaven repository.
 // What every project of the family's build shares, whether it builds a mod or only runs mods (split step 4b): Java,
 // the repositories, NeoForge and Parchment, the helpers that bind other projects' mods to this project's runs
 // (requireMod, loadMod), run logging, and one Minecraft run at a time. eae.mod-conventions applies it and adds the
@@ -31,13 +32,6 @@ repositories {
         }
         filter {
             includeGroup("maven.modrinth")
-        }
-    }
-    maven {
-        // CurseForge files (MineColonies and its libraries publish there)
-        url = "https://cursemaven.com"
-        content {
-            includeGroup("curse.maven")
         }
     }
 }

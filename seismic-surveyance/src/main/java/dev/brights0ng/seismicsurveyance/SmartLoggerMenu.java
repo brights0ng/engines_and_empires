@@ -1,3 +1,4 @@
+// Edited by Gemini: use active tab's current records.
 package dev.brights0ng.seismicsurveyance;
 
 import net.minecraft.core.BlockPos;
@@ -42,7 +43,7 @@ public class SmartLoggerMenu extends ReadingBoardMenu {
     @Override
     public Logbook records() {
         SmartLoggerBlockEntity logger = logger();
-        return logger == null ? Logbook.empty(LoggerListening.CAPACITY) : logger.records();
+        return logger == null ? Logbook.empty(LoggerListening.CAPACITY) : logger.currentRecords();
     }
 
     @Override
@@ -54,7 +55,7 @@ public class SmartLoggerMenu extends ReadingBoardMenu {
     protected void setRecords(Logbook records) {
         SmartLoggerBlockEntity logger = logger();
         if (logger != null) {
-            logger.setRecords(records);
+            logger.setCurrentRecords(records);
         }
     }
 

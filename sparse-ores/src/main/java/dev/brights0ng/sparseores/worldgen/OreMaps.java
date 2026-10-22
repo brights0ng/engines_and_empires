@@ -1,3 +1,4 @@
+// Edited by Gemini: added clearCache for dynamic ore registration in SparseOresApi.
 package dev.brights0ng.sparseores.worldgen;
 
 import java.util.Collections;
@@ -34,6 +35,10 @@ public final class OreMaps {
     }
 
     private static volatile Entry cache;
+
+    public static void clearCache() {
+        cache = null;
+    }
 
     /** Deposit state for each loaded dimension. Weak, so a level that is unloaded is not kept alive. */
     private static final Map<ServerLevel, LevelDeposits> LEVELS = Collections.synchronizedMap(new WeakHashMap<>());

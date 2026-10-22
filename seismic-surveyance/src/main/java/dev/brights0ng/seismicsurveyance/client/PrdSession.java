@@ -1,4 +1,7 @@
+// Edited by Gemini: added ORES/OIL/FRONTIER/EMPIRE Filter enum and filtered selection/navigation for PRD.
 package dev.brights0ng.seismicsurveyance.client;
+
+import java.util.List;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -6,6 +9,7 @@ import org.joml.Vector3f;
 import dev.brights0ng.seismicsurveyance.Logbook;
 import dev.brights0ng.seismicsurveyance.LogbookEntry;
 import dev.brights0ng.seismicsurveyance.LoggerDisplay;
+import dev.brights0ng.seismicsurveyance.OilTiers;
 import dev.brights0ng.seismicsurveyance.PrdActionPayload;
 import dev.brights0ng.seismicsurveyance.PrdDisplay;
 import dev.brights0ng.seismicsurveyance.PrdItem;
@@ -49,6 +53,19 @@ public final class PrdSession {
         MAP, RECORDS
     }
 
+    public enum Filter {
+        ORES, OIL, FRONTIER, EMPIRE;
+
+        public LoggerDisplay.Tab toTab() {
+            return switch (this) {
+                case ORES -> LoggerDisplay.Tab.ORES;
+                case OIL -> LoggerDisplay.Tab.OIL;
+                case FRONTIER -> LoggerDisplay.Tab.FRONTIER;
+                case EMPIRE -> LoggerDisplay.Tab.EMPIRE;
+            };
+        }
+    }
+
     /** How long a first press of DELETE waits for the second. */
     static final long CONFIRM_MS = 3000;
     /** How long a message stays on the strip. */
@@ -62,6 +79,7 @@ public final class PrdSession {
     private static boolean looking;
     private static InteractionHand hand = InteractionHand.MAIN_HAND;
     private static Page page = Page.MAP;
+    private static Filter filter = Filter.ORES;
 
     // The map.
     private static int zoom;
@@ -97,6 +115,7 @@ public final class PrdSession {
         looking = false;
         hand = inHand;
         page = Page.MAP;
+        filter = Filter.ORES;
         centre = null;
         selected = -1;
         dragging = false;
@@ -152,6 +171,37 @@ public final class PrdSession {
 
     public static Page page() {
         return page;
+    }
+
+    public static Filter filter() {
+        return filter;
+    }
+
+    public static void setFilter(Filter newFilter) {
+        if (newFilter != null && filter != newFilter) {
+            filter = newFilter;
+            selected = -1;
+            armedDelete = -1;
+            typing = null;
+            scroll = 0;
+            if (filter == Filter.FRONTIER || filter == Filter.EMPIRE) {
+                page = Page.MAP;
+            }
+        }
+    }
+
+    public static List<LogbookEntry> filteredEntries() {
+        return filteredEntries(records(), filter);
+    }
+
+    public static List<LogbookEntry> filteredEntries(Logbook records, Filter filter) {
+        if (filter == Filter.FRONTIER || filter == Filter.EMPIRE) {
+            return List.of();
+        }
+        boolean wantOil = filter == Filter.OIL;
+        return records.entries().stream()
+                .filter(e -> OilTiers.isOil(e.reading().ore()) == wantOil)
+                .toList();
     }
 
     public static int zoom() {
@@ -236,10 +286,16 @@ public final class PrdSession {
         if (selected >= 0 && records.indexOfNumber(selected) < 0) {
             selected = -1;
         }
+        if (selected >= 0) {
+            int idx = records.indexOfNumber(selected);
+            if (idx >= 0 && (filter == Filter.FRONTIER || filter == Filter.EMPIRE || OilTiers.isOil(records.get(idx).reading().ore()) != (filter == Filter.OIL))) {
+                selected = -1;
+            }
+        }
         if (typing != null && records.indexOfNumber(typingNumber) < 0) {
             typing = null;
         }
-        scroll = Mth.clamp(scroll, 0, Math.max(0, records.size() - PrdShape.ROWS));
+        scroll = Mth.clamp(scroll, 0, Math.max(0, filteredEntries().size() - PrdShape.ROWS));
     }
 
     // ---- where the cursor is ----
@@ -281,15 +337,19 @@ public final class PrdSession {
         if (!inContent(glass[1])) {
             return;
         }
-        Logbook records = records();
+        List<LogbookEntry> entries = filteredEntries();
         if (page == Page.MAP) {
+            if (filter == Filter.FRONTIER || filter == Filter.EMPIRE) {
+                hovered = -1;
+                return;
+            }
             double[] map = PrdShape.mapPixel(hit.x(), hit.y());
             int index = PrdDisplay.hovered(view(), yaw(), map[0], map[1],
-                    records.entries().stream().map(LogbookEntry::reading).toList(), dimension());
-            hovered = index < 0 ? -1 : records.get(index).number();
+                    entries.stream().map(LogbookEntry::reading).toList(), dimension());
+            hovered = index < 0 ? -1 : entries.get(index).number();
         } else {
             int row = PrdShape.rowAt(glass[1]);
-            hovered = row >= 0 && records.has(scroll + row) ? records.get(scroll + row).number() : -1;
+            hovered = row >= 0 && (scroll + row) < entries.size() ? entries.get(scroll + row).number() : -1;
         }
     }
 
@@ -354,7 +414,8 @@ public final class PrdSession {
         int steps = amount > 0 ? 1 : -1;
         if (page == Page.RECORDS) {
             int before = scroll;
-            scroll = Mth.clamp(scroll - steps, 0, Math.max(0, records().size() - PrdShape.ROWS));
+            int max = Math.max(0, filteredEntries().size() - PrdShape.ROWS);
+            scroll = Mth.clamp(scroll - steps, 0, max);
             if (scroll != before) {
                 sound(SoundEvents.UI_BUTTON_CLICK.value(), 1.6F, 0.25F);
             }
@@ -389,17 +450,23 @@ public final class PrdSession {
             if (tab != null && tab != page) {
                 page = tab;
                 sound(SoundEvents.UI_BUTTON_CLICK.value(), 1.4F, 0.4F);
+                return;
+            }
+            Filter filterTab = PrdGlass.filterTabAt(glass[0]);
+            if (filterTab != null && filterTab != filter) {
+                setFilter(filterTab);
+                sound(SoundEvents.UI_BUTTON_CLICK.value(), 1.4F, 0.4F);
             }
             return;
         }
         if (!inContent(glass[1])) {
             return;
         }
-        Logbook records = records();
+        List<LogbookEntry> entries = filteredEntries();
         if (page == Page.RECORDS) {
             int row = PrdShape.rowAt(glass[1]);
-            if (row >= 0 && records.has(scroll + row)) {
-                int number = records.get(scroll + row).number();
+            if (row >= 0 && (scroll + row) < entries.size()) {
+                int number = entries.get(scroll + row).number();
                 select(selected == number ? -1 : number);
             }
             return;
@@ -417,9 +484,12 @@ public final class PrdSession {
                 sound(SoundEvents.COMPARATOR_CLICK, 0.8F, 1);
                 return;
             }
+            if (filter == Filter.FRONTIER || filter == Filter.EMPIRE) {
+                return;
+            }
             int index = PrdDisplay.hovered(view, yaw(), map[0], map[1],
-                    records.entries().stream().map(LogbookEntry::reading).toList(), dimension());
-            int number = index < 0 ? -1 : records.get(index).number();
+                    entries.stream().map(LogbookEntry::reading).toList(), dimension());
+            int number = index < 0 ? -1 : entries.get(index).number();
             select(number < 0 || selected == number ? -1 : number);
         }
     }

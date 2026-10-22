@@ -1,3 +1,4 @@
+// Edited by Gemini: removed inline distance/accuracy text from PRD records list; added ORES/OIL/FRONTIER/EMPIRE filter tabs, filtered rendering, and multi-chunk shrinking reservoir polygon rendering; smooth miter outline, ear-clipped interior triangulation, and z-fighting/layering fixes for grid lines and deposits; switched to RenderType.textBackground() and made all glass shapes solid via overGlass() to prevent transparency holes through the PRD; ensured frontier and empire boundary lines render on top of grid lines.
 package dev.brights0ng.seismicsurveyance.client;
 
 import java.util.ArrayList;
@@ -13,6 +14,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.brights0ng.seismicsurveyance.Logbook;
 import dev.brights0ng.seismicsurveyance.LogbookEntry;
 import dev.brights0ng.seismicsurveyance.LoggerDisplay;
+import dev.brights0ng.seismicsurveyance.OilTiers;
 import dev.brights0ng.seismicsurveyance.PrdDisplay;
 import dev.brights0ng.seismicsurveyance.PrdItem;
 import dev.brights0ng.seismicsurveyance.PrdShape;
@@ -59,9 +61,9 @@ import net.minecraft.world.item.ItemStack;
  * The glass and the lamp are plain coloured shapes and text at full brightness, like the smart logger's map. Everything is
  * laid out in model pixels, from {@link PrdShape}.
  *
- * <p>Every shape on the glass is opaque. Faint things (the grid, a reading's blur) are given the colour they would have over
- * the dark glass, rather than drawn see-through: a see-through shape still writes depth, and drawn before the model it hides
- * whatever is behind it, punching a hole through the whole display.
+ * <p>Every shape on the glass is opaque. Faint things (the grid, a reading's blur, reservoir fills, and tier overlays)
+ * are given the colour they would have over the dark glass ({@link #overGlass}), rather than drawn see-through: a see-through
+ * shape still writes depth or alpha into the item buffer, which punches a hole through the whole display.
  */
 public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
 
@@ -286,53 +288,141 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
         double k = PrdDisplay.pixelsPerBlock(view);
         int spacing = LoggerDisplay.gridSpacing(view);
         double reach = PrdShape.GLASS_WIDTH * 0.75 / k;
-        List<MapLayer> layers = MapLayers.showing(holder.level());
+        List<MapLayer> layers = MapLayers.showing(holder.level(), framed ? PrdSession.filter().toTab() : LoggerDisplay.Tab.ORES);
         for (MapLayer layer : layers) {
             if (holder == Minecraft.getInstance().player) {
                 layer.want("portable_record_display", view.centreX(), view.centreZ(), reach);
             }
-            drawColumns(canvas, view, yaw, reach, layer);
+            drawColumnFills(canvas, view, yaw, reach, layer);
+        }
+        // The readings: deposit fills and uncertainty blurs are drawn first under the grid lines.
+        // Each entry receives a slight deterministic offset to eliminate z-fighting between overlapping deposits.
+        List<LogbookEntry> entries = framed
+                ? PrdSession.filteredEntries(records, PrdSession.filter())
+                : records.entries();
+        for (int i = 0; i < entries.size(); i++) {
+            LogbookEntry entry = entries.get(i);
+            ReaderReading reading = entry.reading();
+            if (!reading.dimension().equals(dimension)) {
+                continue;
+            }
+            float entryOffset = (i % 32) * 0.02F;
+            float fillLayer = 1.2F + entryOffset;
+
+            if (OilTiers.isOil(reading.ore())) {
+                if (!reading.ore().contains(":")) {
+                    int cx = reading.deposit() != 0 ? (int) reading.deposit() : (reading.x() >> 4);
+                    int cz = reading.deposit() != 0 ? (int) (reading.deposit() >>> 32) : (reading.z() >> 4);
+                    double x1 = cx * 16.0;
+                    double z1 = cz * 16.0;
+                    double x2 = x1 + 16.0;
+                    double z2 = z1 + 16.0;
+                    int baseColour = ReadingOres.colour(reading.ore());
+                    int fill = overGlass((baseColour & 0x00FFFFFF) | 0x4D000000);
+                    canvas.world(view, yaw, new double[][]{{x1, z1}, {x1, z2}, {x2, z2}, {x2, z1}}, fill, fillLayer);
+                } else {
+                    double[][] poly = OilTiers.getPolygon(reading);
+                    if (poly.length >= 3) {
+                        int baseColour = ReadingOres.colour(reading.ore());
+                        int fill = overGlass((baseColour & 0x00FFFFFF) | 0x4D000000);
+
+                        // Triangulate interior using ear clipping to prevent leaking out of concave regions
+                        List<double[][]> triangles = MapPolygonRenderer.triangulate(poly);
+                        for (double[][] tri : triangles) {
+                            canvas.world(view, yaw, tri, fill, fillLayer);
+                        }
+                    }
+                }
+            } else {
+                double blur = LoggerDisplay.blurBlocks(reading.confidence());
+                if (blur * k > DOT / 2) {
+                    double x = reading.x() + 0.5;
+                    double z = reading.z() + 0.5;
+                    canvas.world(view, yaw, new double[][]{{x - blur, z - blur}, {x - blur, z + blur}, {x + blur, z + blur}, {x + blur, z - blur}},
+                            overGlass((ReadingOres.colour(reading.ore()) & 0x00FFFFFF) | 0x1C000000), fillLayer);
+                }
+            }
+        }
+
+        // The grid lines: drawn over deposit fills and blurs, with horizontal, vertical, and origin lines
+        // at distinct layers so they never z-fight at intersections.
+        for (long gz = (long) Math.ceil((view.centreZ() - reach) / spacing) * spacing, n = 0;
+             gz <= view.centreZ() + reach && n < 128; gz += spacing, n++) {
+            float gLayer = gz == 0 ? 2.2F : 2.0F;
+            canvas.line(view, yaw, view.centreX() - reach, gz, view.centreX() + reach, gz, gz == 0 ? GRID_ORIGIN : GRID, gLayer);
         }
         for (long gx = (long) Math.ceil((view.centreX() - reach) / spacing) * spacing, n = 0;
              gx <= view.centreX() + reach && n < 128; gx += spacing, n++) {
-            canvas.line(view, yaw, gx, view.centreZ() - reach, gx, view.centreZ() + reach, gx == 0 ? GRID_ORIGIN : GRID, 1);
-        }
-        for (long gz = (long) Math.ceil((view.centreZ() - reach) / spacing) * spacing, n = 0;
-             gz <= view.centreZ() + reach && n < 128; gz += spacing, n++) {
-            canvas.line(view, yaw, view.centreX() - reach, gz, view.centreX() + reach, gz, gz == 0 ? GRID_ORIGIN : GRID, 1);
+            float gLayer = gx == 0 ? 2.25F : 2.1F;
+            canvas.line(view, yaw, gx, view.centreZ() - reach, gx, view.centreZ() + reach, gx == 0 ? GRID_ORIGIN : GRID, gLayer);
         }
 
-        // The readings: every blur first, then every dot.
-        List<LogbookEntry> entries = records.entries();
-        for (LogbookEntry entry : entries) {
-            ReaderReading reading = entry.reading();
-            if (!reading.dimension().equals(dimension)) {
-                continue;
-            }
-            double blur = LoggerDisplay.blurBlocks(reading.confidence());
-            if (blur * k <= DOT / 2) {
-                continue;
-            }
-            double x = reading.x() + 0.5;
-            double z = reading.z() + 0.5;
-            canvas.world(view, yaw, new double[][]{{x - blur, z - blur}, {x - blur, z + blur}, {x + blur, z + blur}, {x + blur, z - blur}},
-                    overGlass((ReadingOres.colour(reading.ore()) & 0x00FFFFFF) | 0x1C000000), 2);
+        // Boundary lines (frontier and empire): drawn cleanly over the grid lines.
+        for (MapLayer layer : layers) {
+            drawColumnBorders(canvas, view, yaw, reach, layer);
         }
-        for (LogbookEntry entry : entries) {
+
+        // The deposit outlines, dots, and rings: drawn over the grid lines.
+        for (int i = 0; i < entries.size(); i++) {
+            LogbookEntry entry = entries.get(i);
             ReaderReading reading = entry.reading();
             if (!reading.dimension().equals(dimension)) {
                 continue;
             }
-            double[] at = PrdDisplay.toScreen(view, yaw, reading.x() + 0.5, reading.z() + 0.5);
-            int colour = ReadingOres.colour(reading.ore()) | 0xFF000000;
-            if (!reading.hasHeight()) {
-                colour = overGlass((colour & 0x00FFFFFF) | 0x99000000);
-            }
-            canvas.square(at, DOT / 2, colour, 3);
-            if (entry.number() == selected) {
-                canvas.ring(at, DOT / 2 + 2.5, 1.2, AMBER, 4);
-            } else if (entry.number() == hovered) {
-                canvas.ring(at, DOT / 2 + 1.5, 0.8, WHITE, 4);
+            float entryOffset = (i % 32) * 0.01F;
+
+            if (OilTiers.isOil(reading.ore())) {
+                int baseColour = ReadingOres.colour(reading.ore());
+                int edge = overGlass((baseColour & 0x00FFFFFF) | 0xC0000000);
+                float edgeLayer = 2.6F + entryOffset;
+                double strokeHalfWidth = 0.5;
+                if (entry.number() == selected) {
+                    edge = AMBER;
+                    edgeLayer = 4.0F;
+                    strokeHalfWidth = 0.65;
+                } else if (entry.number() == hovered) {
+                    edge = WHITE;
+                    edgeLayer = 4.2F;
+                    strokeHalfWidth = 0.65;
+                }
+
+                if (!reading.ore().contains(":")) {
+                    int cx = reading.deposit() != 0 ? (int) reading.deposit() : (reading.x() >> 4);
+                    int cz = reading.deposit() != 0 ? (int) (reading.deposit() >>> 32) : (reading.z() >> 4);
+                    double x1 = cx * 16.0;
+                    double z1 = cz * 16.0;
+                    double x2 = x1 + 16.0;
+                    double z2 = z1 + 16.0;
+                    canvas.line(view, yaw, x1, z1, x2, z1, edge, edgeLayer);
+                    canvas.line(view, yaw, x1, z2, x2, z2, edge, edgeLayer);
+                    canvas.line(view, yaw, x1, z1, x1, z2, edge, edgeLayer);
+                    canvas.line(view, yaw, x2, z1, x2, z2, edge, edgeLayer);
+                } else {
+                    double[][] poly = OilTiers.getPolygon(reading);
+                    if (poly.length >= 3) {
+                        double[][] screenPts = new double[poly.length][2];
+                        for (int p = 0; p < poly.length; p++) {
+                            screenPts[p] = PrdDisplay.toScreen(view, yaw, poly[p][0], poly[p][1]);
+                        }
+                        double[][][] ribbon = MapPolygonRenderer.strokeRibbon(screenPts, strokeHalfWidth);
+                        for (double[][] quad : ribbon) {
+                            canvas.map(quad, edge, edgeLayer);
+                        }
+                    }
+                }
+            } else {
+                double[] at = PrdDisplay.toScreen(view, yaw, reading.x() + 0.5, reading.z() + 0.5);
+                int colour = ReadingOres.colour(reading.ore()) | 0xFF000000;
+                if (!reading.hasHeight()) {
+                    colour = overGlass((colour & 0x00FFFFFF) | 0x99000000);
+                }
+                float dotLayer = 3.0F + entryOffset;
+                canvas.square(at, DOT / 2, colour, dotLayer);
+                if (entry.number() == selected) {
+                    canvas.ring(at, DOT / 2 + 2.5, 1.2, AMBER, 4.0F);
+                } else if (entry.number() == hovered) {
+                    canvas.ring(at, DOT / 2 + 1.5, 0.8, WHITE, 4.2F);
+                }
             }
         }
         for (MapLayer layer : layers) {
@@ -385,10 +475,10 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
     }
 
     /**
-     * A layer's tinted chunk columns within {@code reach} blocks of the map's middle (the tier overlay: a very faint fill
-     * and an outline where it meets a lower tier), under the grid. Made solid over the glass, like every faint thing here.
+     * A layer's tinted chunk column fills within {@code reach} blocks of the map's middle (the tier overlay: a faint fill),
+     * under deposits and under the grid. Made solid over the glass, like every faint thing here.
      */
-    private static void drawColumns(Canvas canvas, LoggerDisplay.View view, float yaw, double reach, MapLayer layer) {
+    private static void drawColumnFills(Canvas canvas, LoggerDisplay.View view, float yaw, double reach, MapLayer layer) {
         int minX = (int) Math.floor(view.centreX() - reach) >> 4;
         int maxX = (int) Math.floor(view.centreX() + reach) >> 4;
         int minZ = (int) Math.floor(view.centreZ() - reach) >> 4;
@@ -399,19 +489,38 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
             double x2 = x1 + 16;
             double z2 = z1 + 16;
             canvas.world(view, yaw, new double[][]{{x1, z1}, {x1, z2}, {x2, z2}, {x2, z1}}, overGlass(fill), 0.4F);
-            // Outlines above the grid (layer 1), so one on a grid line still shows; the blurs are at 2.
+        });
+    }
+
+    /**
+     * A layer's boundary outlines: drawn cleanly on top of the grid lines (2.0F - 2.25F) at layer 2.55F, and under
+     * deposit outlines (2.6F+).
+     */
+    private static void drawColumnBorders(Canvas canvas, LoggerDisplay.View view, float yaw, double reach, MapLayer layer) {
+        int minX = (int) Math.floor(view.centreX() - reach) >> 4;
+        int maxX = (int) Math.floor(view.centreX() + reach) >> 4;
+        int minZ = (int) Math.floor(view.centreZ() - reach) >> 4;
+        int maxZ = (int) Math.floor(view.centreZ() + reach) >> 4;
+        layer.columns(minX, minZ, maxX, maxZ, (cx, cz, fill, outline, edges) -> {
+            if (edges == 0) {
+                return;
+            }
+            double x1 = cx * 16.0;
+            double z1 = cz * 16.0;
+            double x2 = x1 + 16;
+            double z2 = z1 + 16;
             int edge = overGlass(outline);
             if ((edges & MapLayer.NORTH) != 0) {
-                canvas.line(view, yaw, x1, z1, x2, z1, edge, 1.5F);
+                canvas.line(view, yaw, x1, z1, x2, z1, edge, 2.55F, 0.65);
             }
             if ((edges & MapLayer.SOUTH) != 0) {
-                canvas.line(view, yaw, x1, z2, x2, z2, edge, 1.5F);
+                canvas.line(view, yaw, x1, z2, x2, z2, edge, 2.55F, 0.65);
             }
             if ((edges & MapLayer.WEST) != 0) {
-                canvas.line(view, yaw, x1, z1, x1, z2, edge, 1.5F);
+                canvas.line(view, yaw, x1, z1, x1, z2, edge, 2.55F, 0.65);
             }
             if ((edges & MapLayer.EAST) != 0) {
-                canvas.line(view, yaw, x2, z1, x2, z2, edge, 1.5F);
+                canvas.line(view, yaw, x2, z1, x2, z2, edge, 2.55F, 0.65);
             }
         });
     }
@@ -478,10 +587,25 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
             if (on) {
                 canvas.page(tab[0], 0, tab[1], PrdShape.TAB_HEIGHT, TAB_ON, 7);
             }
-            canvas.text(PrdGlass.label(page), tab[0] + PrdGlass.TAB_PAD, 2, on ? AMBER : DIM);
+            canvas.text(PrdGlass.label(page), tab[0] + PrdGlass.TAB_PAD, 2.5F, on ? AMBER : DIM, PrdGlass.TAB_FONT_SCALE);
+        }
+        int dividerX = PrdGlass.pageTabsEnd() + PrdGlass.SECTION_GAP / 2;
+        canvas.page(dividerX, 2, dividerX + 1, PrdShape.TAB_HEIGHT - 2, BAR_EDGE, 8);
+        for (PrdSession.Filter filter : PrdSession.Filter.values()) {
+            int[] tab = PrdGlass.filterTab(filter);
+            boolean on = filter == PrdSession.filter();
+            if (on) {
+                canvas.page(tab[0], 0, tab[1], PrdShape.TAB_HEIGHT, TAB_ON, 7);
+            }
+            canvas.text(PrdGlass.filterLabel(filter), tab[0] + PrdGlass.TAB_PAD, 2.5F, on ? AMBER : DIM, PrdGlass.TAB_FONT_SCALE);
         }
         String count = records.size() + "/" + records.capacity();
-        canvas.text(Component.literal(count), PrdShape.GLASS_WIDTH - 3 - canvas.font().width(count), 2, records.isFull() ? RED : WHITE);
+        int countWidth = Math.round(canvas.font().width(count) * PrdGlass.TAB_FONT_SCALE);
+        int countX = PrdShape.GLASS_WIDTH - 2 - countWidth;
+        int[] lastTab = PrdGlass.filterTab(PrdSession.Filter.values()[PrdSession.Filter.values().length - 1]);
+        if (lastTab[1] + 2 <= countX) {
+            canvas.text(Component.literal(count), countX, 2.5F, records.isFull() ? RED : WHITE, PrdGlass.TAB_FONT_SCALE);
+        }
     }
 
     private static void drawRecords(Canvas canvas, Logbook records) {
@@ -489,35 +613,33 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
         Font font = canvas.font();
         int scroll = PrdSession.scroll();
         int top = PrdShape.TAB_HEIGHT + 1;
-        if (records.size() == 0) {
+        List<LogbookEntry> entries = PrdSession.filteredEntries(records, PrdSession.filter());
+        if (entries.isEmpty()) {
             Component empty = Component.translatable("gui.seismic_surveyance.portable_record_display.empty");
             canvas.text(empty, (PrdShape.GLASS_WIDTH - font.width(empty)) / 2F, top + 30, DIM);
             return;
         }
-        boolean scrolls = records.size() > PrdShape.ROWS;
+        boolean scrolls = entries.size() > PrdShape.ROWS;
         int right = PrdShape.GLASS_WIDTH - (scrolls ? 5 : 2);
         for (int row = 0; row < PrdShape.ROWS; row++) {
             int index = scroll + row;
-            if (!records.has(index)) {
+            if (index >= entries.size()) {
                 break;
             }
-            LogbookEntry entry = records.get(index);
+            LogbookEntry entry = entries.get(index);
             ReaderReading reading = entry.reading();
             int y = top + row * PrdShape.ROW_HEIGHT;
             int background = entry.number() == PrdSession.selected() ? ROW_SELECTED
                     : entry.number() == PrdSession.hovered() ? ROW_HOVERED : index % 2 == 0 ? ROW_EVEN : ROW_ODD;
             canvas.page(2, y, right, y + PrdShape.ROW_HEIGHT, background, 1);
             canvas.page(4, y + 2, 9, y + 7, ReadingOres.colour(reading.ore()) | 0xFF000000, 2);
-            String where = font.plainSubstrByWidth(ReadingBoardScreen.describe(reading).getString(), 64);
-            int whereWidth = font.width(where);
-            canvas.text(Component.literal(where), right - 2 - whereWidth, y + 1, AMBER);
-            String name = font.plainSubstrByWidth(PrdGlass.name(entry), right - 2 - whereWidth - 4 - 12);
+            String name = font.plainSubstrByWidth(PrdGlass.name(entry), right - 2 - 12);
             canvas.text(Component.literal(name), 12, y + 1, entry.number() == PrdSession.selected() ? WHITE : AMBER);
         }
         if (scrolls) {
             float track = PrdShape.ROWS * PrdShape.ROW_HEIGHT;
-            float thumb = Math.max(4, track * PrdShape.ROWS / records.size());
-            float thumbTop = top + (track - thumb) * scroll / Math.max(1, records.size() - PrdShape.ROWS);
+            float thumb = Math.max(4, track * PrdShape.ROWS / entries.size());
+            float thumbTop = top + (track - thumb) * scroll / Math.max(1, entries.size() - PrdShape.ROWS);
             canvas.page(PrdShape.GLASS_WIDTH - 4, top, PrdShape.GLASS_WIDTH - 2, top + track, ROW_EVEN, 1);
             canvas.page(PrdShape.GLASS_WIDTH - 4, thumbTop, PrdShape.GLASS_WIDTH - 2, thumbTop + thumb, AMBER_DIM, 2);
         }
@@ -622,6 +744,11 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
 
         /** A line one map pixel wide between two world points. */
         void line(LoggerDisplay.View view, double yaw, double ax, double az, double bx, double bz, int argb, float layer) {
+            line(view, yaw, ax, az, bx, bz, argb, layer, 0.5);
+        }
+
+        /** A line {@code 2 * halfWidth} map pixels wide between two world points. */
+        void line(LoggerDisplay.View view, double yaw, double ax, double az, double bx, double bz, int argb, float layer, double halfWidth) {
             double[] a = PrdDisplay.toScreen(view, yaw, ax, az);
             double[] b = PrdDisplay.toScreen(view, yaw, bx, bz);
             double dx = b[0] - a[0];
@@ -630,19 +757,19 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
             if (length < 1e-3) {
                 return;
             }
-            double nx = -dy / length * 0.5;
-            double ny = dx / length * 0.5;
+            double nx = -dy / length * halfWidth;
+            double ny = dx / length * halfWidth;
             map(new double[][]{{a[0] + nx, a[1] + ny}, {b[0] + nx, b[1] + ny}, {b[0] - nx, b[1] - ny}, {a[0] - nx, a[1] - ny}}, argb, layer);
         }
 
         /** A square, {@code half} map pixels either side of a point on the map. */
-        void square(double[] at, double half, int argb, int layer) {
+        void square(double[] at, double half, int argb, float layer) {
             map(new double[][]{{at[0] - half, at[1] - half}, {at[0] + half, at[1] - half}, {at[0] + half, at[1] + half},
                     {at[0] - half, at[1] + half}}, argb, layer);
         }
 
         /** A square ring round a point on the map. */
-        void ring(double[] at, double ring, double edge, int argb, int layer) {
+        void ring(double[] at, double ring, double edge, int argb, float layer) {
             double x = at[0];
             double y = at[1];
             map(new double[][]{{x - ring, y - ring}, {x + ring, y - ring}, {x + ring, y - ring + edge}, {x - ring, y - ring + edge}}, argb, layer);
@@ -779,7 +906,8 @@ public class PrdItemRenderer extends BlockEntityWithoutLevelRenderer {
         }
 
         private static void vertex(VertexConsumer out, Matrix4f matrix, float x, float y, float z, int argb) {
-            out.addVertex(matrix, x, y, z).setColor(argb).setLight(LightTexture.FULL_BRIGHT);
+            int finalArgb = (argb >>> 24) == 0xFF ? argb : overGlass(argb);
+            out.addVertex(matrix, x, y, z).setColor(finalArgb).setLight(LightTexture.FULL_BRIGHT);
         }
     }
 }

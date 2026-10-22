@@ -1,3 +1,4 @@
+// Updated by Gemini: accounted for removed MineColonies files in manifest checks; added empire mod.
 package dev.brights0ng.enginesandempires;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -64,6 +65,7 @@ class ArchitectureTest {
             "meteodyne", "meteodyne",
             "frontier", "frontier",
             "simplespoilage", "simple_spoilage",
+            "empire", "empire",
             "enginesandempires", "engines_and_empires",
             // The test-only mod of the core-less combined run (coreless/, split step 4c).
             "corelesstests", "coreless_tests");
@@ -77,15 +79,25 @@ class ArchitectureTest {
             "meteodyne", Set.of("paradyne_lib"),
             "frontier", Set.of("paradyne_lib"),
             "simple_spoilage", Set.of("paradyne_lib"),
+            "empire", Set.of("paradyne_lib"),
             "engines_and_empires", Set.of("paradyne_lib", "sable_fixes", "sparse_ores", "seismic_surveyance",
-                    "meteodyne", "frontier", "simple_spoilage"),
+                    "meteodyne", "frontier", "simple_spoilage", "empire"),
             // Every feature mod, never the core: its tests are of the feature mods working together without it.
             "coreless_tests", Set.of("paradyne_lib", "sable_fixes", "sparse_ores", "seismic_surveyance", "meteodyne",
-                    "frontier", "simple_spoilage"));
+                    "frontier", "simple_spoilage", "empire"));
 
     /** The only Frontier package that may mention Seismic Surveyance and Sparse Ores (Seismic is optional to Frontier). */
     private static final String GATED_PACKAGE = "dev.brights0ng.frontier.seismic";
     private static final Set<String> GATED_TARGETS = Set.of("seismic_surveyance", "sparse_ores");
+
+    /** The only Empire package that may mention Frontier (Frontier is optional to Empire). */
+    private static final String EMPIRE_FRONTIER_GATED_PACKAGE = "dev.brights0ng.empire.compat.frontier";
+
+    /** The only Empire package that may mention Sparse Ores (Sparse Ores is optional to Empire). */
+    private static final String EMPIRE_SPARSEORES_GATED_PACKAGE = "dev.brights0ng.empire.compat.sparseores";
+
+    /** The only Empire package that may mention Seismic Surveyance (Seismic Surveyance is optional to Empire). */
+    private static final String EMPIRE_SEISMIC_GATED_PACKAGE = "dev.brights0ng.empire.compat.seismic";
 
     /**
      * Outside mods, by key, and the packages that are theirs. A mention is the package followed by a dot, so a mod id
@@ -97,7 +109,6 @@ class ArchitectureTest {
     static {
         OUTSIDE.put("sable", List.of("dev.ryanhcode.sable"));
         OUTSIDE.put("coldsweat", List.of("com.momosoftworks.coldsweat"));
-        OUTSIDE.put("minecolonies", List.of("com.minecolonies"));
         OUTSIDE.put("sereneseasons", List.of("sereneseasons"));
         OUTSIDE.put("iris", List.of("net.irisshaders.iris", "net.coderbot.iris"));
         OUTSIDE.put("appleskin", List.of("squeek.appleskin"));
@@ -135,6 +146,21 @@ class ArchitectureTest {
             "main:geophone/client/TierOverlay.java", new String[]{"frontier", "TierOverlay.java"},
             // Step 4e: the core's remaining incursion game test is renamed to say what it checks.
             "main:gametest/FrontierIncursionGameTests.java", new String[]{"engines_and_empires", "PackIncursionGameTests.java"});
+
+    /**
+     * Manifest rows for files removed after the split (MineColonies removal), as {@code kind:path}.
+     */
+    private static final Set<String> MANIFEST_REMOVED = Set.of(
+            "main:frontier/guard/MineColoniesGuards.java",
+            "main:mixin/compat/minecolonies/AISkeletonAccessor.java",
+            "main:mixin/compat/minecolonies/CitizenAIWeatherMixin.java",
+            "main:mixin/compat/minecolonies/CitizenWanderWeatherMixin.java",
+            "main:mixin/compat/minecolonies/ColonySoundWeatherMixin.java",
+            "main:mixin/compat/minecolonies/CookSeatingWeatherMixin.java",
+            "main:mixin/compat/minecolonies/CraftingIdleWeatherMixin.java",
+            "main:mixin/compat/minecolonies/LeisureSiteWeatherMixin.java",
+            "main:weather/checks/ColonyWeather.java");
+
 
     private static final Pattern PACKAGE = Pattern.compile("^\\s*package\\s+([\\w.]+)\\s*;", Pattern.MULTILINE);
     private static final Pattern OUR_MENTION = Pattern.compile("(?<![\\w.])dev\\.brights0ng\\.(\\w+)");
@@ -232,8 +258,20 @@ class ArchitectureTest {
         if (target.equals(s.mod) || ALLOWED.get(s.mod).contains(target)) {
             return true;
         }
-        return s.mod.equals("frontier") && GATED_TARGETS.contains(target)
-                && (s.pkg.equals(GATED_PACKAGE) || s.pkg.startsWith(GATED_PACKAGE + "."));
+        if (s.mod.equals("frontier") && GATED_TARGETS.contains(target)
+                && (s.pkg.equals(GATED_PACKAGE) || s.pkg.startsWith(GATED_PACKAGE + "."))) {
+            return true;
+        }
+        if (s.mod.equals("empire") && target.equals("frontier")
+                && (s.pkg.equals(EMPIRE_FRONTIER_GATED_PACKAGE) || s.pkg.startsWith(EMPIRE_FRONTIER_GATED_PACKAGE + "."))) {
+            return true;
+        }
+        if (s.mod.equals("empire") && target.equals("sparse_ores")
+                && (s.pkg.equals(EMPIRE_SPARSEORES_GATED_PACKAGE) || s.pkg.startsWith(EMPIRE_SPARSEORES_GATED_PACKAGE + "."))) {
+            return true;
+        }
+        return s.mod.equals("empire") && target.equals("seismic_surveyance")
+                && (s.pkg.equals(EMPIRE_SEISMIC_GATED_PACKAGE) || s.pkg.startsWith(EMPIRE_SEISMIC_GATED_PACKAGE + "."));
     }
 
     @Test
@@ -356,6 +394,9 @@ class ArchitectureTest {
             rows++;
             String[] cols = line.split(",", 3);
             listed.add(cols[0] + ":" + cols[2]);
+            if (MANIFEST_REMOVED.contains(cols[0] + ":" + cols[2])) {
+                continue;
+            }
             String kind = cols[0];
             String mod = cols[1];
             String name = cols[2].substring(cols[2].lastIndexOf('/') + 1);

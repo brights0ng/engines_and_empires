@@ -1,3 +1,4 @@
+// Edited by Gemini: increased internal ore density for lump deposits.
 package dev.brights0ng.sparseores.shape;
 
 import dev.brights0ng.sparseores.DepositRandom;
@@ -23,7 +24,7 @@ public record LumpShape(double minDensity, double maxDensity, double maxFlatten,
                         double maxTiltDegrees, double minPeriod, double maxPeriod) implements BodyShape {
 
     /** Iron and zinc. */
-    public static final LumpShape DEFAULT = new LumpShape(0.25, 0.55, 1.8, 1.5, 20.0, 3.0, 6.0);
+    public static final LumpShape DEFAULT = new LumpShape(0.50, 0.80, 1.8, 1.5, 20.0, 3.0, 6.0);
 
     /** How far noise may push the footprint's edge, as a fraction of its longest semi-axis. */
     private static final double WARP_FRACTION = 0.30;

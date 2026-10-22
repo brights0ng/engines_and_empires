@@ -1,3 +1,4 @@
+// Updated by Gemini: removed MineColonies colonist guard test.
 package dev.brights0ng.frontier.gametest;
 
 import java.util.UUID;
@@ -215,24 +216,6 @@ public final class FrontierSpawnGameTests {
             frontier.clearHabitation(at, 8);
         });
         FrontierConfig.GUARD_FREE_AREA.set(area);
-        helper.succeed();
-    }
-
-    @GameTest(template = SCRATCH, batch = "frontier_colonists")
-    public static void colonistsAreWatchedButOnlyGuardsCount(GameTestHelper helper) {
-        if (!net.neoforged.fml.ModList.get().isLoaded("minecolonies")) {
-            helper.succeed();
-            return;
-        }
-        EntityType<?> citizenType = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
-                .get(net.minecraft.resources.ResourceLocation.parse("minecolonies:citizen"));
-        net.minecraft.world.entity.Entity citizen = citizenType.create(helper.getLevel());
-        helper.assertTrue(citizen != null, "MineColonies should have a citizen entity");
-        helper.assertTrue(dev.brights0ng.frontier.guard.GuardTypes.isCandidate(citizen),
-                "colonists should be watched (they may be given a guard job)");
-        helper.assertFalse(dev.brights0ng.frontier.guard.GuardTypes.isGuard(citizen),
-                "a colonist with no job is not a guard");
-        citizen.discard();
         helper.succeed();
     }
 

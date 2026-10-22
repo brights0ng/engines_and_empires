@@ -1,0 +1,43 @@
+> Task :meteodyne:testClasses UP-TO-DATE
+> Task :paradyne-lib:testClasses UP-TO-DATE
+> Task :paradyne-lib:test FROM-CACHE
+> Task :sable-fixes:testClasses UP-TO-DATE
+> Task :sable-fixes:test UP-TO-DATE
+> Task :frontier:testClasses UP-TO-DATE
+> Task :seismic-surveyance:testClasses UP-TO-DATE
+> Task :seismic-surveyance:test UP-TO-DATE
+> Task :simple-spoilage:testClasses UP-TO-DATE
+> Task :simple-spoilage:test UP-TO-DATE
+> Task :sparse-ores:testClasses UP-TO-DATE
+> Task :sparse-ores:test UP-TO-DATE
+> Task :coreless:testClasses UP-TO-DATE
+> Task :coreless:test NO-SOURCE
+> Task :paradyne-lib:runGameTestServer
+> Task :frontier:test
+> Task :testClasses UP-TO-DATE
+> Task :paradyne-lib:runGameTestServer
+> Task :test
+> Task :paradyne-lib:runGameTestServer
+[13:44:16] [Server thread/INFO] [minecraft/GameTestServer]: All 3 required tests passed :)
+> Task :runGameTestServer
+> Task :meteodyne:test
+> Task :runGameTestServer
+[13:45:08] [Server thread/INFO] [minecraft/GameTestServer]: All 263 required tests passed :)
+> Task :coreless:runGameTestServer
+[13:45:54] [Server thread/INFO] [minecraft/GameTestServer]: All 212 required tests passed :)
+> Task :frontier:runGameTestServer
+[13:46:11] [Server thread/INFO] [minecraft/GameTestServer]: All 18 required tests passed :)
+> Task :meteodyne:runGameTestServer
+[13:46:37] [Server thread/INFO] [minecraft/GameTestServer]: All 96 required tests passed :)
+> Task :sable-fixes:runGameTestServer
+[13:46:50] [Server thread/INFO] [minecraft/GameTestServer]: All 2 required tests passed :)
+> Task :seismic-surveyance:runGameTestServer
+[13:47:07] [Server thread/INFO] [minecraft/GameTestServer]: All 20 required tests passed :)
+> Task :simple-spoilage:runGameTestServer
+[13:47:17] [Server thread/INFO] [minecraft/GameTestServer]: All 34 required tests passed :)
+> Task :sparse-ores:runGameTestServer
+[13:47:26] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+> Task :sparse-ores:runGameTestServerWithCreate
+[13:47:38] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+BUILD SUCCESSFUL in 3m 43s
+101 actionable tasks: 25 executed, 1 from cache, 75 up-to-date

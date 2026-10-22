@@ -1,3 +1,4 @@
+// Edited by Gemini: increased default reading capacity to 512.
 package dev.brights0ng.seismicsurveyance;
 
 /**
@@ -25,7 +26,7 @@ public final class LoggerListening {
     public static final float FULL_SPEED = 256.0F;
 
     /** How many readings it holds. */
-    public static final int CAPACITY = 256;
+    public static final int CAPACITY = 512;
 
     /**
      * How far from the logger a geophone can be for it to listen through it, at this speed. Zero when it is not turning:

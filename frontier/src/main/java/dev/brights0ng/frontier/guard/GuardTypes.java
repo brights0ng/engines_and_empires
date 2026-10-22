@@ -10,12 +10,12 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * Who counts as a guard: anything in the {@code frontier:guards} tag (iron golems, Guard Villagers' guards), and
- * whatever a registered guard source ({@link #SOURCES}) says is one (the pack registers MineColonies' colonists working a guard job).
+ * whatever a registered guard source ({@link #SOURCES}) says is one.
  * Also how the world looks to a guard deciding where it can walk.
  */
 public final class GuardTypes {
 
-    /** Where guards the tag can't pick out come from (split seam S12); the pack registers MineColonies'. */
+    /** Where guards the tag can't pick out come from (split seam S12). */
     public static final GuardSources<Entity> SOURCES = new GuardSources<>();
 
     /** Whether the entity is worth tracking: a guard now, or a colonist who could be made one. */

@@ -1,0 +1,93 @@
+{
+  "writtenBy": "ChatGPT",
+  "derivedFrom": [
+    "equilibrium-half.json",
+    "../air-equilibrium-2026-10-20/equilibrium-long.json",
+    "../air-response-2026-10-20/responses.json"
+  ],
+  "prefixValidation": {
+    "legacyValues": 5418,
+    "coupledValues": 72,
+    "maxDifference": 0
+  },
+  "quality": {
+    "acceptedSteps": 41400,
+    "maxDivergence": 1.3544870142156995e-08,
+    "maxStepEnergyError": 1.9986754029588383e-08,
+    "totalEnergyBudgetError": 9.013805538415909e-05
+  },
+  "cases": [
+    {
+      "opening": "sealed",
+      "heatingSeconds": 6000,
+      "legacyMeanRiseC": 11.471302103826247,
+      "coupledOneSecondMeanRiseC": 12.738736984190258,
+      "coupledHalfSecondMeanRiseC": 12.745048266891539,
+      "halfMinusLegacyMeanRiseC": 1.273746163065292,
+      "halfMinusOneSecondMeanRiseC": 0.006311282701281229,
+      "legacySecondsTo95PercentOwnEquilibrium": 296,
+      "coupledSecondsTo95PercentOwnEquilibrium": 374,
+      "coupledSecondsTo95PercentLegacyEquilibrium": 196,
+      "legacyCoolingHalfSeconds": 40,
+      "coupledCoolingHalfSeconds": 42,
+      "legacyCoolingTo10PercentSeconds": 219,
+      "coupledCoolingTo10PercentSeconds": 273,
+      "legacyFractionRemainingAt40Seconds": 0.49683657092425165,
+      "coupledFractionRemainingAt40Seconds": 0.5092753387985418,
+      "legacyFinalMaterialOffsetC": 4.92586600988145,
+      "coupledFinalMaterialOffsetC": 6.085459788657019,
+      "strictInstantaneousSteadyQualified": true,
+      "qualifyingMaxLocalTemperatureRangeC": 5.482721588379036e-05,
+      "qualifyingMaxFaceFluxRange": 2.2176905055404372e-06,
+      "qualifyingMaxRoomMeanRangeC": 1.341909913321615e-05
+    },
+    {
+      "opening": "window",
+      "heatingSeconds": 6000,
+      "legacyMeanRiseC": 10.80166617075864,
+      "coupledOneSecondMeanRiseC": 12.206042029380493,
+      "coupledHalfSecondMeanRiseC": 12.211725298729869,
+      "halfMinusLegacyMeanRiseC": 1.4100591279712287,
+      "halfMinusOneSecondMeanRiseC": 0.005683269349376019,
+      "legacySecondsTo95PercentOwnEquilibrium": 281,
+      "coupledSecondsTo95PercentOwnEquilibrium": 360,
+      "coupledSecondsTo95PercentLegacyEquilibrium": 174,
+      "legacyCoolingHalfSeconds": 37,
+      "coupledCoolingHalfSeconds": 40,
+      "legacyCoolingTo10PercentSeconds": 205,
+      "coupledCoolingTo10PercentSeconds": 264,
+      "legacyFractionRemainingAt40Seconds": 0.47590142146766007,
+      "coupledFractionRemainingAt40Seconds": 0.496571295318428,
+      "legacyFinalMaterialOffsetC": 4.637921958593673,
+      "coupledFinalMaterialOffsetC": 5.853865277005142,
+      "strictInstantaneousSteadyQualified": true,
+      "qualifyingMaxLocalTemperatureRangeC": 4.922922954975206e-05,
+      "qualifyingMaxFaceFluxRange": 2.0393432515752874e-06,
+      "qualifyingMaxRoomMeanRangeC": 1.1439595366979916e-05
+    },
+    {
+      "opening": "missing-wall",
+      "heatingSeconds": 6000,
+      "legacyMeanRiseC": 6.857761384260559,
+      "coupledOneSecondMeanRiseC": 7.891126531498233,
+      "coupledHalfSecondMeanRiseC": 7.778248332073476,
+      "halfMinusLegacyMeanRiseC": 0.9204869478129165,
+      "halfMinusOneSecondMeanRiseC": -0.11287819942475696,
+      "legacySecondsTo95PercentOwnEquilibrium": 188,
+      "coupledSecondsTo95PercentOwnEquilibrium": 220,
+      "coupledSecondsTo95PercentLegacyEquilibrium": 96,
+      "legacyCoolingHalfSeconds": 20,
+      "coupledCoolingHalfSeconds": 21,
+      "legacyCoolingTo10PercentSeconds": 126,
+      "coupledCoolingTo10PercentSeconds": 191,
+      "legacyFractionRemainingAt40Seconds": 0.32193538111631637,
+      "coupledFractionRemainingAt40Seconds": 0.3714209179066763,
+      "legacyFinalMaterialOffsetC": 3.040782007607474,
+      "coupledFinalMaterialOffsetC": 3.9216903963414054,
+      "strictInstantaneousSteadyQualified": true,
+      "qualifyingMaxLocalTemperatureRangeC": 1.823693756364264e-05,
+      "qualifyingMaxFaceFluxRange": 9.527112920515446e-07,
+      "qualifyingMaxRoomMeanRangeC": 2.314480551213194e-06
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+[
+  {
+    "suite": "dev.brights0ng.meteodyne.heat.world.LocalAirCoverageTest",
+    "tests": 13,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "timestamp": "2026-10-21T21:24:13.260Z"
+  },
+  {
+    "suite": "dev.brights0ng.meteodyne.heat.world.LocalAirDependenciesTest",
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "timestamp": "2026-10-21T21:24:13.323Z"
+  },
+  {
+    "suite": "dev.brights0ng.meteodyne.heat.world.LocalAirDiagnosticsTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "timestamp": "2026-10-21T21:24:13.350Z"
+  },
+  {
+    "suite": "dev.brights0ng.meteodyne.heat.world.LocalAirGeometryCaptureTest",
+    "tests": 8,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "timestamp": "2026-10-21T21:24:13.390Z"
+  },
+  {
+    "suite": "dev.brights0ng.meteodyne.heat.world.LocalAirHistoryTest",
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "timestamp": "2026-10-21T21:24:13.406Z"
+  },
+  {
+    "suite": "dev.brights0ng.meteodyne.heat.world.LocalAirIncrementalTest",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "timestamp": "2026-10-21T21:24:13.560Z"
+  },
+  {
+    "suite": "dev.brights0ng.meteodyne.heat.world.LocalAirPreparationTest",
+    "tests": 10,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "timestamp": "2026-10-21T21:24:13.563Z"
+  },
+  {
+    "suite": "dev.brights0ng.meteodyne.heat.world.LocalAirRunTest",
+    "tests": 26,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "timestamp": "2026-10-21T21:24:13.568Z"
+  },
+  {
+    "suite": "dev.brights0ng.meteodyne.heat.world.LocalAirWeatherTest",
+    "tests": 10,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "timestamp": "2026-10-21T21:24:13.636Z"
+  },
+  {
+    "suite": "dev.brights0ng.paradynelib.heat.air.GeometryTransferTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "timestamp": "2026-10-21T21:22:42.635Z"
+  }
+]

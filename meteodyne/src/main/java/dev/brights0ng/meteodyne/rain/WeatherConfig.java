@@ -1,3 +1,4 @@
+// Updated by ChatGPT: added reloadable thermal response speed without changing weather time or wind units.
 package dev.brights0ng.meteodyne.rain;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -365,6 +366,14 @@ public final class WeatherConfig {
             .comment("Threads the simulation runs on.")
             .defineInRange("threads", 1, 1, 4);
 
+    public static final ModConfigSpec.DoubleValue HEAT_RESPONSE_SCALE = BUILDER
+            .comment("Thermal response speed: 0.5 is roughly twice as slow, 2 roughly twice as fast. Scales the complete",
+                    "thermal evolution (sources, wall storage, exchange, mixing and wind heat transport), preserving",
+                    "setpoints and steady-state laws. Does not scale weather time, wind m/s, radiation or fuel use.",
+                    "At values other than 1, thermal transport timing intentionally differs from displayed wind speed.",
+                    "Reloads live without resetting temperatures. /meteodyne heat response provides temporary tuning.")
+            .defineInRange("responseScale", 1.0, 0.1, 10.0);
+
     public static final ModConfigSpec.DoubleValue HEAT_NEAR_STEP = BUILDER
             .comment("Seconds between steps of a region a player or ship is in or near.")
             .defineInRange("nearStepSeconds", 1.0, 0.25, 10.0);
@@ -397,7 +406,7 @@ public final class WeatherConfig {
         }
         return new dev.brights0ng.meteodyne.heat.world.HeatSettings(HEAT_ENABLED.get(), HEAT_BUDGET.get(),
                 HEAT_THREADS.get(), HEAT_NEAR_STEP.get(), HEAT_FAR_STEP.get(), HEAT_NATURAL_REACH.get(),
-                HEAT_MARGIN.get(), HEAT_MAX_SIZE.get());
+                HEAT_MARGIN.get(), HEAT_MAX_SIZE.get(), HEAT_RESPONSE_SCALE.get());
     }
 
     public static final ModConfigSpec SPEC = BUILDER.build();

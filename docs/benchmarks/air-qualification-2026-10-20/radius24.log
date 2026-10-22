@@ -1,0 +1,11 @@
+# Generated numerical run output; archived by ChatGPT.
+
+Benchmark PID: 30748
+qualification opening=2 padding=24 dt=0.5 second=100 room=6.577367247963401
+qualification opening=2 padding=24 dt=0.5 second=200 room=7.388536052005701
+qualification opening=2 padding=24 dt=0.5 second=300 room=7.664670390452002
+qualification opening=2 padding=24 dt=0.5 second=400 room=7.784253865962941
+qualification opening=2 padding=24 dt=0.5 second=500 room=7.846038187443061
+qualification opening=2 padding=24 dt=0.5 second=600 room=7.881865017259618
+qualification opening=2 padding=24 dt=0.5 second=680 room=1.9220267469125787
+Report: C:\Users\sdcol\IdeaProjects\EnginesAndEmpires\docs\benchmarks\air-qualification-2026-10-20\missing-wall-padding24.json

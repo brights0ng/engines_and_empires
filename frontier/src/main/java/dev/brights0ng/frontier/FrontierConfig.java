@@ -106,7 +106,7 @@ public final class FrontierConfig {
 
     public static final ModConfigSpec.IntValue GUARD_FREE_AREA = BUILDER
             .comment("Spots of ground a guard must be able to walk to, to count as free to move (64 is about an 8x8 yard).",
-                    "Guards (tag frontier:guards, and MineColonies guards) only count toward Civilized land if free.")
+                    "Guards (tag frontier:guards) only count toward Civilized land if free.")
             .defineInRange("guardFreeArea", 64, 1, 4096);
 
     public static final ModConfigSpec.IntValue GUARD_CHECK_INTERVAL = BUILDER

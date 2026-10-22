@@ -1,0 +1,46 @@
+> Task :meteodyne:testClasses UP-TO-DATE
+> Task :paradyne-lib:testClasses UP-TO-DATE
+> Task :paradyne-lib:test FROM-CACHE
+> Task :sable-fixes:testClasses UP-TO-DATE
+> Task :sable-fixes:test UP-TO-DATE
+> Task :sparse-ores:testClasses UP-TO-DATE
+> Task :sparse-ores:test UP-TO-DATE
+> Task :seismic-surveyance:testClasses UP-TO-DATE
+> Task :seismic-surveyance:test UP-TO-DATE
+> Task :simple-spoilage:testClasses UP-TO-DATE
+> Task :simple-spoilage:test UP-TO-DATE
+> Task :frontier:testClasses UP-TO-DATE
+> Task :frontier:test UP-TO-DATE
+> Task :meteodyne:runGameTestServer
+> Task :coreless:testClasses UP-TO-DATE
+> Task :coreless:test NO-SOURCE
+> Task :testClasses UP-TO-DATE
+> Task :meteodyne:runGameTestServer
+> Task :test
+> Task :meteodyne:runGameTestServer
+[13:26:06] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_history:0' (1 tests)...
+[13:26:14] [Server thread/INFO] [minecraft/GameTestServer]: All 96 required tests passed :)
+> Task :runGameTestServer
+> Task :meteodyne:test
+> Task :runGameTestServer
+[13:26:40] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_history:0' (1 tests)...
+[13:26:45] [Server thread/INFO] [minecraft/GameTestServer]: All 263 required tests passed :)
+> Task :coreless:runGameTestServer
+[13:27:09] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_history:0' (1 tests)...
+[13:27:14] [Server thread/INFO] [minecraft/GameTestServer]: All 212 required tests passed :)
+> Task :frontier:runGameTestServer
+[13:27:25] [Server thread/INFO] [minecraft/GameTestServer]: All 18 required tests passed :)
+> Task :paradyne-lib:runGameTestServer
+[13:27:34] [Server thread/INFO] [minecraft/GameTestServer]: All 3 required tests passed :)
+> Task :sable-fixes:runGameTestServer
+[13:27:44] [Server thread/INFO] [minecraft/GameTestServer]: All 2 required tests passed :)
+> Task :seismic-surveyance:runGameTestServer
+[13:27:56] [Server thread/INFO] [minecraft/GameTestServer]: All 20 required tests passed :)
+> Task :simple-spoilage:runGameTestServer
+[13:28:05] [Server thread/INFO] [minecraft/GameTestServer]: All 34 required tests passed :)
+> Task :sparse-ores:runGameTestServer
+[13:28:15] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+> Task :sparse-ores:runGameTestServerWithCreate
+[13:28:26] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+BUILD SUCCESSFUL in 2m 45s
+109 actionable tasks: 25 executed, 4 from cache, 80 up-to-date
