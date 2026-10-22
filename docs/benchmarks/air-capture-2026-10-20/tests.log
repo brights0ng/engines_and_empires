@@ -1,0 +1,27 @@
+equilibrium opening=0 dt=0.5 second=1 coupled=0.37732135636462943 mean-dT=15.210571544191907 dFlux=0.13843714602212231 storage=74.99999998442945 thermally-stable=0
+calibration complete opening=0 qualified=false heating=1 failure=
+equilibrium opening=1 dt=0.5 second=1 coupled=0.37727909495385137 mean-dT=15.210570602437151 dFlux=0.1384372360543128 storage=74.99999973856029 thermally-stable=0
+calibration complete opening=1 qualified=false heating=1 failure=
+equilibrium opening=2 dt=0.5 second=1 coupled=0.3769114087199737 mean-dT=15.210556875085572 dFlux=0.1384445830565426 storage=74.99999974566163 thermally-stable=0
+calibration complete opening=2 qualified=false heating=1 failure=
+equilibrium opening=0 dt=1.0 second=1 coupled=0.374843530991059 mean-dT=16.273774745758857 dFlux=0.1363233220806083 storage=74.99999998923158 thermally-stable=0
+calibration complete opening=0 qualified=false heating=1 failure=
+equilibrium opening=1 dt=1.0 second=1 coupled=0.3747664137001019 mean-dT=16.273768043884786 dFlux=0.13632347584790694 storage=74.99999952988583 thermally-stable=0
+calibration complete opening=1 qualified=false heating=1 failure=
+equilibrium opening=2 dt=1.0 second=1 coupled=0.3740464297359008 mean-dT=16.27370536577893 dFlux=0.13633162741996943 storage=74.99999983116868 thermally-stable=0
+calibration complete opening=2 qualified=false heating=1 failure=
+
+Test run finished after 6618 ms
+[        19 containers found      ]
+[         0 containers skipped    ]
+[        19 containers started    ]
+[         0 containers aborted    ]
+[        19 containers successful ]
+[         0 containers failed     ]
+[       148 tests found           ]
+[         0 tests skipped         ]
+[       148 tests started         ]
+[         0 tests aborted         ]
+[       148 tests successful      ]
+[         0 tests failed          ]
+

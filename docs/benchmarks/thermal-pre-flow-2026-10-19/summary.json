@@ -1,0 +1,308 @@
+{
+  "writtenBy": "ChatGPT",
+  "schema": "thermal-baseline-v2",
+  "forks": 3,
+  "aggregation": "Median of per-fork means; min/max expose fork variability. Individual fork JSON retains percentiles and allocation counts.",
+  "results": [
+    {
+      "scene": "open16",
+      "cells": 4096,
+      "phase": "grid-create",
+      "geometryFingerprint": 1336720640,
+      "wallMedianForkMeanMs": 0.022488400000000006,
+      "wallMinForkMeanMs": 0.022060100000000006,
+      "wallMaxForkMeanMs": 0.023343000000000003,
+      "cpuMedianForkMeanMs": 0.015625
+    },
+    {
+      "scene": "open16",
+      "cells": 4096,
+      "phase": "step-1s",
+      "geometryFingerprint": 1336720640,
+      "wallMedianForkMeanMs": 0.08441180000000002,
+      "wallMinForkMeanMs": 0.08397499999999997,
+      "wallMaxForkMeanMs": 0.08555049999999996,
+      "cpuMedianForkMeanMs": 0.09375
+    },
+    {
+      "scene": "open16",
+      "cells": 4096,
+      "phase": "step-10s",
+      "geometryFingerprint": 1336720640,
+      "wallMedianForkMeanMs": 0.25259309999999996,
+      "wallMinForkMeanMs": 0.2475588000000001,
+      "wallMaxForkMeanMs": 0.2577843999999999,
+      "cpuMedianForkMeanMs": 0.25
+    },
+    {
+      "scene": "open16",
+      "cells": 4096,
+      "phase": "geometry-apply-and-step-1s",
+      "geometryFingerprint": 1336720640,
+      "wallMedianForkMeanMs": 0.12811430000000001,
+      "wallMinForkMeanMs": 0.1272767,
+      "wallMaxForkMeanMs": 0.1464981,
+      "cpuMedianForkMeanMs": 0.125
+    },
+    {
+      "scene": "open16",
+      "cells": 4096,
+      "phase": "publication",
+      "geometryFingerprint": 1336720640,
+      "wallMedianForkMeanMs": 0.0024995,
+      "wallMinForkMeanMs": 0.0021986999999999996,
+      "wallMaxForkMeanMs": 0.0030264,
+      "cpuMedianForkMeanMs": 0.0
+    },
+    {
+      "scene": "sealed-house",
+      "cells": 9216,
+      "phase": "grid-create",
+      "geometryFingerprint": 973433728,
+      "wallMedianForkMeanMs": 0.050366399999999985,
+      "wallMinForkMeanMs": 0.0501233,
+      "wallMaxForkMeanMs": 0.05080459999999998,
+      "cpuMedianForkMeanMs": 0.046875
+    },
+    {
+      "scene": "sealed-house",
+      "cells": 9216,
+      "phase": "step-1s",
+      "geometryFingerprint": 973433728,
+      "wallMedianForkMeanMs": 0.19680189999999992,
+      "wallMinForkMeanMs": 0.19261550000000008,
+      "wallMaxForkMeanMs": 0.2050459000000001,
+      "cpuMedianForkMeanMs": 0.1875
+    },
+    {
+      "scene": "sealed-house",
+      "cells": 9216,
+      "phase": "step-10s",
+      "geometryFingerprint": 973433728,
+      "wallMedianForkMeanMs": 0.6045740000000002,
+      "wallMinForkMeanMs": 0.5872502,
+      "wallMaxForkMeanMs": 0.6291223999999999,
+      "cpuMedianForkMeanMs": 0.609375
+    },
+    {
+      "scene": "sealed-house",
+      "cells": 9216,
+      "phase": "geometry-apply-and-step-1s",
+      "geometryFingerprint": 973433728,
+      "wallMedianForkMeanMs": 0.28932379999999996,
+      "wallMinForkMeanMs": 0.2854302,
+      "wallMaxForkMeanMs": 0.2946482000000001,
+      "cpuMedianForkMeanMs": 0.28125
+    },
+    {
+      "scene": "sealed-house",
+      "cells": 9216,
+      "phase": "publication",
+      "geometryFingerprint": 973433728,
+      "wallMedianForkMeanMs": 0.005585400000000001,
+      "wallMinForkMeanMs": 0.0055759,
+      "wallMaxForkMeanMs": 0.005608600000000002,
+      "cpuMedianForkMeanMs": 0.0
+    },
+    {
+      "scene": "doorway-house",
+      "cells": 9216,
+      "phase": "grid-create",
+      "geometryFingerprint": -750426108,
+      "wallMedianForkMeanMs": 0.05012680000000001,
+      "wallMinForkMeanMs": 0.049029900000000015,
+      "wallMaxForkMeanMs": 0.05224850000000002,
+      "cpuMedianForkMeanMs": 0.046875
+    },
+    {
+      "scene": "doorway-house",
+      "cells": 9216,
+      "phase": "step-1s",
+      "geometryFingerprint": -750426108,
+      "wallMedianForkMeanMs": 0.19667960000000004,
+      "wallMinForkMeanMs": 0.19266900000000003,
+      "wallMaxForkMeanMs": 0.19862269999999999,
+      "cpuMedianForkMeanMs": 0.203125
+    },
+    {
+      "scene": "doorway-house",
+      "cells": 9216,
+      "phase": "step-10s",
+      "geometryFingerprint": -750426108,
+      "wallMedianForkMeanMs": 0.5918378999999999,
+      "wallMinForkMeanMs": 0.5782716999999999,
+      "wallMaxForkMeanMs": 0.5941860999999998,
+      "cpuMedianForkMeanMs": 0.578125
+    },
+    {
+      "scene": "doorway-house",
+      "cells": 9216,
+      "phase": "geometry-apply-and-step-1s",
+      "geometryFingerprint": -750426108,
+      "wallMedianForkMeanMs": 0.28639749999999986,
+      "wallMinForkMeanMs": 0.28572080000000005,
+      "wallMaxForkMeanMs": 0.28898679999999993,
+      "cpuMedianForkMeanMs": 0.28125
+    },
+    {
+      "scene": "doorway-house",
+      "cells": 9216,
+      "phase": "publication",
+      "geometryFingerprint": -750426108,
+      "wallMedianForkMeanMs": 0.005359100000000002,
+      "wallMinForkMeanMs": 0.004907099999999999,
+      "wallMaxForkMeanMs": 0.005611,
+      "cpuMedianForkMeanMs": 0.0
+    },
+    {
+      "scene": "partial-block-house",
+      "cells": 9216,
+      "phase": "grid-create",
+      "geometryFingerprint": -1852647674,
+      "wallMedianForkMeanMs": 0.0490948,
+      "wallMinForkMeanMs": 0.048140000000000016,
+      "wallMaxForkMeanMs": 0.05026000000000003,
+      "cpuMedianForkMeanMs": 0.0625
+    },
+    {
+      "scene": "partial-block-house",
+      "cells": 9216,
+      "phase": "step-1s",
+      "geometryFingerprint": -1852647674,
+      "wallMedianForkMeanMs": 0.1960138,
+      "wallMinForkMeanMs": 0.19575440000000005,
+      "wallMaxForkMeanMs": 0.19786739999999997,
+      "cpuMedianForkMeanMs": 0.1875
+    },
+    {
+      "scene": "partial-block-house",
+      "cells": 9216,
+      "phase": "step-10s",
+      "geometryFingerprint": -1852647674,
+      "wallMedianForkMeanMs": 0.5912851000000005,
+      "wallMinForkMeanMs": 0.5748018999999999,
+      "wallMaxForkMeanMs": 0.6026451000000003,
+      "cpuMedianForkMeanMs": 0.578125
+    },
+    {
+      "scene": "partial-block-house",
+      "cells": 9216,
+      "phase": "geometry-apply-and-step-1s",
+      "geometryFingerprint": -1852647674,
+      "wallMedianForkMeanMs": 0.28662940000000003,
+      "wallMinForkMeanMs": 0.2846737000000001,
+      "wallMaxForkMeanMs": 0.28937070000000004,
+      "cpuMedianForkMeanMs": 0.28125
+    },
+    {
+      "scene": "partial-block-house",
+      "cells": 9216,
+      "phase": "publication",
+      "geometryFingerprint": -1852647674,
+      "wallMedianForkMeanMs": 0.005046500000000002,
+      "wallMinForkMeanMs": 0.004915199999999999,
+      "wallMaxForkMeanMs": 0.0055125999999999994,
+      "cpuMedianForkMeanMs": 0.0
+    },
+    {
+      "scene": "multiroom32",
+      "cells": 32768,
+      "phase": "grid-create",
+      "geometryFingerprint": -105113074,
+      "wallMedianForkMeanMs": 0.17652830000000005,
+      "wallMinForkMeanMs": 0.17640759999999994,
+      "wallMaxForkMeanMs": 0.18257289999999998,
+      "cpuMedianForkMeanMs": 0.15625
+    },
+    {
+      "scene": "multiroom32",
+      "cells": 32768,
+      "phase": "step-1s",
+      "geometryFingerprint": -105113074,
+      "wallMedianForkMeanMs": 0.8269217000000001,
+      "wallMinForkMeanMs": 0.7969137,
+      "wallMaxForkMeanMs": 0.8415564999999999,
+      "cpuMedianForkMeanMs": 0.8125
+    },
+    {
+      "scene": "multiroom32",
+      "cells": 32768,
+      "phase": "step-10s",
+      "geometryFingerprint": -105113074,
+      "wallMedianForkMeanMs": 2.548689800000002,
+      "wallMinForkMeanMs": 2.4439362000000004,
+      "wallMaxForkMeanMs": 2.716497499999999,
+      "cpuMedianForkMeanMs": 2.546875
+    },
+    {
+      "scene": "multiroom32",
+      "cells": 32768,
+      "phase": "geometry-apply-and-step-1s",
+      "geometryFingerprint": -105113074,
+      "wallMedianForkMeanMs": 1.1828444000000002,
+      "wallMinForkMeanMs": 1.148463,
+      "wallMaxForkMeanMs": 1.1941469999999998,
+      "cpuMedianForkMeanMs": 1.15625
+    },
+    {
+      "scene": "multiroom32",
+      "cells": 32768,
+      "phase": "publication",
+      "geometryFingerprint": -105113074,
+      "wallMedianForkMeanMs": 0.019326799999999995,
+      "wallMinForkMeanMs": 0.01923409999999999,
+      "wallMaxForkMeanMs": 0.0195608,
+      "cpuMedianForkMeanMs": 0.015625
+    },
+    {
+      "scene": "stress48",
+      "cells": 110592,
+      "phase": "grid-create",
+      "geometryFingerprint": -393673826,
+      "wallMedianForkMeanMs": 0.6097932,
+      "wallMinForkMeanMs": 0.6078349,
+      "wallMaxForkMeanMs": 0.6131510000000001,
+      "cpuMedianForkMeanMs": 0.59375
+    },
+    {
+      "scene": "stress48",
+      "cells": 110592,
+      "phase": "step-1s",
+      "geometryFingerprint": -393673826,
+      "wallMedianForkMeanMs": 2.6762547999999997,
+      "wallMinForkMeanMs": 2.6690457999999997,
+      "wallMaxForkMeanMs": 2.6784415,
+      "cpuMedianForkMeanMs": 2.65625
+    },
+    {
+      "scene": "stress48",
+      "cells": 110592,
+      "phase": "step-10s",
+      "geometryFingerprint": -393673826,
+      "wallMedianForkMeanMs": 8.0461592,
+      "wallMinForkMeanMs": 7.966772400000004,
+      "wallMaxForkMeanMs": 8.050401799999998,
+      "cpuMedianForkMeanMs": 7.9375
+    },
+    {
+      "scene": "stress48",
+      "cells": 110592,
+      "phase": "geometry-apply-and-step-1s",
+      "geometryFingerprint": -393673826,
+      "wallMedianForkMeanMs": 3.8241874000000013,
+      "wallMinForkMeanMs": 3.7337888000000015,
+      "wallMaxForkMeanMs": 3.8598296999999993,
+      "cpuMedianForkMeanMs": 3.75
+    },
+    {
+      "scene": "stress48",
+      "cells": 110592,
+      "phase": "publication",
+      "geometryFingerprint": -393673826,
+      "wallMedianForkMeanMs": 0.0636543,
+      "wallMinForkMeanMs": 0.06325830000000002,
+      "wallMaxForkMeanMs": 0.06748940000000003,
+      "cpuMedianForkMeanMs": 0.0625
+    }
+  ]
+}

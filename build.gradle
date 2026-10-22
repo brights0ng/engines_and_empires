@@ -1,4 +1,6 @@
-// The root project is two things (split step 2b, docs/build-layout.md): the core mod, engines_and_empires, which
+// Written by Claude; updated by Gemini.
+// Updated by ChatGPT: isolate aggregate game-test files and mods from played client/server runs.
+// The root project is two things (split step 2b, docs/history/build-layout.md): the core mod, engines_and_empires, which
 // still holds every mod not yet sliced out, and the dev aggregator, whose client, server and game test runs load every
 // mod of the family. The settings every mod shares (repositories, Java, Parchment, mod metadata, JUnit, the bare game
 // test run and the data run) are in the convention plugin, build-logic/src/main/groovy/eae.mod-conventions.gradle.
@@ -29,6 +31,7 @@ requireMod(':simple-spoilage')
 requireMod(':frontier')
 // Mods the dev runs load although the core does not require them (plan section 9: the dev runs load every mod).
 loadMod(':sable-fixes')
+loadMod(':empire')
 // The test-only mod of the core-less combined run (split step 4c): its game tests of the feature mods working together
 // run in the aggregate too. It is never released, so buildAll leaves it out.
 loadMod(':coreless')
@@ -68,6 +71,7 @@ neoForge {
         // The gametest system is also enabled by default for other run configs under the /test command.
         // The aggregate game test run: the core's own run already loads every mod; it runs every mod's game tests.
         gameTestServer {
+            gameDirectory = layout.buildDirectory.dir('game-test').get().asFile
             systemProperty 'neoforge.enabledGameTestNamespaces', allModIds()
             // Weather phase 8a (Meteodyne): the headless climatology year (gametest/ClimatologyDiagnosticRun), off unless
             // asked for.
@@ -95,12 +99,9 @@ neoForge {
     }
 }
 
-// MineColonies and its libraries run in the client, server and game test runs, but not the Data run: Domum Ornamentum's
-// data generator needs a library it does not ship, and crashes it.
-// They can't go through a run's additionalRuntimeClasspath: that puts jars on the legacy classpath, where FML doesn't
-// look for mods (MineColonies silently never loaded that way). Instead they are synced into run/mods before those runs
-// launch, and the Data run uses its own folder, run-data/. run/mods is managed by Gradle: anything else put there is
-// removed on the next launch.
+// Jars that must load from the mods folder (run/mods or build/game-test/mods) rather than the dev classpath.
+// Client/server runs sync into run/mods; aggregate tests use build/game-test/mods with only colonyRuntime.
+// The Data run uses its own folder, run-data/.
 configurations {
     colonyRuntime
     // Mods that must load from run/mods, like a real install, for the client run only: Sodium 0.8's Modrinth jar is a
@@ -113,14 +114,27 @@ def prepareColonyMods = tasks.register("prepareColonyMods", Sync) {
     from(fileTree("libs") { include "*.jar" })
     into("run/mods")
     // run/mods is shared with prepareClientMods, which adds Iris and Sodium; Gradle doesn't notice the other task
-    // rewrote it and calls this one up to date, so the server and game test runs launched with Sodium and died on a
+    // rewrote it and calls this one up to date, so server runs launched with Sodium and died on a
     // missing LWJGL (2026-10-12). Always sync.
     outputs.upToDateWhen { false }
 }
 
-// Standard client run: the MineColonies jars plus the jars at the top of libs/ (Serene Seasons and GlitchCore, which
-// aren't on a Gradle-friendly maven). The server and game test runs keep using prepareColonyMods, so syncing run/mods
-// for them takes the libs/ jars back out. Only top-level jars are copied; subfolders of libs/ are ignored.
+// Aggregate tests must not inherit jars added to a played run or the client-only top-level libs/ folder.
+def gameTestModsDirectory = layout.buildDirectory.dir('game-test/mods')
+def prepareGameTestMods = tasks.register('prepareGameTestMods', Sync) {
+    from(configurations.colonyRuntime)
+    into(gameTestModsDirectory)
+    outputs.upToDateWhen { false }
+}
+def verifyGameTestMods = tasks.register('verifyGameTestMods', dev.brights0ng.buildlogic.VerifyGameTestMods) {
+    dependsOn(prepareGameTestMods)
+    expectedMods.from(configurations.colonyRuntime)
+    modsDirectory.set(gameTestModsDirectory)
+}
+
+// Standard client run: extra runtime jars plus the jars at the top of libs/ (Serene Seasons and GlitchCore, which
+// aren't on a Gradle-friendly maven). The server retains its existing colony plus top-level libs/ sync; aggregate
+// game tests have their own declared-dependency-only directory. Subfolders of libs/ are ignored.
 def prepareClientMods = tasks.register("prepareClientMods", Sync) {
     from(configurations.colonyRuntime)
     from(configurations.shaderRuntime)
@@ -178,15 +192,6 @@ dependencies {
     localRuntime("maven.modrinth:diet-appleseed-edition:${diet_version}")
     localRuntime("maven.modrinth:cloudworks-api:${cloudworks_version}")
 
-    // MineColonies: its guards count toward Civilized land (frontier/guard/compat/MineColoniesGuards, loaded only when it
-    // is present). It and the four libraries it needs, straight from CurseForge by file id; see gradle.properties.
-    compileOnly("curse.maven:minecolonies-245506:${minecolonies_file}")
-    colonyRuntime("curse.maven:minecolonies-245506:${minecolonies_file}")
-    colonyRuntime("curse.maven:structurize-298744:${structurize_file}")
-    colonyRuntime("curse.maven:blockui-522992:${blockui_file}")
-    colonyRuntime("curse.maven:multipiston-303278:${multipiston_file}")
-    colonyRuntime("curse.maven:domum-ornamentum-527361:${domum_ornamentum_file}")
-
     // Guard Villagers: its guards are in the guards tag. Only needed at runtime (we refer to it by id only).
     localRuntime("maven.modrinth:guard-villagers:${guard_villagers_version}")
 
@@ -209,7 +214,7 @@ dependencies {
 
     // libs/ (git-ignored) holds Serene Seasons 10.1.0.9 for the client run.
     // The core mod compiles against Serene Seasons' API (weather/climate/compat) but only touches it when it is
-    // installed; the server and game test runs go without it. Compiled against the Modrinth copy (10.1.0.9), so a
+    // installed; aggregate game tests go without it. Compiled against the Modrinth copy (10.1.0.9), so a
     // fresh checkout builds without libs/.
     compileOnly("maven.modrinth:serene-seasons:pHEgQQUE") { transitive = false }
     // Project Atmosphere was removed on 2026-10-05: the core mod now owns the weather (claude/weather-backbone-plan.md).
@@ -229,9 +234,11 @@ tasks.named('test') {
 tasks.matching { it.name in ["runClient", "prepareClientRun"] }.configureEach {
     dependsOn(prepareClientMods)
 }
-tasks.matching { it.name in ["runServer", "prepareServerRun",
-                              "runGameTestServer", "prepareGameTestServerRun"] }.configureEach {
+tasks.matching { it.name in ["runServer", "prepareServerRun"] }.configureEach {
     dependsOn(prepareColonyMods)
+}
+tasks.matching { it.name in ["runGameTestServer", "prepareGameTestServerRun"] }.configureEach {
+    dependsOn(verifyGameTestMods)
 }
 
 // Example configuration to allow publishing using the maven-publish plugin

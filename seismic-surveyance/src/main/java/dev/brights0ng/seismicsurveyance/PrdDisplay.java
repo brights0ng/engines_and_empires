@@ -1,3 +1,4 @@
+// Edited by Gemini: added multi-chunk shrinking reservoir shape hovering to PrdDisplay.
 package dev.brights0ng.seismicsurveyance;
 
 import java.util.List;
@@ -127,24 +128,53 @@ public final class PrdDisplay {
         if (!onMap(x, y)) {
             return -1;
         }
+        double[] world = toWorld(view, yaw, x, y);
+        int clickChunkX = (int) Math.floor(world[0]) >> 4;
+        int clickChunkZ = (int) Math.floor(world[1]) >> 4;
+
         int best = -1;
         double bestDistance = HOVER_PIXELS * HOVER_PIXELS;
+        int bestOil = -1;
+        double bestOilDistSq = Double.MAX_VALUE;
         for (int i = 0; i < readings.size(); i++) {
             ReaderReading reading = readings.get(i);
             if (!reading.dimension().equals(dimension)) {
                 continue;
             }
-            double[] at = toScreen(view, yaw, reading.x() + 0.5, reading.z() + 0.5);
-            if (!onMap(at[0], at[1])) {
-                continue;
+            if (OilTiers.isOil(reading.ore())) {
+                if (reading.ore().contains(":")) {
+                    if (OilTiers.contains(reading, world[0], world[1])) {
+                        double dx = world[0] - (reading.x() + 0.5);
+                        double dz = world[1] - (reading.z() + 0.5);
+                        double distSq = dx * dx + dz * dz;
+                        if (distSq < bestOilDistSq) {
+                            bestOilDistSq = distSq;
+                            bestOil = i;
+                        }
+                    }
+                } else {
+                    int cx = reading.deposit() != 0 ? (int) reading.deposit() : (reading.x() >> 4);
+                    int cz = reading.deposit() != 0 ? (int) (reading.deposit() >>> 32) : (reading.z() >> 4);
+                    if (clickChunkX == cx && clickChunkZ == cz) {
+                        return i;
+                    }
+                }
+            } else {
+                double[] at = toScreen(view, yaw, reading.x() + 0.5, reading.z() + 0.5);
+                if (!onMap(at[0], at[1])) {
+                    continue;
+                }
+                double dx = at[0] - x;
+                double dy = at[1] - y;
+                double distance = dx * dx + dy * dy;
+                if (distance <= bestDistance) {
+                    bestDistance = distance;
+                    best = i;
+                }
             }
-            double dx = at[0] - x;
-            double dy = at[1] - y;
-            double distance = dx * dx + dy * dy;
-            if (distance <= bestDistance) {
-                bestDistance = distance;
-                best = i;
-            }
+        }
+        if (bestOil >= 0) {
+            return bestOil;
         }
         return best;
     }

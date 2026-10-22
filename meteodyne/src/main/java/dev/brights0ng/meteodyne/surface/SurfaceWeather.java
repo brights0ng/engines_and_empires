@@ -442,7 +442,7 @@ public final class SurfaceWeather {
     }
 
     /**
-     * {@code crop} one growth stage back (its {@code age} property, which vanilla, Farmer's Delight and MineColonies
+     * {@code crop} one growth stage back (its {@code age} property, which vanilla and Farmer's Delight
      * crops all use), or null if it has none or is already at its first.
      */
     public static BlockState knockedBack(BlockState crop) {

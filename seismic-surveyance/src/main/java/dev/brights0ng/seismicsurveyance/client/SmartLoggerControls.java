@@ -1,3 +1,4 @@
+// Edited by Gemini: added ORES/OIL tab switching and interaction on smart logger desk map.
 package dev.brights0ng.seismicsurveyance.client;
 
 import java.util.HashMap;
@@ -13,7 +14,6 @@ import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import dev.brights0ng.seismicsurveyance.SmartLoggerBlockEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionResult;
@@ -72,7 +72,7 @@ public final class SmartLoggerControls {
         if (number == null) {
             return -1;
         }
-        if (logger.records().indexOfNumber(number) < 0) {
+        if (logger.currentRecords().indexOfNumber(number) < 0) {
             SELECTED.remove(key(logger));
             return -1;
         }
@@ -82,7 +82,7 @@ public final class SmartLoggerControls {
     /** The entry this player has selected on this logger, or null. */
     public static LogbookEntry selectedEntry(SmartLoggerBlockEntity logger) {
         int number = selected(logger);
-        return number < 0 ? null : logger.records().get(logger.records().indexOfNumber(number));
+        return number < 0 ? null : logger.currentRecords().get(logger.currentRecords().indexOfNumber(number));
     }
 
     // ---- where the crosshair is ----
@@ -137,7 +137,7 @@ public final class SmartLoggerControls {
         }
     }
 
-    // ---- right-click: select, send, recentre ----
+    // ---- right-click: select, send, recentre, tabs ----
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
@@ -167,13 +167,25 @@ public final class SmartLoggerControls {
             player.displayClientMessage(Component.translatable("message.seismic_surveyance.smart_logger.display_off"), true);
             return;
         }
+
+        LoggerDisplay.Tab tab = LoggerDisplay.tabAt(spot.u(), spot.v());
+        if (tab != null) {
+            logger.setActiveTabLocally(tab);
+            PacketDistributor.sendToServer(new LoggerMapPayloads.SetTab(logger.getBlockPos(), (byte) tab.ordinal()));
+            player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.4F, 1.2F);
+            return;
+        }
+
         if (sneaking) {
             Vec3 middle = logger.middle();
             setView(logger, LoggerDisplay.recentre(logger.view(), middle.x, middle.z));
             player.playSound(SoundEvents.COMPARATOR_CLICK, 0.4F, 0.8F);
             return;
         }
-        List<ReaderReading> readings = logger.records().entries().stream().map(LogbookEntry::reading).toList();
+        if (logger.activeTab() != LoggerDisplay.Tab.ORES && logger.activeTab() != LoggerDisplay.Tab.OIL) {
+            return;
+        }
+        List<ReaderReading> readings = logger.currentRecords().entries().stream().map(LogbookEntry::reading).toList();
         int index = LoggerDisplay.hovered(logger.view(), logger.frame(), spot.u(), spot.v(), readings,
                 player.level().dimension().location().toString());
         String key = key(logger);
@@ -183,7 +195,7 @@ public final class SmartLoggerControls {
             }
             return;
         }
-        int number = logger.records().get(index).number();
+        int number = logger.currentRecords().get(index).number();
         if (selected(logger) == number) {
             SELECTED.remove(key);
             if (!logger.docked().isEmpty()) {
@@ -197,7 +209,7 @@ public final class SmartLoggerControls {
         }
     }
 
-    // ---- left-click: drag, never break ----
+    // ---- left-click: drag, tab click, never break ----
 
     /** A left-click on the map, with its display on, grabs it instead of hitting the block; so does holding it down. */
     @SubscribeEvent(priority = EventPriority.HIGH)
@@ -216,6 +228,18 @@ public final class SmartLoggerControls {
         }
         event.setCanceled(true);
         event.setSwingHand(false);
+
+        LoggerDisplay.Tab tab = LoggerDisplay.tabAt(spot.u(), spot.v());
+        if (tab != null) {
+            SmartLoggerBlockEntity logger = spot.logger();
+            logger.setActiveTabLocally(tab);
+            PacketDistributor.sendToServer(new LoggerMapPayloads.SetTab(logger.getBlockPos(), (byte) tab.ordinal()));
+            if (Minecraft.getInstance().player != null) {
+                Minecraft.getInstance().player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.4F, 1.2F);
+            }
+            return;
+        }
+
         SmartLoggerBlockEntity logger = spot.logger();
         double[] grabbed = LoggerDisplay.toWorld(logger.view(), logger.frame(), spot.u(), spot.v());
         dragging = logger;
@@ -263,13 +287,7 @@ public final class SmartLoggerControls {
         SmartLoggerBlockEntity logger = spot.logger();
         LoggerDisplay.View view = logger.view();
         double[] under = LoggerDisplay.toWorld(view, logger.frame(), spot.u(), spot.v());
-        LoggerDisplay.View zoomed = LoggerDisplay.zoomAbout(view, under[0], under[1], event.getScrollDeltaY() > 0 ? 1 : -1);
-        if (!zoomed.equals(view)) {
-            setView(logger, zoomed);
-            if (minecraft.player != null) {
-                minecraft.player.playSound(SoundEvents.COMPARATOR_CLICK, 0.3F, zoomed.zoom() > view.zoom() ? 1.1F : 0.8F);
-            }
-        }
+        setView(logger, LoggerDisplay.zoomAbout(view, under[0], under[1], (int) Math.signum(event.getScrollDeltaY())));
     }
 
     private SmartLoggerControls() {

@@ -1,0 +1,4 @@
+> Task :meteodyne:runGameTestServer
+[13:43:01] [Server thread/INFO] [minecraft/GameTestServer]: All 1 required tests passed :)
+BUILD SUCCESSFUL in 1m 28s
+20 actionable tasks: 5 executed, 3 from cache, 12 up-to-date

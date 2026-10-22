@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Meteodyne's data names only vanilla's ids, the common {@code c:} tags and its own (split step 2c). Entries that fill
  * in another mod's blocks (Create's blaze burner and casings, Cold Sweat's hearths, Diesel Generators' engines,
- * Simulated's and Aeronautics' burners, Farmer's Delight's and MineColonies' crops) are pack content: the core ships
+ * Simulated's and Aeronautics' burners, Farmer's Delight's crops) are pack content: the core ships
  * them in files of the same ids, which NeoForge merges into Meteodyne's data maps and tags. So a run with Meteodyne and
  * the library alone (its bare game test run) never names a block that isn't there.
  */

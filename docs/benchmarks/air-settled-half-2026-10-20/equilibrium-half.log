@@ -1,0 +1,25 @@
+# Generated calibration output; archived by ChatGPT.
+
+Benchmark PID: 34768
+equilibrium opening=0 dt=0.5 second=1000 coupled=12.703829899557375 mean-dT=30.50656383309736 dFlux=0.6500063789421241 storage=16.96240324678336 thermally-stable=0
+equilibrium opening=0 dt=0.5 second=2000 coupled=12.744304615219102 mean-dT=2.6889772628684128 dFlux=0.006365476594819841 storage=0.2492923901316826 thermally-stable=0
+equilibrium opening=0 dt=0.5 second=3000 coupled=12.745035711148333 mean-dT=0.040567509000457136 dFlux=1.205510320417269E-4 storage=0.004662429855612572 thermally-stable=0
+equilibrium opening=0 dt=0.5 second=4000 coupled=12.745049157576785 mean-dT=7.331209361574054E-4 dFlux=2.2222334849220093E-6 storage=8.593637828016653E-5 thermally-stable=1
+equilibrium opening=0 dt=0.5 second=5000 coupled=12.745049401539722 mean-dT=1.3468647093617392E-5 dFlux=3.6320389223964966E-8 storage=1.5024840831756592E-6 thermally-stable=2
+equilibrium opening=0 dt=0.5 second=6000 coupled=12.745049405736337 mean-dT=2.3826557793427128E-7 dFlux=1.001514038367901E-9 storage=2.582225715741515E-8 thermally-stable=3
+calibration complete opening=0 qualified=true heating=6000 failure=
+equilibrium opening=1 dt=0.5 second=1000 coupled=12.17538137452012 mean-dT=30.081598896456562 dFlux=0.649803368252891 storage=16.473735629162924 thermally-stable=0
+equilibrium opening=1 dt=0.5 second=2000 coupled=12.211080606020586 mean-dT=2.5649082162935954 dFlux=0.006060859484560005 storage=0.23241993929090676 thermally-stable=0
+equilibrium opening=1 dt=0.5 second=3000 coupled=12.211714596587266 mean-dT=0.037600856291089 dFlux=1.1274190136847939E-4 storage=0.0042710807800176555 thermally-stable=0
+equilibrium opening=1 dt=0.5 second=4000 coupled=12.211726060210585 mean-dT=6.672591585683563E-4 dFlux=2.0435086618975085E-6 storage=7.735368405701592E-5 thermally-stable=1
+equilibrium opening=1 dt=0.5 second=5000 coupled=12.211726274802288 mean-dT=1.2047358843858547E-5 dFlux=3.377397148063288E-8 storage=1.3478677137754857E-6 thermally-stable=2
+equilibrium opening=1 dt=0.5 second=6000 coupled=12.21172625701549 mean-dT=2.1155347695867022E-7 dFlux=3.023030826584937E-8 storage=2.092611975967884E-8 thermally-stable=3
+calibration complete opening=1 qualified=true heating=6000 failure=
+equilibrium opening=2 dt=0.5 second=1000 coupled=7.768746175479432 mean-dT=26.066523834928027 dFlux=0.6370240689706328 storage=12.046038193339365 thermally-stable=0
+equilibrium opening=2 dt=0.5 second=2000 coupled=7.778099769179586 mean-dT=1.5645487882455633 dFlux=0.00377776607463437 storage=0.11662628052372019 thermally-stable=0
+equilibrium opening=2 dt=0.5 second=3000 coupled=7.778246165503325 mean-dT=0.01769606708415239 dFlux=6.0669692546533316E-5 storage=0.0018756442605517806 thermally-stable=0
+equilibrium opening=2 dt=0.5 second=4000 coupled=7.778248484848952 mean-dT=2.7406187328438136E-4 dFlux=9.547342335880504E-7 storage=2.968847594456747E-5 thermally-stable=1
+equilibrium opening=2 dt=0.5 second=5000 coupled=7.778248519724328 mean-dT=4.31594426686388E-6 dFlux=1.2816413347271904E-8 storage=4.2897224193438887E-7 thermally-stable=2
+equilibrium opening=2 dt=0.5 second=6000 coupled=7.778248520127346 mean-dT=6.337800328992671E-8 dFlux=5.613945254848152E-10 storage=5.643465556204319E-9 thermally-stable=3
+calibration complete opening=2 qualified=true heating=6000 failure=
+Report: C:\Users\sdcol\IdeaProjects\EnginesAndEmpires\docs\benchmarks\air-settled-half-2026-10-20\equilibrium-half.json

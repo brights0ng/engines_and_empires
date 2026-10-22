@@ -1,0 +1,7 @@
+[01:02:31] [Server thread/ERROR] [minecraft/LogTestReporter]: thegametestserverhasnoseasons failed at 8370063, -60, -7767062! no seasons: no provider, no calendar
+[01:02:31] [Server thread/ERROR] [minecraft/LogTestReporter]: forecastsarecachedandthrownawayafterajump failed at 8370039, -60, -7767049! temperatures within a degree
+[01:02:31] [Server thread/INFO] [minecraft/GameTestServer]: ========= 262 GAME TESTS COMPLETE IN 11.23 s ======================
+[01:02:31] [Server thread/INFO] [minecraft/GameTestServer]: 2 required tests failed :(
+FAILURE: Build failed with an exception.
+Execution failed for task ':runGameTestServer'.
+BUILD FAILED in 1m 26s

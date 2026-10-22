@@ -1,0 +1,23 @@
+// Written by Gemini.
+plugins {
+    id 'eae.mod-conventions'
+}
+
+requireMod(':paradyne-lib')
+
+dependencies {
+    // Frontier is optional (plan section 3.1): Settled/Civilized checks run through Frontier when present.
+    // Empire may import Frontier only inside dev.brights0ng.empire.compat.frontier.
+    compileOnly project(':frontier')
+    testImplementation project(':frontier')
+
+    // Sparse Ores is optional (plan section 3.1 and 5): Talc registers as a sparse ore when present.
+    // Empire may import Sparse Ores only inside dev.brights0ng.empire.compat.sparseores.
+    compileOnly project(':sparse-ores')
+    testImplementation project(':sparse-ores')
+
+    // Seismic Surveyance is optional (Phase 6): Claim overlay renders on PRD and Smart Logger maps.
+    // Empire may import Seismic Surveyance only inside dev.brights0ng.empire.compat.seismic.
+    compileOnly project(':seismic-surveyance')
+    testImplementation project(':seismic-surveyance')
+}

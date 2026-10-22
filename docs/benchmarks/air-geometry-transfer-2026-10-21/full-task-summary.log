@@ -1,0 +1,36 @@
+Reusing configuration cache.
+> Task :sable-fixes:test UP-TO-DATE
+> Task :paradyne-lib:test FROM-CACHE
+> Task :simple-spoilage:test UP-TO-DATE
+> Task :sparse-ores:test UP-TO-DATE
+> Task :seismic-surveyance:test UP-TO-DATE
+> Task :frontier:test UP-TO-DATE
+> Task :coreless:test NO-SOURCE
+> Task :test
+[12:14:57] [Server thread/ERROR] [minecraft/LogTestReporter]: deepundercoveristherockstemperature failed at -11232407, -60, -6397172! 80 blocks of cover and no sky: Reading[depth=80.0, skylight=15, insulation=0.0, annualMean=NaN, pull=0.0, rock=NaN, noise=0.0, cave=null, outside=8.279536570992551, underground=NaN, temperature=8.279536570992551]
+[12:14:57] [Server thread/ERROR] [minecraft/LogTestReporter]: deepundercoveristheflathumidity failed at -11232323, -60, -6397159! 80 blocks of cover and no sky, outside 0.1: 0.1 vs 0.6
+[12:14:58] [Server thread/ERROR] [minecraft/LogTestReporter]: sharedworkersrebuildafteroutsideeditsandchunkhooks failed at -11232359, -60, -6397146! Chunk hooks allow current geometry to rebuild
+> Task :meteodyne:test
+> Task :meteodyne:runGameTestServer FAILED
+[12:15:02] [Server thread/INFO] [minecraft/GameTestServer]: ========= 95 GAME TESTS COMPLETE IN 12.15 s ======================
+[12:16:09] [Server thread/INFO] [minecraft/GameTestServer]: ========= 262 GAME TESTS COMPLETE IN 13.43 s ======================
+[12:16:09] [Server thread/INFO] [minecraft/GameTestServer]: All 262 required tests passed :)
+[12:16:40] [Server thread/INFO] [minecraft/GameTestServer]: ========= 211 GAME TESTS COMPLETE IN 12.63 s ======================
+[12:16:40] [Server thread/INFO] [minecraft/GameTestServer]: All 211 required tests passed :)
+[12:16:56] [Server thread/INFO] [minecraft/GameTestServer]: ========= 18 GAME TESTS COMPLETE IN 3.849 s ======================
+[12:16:56] [Server thread/INFO] [minecraft/GameTestServer]: All 18 required tests passed :)
+[12:17:11] [Server thread/INFO] [minecraft/GameTestServer]: ========= 3 GAME TESTS COMPLETE IN 391.3 ms ======================
+[12:17:11] [Server thread/INFO] [minecraft/GameTestServer]: All 3 required tests passed :)
+[12:17:24] [Server thread/INFO] [minecraft/GameTestServer]: ========= 2 GAME TESTS COMPLETE IN 518.9 ms ======================
+[12:17:24] [Server thread/INFO] [minecraft/GameTestServer]: All 2 required tests passed :)
+[12:17:52] [Server thread/INFO] [minecraft/GameTestServer]: ========= 20 GAME TESTS COMPLETE IN 1.516 s ======================
+[12:17:52] [Server thread/INFO] [minecraft/GameTestServer]: All 20 required tests passed :)
+[12:18:12] [Server thread/INFO] [minecraft/GameTestServer]: ========= 34 GAME TESTS COMPLETE IN 1.667 s ======================
+[12:18:12] [Server thread/INFO] [minecraft/GameTestServer]: All 34 required tests passed :)
+[12:18:33] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 1.049 s ======================
+[12:18:33] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+[12:18:57] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 1.341 s ======================
+[12:18:57] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+Configuration cache entry reused.
+FAILURE: Build failed with an exception.
+BUILD FAILED in 4m 45s

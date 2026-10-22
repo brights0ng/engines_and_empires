@@ -1,0 +1,22 @@
+[11:47:50] [Server thread/INFO] [de.br.me.Meteodyne/]: Local-air cooling fixture: reheating after external geometry change 1
+[11:47:58] [Server thread/INFO] [minecraft/GameTestServer]: ========= 262 GAME TESTS COMPLETE IN 13.72 s ======================
+[11:48:20] [Server thread/INFO] [de.br.me.Meteodyne/]: Local-air cooling fixture: reheating after external geometry change 1
+[11:48:20] [Server thread/INFO] [de.br.me.Meteodyne/]: Local-air cooling fixture: reheating after external geometry change 2
+[11:48:20] [Server thread/INFO] [de.br.me.Meteodyne/]: Local-air cooling fixture: reheating after external geometry change 3
+[11:48:20] [Server thread/INFO] [de.br.me.Meteodyne/]: Local-air cooling fixture: reheating after external geometry change 4
+java.lang.IllegalStateException: Too many external geometry changes during cooling fixture
+java.lang.IllegalStateException: Too many external geometry changes during cooling fixture
+[11:48:32] [Server thread/INFO] [minecraft/GameTestServer]: ========= 18 GAME TESTS COMPLETE IN 1.078 s ======================
+[11:48:50] [Server thread/INFO] [de.br.me.Meteodyne/]: Local-air cooling fixture: reheating after external geometry change 1
+[11:48:50] [Server thread/INFO] [de.br.me.Meteodyne/]: Local-air cooling fixture: reheating after external geometry change 2
+[11:48:50] [Server thread/INFO] [de.br.me.Meteodyne/]: Local-air cooling fixture: reheating after external geometry change 3
+[11:48:50] [Server thread/INFO] [de.br.me.Meteodyne/]: Local-air cooling fixture: reheating after external geometry change 4
+java.lang.IllegalStateException: Too many external geometry changes during cooling fixture
+java.lang.IllegalStateException: Too many external geometry changes during cooling fixture
+[11:48:59] [Server thread/INFO] [minecraft/GameTestServer]: ========= 3 GAME TESTS COMPLETE IN 286.4 ms ======================
+[11:49:10] [Server thread/INFO] [minecraft/GameTestServer]: ========= 2 GAME TESTS COMPLETE IN 320.7 ms ======================
+[11:49:22] [Server thread/INFO] [minecraft/GameTestServer]: ========= 20 GAME TESTS COMPLETE IN 582.4 ms ======================
+[11:49:32] [Server thread/INFO] [minecraft/GameTestServer]: ========= 34 GAME TESTS COMPLETE IN 664.2 ms ======================
+[11:49:41] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 390.5 ms ======================
+[11:49:53] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 444.0 ms ======================
+BUILD FAILED in 2m 53s

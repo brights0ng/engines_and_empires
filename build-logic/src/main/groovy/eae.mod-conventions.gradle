@@ -1,4 +1,5 @@
-// Shared settings for every mod in the family (split step 2b; layout in docs/build-layout.md). A mod project's
+// Written by Claude; updated by Gemini.
+// Shared settings for every mod in the family (split step 2b; layout in docs/history/build-layout.md). A mod project's
 // build.gradle applies this plugin, then lists the mods it requires with requireMod(':path') and adds its outside
 // dependencies; everything else is here, or in eae.family-base, which this applies (split step 4b: what a project that
 // only runs mods, the core-less combined run, shares with the mods).
@@ -54,7 +55,7 @@ neoForge {
         // This mod's data generator, writing into its own src/generated/resources.
         data {
             data()
-            // Its own game folder, so it never sees the MineColonies jars that the root syncs into run/mods.
+            // Its own game folder, so it never sees the extra jars that the root syncs into run/mods.
             gameDirectory = project.file('run-data')
             programArguments.addAll '--mod', mod_id, '--all',
                     '--output', file('src/generated/resources/').absolutePath,

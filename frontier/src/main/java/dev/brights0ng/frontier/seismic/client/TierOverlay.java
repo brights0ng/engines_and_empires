@@ -1,4 +1,7 @@
+// Edited by Gemini: associated TierOverlay with LoggerDisplay.Tab.FRONTIER.
 package dev.brights0ng.frontier.seismic.client;
+
+import dev.brights0ng.seismicsurveyance.LoggerDisplay;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,6 +58,11 @@ public final class TierOverlay implements MapLayer {
 
     public static Component legendName(int i) {
         return Component.translatable("gui.frontier.tier_map." + LEGEND_KEYS[i]);
+    }
+
+    @Override
+    public LoggerDisplay.Tab tab() {
+        return LoggerDisplay.Tab.FRONTIER;
     }
 
     /** Only the Overworld has tiers. */

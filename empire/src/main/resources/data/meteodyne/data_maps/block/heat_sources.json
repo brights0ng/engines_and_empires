@@ -1,0 +1,19 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "meteodyne"
+    }
+  ],
+  "values": {
+    "empire:bonfire": {
+      "state": {
+        "lit": "true"
+      },
+      "change": 13.89,
+      "range": 7,
+      "max_effect": 27.78,
+      "limit": 204.4
+    }
+  }
+}

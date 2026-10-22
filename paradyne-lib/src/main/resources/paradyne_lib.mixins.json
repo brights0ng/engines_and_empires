@@ -7,6 +7,9 @@
   "mixins": [
     "sable.SubLevelSilhouetteMixin"
   ],
+  "client": [
+    "client.LevelRendererBlockChangeMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   }

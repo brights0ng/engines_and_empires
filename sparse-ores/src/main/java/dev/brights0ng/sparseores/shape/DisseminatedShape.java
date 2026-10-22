@@ -1,3 +1,4 @@
+// Edited by Gemini: doubled internal ore density for disseminated deposits.
 package dev.brights0ng.sparseores.shape;
 
 import dev.brights0ng.sparseores.DepositRandom;
@@ -23,10 +24,10 @@ public record DisseminatedShape(double minDensity, double maxDensity, double min
                                 double taper, double ringWeight, double maxTiltDegrees) implements BodyShape {
 
     /** Copper: wide, roughly as tall as it is wide, with a rich ring. */
-    public static final DisseminatedShape COPPER = new DisseminatedShape(0.04, 0.09, 0.7, 1.3, 0.15, 0.7, 8.0);
+    public static final DisseminatedShape COPPER = new DisseminatedShape(0.08, 0.18, 0.7, 1.3, 0.15, 0.7, 8.0);
 
     /** Diamond: a tall, narrow pipe, wider at the top, richest in the core. */
-    public static final DisseminatedShape DIAMOND = new DisseminatedShape(0.06, 0.12, 3.5, 6.0, 0.45, 0.0, 12.0);
+    public static final DisseminatedShape DIAMOND = new DisseminatedShape(0.12, 0.24, 3.5, 6.0, 0.45, 0.0, 12.0);
 
     /** How far noise may push the body's edge, as a fraction of its base radius. */
     private static final double WARP_FRACTION = 0.25;

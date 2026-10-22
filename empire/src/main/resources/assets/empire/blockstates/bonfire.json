@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "lit=false,roaring=false": {
+      "model": "empire:block/bonfire_off"
+    },
+    "lit=false,roaring=true": {
+      "model": "empire:block/bonfire_off"
+    },
+    "lit=true,roaring=false": {
+      "model": "empire:block/bonfire"
+    },
+    "lit=true,roaring=true": {
+      "model": "empire:block/bonfire_roaring"
+    }
+  }
+}

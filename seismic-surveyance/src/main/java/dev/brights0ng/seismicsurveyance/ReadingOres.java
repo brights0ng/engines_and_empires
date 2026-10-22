@@ -1,3 +1,4 @@
+// Edited by Gemini: added oil display names and colours.
 package dev.brights0ng.seismicsurveyance;
 
 import dev.brights0ng.sparseores.SparseOres;
@@ -16,6 +17,9 @@ public final class ReadingOres {
 
     /** The ore's name, such as "Iron". */
     public static MutableComponent name(String ore) {
+        if (OilTiers.isOil(ore)) {
+            return OilTiers.name(ore);
+        }
         return ore == null || ore.isEmpty()
                 ? Component.translatable(SparseOres.MODID + ".ore.unknown")
                 : Component.translatable(SparseOres.MODID + ".ore." + ore);
@@ -25,6 +29,9 @@ public final class ReadingOres {
     public static int colour(String ore) {
         if (ore == null || ore.isEmpty()) {
             return UNKNOWN_COLOUR;
+        }
+        if (OilTiers.isOil(ore)) {
+            return OilTiers.colorFor(ore);
         }
         float[] rgb = GeophoneGlow.colorFor(ore);
         return 0xFF000000 | (Math.round(rgb[0] * 255) << 16) | (Math.round(rgb[1] * 255) << 8) | Math.round(rgb[2] * 255);

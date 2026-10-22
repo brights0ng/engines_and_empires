@@ -1,0 +1,196 @@
+# Extracted by ChatGPT from build/air-weather-rebuilt.log. No assertions altered.
+> Task :build-logic:extractPluginRequests
+> Task :build-logic:generatePluginAdapters
+> Task :build-logic:compileJava
+> Task :build-logic:compileGroovy
+> Task :build-logic:compileGroovyPlugins
+> Task :build-logic:pluginDescriptors
+> Task :build-logic:processResources
+> Task :build-logic:classes
+> Task :build-logic:jar
+> Task :createMinecraftArtifacts
+> Task :sparse-ores:createMinecraftArtifacts
+> Task :meteodyne:createMinecraftArtifacts
+> Task :seismic-surveyance:createMinecraftArtifacts
+> Task :createMinecraftArtifacts
+> Task :frontier:createMinecraftArtifacts
+> Task :paradyne-lib:createMinecraftArtifacts
+> Task :generateModMetadata
+> Task :processResources
+> Task :coreless:generateModMetadata
+> Task :coreless:processResources
+> Task :frontier:generateModMetadata
+> Task :frontier:processResources
+> Task :meteodyne:generateModMetadata
+> Task :meteodyne:processResources
+> Task :paradyne-lib:generateModMetadata
+> Task :paradyne-lib:processResources
+> Task :sable-fixes:generateModMetadata
+> Task :sable-fixes:processResources
+> Task :seismic-surveyance:generateModMetadata
+> Task :seismic-surveyance:processResources
+> Task :simple-spoilage:generateModMetadata
+> Task :simple-spoilage:processResources
+> Task :sparse-ores:generateModMetadata
+> Task :paradyne-lib:createMinecraftArtifacts
+> Task :seismic-surveyance:createMinecraftArtifacts
+> Task :sparse-ores:processResources
+> Task :simple-spoilage:createMinecraftArtifacts
+> Task :processTestResources
+> Task :frontier:jarJar NO-SOURCE
+> Task :meteodyne:jarJar NO-SOURCE
+> Task :paradyne-lib:jarJar NO-SOURCE
+> Task :seismic-surveyance:jarJar NO-SOURCE
+> Task :simple-spoilage:jarJar NO-SOURCE
+> Task :sparse-ores:jarJar NO-SOURCE
+> Task :coreless:processTestResources NO-SOURCE
+> Task :frontier:processTestResources NO-SOURCE
+> Task :meteodyne:processTestResources
+> Task :paradyne-lib:processTestResources NO-SOURCE
+> Task :sable-fixes:processTestResources NO-SOURCE
+> Task :seismic-surveyance:processTestResources NO-SOURCE
+> Task :simple-spoilage:processTestResources NO-SOURCE
+> Task :sparse-ores:processTestResources NO-SOURCE
+> Task :coreless:createMinecraftArtifacts
+> Task :prepareGameTestMods
+> Task :verifyGameTestMods
+> Task :writeGameTestServerLegacyClasspath
+> Task :sable-fixes:createMinecraftArtifacts
+> Task :downloadAssets
+> Task :coreless:downloadAssets
+> Task :coreless:createMinecraftArtifacts
+> Task :coreless:writeGameTestServerLegacyClasspath
+> Task :simple-spoilage:createMinecraftArtifacts
+> Task :frontier:writeGameTestServerLegacyClasspath
+> Task :paradyne-lib:compileJava
+> Task :frontier:downloadAssets
+> Task :meteodyne:downloadAssets
+> Task :paradyne-lib:classes
+> Task :coreless:createMinecraftArtifacts
+> Task :sable-fixes:createMinecraftArtifacts
+> Task :simple-spoilage:createMinecraftArtifacts
+> Task :paradyne-lib:jar
+> Task :meteodyne:writeGameTestServerLegacyClasspath
+> Task :sable-fixes:compileJava
+> Task :sable-fixes:classes
+> Task :sable-fixes:compileTestJava
+> Task :sable-fixes:testClasses
+> Task :paradyne-lib:downloadAssets
+> Task :paradyne-lib:writeGameTestServerLegacyClasspath
+> Task :paradyne-lib:prepareGameTestServerRun
+> Task :paradyne-lib:compileTestJava
+> Task :paradyne-lib:testClasses
+> Task :simple-spoilage:compileJava
+> Task :simple-spoilage:classes
+> Task :sparse-ores:compileJava
+> Task :sable-fixes:test
+> Task :sparse-ores:classes
+> Task :simple-spoilage:compileTestJava
+> Task :simple-spoilage:jar
+> Task :sparse-ores:jar
+> Task :simple-spoilage:testClasses
+> Task :sparse-ores:compileTestJava
+> Task :sparse-ores:testClasses
+> Task :paradyne-lib:runGameTestServer
+> Task :meteodyne:compileJava
+> Task :meteodyne:classes
+> Task :simple-spoilage:test
+> Task :seismic-surveyance:compileJava
+> Task :paradyne-lib:runGameTestServer
+> Task :meteodyne:jar
+> Task :seismic-surveyance:classes
+> Task :meteodyne:compileTestJava
+> Task :seismic-surveyance:jar
+> Task :meteodyne:testClasses
+> Task :seismic-surveyance:compileTestJava
+> Task :seismic-surveyance:testClasses
+> Task :paradyne-lib:runGameTestServer
+> Task :frontier:compileJava
+> Task :seismic-surveyance:test
+> Task :paradyne-lib:runGameTestServer
+> Task :paradyne-lib:test
+> Task :frontier:classes
+> Task :coreless:compileJava
+> Task :coreless:classes
+> Task :coreless:compileTestJava NO-SOURCE
+> Task :frontier:jar
+> Task :coreless:testClasses UP-TO-DATE
+> Task :coreless:test NO-SOURCE
+> Task :coreless:prepareGameTestServerRun
+> Task :frontier:compileTestJava
+> Task :frontier:testClasses
+> Task :frontier:prepareGameTestServerRun
+> Task :meteodyne:prepareGameTestServerRun
+> Task :compileJava
+> Task :classes
+> Task :paradyne-lib:runGameTestServer
+[16:17:27] [Server thread/INFO] [minecraft/GameTestServer]: ========= 3 GAME TESTS COMPLETE IN 750.7 ms ======================
+[16:17:27] [Server thread/INFO] [minecraft/GameTestServer]: All 3 required tests passed :)
+> Task :compileTestJava
+> Task :testClasses
+> Task :paradyne-lib:runGameTestServer
+> Task :prepareGameTestServerRun
+> Task :sable-fixes:downloadAssets
+> Task :frontier:test
+> Task :sable-fixes:writeGameTestServerLegacyClasspath
+> Task :sable-fixes:prepareGameTestServerRun
+> Task :seismic-surveyance:writeGameTestServerLegacyClasspath
+> Task :test
+> Task :simple-spoilage:writeGameTestServerLegacyClasspath
+> Task :seismic-surveyance:downloadAssets
+> Task :simple-spoilage:downloadAssets
+> Task :simple-spoilage:prepareGameTestServerRun
+> Task :seismic-surveyance:prepareGameTestServerRun
+> Task :sparse-ores:writeGameTestServerLegacyClasspath
+> Task :sparse-ores:test
+> Task :runGameTestServer
+> Task :sparse-ores:downloadAssets
+> Task :sparse-ores:prepareGameTestServerRun
+> Task :runGameTestServer
+> Task :meteodyne:test
+> Task :runGameTestServer FAILED
+[16:17:51] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_diagnostics:0' (1 tests)...
+[16:17:51] [Server thread/ERROR] [minecraft/LogTestReporter]: commandsrequireoperatorandboundexplicitrequests failed at -7462872, -60, 11894193! Incorrect argument for command at position 19: ... heat air <--[HERE]
+[16:17:52] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_weather:0' (1 tests)...
+[16:18:02] [Server thread/ERROR] [minecraft/LogTestReporter]: everyorereciperesolvesasitdidbeforestep4c failed at -7462884, -60, 11894388! 2 recipe lines missing, 0 new (all resolved lines: C:\Users\sdcol\AppData\Local\Temp\pack-recipes-6942846104567377480.txt); first missing: minecraft:crafting minecraft:gravel domum_ornamentum:beige_bricks {"category":"equipment","ingredients":[{"item":"minecraft:gravel"},{"item":"minecraft:gravel"},{"item":"minecraft:brick"},{"item":"minecraft:brick"}],"result":{"count":4,"id":"domum_ornamentum:beige_bricks"},"type":"minecraft:crafting_shapeless"}; first new: none
+[16:18:04] [Server thread/INFO] [minecraft/GameTestServer]: ========= 262 GAME TESTS COMPLETE IN 14.45 s ======================
+[16:18:04] [Server thread/INFO] [minecraft/GameTestServer]: 2 required tests failed :(
+> Task :coreless:runGameTestServer
+[16:18:24] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_diagnostics:0' (1 tests)...
+[16:18:25] [Server thread/ERROR] [minecraft/LogTestReporter]: commandsrequireoperatorandboundexplicitrequests failed at -13535712, -60, -10673836! Incorrect argument for command at position 19: ... heat air <--[HERE]
+[16:18:27] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_weather:0' (1 tests)...
+[16:18:42] [Server thread/INFO] [minecraft/GameTestServer]: ========= 212 GAME TESTS COMPLETE IN 19.15 s ======================
+[16:18:42] [Server thread/INFO] [minecraft/GameTestServer]: 1 required tests failed :(
+> Task :coreless:runGameTestServer FAILED
+> Task :frontier:runGameTestServer
+[16:18:56] [Server thread/INFO] [minecraft/GameTestServer]: ========= 17 GAME TESTS COMPLETE IN 1.263 s ======================
+[16:18:56] [Server thread/INFO] [minecraft/GameTestServer]: All 17 required tests passed :)
+> Task :meteodyne:runGameTestServer
+[16:19:11] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_diagnostics:0' (1 tests)...
+[16:19:11] [Server thread/ERROR] [minecraft/LogTestReporter]: commandsrequireoperatorandboundexplicitrequests failed at 2893367, -60, 9423118! Incorrect argument for command at position 19: ... heat air <--[HERE]
+[16:19:12] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_weather:0' (1 tests)...
+[16:19:21] [Server thread/INFO] [minecraft/GameTestServer]: ========= 97 GAME TESTS COMPLETE IN 11.80 s ======================
+[16:19:21] [Server thread/INFO] [minecraft/GameTestServer]: 1 required tests failed :(
+> Task :meteodyne:runGameTestServer FAILED
+> Task :sable-fixes:runGameTestServer
+[16:19:32] [Server thread/INFO] [minecraft/GameTestServer]: ========= 2 GAME TESTS COMPLETE IN 298.1 ms ======================
+[16:19:32] [Server thread/INFO] [minecraft/GameTestServer]: All 2 required tests passed :)
+> Task :seismic-surveyance:runGameTestServer
+[16:19:47] [Server thread/INFO] [minecraft/GameTestServer]: ========= 20 GAME TESTS COMPLETE IN 892.3 ms ======================
+[16:19:47] [Server thread/INFO] [minecraft/GameTestServer]: All 20 required tests passed :)
+> Task :simple-spoilage:runGameTestServer
+[16:20:00] [Server thread/INFO] [minecraft/GameTestServer]: ========= 34 GAME TESTS COMPLETE IN 706.6 ms ======================
+[16:20:00] [Server thread/INFO] [minecraft/GameTestServer]: All 34 required tests passed :)
+> Task :sparse-ores:runGameTestServer
+[16:20:13] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 707.1 ms ======================
+[16:20:13] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+> Task :sparse-ores:processDatagenResources NO-SOURCE
+> Task :sparse-ores:compileDatagenJava NO-SOURCE
+> Task :sparse-ores:datagenClasses UP-TO-DATE
+> Task :sparse-ores:writeGameTestServerWithCreateLegacyClasspath
+> Task :sparse-ores:prepareGameTestServerWithCreateRun
+> Task :sparse-ores:runGameTestServerWithCreate
+[16:20:31] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 560.0 ms ======================
+[16:20:31] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+FAILURE: Build completed with 3 failures.
+BUILD FAILED in 3m 52s

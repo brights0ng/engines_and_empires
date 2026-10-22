@@ -16,6 +16,7 @@ dependencies {
     runtimeOnly("dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}")
     implementation("com.tterrag.registrate:Registrate:${registrate_version}")
 
-    // Create: Diesel Generators is optional: the combustive thumper sorts fuels by fluid tag (#c:diesel and the like),
-    // so no code touches it, and the bare runs go without it. The root's runs load it.
+    // Create: Diesel Generators is optional: the combustive thumper sorts fuels by fluid tag (#c:diesel and the like).
+    // Seismic Surveyance compiles its compat package against it; bare runs go without it.
+    compileOnly("maven.modrinth:create-diesel-generators:${diesel_generators_version}") { transitive = false }
 }

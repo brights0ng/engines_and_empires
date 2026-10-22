@@ -1,0 +1,7 @@
+> Task :meteodyne:runGameTestServer
+> Task :meteodyne:runGameTestServer
+[12:36:31] [Server thread/INFO] [minecraft/GameTestServer]: All 95 required tests passed :)
+> Task :coreless:runGameTestServer
+[12:37:15] [Server thread/INFO] [minecraft/GameTestServer]: All 211 required tests passed :)
+BUILD SUCCESSFUL in 1m 27s
+48 actionable tasks: 7 executed, 3 from cache, 38 up-to-date

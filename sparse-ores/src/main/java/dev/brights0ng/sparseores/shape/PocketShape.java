@@ -1,3 +1,4 @@
+// Edited by Gemini: increased internal ore density for pocket deposits.
 package dev.brights0ng.sparseores.shape;
 
 import dev.brights0ng.sparseores.DepositRandom;
@@ -19,13 +20,13 @@ public record PocketShape(int minPockets, int maxPockets, double minDensity, dou
                           double minHollow, double maxHollow) implements BodyShape {
 
     /** Emerald: a few small, solid pockets. */
-    public static final PocketShape EMERALD = new PocketShape(2, 5, 0.75, 0.95, 0.0, 0.0);
+    public static final PocketShape EMERALD = new PocketShape(2, 5, 0.88, 0.98, 0.0, 0.0);
 
     /** Crystal: a geode or two, hollow with a lining of crystal. */
-    public static final PocketShape CRYSTAL = new PocketShape(1, 3, 0.75, 0.95, 0.50, 0.65);
+    public static final PocketShape CRYSTAL = new PocketShape(1, 3, 0.88, 0.98, 0.50, 0.65);
 
     /** Quartz: a few hollow, crystal-lined cavities. */
-    public static final PocketShape QUARTZ = new PocketShape(2, 5, 0.75, 0.95, 0.40, 0.55);
+    public static final PocketShape QUARTZ = new PocketShape(2, 5, 0.88, 0.98, 0.40, 0.55);
 
     private static final int MAX_POCKETS = 24;
     private static final double MIN_WEIGHT = 0.65;     // size of the smallest pocket relative to the average

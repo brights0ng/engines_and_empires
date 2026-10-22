@@ -1,3 +1,4 @@
+// Edited by Gemini: added ORES/OIL/FRONTIER/EMPIRE tab layout, tabAt detection, chunk-square and multi-chunk oil hovering on the desk map.
 package dev.brights0ng.seismicsurveyance;
 
 import java.util.List;
@@ -72,6 +73,46 @@ public final class LoggerDisplay {
     /** How far in the map can zoom, and how many blocks a metre of screen covers at zoom 0. */
     public static final int MAX_ZOOM = 6;
     public static final double BASE_BLOCKS_PER_METRE = 1024.0;
+
+    /** Tabs along the top of the map. */
+    public enum Tab {
+        ORES,
+        OIL,
+        FRONTIER,
+        EMPIRE
+    }
+
+    public static final double TAB_WIDTH = 0.30;
+    public static final double TAB_HEIGHT = 0.10;
+    public static final double TAB_GAP = 0.025;
+    public static final double TABS_TOTAL_WIDTH = Tab.values().length * TAB_WIDTH + (Tab.values().length - 1) * TAB_GAP;
+    public static final double TABS_START_U = SCREEN_CENTRE_U - TABS_TOTAL_WIDTH / 2.0;
+
+    public static double tabLeft(Tab tab) {
+        return TABS_START_U + tab.ordinal() * (TAB_WIDTH + TAB_GAP);
+    }
+
+    public static double tabRight(Tab tab) {
+        return tabLeft(tab) + TAB_WIDTH;
+    }
+
+    /** The tab at a point {u, v} on the screen, or null if not over a tab. */
+    public static Tab tabAt(double u, double v) {
+        if (!inScreenArea(u, v)) {
+            return null;
+        }
+        double top = DEPTH - BEZEL - 0.01;
+        double bottom = top - TAB_HEIGHT;
+        if (v < bottom || v > top) {
+            return null;
+        }
+        for (Tab tab : Tab.values()) {
+            if (u >= tabLeft(tab) && u <= tabRight(tab)) {
+                return tab;
+            }
+        }
+        return null;
+    }
 
     /** The buttons on the bar, from front to back. */
     public enum Button {
@@ -253,27 +294,56 @@ public final class LoggerDisplay {
      * readings in this dimension that are on the screen. Its index in the list, or -1 if none is.
      */
     public static int hovered(View view, Frame frame, double u, double v, List<ReaderReading> readings, String dimension) {
-        if (!onScreen(u, v)) {
+        if (!onScreen(u, v) || tabAt(u, v) != null) {
             return -1;
         }
+        double[] world = toWorld(view, frame, u, v);
+        int clickChunkX = (int) Math.floor(world[0]) >> 4;
+        int clickChunkZ = (int) Math.floor(world[1]) >> 4;
+
         int best = -1;
         double bestDistance = HOVER_RADIUS * HOVER_RADIUS;
+        int bestOil = -1;
+        double bestOilDistSq = Double.MAX_VALUE;
         for (int i = 0; i < readings.size(); i++) {
             ReaderReading reading = readings.get(i);
             if (!reading.dimension().equals(dimension)) {
                 continue;
             }
-            double[] at = toScreen(view, frame, reading.x() + 0.5, reading.z() + 0.5);
-            if (!onScreen(at[0], at[1])) {
-                continue;
+            if (OilTiers.isOil(reading.ore())) {
+                if (reading.ore().contains(":")) {
+                    if (OilTiers.contains(reading, world[0], world[1])) {
+                        double dx = world[0] - (reading.x() + 0.5);
+                        double dz = world[1] - (reading.z() + 0.5);
+                        double distSq = dx * dx + dz * dz;
+                        if (distSq < bestOilDistSq) {
+                            bestOilDistSq = distSq;
+                            bestOil = i;
+                        }
+                    }
+                } else {
+                    int cx = reading.deposit() != 0 ? (int) reading.deposit() : (reading.x() >> 4);
+                    int cz = reading.deposit() != 0 ? (int) (reading.deposit() >>> 32) : (reading.z() >> 4);
+                    if (clickChunkX == cx && clickChunkZ == cz) {
+                        return i;
+                    }
+                }
+            } else {
+                double[] at = toScreen(view, frame, reading.x() + 0.5, reading.z() + 0.5);
+                if (!onScreen(at[0], at[1])) {
+                    continue;
+                }
+                double du = at[0] - u;
+                double dv = at[1] - v;
+                double distance = du * du + dv * dv;
+                if (distance <= bestDistance) {
+                    bestDistance = distance;
+                    best = i;
+                }
             }
-            double du = at[0] - u;
-            double dv = at[1] - v;
-            double distance = du * du + dv * dv;
-            if (distance <= bestDistance) {
-                bestDistance = distance;
-                best = i;
-            }
+        }
+        if (bestOil >= 0) {
+            return bestOil;
         }
         return best;
     }

@@ -1,3 +1,5 @@
+// Extended by ChatGPT: opt-in thermal/airflow benchmarks, including thermal traversal controls.
+// Edited by ChatGPT with offline numerical benchmark tasks and qualification controls.
 plugins {
     id 'eae.mod-conventions'
 }
@@ -5,10 +7,62 @@ plugins {
 // The library requires no other mod of ours.
 
 dependencies {
+    testImplementation 'com.google.code.gson:gson:2.10.1'
     // Sable is optional (plan section 2): only the sable sub-packages touch it, and only after ModList.isLoaded("sable"),
     // so it is compiled against but never on the runtime classpath of the library's own runs. Non-transitive: its pom
     // pulls in a Sable build that isn't published. Its companion library (Pose3d, bounding boxes) is inside Sable's jar
     // at runtime.
     compileOnly("dev.ryanhcode.sable:sable-neoforge-${minecraft_version}:${sable_version}") { transitive = false }
     compileOnly("dev.ryanhcode.sable-companion:sable-companion-common-${minecraft_version}:${sable_companion_version}") { transitive = false }
+}
+
+// Fixed scenes and three isolated JVM forks; no benchmark timing threshold affects normal tests.
+tasks.register('thermalBenchmark', JavaExec) {
+    group = 'verification'
+    description = 'Write repeatable thermal solver baseline reports (three warmed JVM forks).'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.brights0ng.paradynelib.heat.air.ThermalBenchmark'
+    workingDir = rootProject.projectDir
+    args providers.gradleProperty('thermalBenchLabel').getOrElse('baseline'), providers.gradleProperty('thermalBenchCompare').getOrElse('')
+}
+
+tasks.register('flowBenchmark', JavaExec) {
+    group = 'verification'
+    description = 'Measure pure airflow cost and numerical quality beside the unchanged thermal fixtures.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.brights0ng.paradynelib.heat.air.FlowBenchmark'
+    workingDir = rootProject.projectDir
+    args providers.gradleProperty('flowBenchQuick').getOrElse('false'), providers.gradleProperty('flowBenchPreconditioner').getOrElse('MODIFIED_INCOMPLETE_CHOLESKY')
+}
+
+tasks.register('thermalTransportBenchmark', JavaExec) {
+    group = 'verification'
+    description = 'Measure shared-flux heat transport with fixed projected airflow (one JVM).'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.brights0ng.paradynelib.heat.air.ThermalTransportBenchmark'
+    workingDir = rootProject.projectDir
+    jvmArgs '-Xms512m', '-Xmx1g', '-XX:+UseG1GC'
+    args providers.gradleProperty('thermalTransportReport').getOrElse('build/benchmarks/thermal-transport/fork.json')
+}
+
+tasks.register('coupledAirBenchmark', JavaExec) {
+    group = 'verification'
+    description = 'Measure offline coupled airflow/heat, calibration, equilibrium, timestep/domain sensitivity, or response scales.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.brights0ng.paradynelib.heat.air.CoupledAirBenchmark'
+    workingDir = rootProject.projectDir
+    jvmArgs '-Xms512m', '-Xmx1g', '-XX:+UseG1GC'
+    args providers.gradleProperty('coupledAirReport').getOrElse('build/benchmarks/coupled-air/performance.json'),
+            providers.gradleProperty('coupledAirMode').getOrElse('performance'),
+            providers.gradleProperty('coupledAirThermalMode').getOrElse('COMPACT_CACHED'),
+            providers.gradleProperty('coupledAirCachedSampling').getOrElse('true'),
+            providers.gradleProperty('coupledAirFlowKernel').getOrElse('CACHED_TRACE'),
+            providers.gradleProperty('coupledAirEquilibriumProtocol').getOrElse('long'),
+            providers.gradleProperty('coupledAirQualificationStep').getOrElse('0.5'),
+            providers.gradleProperty('coupledAirQualificationCase').getOrElse('0,8,8,3'),
+            providers.gradleProperty('coupledAirEquilibriumStep').getOrElse('1.0')
 }

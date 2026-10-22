@@ -1,3 +1,4 @@
+// Edited by Gemini: use active tab's current records for hover and multi-chunk trap/fullness info for oil deposits.
 package dev.brights0ng.seismicsurveyance.client;
 
 import java.util.List;
@@ -15,6 +16,7 @@ import dev.brights0ng.seismicsurveyance.LogbookEntry;
 import dev.brights0ng.seismicsurveyance.LoggerDisplay;
 import dev.brights0ng.seismicsurveyance.ReaderReading;
 import dev.brights0ng.seismicsurveyance.ReadingBoardMenu;
+import dev.brights0ng.seismicsurveyance.OilTiers;
 import dev.brights0ng.seismicsurveyance.ReadingOres;
 import dev.brights0ng.seismicsurveyance.SeismicContent;
 import dev.brights0ng.seismicsurveyance.SmartLoggerBlock;
@@ -47,11 +49,14 @@ public final class SmartLoggerHover {
 
     /** Which of the logger's entries the crosshair is over, or -1. Nothing is, while the display is off. */
     public static int hoveredIndex(SmartLoggerBlockEntity logger) {
+        if (logger.activeTab() != LoggerDisplay.Tab.ORES && logger.activeTab() != LoggerDisplay.Tab.OIL) {
+            return -1;
+        }
         double[] pointer = logger.displayOn() ? pointer(logger) : null;
         if (pointer == null || logger.getLevel() == null) {
             return -1;
         }
-        List<ReaderReading> readings = logger.records().entries().stream().map(LogbookEntry::reading).toList();
+        List<ReaderReading> readings = logger.currentRecords().entries().stream().map(LogbookEntry::reading).toList();
         return LoggerDisplay.hovered(logger.view(), logger.frame(), pointer[0], pointer[1], readings,
                 logger.getLevel().dimension().location().toString());
     }
@@ -69,11 +74,11 @@ public final class SmartLoggerHover {
         if (pointer != null && LoggerDisplay.onScreen(pointer[0], pointer[1])) {
             double[] world = LoggerDisplay.toWorld(view, logger.frame(), pointer[0], pointer[1]);
             tooltip.add(line(Component.translatable(LANG + "pointing", (long) Math.floor(world[0]), (long) Math.floor(world[1]))
-                    .withStyle(ChatFormatting.DARK_GRAY)));
+                .withStyle(ChatFormatting.DARK_GRAY)));
         }
 
         int index = hoveredIndex(logger);
-        LogbookEntry entry = index >= 0 ? logger.records().get(index) : SmartLoggerControls.selectedEntry(logger);
+        LogbookEntry entry = index >= 0 ? logger.currentRecords().get(index) : SmartLoggerControls.selectedEntry(logger);
         if (entry == null) {
             return;
         }
@@ -86,8 +91,16 @@ public final class SmartLoggerHover {
         }
         tooltip.add(line(ReadingBoardMenu.displayName(entry).copy().withStyle(ChatFormatting.GOLD)));
         tooltip.add(line(ReadingOres.colouredName(reading.ore())));
-        tooltip.add(line(Component.translatable(LANG + "position", reading.x(),
-                reading.hasHeight() ? String.valueOf(reading.y()) : "?", reading.z()).withStyle(ChatFormatting.WHITE)));
+        if (OilTiers.isOil(reading.ore())) {
+            tooltip.add(line(Component.literal("Trap: " + OilTiers.trapOf(reading.ore()).displayName()).withStyle(ChatFormatting.WHITE)));
+            int percent = (int) Math.round(OilTiers.fullnessOf(reading.ore()) * 100.0);
+            tooltip.add(line(Component.literal("Fullness: " + percent + "%").withStyle(ChatFormatting.AQUA)));
+            tooltip.add(line(Component.translatable(LANG + "position", reading.x(),
+                    reading.hasHeight() ? String.valueOf(reading.y()) : "?", reading.z()).withStyle(ChatFormatting.WHITE)));
+        } else {
+            tooltip.add(line(Component.translatable(LANG + "position", reading.x(),
+                    reading.hasHeight() ? String.valueOf(reading.y()) : "?", reading.z()).withStyle(ChatFormatting.WHITE)));
+        }
         tooltip.add(line(Component.translatable("item.seismic_surveyance.windup_reader.confidence_"
                 + reading.confidence().name().toLowerCase(java.util.Locale.ROOT)).withStyle(ChatFormatting.GRAY)));
     }

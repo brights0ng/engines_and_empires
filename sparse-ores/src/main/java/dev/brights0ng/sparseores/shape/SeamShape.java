@@ -1,3 +1,4 @@
+// Edited by Gemini: increased internal ore density for seam deposits.
 package dev.brights0ng.sparseores.shape;
 
 import dev.brights0ng.sparseores.DepositRandom;
@@ -20,10 +21,10 @@ public record SeamShape(double minDensity, double maxDensity, double minPairThic
                         int maxSeams, double maxElongation, double maxTiltDegrees) implements BodyShape {
 
     /** Coal: thick, dense, often stacked. */
-    public static final SeamShape COAL = new SeamShape(0.45, 0.75, 3.5, 6.0, 3, 1.8, 22.0);
+    public static final SeamShape COAL = new SeamShape(0.65, 0.82, 3.5, 6.0, 3, 1.8, 22.0);
 
     /** Lapis: thinner and leaner, more like a flat lens. */
-    public static final SeamShape LAPIS = new SeamShape(0.30, 0.50, 2.5, 4.0, 2, 2.0, 25.0);
+    public static final SeamShape LAPIS = new SeamShape(0.55, 0.75, 2.5, 4.0, 2, 2.0, 25.0);
 
     private static final Plate.Style STYLE = new Plate.Style(1.6, 0.25, 0.40);
     private static final double LAYER_FLOOR = 0.08;

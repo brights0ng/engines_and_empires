@@ -1,0 +1,792 @@
+{
+  "writtenBy": "ChatGPT",
+  "derivedFrom": [
+    "timesteps.json",
+    "boundaries.json",
+    "ground.json"
+  ],
+  "differenceDirection": "first configuration minus reference; field errors are absolute",
+  "timestepHalfVsQuarter": [
+    {
+      "opening": "sealed",
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.016944248779331872,
+          "rmsTemperatureC": 0.002982984134760762,
+          "maxVelocity": 0.003953350840771641,
+          "rmsVelocity": 0.0006963285532496365
+        },
+        "at680": {
+          "maxTemperatureC": 0.001960453761775227,
+          "rmsTemperatureC": 0.0007976967879113087,
+          "maxVelocity": 0.0003604499159833019,
+          "rmsVelocity": 0.00011914430380510703
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.01692423912288632,
+          "rmsTemperatureC": 0.0029675409792840946,
+          "maxVelocity": 0.003953043064089168,
+          "rmsVelocity": 0.0006960554113056524
+        }
+      },
+      "samplesAminusB": [
+        {
+          "physicalSecond": 0,
+          "roomOffsetC": 0.0,
+          "materialOffsetC": 0.0,
+          "nearSourceOffsetC": 0.0
+        },
+        {
+          "physicalSecond": 15,
+          "roomOffsetC": -0.007578026812988803,
+          "materialOffsetC": 0.0008651936363371915,
+          "nearSourceOffsetC": -0.014369046647022543
+        },
+        {
+          "physicalSecond": 60,
+          "roomOffsetC": -0.0025601463343152275,
+          "materialOffsetC": -0.0011593758697356904,
+          "nearSourceOffsetC": -0.00964975392585643
+        },
+        {
+          "physicalSecond": 120,
+          "roomOffsetC": -0.0021153419669648343,
+          "materialOffsetC": -0.0014375638884112085,
+          "nearSourceOffsetC": -0.009324946790734145
+        },
+        {
+          "physicalSecond": 240,
+          "roomOffsetC": -0.002331850632732113,
+          "materialOffsetC": -0.0019838268544374316,
+          "nearSourceOffsetC": -0.009615569017036307
+        },
+        {
+          "physicalSecond": 300,
+          "roomOffsetC": -0.002417779913118423,
+          "materialOffsetC": -0.0020961675296371496,
+          "nearSourceOffsetC": -0.009725799464611384
+        },
+        {
+          "physicalSecond": 360,
+          "roomOffsetC": -0.0024801260169731165,
+          "materialOffsetC": -0.002174738711413937,
+          "nearSourceOffsetC": -0.00980471160420393
+        },
+        {
+          "physicalSecond": 600,
+          "roomOffsetC": -0.002655558672792324,
+          "materialOffsetC": -0.0023655211237985085,
+          "nearSourceOffsetC": -0.010011977778454195
+        },
+        {
+          "physicalSecond": 640,
+          "roomOffsetC": 0.000914233655357144,
+          "materialOffsetC": -0.0016243437369194424,
+          "nearSourceOffsetC": 0.0010223371545272641
+        },
+        {
+          "physicalSecond": 680,
+          "roomOffsetC": -0.00019664996682067226,
+          "materialOffsetC": -0.0008683659365633645,
+          "nearSourceOffsetC": -0.00014111315825005022
+        }
+      ]
+    },
+    {
+      "opening": "window",
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.017097525695390914,
+          "rmsTemperatureC": 0.0030344653432079365,
+          "maxVelocity": 0.003951180852420855,
+          "rmsVelocity": 0.0006988324466545007
+        },
+        "at680": {
+          "maxTemperatureC": 0.0019486331808344914,
+          "rmsTemperatureC": 0.0008132302634595547,
+          "maxVelocity": 0.0004314325315667722,
+          "rmsVelocity": 0.00012369269568893922
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.017076910558699865,
+          "rmsTemperatureC": 0.003018674647874509,
+          "maxVelocity": 0.003950910143347586,
+          "rmsVelocity": 0.0006985703006033195
+        }
+      },
+      "samplesAminusB": [
+        {
+          "physicalSecond": 0,
+          "roomOffsetC": 0.0,
+          "materialOffsetC": 0.0,
+          "nearSourceOffsetC": 0.0
+        },
+        {
+          "physicalSecond": 15,
+          "roomOffsetC": -0.007607345747337568,
+          "materialOffsetC": 0.0008405311733231668,
+          "nearSourceOffsetC": -0.014419772346208504
+        },
+        {
+          "physicalSecond": 60,
+          "roomOffsetC": -0.0025207432787643924,
+          "materialOffsetC": -0.001172440045840606,
+          "nearSourceOffsetC": -0.009692463127571216
+        },
+        {
+          "physicalSecond": 120,
+          "roomOffsetC": -0.0021016056315623644,
+          "materialOffsetC": -0.0014475076100630702,
+          "nearSourceOffsetC": -0.009419306524883098
+        },
+        {
+          "physicalSecond": 240,
+          "roomOffsetC": -0.00237630139552536,
+          "materialOffsetC": -0.002013899588337864,
+          "nearSourceOffsetC": -0.009796902195319035
+        },
+        {
+          "physicalSecond": 300,
+          "roomOffsetC": -0.0024691242027721216,
+          "materialOffsetC": -0.0021283338093454063,
+          "nearSourceOffsetC": -0.009918725946420182
+        },
+        {
+          "physicalSecond": 360,
+          "roomOffsetC": -0.0025370417289831693,
+          "materialOffsetC": -0.002208996001988872,
+          "nearSourceOffsetC": -0.0100061962996989
+        },
+        {
+          "physicalSecond": 600,
+          "roomOffsetC": -0.002721693222154542,
+          "materialOffsetC": -0.002403702057923951,
+          "nearSourceOffsetC": -0.010227749284410947
+        },
+        {
+          "physicalSecond": 640,
+          "roomOffsetC": 0.0008094354458343389,
+          "materialOffsetC": -0.0016259912386606956,
+          "nearSourceOffsetC": 0.0008693201616125634
+        },
+        {
+          "physicalSecond": 680,
+          "roomOffsetC": -0.00026435461154772355,
+          "materialOffsetC": -0.0008841765711133931,
+          "nearSourceOffsetC": -0.00023486305750708425
+        }
+      ]
+    },
+    {
+      "opening": "missing-wall",
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.024568876319648325,
+          "rmsTemperatureC": 0.00701699481094877,
+          "maxVelocity": 0.003807511219213522,
+          "rmsVelocity": 0.0010809463060057656
+        },
+        "at680": {
+          "maxTemperatureC": 0.0044066566734812795,
+          "rmsTemperatureC": 0.0024242771265514567,
+          "maxVelocity": 0.000974823898739513,
+          "rmsVelocity": 0.00031585542283937536
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.024514725098846668,
+          "rmsTemperatureC": 0.006989062630499359,
+          "maxVelocity": 0.0038075671232066233,
+          "rmsVelocity": 0.0010802705323642605
+        }
+      },
+      "samplesAminusB": [
+        {
+          "physicalSecond": 0,
+          "roomOffsetC": 0.0,
+          "materialOffsetC": 0.0,
+          "nearSourceOffsetC": 0.0
+        },
+        {
+          "physicalSecond": 15,
+          "roomOffsetC": -0.007524579716744473,
+          "materialOffsetC": 0.0006195384630857115,
+          "nearSourceOffsetC": -0.014299216023875516
+        },
+        {
+          "physicalSecond": 60,
+          "roomOffsetC": -0.003552373270095721,
+          "materialOffsetC": -0.0015153889923862351,
+          "nearSourceOffsetC": -0.012017526889184893
+        },
+        {
+          "physicalSecond": 120,
+          "roomOffsetC": -0.005444358125076043,
+          "materialOffsetC": -0.002661735017694955,
+          "nearSourceOffsetC": -0.015151643175116192
+        },
+        {
+          "physicalSecond": 240,
+          "roomOffsetC": -0.007237629346209751,
+          "materialOffsetC": -0.004170375331720599,
+          "nearSourceOffsetC": -0.01722193472775757
+        },
+        {
+          "physicalSecond": 300,
+          "roomOffsetC": -0.007608975891695735,
+          "materialOffsetC": -0.004485500026039091,
+          "nearSourceOffsetC": -0.017414915373827
+        },
+        {
+          "physicalSecond": 360,
+          "roomOffsetC": -0.007845784200469552,
+          "materialOffsetC": -0.004695113355273062,
+          "nearSourceOffsetC": -0.017722513485608715
+        },
+        {
+          "physicalSecond": 600,
+          "roomOffsetC": -0.008276180654960719,
+          "materialOffsetC": -0.005087341217053343,
+          "nearSourceOffsetC": -0.01823122864119142
+        },
+        {
+          "physicalSecond": 640,
+          "roomOffsetC": -0.0028008995515032,
+          "materialOffsetC": -0.003554614598915151,
+          "nearSourceOffsetC": -0.0033729904610382277
+        },
+        {
+          "physicalSecond": 680,
+          "roomOffsetC": -0.002372378083191684,
+          "materialOffsetC": -0.0023343819361898444,
+          "nearSourceOffsetC": -0.002657367483887896
+        }
+      ]
+    }
+  ],
+  "padding8Vs16": [
+    {
+      "opening": "sealed",
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.047803452590468254,
+          "rmsTemperatureC": 0.036306052495422236,
+          "maxVelocity": 9.688938351545134e-05,
+          "rmsVelocity": 3.1104426154778104e-05
+        },
+        "at680": {
+          "maxTemperatureC": 0.04578361004680431,
+          "rmsTemperatureC": 0.036513695191579945,
+          "maxVelocity": 0.00013540262260086644,
+          "rmsVelocity": 5.1153692380155776e-05
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.046703352283500976,
+          "rmsTemperatureC": 0.035169369360215835,
+          "maxVelocity": 0.00010197106181315113,
+          "rmsVelocity": 3.2332784363049535e-05
+        }
+      },
+      "samplesAminusB": [
+        {
+          "physicalSecond": 0,
+          "roomOffsetC": 0.0,
+          "materialOffsetC": 0.0,
+          "nearSourceOffsetC": 0.0
+        },
+        {
+          "physicalSecond": 15,
+          "roomOffsetC": 1.773855284881165e-09,
+          "materialOffsetC": 2.0630063490845174e-08,
+          "nearSourceOffsetC": 2.5266899683629163e-10
+        },
+        {
+          "physicalSecond": 60,
+          "roomOffsetC": 0.00021135158638685425,
+          "materialOffsetC": 0.0006021058537606372,
+          "nearSourceOffsetC": 0.00016719205179782648
+        },
+        {
+          "physicalSecond": 120,
+          "roomOffsetC": 0.0067017433703639995,
+          "materialOffsetC": 0.010825898165158332,
+          "nearSourceOffsetC": 0.006017635599611992
+        },
+        {
+          "physicalSecond": 240,
+          "roomOffsetC": 0.01627530910025321,
+          "materialOffsetC": 0.011541520706645159,
+          "nearSourceOffsetC": 0.016564498744365608
+        },
+        {
+          "physicalSecond": 300,
+          "roomOffsetC": 0.0020194138549598506,
+          "materialOffsetC": -0.004869975640435342,
+          "nearSourceOffsetC": 0.003172452692041361
+        },
+        {
+          "physicalSecond": 360,
+          "roomOffsetC": -0.011827836298296646,
+          "materialOffsetC": -0.01772894163208516,
+          "nearSourceOffsetC": -0.010452233615303896
+        },
+        {
+          "physicalSecond": 600,
+          "roomOffsetC": -0.034625293161823834,
+          "materialOffsetC": -0.03675454145321222,
+          "nearSourceOffsetC": -0.03376377582166157
+        },
+        {
+          "physicalSecond": 640,
+          "roomOffsetC": -0.03593014955501417,
+          "materialOffsetC": -0.037688981839271385,
+          "nearSourceOffsetC": -0.03505411220841381
+        },
+        {
+          "physicalSecond": 680,
+          "roomOffsetC": -0.035902172925550424,
+          "materialOffsetC": -0.03653847376776298,
+          "nearSourceOffsetC": -0.03525652221838982
+        }
+      ]
+    },
+    {
+      "opening": "window",
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.05186538637000737,
+          "rmsTemperatureC": 0.0382588734788898,
+          "maxVelocity": 0.00025436722032957243,
+          "rmsVelocity": 4.5717548431829846e-05
+        },
+        "at680": {
+          "maxTemperatureC": 0.048074034052138614,
+          "rmsTemperatureC": 0.038010312560783945,
+          "maxVelocity": 0.0002303410985413784,
+          "rmsVelocity": 5.94305226079998e-05
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.05083891179883793,
+          "rmsTemperatureC": 0.037171256128347346,
+          "maxVelocity": 0.0002586927563725597,
+          "rmsVelocity": 4.685354266263205e-05
+        }
+      },
+      "samplesAminusB": [
+        {
+          "physicalSecond": 0,
+          "roomOffsetC": 0.0,
+          "materialOffsetC": 0.0,
+          "nearSourceOffsetC": 0.0
+        },
+        {
+          "physicalSecond": 15,
+          "roomOffsetC": 1.2177583386119295e-09,
+          "materialOffsetC": 3.292761341366912e-08,
+          "nearSourceOffsetC": -7.271125923580257e-10
+        },
+        {
+          "physicalSecond": 60,
+          "roomOffsetC": 0.00028570361580015913,
+          "materialOffsetC": 0.0006980890543468732,
+          "nearSourceOffsetC": 0.00025119202132373175
+        },
+        {
+          "physicalSecond": 120,
+          "roomOffsetC": 0.0075449534744223,
+          "materialOffsetC": 0.011582828267886036,
+          "nearSourceOffsetC": 0.00694553144268184
+        },
+        {
+          "physicalSecond": 240,
+          "roomOffsetC": 0.014081842621537888,
+          "materialOffsetC": 0.009947958821113545,
+          "nearSourceOffsetC": 0.013973783027871889
+        },
+        {
+          "physicalSecond": 300,
+          "roomOffsetC": -0.0013883638787817176,
+          "materialOffsetC": -0.007100688172503311,
+          "nearSourceOffsetC": -0.0007769781543842669
+        },
+        {
+          "physicalSecond": 360,
+          "roomOffsetC": -0.015337256590688852,
+          "materialOffsetC": -0.019950812692138165,
+          "nearSourceOffsetC": -0.014518997374750597
+        },
+        {
+          "physicalSecond": 600,
+          "roomOffsetC": -0.037154567408045125,
+          "materialOffsetC": -0.03835626161618322,
+          "nearSourceOffsetC": -0.03676203609933282
+        },
+        {
+          "physicalSecond": 640,
+          "roomOffsetC": -0.03827465011217157,
+          "materialOffsetC": -0.03920117402416068,
+          "nearSourceOffsetC": -0.03769911418791949
+        },
+        {
+          "physicalSecond": 680,
+          "roomOffsetC": -0.037807216251398046,
+          "materialOffsetC": -0.0377892235334607,
+          "nearSourceOffsetC": -0.03740440578814841
+        }
+      ]
+    },
+    {
+      "opening": "missing-wall",
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.11751935053867157,
+          "rmsTemperatureC": 0.07211814241846955,
+          "maxVelocity": 0.06814345233296042,
+          "rmsVelocity": 0.006960387173297895
+        },
+        "at680": {
+          "maxTemperatureC": 0.07770429365865184,
+          "rmsTemperatureC": 0.054393762959931535,
+          "maxVelocity": 0.012881664131222575,
+          "rmsVelocity": 0.0026868058042967178
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.11695813422782919,
+          "rmsTemperatureC": 0.07146849554011613,
+          "maxVelocity": 0.06920375506723628,
+          "rmsVelocity": 0.006989261896691798
+        }
+      },
+      "samplesAminusB": [
+        {
+          "physicalSecond": 0,
+          "roomOffsetC": 0.0,
+          "materialOffsetC": 0.0,
+          "nearSourceOffsetC": 0.0
+        },
+        {
+          "physicalSecond": 15,
+          "roomOffsetC": -3.2463423726980523e-06,
+          "materialOffsetC": 2.2751229444839538e-07,
+          "nearSourceOffsetC": -1.7225330672943073e-05
+        },
+        {
+          "physicalSecond": 60,
+          "roomOffsetC": 0.0015041169072498306,
+          "materialOffsetC": 0.0017457134072267344,
+          "nearSourceOffsetC": -0.0006069738087361998
+        },
+        {
+          "physicalSecond": 120,
+          "roomOffsetC": -0.006186578233365658,
+          "materialOffsetC": 0.012709642783303998,
+          "nearSourceOffsetC": -0.027079890615162583
+        },
+        {
+          "physicalSecond": 240,
+          "roomOffsetC": -0.05118450331387869,
+          "materialOffsetC": -0.020069190937422654,
+          "nearSourceOffsetC": -0.07695474097397437
+        },
+        {
+          "physicalSecond": 300,
+          "roomOffsetC": -0.06494691923619733,
+          "materialOffsetC": -0.037116505049858084,
+          "nearSourceOffsetC": -0.08793244773521991
+        },
+        {
+          "physicalSecond": 360,
+          "roomOffsetC": -0.07291314791253978,
+          "materialOffsetC": -0.046675452947011475,
+          "nearSourceOffsetC": -0.0988943121025514
+        },
+        {
+          "physicalSecond": 600,
+          "roomOffsetC": -0.08347538824077638,
+          "materialOffsetC": -0.058017918556817705,
+          "nearSourceOffsetC": -0.11258289039845693
+        },
+        {
+          "physicalSecond": 640,
+          "roomOffsetC": -0.07166777621224174,
+          "materialOffsetC": -0.05664546236704915,
+          "nearSourceOffsetC": -0.07768576366861524
+        },
+        {
+          "physicalSecond": 680,
+          "roomOffsetC": -0.05790867141944611,
+          "materialOffsetC": -0.05011140847946116,
+          "nearSourceOffsetC": -0.06124618168133367
+        }
+      ]
+    }
+  ],
+  "ground6Vs3": [
+    {
+      "opening": "sealed",
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.03862401708151708,
+          "rmsTemperatureC": 0.00933746021798805,
+          "maxVelocity": 0.00011368052199120515,
+          "rmsVelocity": 3.888574403825378e-05
+        },
+        "at680": {
+          "maxTemperatureC": 0.05586138296048304,
+          "rmsTemperatureC": 0.013929242335175871,
+          "maxVelocity": 0.00028448335443247846,
+          "rmsVelocity": 0.00010750469600132833
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.03295370672662301,
+          "rmsTemperatureC": 0.007975767773867642,
+          "maxVelocity": 9.864585673347026e-05,
+          "rmsVelocity": 3.3798758017388927e-05
+        }
+      },
+      "samplesAminusB": [
+        {
+          "physicalSecond": 0,
+          "roomOffsetC": 0.0,
+          "materialOffsetC": 0.0,
+          "nearSourceOffsetC": 0.0
+        },
+        {
+          "physicalSecond": 15,
+          "roomOffsetC": 7.860379014346108e-14,
+          "materialOffsetC": 3.1769031849648854e-13,
+          "nearSourceOffsetC": 4.014566457044566e-13
+        },
+        {
+          "physicalSecond": 60,
+          "roomOffsetC": -1.0858075860653571e-07,
+          "materialOffsetC": -4.915278464245887e-07,
+          "nearSourceOffsetC": -6.02246785774696e-08
+        },
+        {
+          "physicalSecond": 120,
+          "roomOffsetC": -2.4048865089554283e-05,
+          "materialOffsetC": -5.551621199151313e-05,
+          "nearSourceOffsetC": -1.894509203737016e-05
+        },
+        {
+          "physicalSecond": 240,
+          "roomOffsetC": -0.0005049018906806424,
+          "materialOffsetC": -0.0007412564928346299,
+          "nearSourceOffsetC": -0.0004160205658578775
+        },
+        {
+          "physicalSecond": 300,
+          "roomOffsetC": -0.0008223505077893378,
+          "materialOffsetC": -0.0012254932423862996,
+          "nearSourceOffsetC": -0.0006159758785315717
+        },
+        {
+          "physicalSecond": 360,
+          "roomOffsetC": -0.0010393337496488186,
+          "materialOffsetC": -0.0016757632495441044,
+          "nearSourceOffsetC": -0.0006298371461284091
+        },
+        {
+          "physicalSecond": 600,
+          "roomOffsetC": 0.003060505815987824,
+          "materialOffsetC": 0.000945967650008761,
+          "nearSourceOffsetC": 0.005192952539466944
+        },
+        {
+          "physicalSecond": 640,
+          "roomOffsetC": 0.004886272201845898,
+          "materialOffsetC": 0.0024217506093604513,
+          "nearSourceOffsetC": 0.00770359329446535
+        },
+        {
+          "physicalSecond": 680,
+          "roomOffsetC": 0.006988365065773827,
+          "materialOffsetC": 0.004087908539809337,
+          "nearSourceOffsetC": 0.010297639989609308
+        }
+      ]
+    },
+    {
+      "opening": "window",
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.03707254042967634,
+          "rmsTemperatureC": 0.008902032157858716,
+          "maxVelocity": 0.00010537080206324267,
+          "rmsVelocity": 3.8392627852843786e-05
+        },
+        "at680": {
+          "maxTemperatureC": 0.05359499103683518,
+          "rmsTemperatureC": 0.013189007826756877,
+          "maxVelocity": 0.0002685173350306172,
+          "rmsVelocity": 0.000106511600883204
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.03163293336282891,
+          "rmsTemperatureC": 0.007637018742418716,
+          "maxVelocity": 9.144248960182844e-05,
+          "rmsVelocity": 3.3443323628558446e-05
+        }
+      },
+      "samplesAminusB": [
+        {
+          "physicalSecond": 0,
+          "roomOffsetC": 0.0,
+          "materialOffsetC": 0.0,
+          "nearSourceOffsetC": 0.0
+        },
+        {
+          "physicalSecond": 15,
+          "roomOffsetC": -8.357758929378178e-13,
+          "materialOffsetC": -1.958821993497395e-12,
+          "nearSourceOffsetC": -1.3134382470525452e-11
+        },
+        {
+          "physicalSecond": 60,
+          "roomOffsetC": -2.42198105127045e-07,
+          "materialOffsetC": -6.692766292282215e-07,
+          "nearSourceOffsetC": -2.12646703801056e-07
+        },
+        {
+          "physicalSecond": 120,
+          "roomOffsetC": -3.276234775206888e-05,
+          "materialOffsetC": -6.362958785688377e-05,
+          "nearSourceOffsetC": -2.8957481696068044e-05
+        },
+        {
+          "physicalSecond": 240,
+          "roomOffsetC": -0.0005672371780978125,
+          "materialOffsetC": -0.0007775030274013162,
+          "nearSourceOffsetC": -0.0004893212091658938
+        },
+        {
+          "physicalSecond": 300,
+          "roomOffsetC": -0.0009277479020255441,
+          "materialOffsetC": -0.0012810473635065378,
+          "nearSourceOffsetC": -0.0007427674980249321
+        },
+        {
+          "physicalSecond": 360,
+          "roomOffsetC": -0.0012092972945882963,
+          "materialOffsetC": -0.00175741353957104,
+          "nearSourceOffsetC": -0.0008376429526251172
+        },
+        {
+          "physicalSecond": 600,
+          "roomOffsetC": 0.0023537072065149545,
+          "materialOffsetC": 0.000626474557815726,
+          "nearSourceOffsetC": 0.004314533711287538
+        },
+        {
+          "physicalSecond": 640,
+          "roomOffsetC": 0.0040283662605453685,
+          "materialOffsetC": 0.002024312646433657,
+          "nearSourceOffsetC": 0.006668300128140459
+        },
+        {
+          "physicalSecond": 680,
+          "roomOffsetC": 0.00594819962013915,
+          "materialOffsetC": 0.0035915834319579787,
+          "nearSourceOffsetC": 0.009056521000793794
+        }
+      ]
+    },
+    {
+      "opening": "missing-wall",
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.02389554841796837,
+          "rmsTemperatureC": 0.00624118649397076,
+          "maxVelocity": 0.0003600743839543008,
+          "rmsVelocity": 6.844794081484631e-05
+        },
+        "at680": {
+          "maxTemperatureC": 0.03465665716250044,
+          "rmsTemperatureC": 0.008241561624952787,
+          "maxVelocity": 0.0005030719483220814,
+          "rmsVelocity": 0.00015448557943180836
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.02040827437728865,
+          "rmsTemperatureC": 0.005701276904822651,
+          "maxVelocity": 0.00032370687201299653,
+          "rmsVelocity": 5.9876720162356474e-05
+        }
+      },
+      "samplesAminusB": [
+        {
+          "physicalSecond": 0,
+          "roomOffsetC": 0.0,
+          "materialOffsetC": 0.0,
+          "nearSourceOffsetC": 0.0
+        },
+        {
+          "physicalSecond": 15,
+          "roomOffsetC": -1.0794032334615622e-11,
+          "materialOffsetC": -3.098854506333737e-12,
+          "nearSourceOffsetC": 8.576250820624409e-11
+        },
+        {
+          "physicalSecond": 60,
+          "roomOffsetC": -1.1172605520748391e-05,
+          "materialOffsetC": -3.254815382547349e-06,
+          "nearSourceOffsetC": -1.3724703002537808e-05
+        },
+        {
+          "physicalSecond": 120,
+          "roomOffsetC": -0.00023657662649156919,
+          "materialOffsetC": -0.0001512131797323235,
+          "nearSourceOffsetC": -0.0002787666121015775
+        },
+        {
+          "physicalSecond": 240,
+          "roomOffsetC": -0.001178249830381617,
+          "materialOffsetC": -0.0010612992096672436,
+          "nearSourceOffsetC": -0.0012246384844942781
+        },
+        {
+          "physicalSecond": 300,
+          "roomOffsetC": -0.0018596512530342224,
+          "materialOffsetC": -0.0017027879627833364,
+          "nearSourceOffsetC": -0.00187886485012001
+        },
+        {
+          "physicalSecond": 360,
+          "roomOffsetC": -0.002538957426054367,
+          "materialOffsetC": -0.002338917308558397,
+          "nearSourceOffsetC": -0.0025289047190284464
+        },
+        {
+          "physicalSecond": 600,
+          "roomOffsetC": -0.002403942025827277,
+          "materialOffsetC": -0.0016390653532623034,
+          "nearSourceOffsetC": -0.0017664872566811596
+        },
+        {
+          "physicalSecond": 640,
+          "roomOffsetC": -0.0016762314367593234,
+          "materialOffsetC": -0.0008264528155152995,
+          "nearSourceOffsetC": -0.00024389287617410105
+        },
+        {
+          "physicalSecond": 680,
+          "roomOffsetC": -0.0009628147720146529,
+          "materialOffsetC": 2.1581022960015517e-05,
+          "nearSourceOffsetC": 0.0008551460687584722
+        }
+      ]
+    }
+  ],
+  "baselinePrefixCheck": {
+    "source": "../air-hotloops-2026-10-20/calibration.json",
+    "values": 81,
+    "maxDifference": 0.0
+  },
+  "quality": {
+    "cases": 18,
+    "acceptedSteps": 26520,
+    "maxStepEnergyError": 1.9983378507504312e-08,
+    "maxDivergence": 4.519905193178797e-09,
+    "totalEnergyBudgetError": 2.2828273358754814e-05
+  }
+}

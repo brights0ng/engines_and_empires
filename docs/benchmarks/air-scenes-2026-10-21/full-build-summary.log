@@ -1,0 +1,44 @@
+Calculating task graph as configuration cache cannot be reused because file 'build.gradle' has changed.
+> Task :paradyne-lib:test UP-TO-DATE
+> Task :simple-spoilage:test UP-TO-DATE
+> Task :sable-fixes:test UP-TO-DATE
+> Task :sparse-ores:test UP-TO-DATE
+> Task :coreless:test NO-SOURCE
+> Task :frontier:test
+> Task :meteodyne:runGameTestServer
+> Task :test
+> Task :meteodyne:runGameTestServer
+> Task :seismic-surveyance:test
+> Task :meteodyne:runGameTestServer
+[11:05:48] [Server thread/INFO] [minecraft/GameTestServer]: ========= 95 GAME TESTS COMPLETE IN 8.945 s ======================
+[11:05:48] [Server thread/INFO] [minecraft/GameTestServer]: All 95 required tests passed :)
+> Task :meteodyne:test
+> Task :runGameTestServer
+[11:06:19] [Server thread/INFO] [minecraft/GameTestServer]: ========= 262 GAME TESTS COMPLETE IN 12.02 s ======================
+[11:06:19] [Server thread/INFO] [minecraft/GameTestServer]: All 262 required tests passed :)
+> Task :coreless:runGameTestServer
+[11:06:46] [Server thread/INFO] [minecraft/GameTestServer]: ========= 211 GAME TESTS COMPLETE IN 11.25 s ======================
+[11:06:46] [Server thread/INFO] [minecraft/GameTestServer]: All 211 required tests passed :)
+> Task :frontier:runGameTestServer
+[11:06:58] [Server thread/INFO] [minecraft/GameTestServer]: ========= 18 GAME TESTS COMPLETE IN 1.085 s ======================
+[11:06:58] [Server thread/INFO] [minecraft/GameTestServer]: All 18 required tests passed :)
+> Task :paradyne-lib:runGameTestServer
+[11:07:06] [Server thread/INFO] [minecraft/GameTestServer]: ========= 3 GAME TESTS COMPLETE IN 272.3 ms ======================
+[11:07:06] [Server thread/INFO] [minecraft/GameTestServer]: All 3 required tests passed :)
+> Task :sable-fixes:runGameTestServer
+[11:07:17] [Server thread/INFO] [minecraft/GameTestServer]: ========= 2 GAME TESTS COMPLETE IN 303.4 ms ======================
+[11:07:17] [Server thread/INFO] [minecraft/GameTestServer]: All 2 required tests passed :)
+> Task :seismic-surveyance:runGameTestServer
+[11:07:31] [Server thread/INFO] [minecraft/GameTestServer]: ========= 20 GAME TESTS COMPLETE IN 528.5 ms ======================
+[11:07:31] [Server thread/INFO] [minecraft/GameTestServer]: All 20 required tests passed :)
+> Task :simple-spoilage:runGameTestServer
+[11:07:41] [Server thread/INFO] [minecraft/GameTestServer]: ========= 34 GAME TESTS COMPLETE IN 623.9 ms ======================
+[11:07:41] [Server thread/INFO] [minecraft/GameTestServer]: All 34 required tests passed :)
+> Task :sparse-ores:runGameTestServer
+[11:07:51] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 542.8 ms ======================
+[11:07:51] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+> Task :sparse-ores:runGameTestServerWithCreate
+[11:08:04] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 555.4 ms ======================
+[11:08:04] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+BUILD SUCCESSFUL in 2m 51s
+Configuration cache entry stored.

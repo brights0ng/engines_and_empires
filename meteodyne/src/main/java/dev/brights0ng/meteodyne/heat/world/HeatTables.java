@@ -1,3 +1,4 @@
+// Updated by ChatGPT: classified source, material and physical geometry changes for snapshot invalidation.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.IdentityHashMap;
@@ -16,6 +17,8 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.BooleanOp;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.registries.datamaps.DataMapType;
@@ -50,6 +53,36 @@ public final class HeatTables {
     private static final Map<Block, HeatPowerData> POWER_CACHE = new IdentityHashMap<>();
     private static final Map<Block, InsulationData> INSULATION_CACHE = new IdentityHashMap<>();
     private static final Map<BlockState, Cell> CELLS = new IdentityHashMap<>();
+    private static long revision;
+
+    /** Invalidates prepared material snapshots after a data-map reload. */
+    static synchronized long revision() {
+        return revision;
+    }
+
+    record Change(boolean geometry, boolean material, boolean heightmap) { }
+
+    /** Compare the inputs used by snapshots, not source power or unrelated state properties.
+     * Dynamic collision shapes are deliberately conservative; neighbor-dependent state changes still arrive
+     * through the block hook. This is the legacy geometry contract, not the future partial-air topology bake.
+     */
+    static Change change(BlockState before, BlockState after) {
+        if (before == null) {
+            return new Change(true, true, true); // Deferred off-thread changes have no coherent old world context.
+        }
+        if (before == after) {
+            return new Change(false, false, false);
+        }
+        Cell a = cell(before), b = cell(after);
+        boolean heightmap = (before.blocksMotion() || !before.getFluidState().isEmpty())
+                != (after.blocksMotion() || !after.getFluidState().isEmpty());
+        boolean geometry = heightmap || a.kind() != b.kind() || a.openFaces() != b.openFaces()
+                || before.getFluidState() != after.getFluidState()
+                || before.getBlock().hasDynamicShape() || after.getBlock().hasDynamicShape()
+                || Shapes.joinIsNotEmpty(before.getCollisionShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO),
+                        after.getCollisionShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO), BooleanOp.NOT_SAME);
+        return new Change(geometry, a.conductance() != b.conductance() || a.capacity() != b.capacity(), heightmap);
+    }
 
     /** Registers the data maps (mod bus; added in the mod class). */
     public static void register(RegisterDataMapTypesEvent event) {
@@ -64,6 +97,7 @@ public final class HeatTables {
 
     /** Forgets everything looked up (data maps reloaded). */
     public static synchronized void clear() {
+        revision++;
         POWER_CACHE.clear();
         INSULATION_CACHE.clear();
         CELLS.clear();

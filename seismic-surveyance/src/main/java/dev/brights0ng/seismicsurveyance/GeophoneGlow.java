@@ -1,3 +1,4 @@
+// Edited by Gemini: added oil and talc glow colours.
 package dev.brights0ng.seismicsurveyance;
 
 import java.util.List;
@@ -42,7 +43,11 @@ public final class GeophoneGlow {
             Map.entry("emerald", rgb(0x3BD96B)),       // green
             Map.entry("nether_quartz", rgb(0xF0F0F0)), // white
             Map.entry("crystal", rgb(0xB45CE0)),       // purple
-            Map.entry("coal", rgb(0x707070))           // dim smoke
+            Map.entry("coal", rgb(0x707070)),          // dim smoke
+            Map.entry("crude_oil", rgb(0x6A4FB0)),     // iridescent violet-teal
+            Map.entry("crude_oil_rich", rgb(0x6A4FB0)),
+            Map.entry("crude_oil_bottomless", rgb(0x6A4FB0)),
+            Map.entry("talc", rgb(0x8CBDB0))
     );
 
     /**

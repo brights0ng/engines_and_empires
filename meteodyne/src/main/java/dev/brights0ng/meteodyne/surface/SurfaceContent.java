@@ -43,7 +43,7 @@ public final class SurfaceContent {
 
     public static final DeferredItem<BlockItem> GLAZE_ITEM = ITEMS.registerSimpleBlockItem("glaze", GLAZE);
 
-    /** Crops strong hail knocks back a growth stage (data: vanilla, Farmer's Delight and MineColonies crops). */
+    /** Crops strong hail knocks back a growth stage (data: vanilla and Farmer's Delight crops). */
     public static final TagKey<Block> HAIL_DAMAGEABLE = BlockTags.create(id("hail_damageable"));
 
     /** Hail's damage (flat, ignores armour; data/meteodyne/damage_type/hail.json). */

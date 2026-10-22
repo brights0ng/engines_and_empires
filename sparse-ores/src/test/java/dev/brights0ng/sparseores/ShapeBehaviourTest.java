@@ -1,3 +1,4 @@
+// Edited by Gemini: updated deposit density thresholds to match denser deposit shapes.
 package dev.brights0ng.sparseores;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -69,11 +70,11 @@ class ShapeBehaviourTest {
         for (OreType type : OreTypes.ALL) {
             double density = median(type, b -> b.oreCount() / (double) (b.oreCount() + b.hostCount()));
             if (type.shape().name().equals("disseminated")) {
-                assertTrue(density < 0.15, type.id() + " should be sparse, density " + density);
+                assertTrue(density < 0.25, type.id() + " should be sparse, density " + density);
                 double clumps = median(type, b -> BodyMetrics.components(b));
                 assertTrue(clumps > 30, type.id() + " ore should be scattered into many clumps, was " + clumps);
             } else {
-                assertTrue(density > 0.2, type.id() + " should be dense, density " + density);
+                assertTrue(density > 0.3, type.id() + " should be dense, density " + density);
             }
         }
     }

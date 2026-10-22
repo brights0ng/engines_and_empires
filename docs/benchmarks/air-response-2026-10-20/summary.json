@@ -1,0 +1,622 @@
+{
+  "writtenBy": "ChatGPT",
+  "derivedFrom": [
+    "responses.json",
+    "responses-quarter.json",
+    "../air-qualification-2026-10-20/timesteps.json"
+  ],
+  "scope": "600 s heating plus 80 s cooling, 0.5/0.25 s physical steps, original house domain; no equilibrium claim",
+  "unityControl": {
+    "scalarValues": 180,
+    "fieldValues": 36000,
+    "maxDifference": 0
+  },
+  "quality": {
+    "cases": 30,
+    "acceptedSteps": 61200,
+    "maxDivergence": 1.239881614045757e-08,
+    "maxStepEnergyError": 1.9983378507504312e-08,
+    "totalEnergyBudgetError": 3.5679200664162636e-05
+  },
+  "refinement": [
+    {
+      "opening": "sealed",
+      "responseScale": 0.1,
+      "roomAt600HalfMinusQuarter": -0.00041480516298708636,
+      "roomAt680HalfMinusQuarter": 0.00037104641377894154,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.014235822079662341,
+          "rmsTemperatureC": 0.0014368590128070026,
+          "maxVelocityComponent": 0.003914311983448271,
+          "rmsVelocityComponent": 0.0006586130955599193
+        },
+        "at680": {
+          "maxTemperatureC": 0.00453138838592082,
+          "rmsTemperatureC": 0.0006477638375143715,
+          "maxVelocityComponent": 0.0005827797784792033,
+          "rmsVelocityComponent": 0.0002158976949430259
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.014217204334052269,
+          "rmsTemperatureC": 0.0014264012440877375,
+          "maxVelocityComponent": 0.003913254511695774,
+          "rmsVelocityComponent": 0.000657453995036816
+        }
+      }
+    },
+    {
+      "opening": "sealed",
+      "responseScale": 0.5,
+      "roomAt600HalfMinusQuarter": -0.0020524481327406363,
+      "roomAt680HalfMinusQuarter": -0.00029171628399815575,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.016265670882290806,
+          "rmsTemperatureC": 0.002488597830635025,
+          "maxVelocityComponent": 0.003946618631410992,
+          "rmsVelocityComponent": 0.0006903545117525532
+        },
+        "at680": {
+          "maxTemperatureC": 0.0025012556306585054,
+          "rmsTemperatureC": 0.0012597390597921879,
+          "maxVelocityComponent": 0.0004505300386279665,
+          "rmsVelocityComponent": 0.00015109167994696937
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.016208072285657238,
+          "rmsTemperatureC": 0.0024490869011652553,
+          "maxVelocityComponent": 0.003945846898689598,
+          "rmsVelocityComponent": 0.0006896484942965157
+        }
+      }
+    },
+    {
+      "opening": "sealed",
+      "responseScale": 1.0,
+      "roomAt600HalfMinusQuarter": -0.002655558672792324,
+      "roomAt680HalfMinusQuarter": -0.00019664996682067226,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.016944248779331872,
+          "rmsTemperatureC": 0.002982984134760762,
+          "maxVelocityComponent": 0.003953350840771641,
+          "rmsVelocityComponent": 0.0006963285532496365
+        },
+        "at680": {
+          "maxTemperatureC": 0.001960453761775227,
+          "rmsTemperatureC": 0.0007976967879113087,
+          "maxVelocityComponent": 0.0003604499159833019,
+          "rmsVelocityComponent": 0.00011914430380510703
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.01692423912288632,
+          "rmsTemperatureC": 0.0029675409792840946,
+          "maxVelocityComponent": 0.003953043064089168,
+          "rmsVelocityComponent": 0.0006960554113056524
+        }
+      }
+    },
+    {
+      "opening": "sealed",
+      "responseScale": 2.0,
+      "roomAt600HalfMinusQuarter": -0.0028409624688787716,
+      "roomAt680HalfMinusQuarter": 0.001036292257303728,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.017149729554077453,
+          "rmsTemperatureC": 0.003143679457341118,
+          "maxVelocityComponent": 0.003955217958828694,
+          "rmsVelocityComponent": 0.0006979659492577402
+        },
+        "at680": {
+          "maxTemperatureC": 0.0022050943166185277,
+          "rmsTemperatureC": 0.0008701127697088281,
+          "maxVelocityComponent": 0.00024862431352660336,
+          "rmsVelocityComponent": 8.08950639170348e-05
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.017148120626565344,
+          "rmsTemperatureC": 0.003142414280629456,
+          "maxVelocityComponent": 0.003955167813996074,
+          "rmsVelocityComponent": 0.0006979209941645818
+        }
+      }
+    },
+    {
+      "opening": "sealed",
+      "responseScale": 10.0,
+      "roomAt600HalfMinusQuarter": -0.002846055598892505,
+      "roomAt680HalfMinusQuarter": 0.0004385253761701735,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.01715534062442714,
+          "rmsTemperatureC": 0.003148037713911569,
+          "maxVelocityComponent": 0.003955391532901031,
+          "rmsVelocityComponent": 0.0006981213124545059
+        },
+        "at680": {
+          "maxTemperatureC": 0.0012384100658522357,
+          "rmsTemperatureC": 0.00045603043165605965,
+          "maxVelocityComponent": 4.6305543710328453e-05,
+          "rmsVelocityComponent": 1.3367828509665084e-05
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.017155336821588207,
+          "rmsTemperatureC": 0.003148033272393406,
+          "maxVelocityComponent": 0.003955391302445044,
+          "rmsVelocityComponent": 0.0006981208898655297
+        }
+      }
+    },
+    {
+      "opening": "window",
+      "responseScale": 0.1,
+      "roomAt600HalfMinusQuarter": -0.00043312944006057563,
+      "roomAt680HalfMinusQuarter": 0.00036566290160333637,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.014305545379954765,
+          "rmsTemperatureC": 0.0014486102377439922,
+          "maxVelocityComponent": 0.003914739945311441,
+          "rmsVelocityComponent": 0.0006603895673707675
+        },
+        "at680": {
+          "maxTemperatureC": 0.00456199401711288,
+          "rmsTemperatureC": 0.0006528842308862854,
+          "maxVelocityComponent": 0.0005993867208168996,
+          "rmsVelocityComponent": 0.00022435703572253358
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.014284565372904012,
+          "rmsTemperatureC": 0.0014376933982340144,
+          "maxVelocityComponent": 0.0039137224461740505,
+          "rmsVelocityComponent": 0.0006591834201380249
+        }
+      }
+    },
+    {
+      "opening": "window",
+      "responseScale": 0.5,
+      "roomAt600HalfMinusQuarter": -0.002132602692356045,
+      "roomAt680HalfMinusQuarter": -0.00037602932070601724,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.01642883372230841,
+          "rmsTemperatureC": 0.002546528707797004,
+          "maxVelocityComponent": 0.0039451865616142445,
+          "rmsVelocityComponent": 0.0006930285044638752
+        },
+        "at680": {
+          "maxTemperatureC": 0.002567156515386415,
+          "rmsTemperatureC": 0.0012879333217810725,
+          "maxVelocityComponent": 0.0005342895772256911,
+          "rmsVelocityComponent": 0.0001585028650799201
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.016370078439038593,
+          "rmsTemperatureC": 0.0025062621598931113,
+          "maxVelocityComponent": 0.0039445032386661305,
+          "rmsVelocityComponent": 0.0006923290297704146
+        }
+      }
+    },
+    {
+      "opening": "window",
+      "responseScale": 1.0,
+      "roomAt600HalfMinusQuarter": -0.002721693222154542,
+      "roomAt680HalfMinusQuarter": -0.00026435461154772355,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.017097525695390914,
+          "rmsTemperatureC": 0.0030344653432079365,
+          "maxVelocityComponent": 0.003951180852420855,
+          "rmsVelocityComponent": 0.0006988324466545007
+        },
+        "at680": {
+          "maxTemperatureC": 0.0019486331808344914,
+          "rmsTemperatureC": 0.0008132302634595547,
+          "maxVelocityComponent": 0.0004314325315667722,
+          "rmsVelocityComponent": 0.00012369269568893922
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.017076910558699865,
+          "rmsTemperatureC": 0.003018674647874509,
+          "maxVelocityComponent": 0.003950910143347586,
+          "rmsVelocityComponent": 0.0006985703006033195
+        }
+      }
+    },
+    {
+      "opening": "window",
+      "responseScale": 2.0,
+      "roomAt600HalfMinusQuarter": -0.0029028246417777126,
+      "roomAt680HalfMinusQuarter": 0.000913261742315985,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.01729966277097361,
+          "rmsTemperatureC": 0.003192456187087101,
+          "maxVelocityComponent": 0.003952824418957723,
+          "rmsVelocityComponent": 0.0007003887355274381
+        },
+        "at680": {
+          "maxTemperatureC": 0.002107671675744882,
+          "rmsTemperatureC": 0.000789926652419313,
+          "maxVelocityComponent": 0.0002957406181066796,
+          "rmsVelocityComponent": 8.284624374555572e-05
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.01729773852535743,
+          "rmsTemperatureC": 0.0031909833721459626,
+          "maxVelocityComponent": 0.003952781086986268,
+          "rmsVelocityComponent": 0.0007003461585652809
+        }
+      }
+    },
+    {
+      "opening": "window",
+      "responseScale": 10.0,
+      "roomAt600HalfMinusQuarter": -0.0029087765483755135,
+      "roomAt680HalfMinusQuarter": 0.00036307162625051626,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.017306295049280607,
+          "rmsTemperatureC": 0.003197489797326112,
+          "maxVelocityComponent": 0.003952973674272053,
+          "rmsVelocityComponent": 0.0007005342652643056
+        },
+        "at680": {
+          "maxTemperatureC": 0.0011155935303150954,
+          "rmsTemperatureC": 0.00039420599098063806,
+          "maxVelocityComponent": 5.125927271525804e-05,
+          "rmsVelocityComponent": 1.3353964243917592e-05
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.017306287060577574,
+          "rmsTemperatureC": 0.003197486914899614,
+          "maxVelocityComponent": 0.003952973724394737,
+          "rmsVelocityComponent": 0.0007005342629646152
+        }
+      }
+    },
+    {
+      "opening": "missing-wall",
+      "responseScale": 0.1,
+      "roomAt600HalfMinusQuarter": -0.0025295252407486757,
+      "roomAt680HalfMinusQuarter": -0.0015062006710659936,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.018554754972349485,
+          "rmsTemperatureC": 0.002408964441857434,
+          "maxVelocityComponent": 0.0038212234583272497,
+          "rmsVelocityComponent": 0.0009739498479049322
+        },
+        "at680": {
+          "maxTemperatureC": 0.006087543730117773,
+          "rmsTemperatureC": 0.0014572900883144712,
+          "maxVelocityComponent": 0.001945910199588119,
+          "rmsVelocityComponent": 0.0006244350695977194
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.018374545905452067,
+          "rmsTemperatureC": 0.0023342885591791734,
+          "maxVelocityComponent": 0.0038216382989479936,
+          "rmsVelocityComponent": 0.0009671718414306233
+        }
+      }
+    },
+    {
+      "opening": "missing-wall",
+      "responseScale": 0.5,
+      "roomAt600HalfMinusQuarter": -0.007518616434061265,
+      "roomAt680HalfMinusQuarter": -0.0033994721871892786,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.023618395786257906,
+          "rmsTemperatureC": 0.006292693413584792,
+          "maxVelocityComponent": 0.0038120733302716703,
+          "rmsVelocityComponent": 0.001074356616325346
+        },
+        "at680": {
+          "maxTemperatureC": 0.006915466978302476,
+          "rmsTemperatureC": 0.003526241125292038,
+          "maxVelocityComponent": 0.0013537125447343201,
+          "rmsVelocityComponent": 0.00044053867581646624
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.023504895352708388,
+          "rmsTemperatureC": 0.0062073451255040294,
+          "maxVelocityComponent": 0.0038129729613399777,
+          "rmsVelocityComponent": 0.0010735122428749042
+        }
+      }
+    },
+    {
+      "opening": "missing-wall",
+      "responseScale": 1.0,
+      "roomAt600HalfMinusQuarter": -0.008276180654960719,
+      "roomAt680HalfMinusQuarter": -0.002372378083191684,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.024568876319648325,
+          "rmsTemperatureC": 0.00701699481094877,
+          "maxVelocityComponent": 0.003807511219213522,
+          "rmsVelocityComponent": 0.0010809463060057656
+        },
+        "at680": {
+          "maxTemperatureC": 0.0044066566734812795,
+          "rmsTemperatureC": 0.0024242771265514567,
+          "maxVelocityComponent": 0.000974823898739513,
+          "rmsVelocityComponent": 0.00031585542283937536
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.024514725098846668,
+          "rmsTemperatureC": 0.006989062630499359,
+          "maxVelocityComponent": 0.0038075671232066233,
+          "rmsVelocityComponent": 0.0010802705323642605
+        }
+      }
+    },
+    {
+      "opening": "missing-wall",
+      "responseScale": 2.0,
+      "roomAt600HalfMinusQuarter": -0.00849817125150043,
+      "roomAt680HalfMinusQuarter": -0.0007959588973148746,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.02483459033956592,
+          "rmsTemperatureC": 0.007228767182284063,
+          "maxVelocityComponent": 0.0038063907868484126,
+          "rmsVelocityComponent": 0.0010826932949915087
+        },
+        "at680": {
+          "maxTemperatureC": 0.001684256536172768,
+          "rmsTemperatureC": 0.0008789740911387036,
+          "maxVelocityComponent": 0.0006275085850818984,
+          "rmsVelocityComponent": 0.00020160197604148037
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.024829117821681734,
+          "rmsTemperatureC": 0.007224296172158218,
+          "maxVelocityComponent": 0.003806401662209913,
+          "rmsVelocityComponent": 0.00108266938241337
+        }
+      }
+    },
+    {
+      "opening": "missing-wall",
+      "responseScale": 10.0,
+      "roomAt600HalfMinusQuarter": -0.008508219281527118,
+      "roomAt680HalfMinusQuarter": -5.831023708181837e-05,
+      "fields": {
+        "at600": {
+          "maxTemperatureC": 0.025001931048876713,
+          "rmsTemperatureC": 0.007237914010657473,
+          "maxVelocityComponent": 0.0037904736328857602,
+          "rmsVelocityComponent": 0.00108483127262898
+        },
+        "at680": {
+          "maxTemperatureC": 0.0002972744245575143,
+          "rmsTemperatureC": 0.0001148615093690494,
+          "maxVelocityComponent": 0.00016017179201990514,
+          "rmsVelocityComponent": 3.830040984384487e-05
+        },
+        "lateMean": {
+          "maxTemperatureC": 0.025001866795392402,
+          "rmsTemperatureC": 0.007237877110881893,
+          "maxVelocityComponent": 0.003790474385921949,
+          "rmsVelocityComponent": 0.0010848271083453592
+        }
+      }
+    }
+  ],
+  "refinementByScale": [
+    {
+      "responseScale": 0.1,
+      "maxRoomDifferenceAt600C": 0.0025295252407486757,
+      "maxRoomDifferenceAt680C": 0.0015062006710659936,
+      "maxHouseTemperatureDifferenceAt600C": 0.018554754972349485,
+      "maxHouseVelocityComponentDifferenceAt600": 0.003914739945311441,
+      "maxLateMeanVelocityComponentDifference": 0.0039137224461740505
+    },
+    {
+      "responseScale": 0.5,
+      "maxRoomDifferenceAt600C": 0.007518616434061265,
+      "maxRoomDifferenceAt680C": 0.0033994721871892786,
+      "maxHouseTemperatureDifferenceAt600C": 0.023618395786257906,
+      "maxHouseVelocityComponentDifferenceAt600": 0.003946618631410992,
+      "maxLateMeanVelocityComponentDifference": 0.003945846898689598
+    },
+    {
+      "responseScale": 1,
+      "maxRoomDifferenceAt600C": 0.008276180654960719,
+      "maxRoomDifferenceAt680C": 0.002372378083191684,
+      "maxHouseTemperatureDifferenceAt600C": 0.024568876319648325,
+      "maxHouseVelocityComponentDifferenceAt600": 0.003953350840771641,
+      "maxLateMeanVelocityComponentDifference": 0.003953043064089168
+    },
+    {
+      "responseScale": 2,
+      "maxRoomDifferenceAt600C": 0.00849817125150043,
+      "maxRoomDifferenceAt680C": 0.001036292257303728,
+      "maxHouseTemperatureDifferenceAt600C": 0.02483459033956592,
+      "maxHouseVelocityComponentDifferenceAt600": 0.003955217958828694,
+      "maxLateMeanVelocityComponentDifference": 0.003955167813996074
+    },
+    {
+      "responseScale": 10,
+      "maxRoomDifferenceAt600C": 0.008508219281527118,
+      "maxRoomDifferenceAt680C": 0.0004385253761701735,
+      "maxHouseTemperatureDifferenceAt600C": 0.025001931048876713,
+      "maxHouseVelocityComponentDifferenceAt600": 0.003955391532901031,
+      "maxLateMeanVelocityComponentDifference": 0.003955391302445044
+    }
+  ],
+  "cases": [
+    {
+      "opening": "sealed",
+      "responseScale": 0.1,
+      "roomAt60": 1.9753237336584355,
+      "roomAt600": 7.394827568436468,
+      "roomAfter40Cooling": 6.184937936755548,
+      "fractionAfter40Cooling": 0.8363870393888395,
+      "materialAt600": 2.078548262697092,
+      "lateVelocityRange": 0.0019152755751306594,
+      "lateVelocitySecondDifferenceOverDtSquared": 7.276467384187413e-08
+    },
+    {
+      "opening": "sealed",
+      "responseScale": 0.5,
+      "roomAt60": 5.511573266173282,
+      "roomAt600": 11.785659376005539,
+      "roomAfter40Cooling": 7.396590805209823,
+      "fractionAfter40Cooling": 0.6275924468230064,
+      "materialAt600": 5.325402322380663,
+      "lateVelocityRange": 0.0009914515154276216,
+      "lateVelocitySecondDifferenceOverDtSquared": 6.682413433711787e-08
+    },
+    {
+      "opening": "sealed",
+      "responseScale": 1.0,
+      "roomAt60": 7.392363851781922,
+      "roomAt600": 12.526615312019851,
+      "roomAfter40Cooling": 6.307170052489038,
+      "fractionAfter40Cooling": 0.5035015361601329,
+      "materialAt600": 5.907173590855749,
+      "lateVelocityRange": 0.00037153907075587744,
+      "lateVelocitySecondDifferenceOverDtSquared": 3.726535713344248e-08
+    },
+    {
+      "opening": "sealed",
+      "responseScale": 2.0,
+      "roomAt60": 9.507510771999625,
+      "roomAt600": 12.72699985098373,
+      "roomAfter40Cooling": 4.50169888548571,
+      "fractionAfter40Cooling": 0.35371249612592337,
+      "materialAt600": 6.0705542127947,
+      "lateVelocityRange": 6.589269704983247e-05,
+      "lateVelocitySecondDifferenceOverDtSquared": 1.151578196689762e-08
+    },
+    {
+      "opening": "sealed",
+      "responseScale": 10.0,
+      "roomAt60": 12.552165381816286,
+      "roomAt600": 12.745048829871509,
+      "roomAfter40Cooling": 0.6791800082386702,
+      "fractionAfter40Cooling": 0.05328971409248947,
+      "materialAt600": 6.085459364608336,
+      "lateVelocityRange": 3.7546670217381006e-08,
+      "lateVelocitySecondDifferenceOverDtSquared": 1.9234059622785793e-09
+    },
+    {
+      "opening": "window",
+      "responseScale": 0.1,
+      "roomAt60": 1.9701480101385938,
+      "roomAt600": 7.243825424975005,
+      "roomAfter40Cooling": 6.027538282185254,
+      "fractionAfter40Cooling": 0.8320932557821894,
+      "materialAt600": 2.0537238064973002,
+      "lateVelocityRange": 0.0021479098571600963,
+      "lateVelocitySecondDifferenceOverDtSquared": 6.946019037723516e-08
+    },
+    {
+      "opening": "window",
+      "responseScale": 0.5,
+      "roomAt60": 5.434473480233763,
+      "roomAt600": 11.355053287712273,
+      "roomAfter40Cooling": 7.0035438015476545,
+      "fractionAfter40Cooling": 0.6167777133310727,
+      "materialAt600": 5.158908468781025,
+      "lateVelocityRange": 0.0011777368125430177,
+      "lateVelocitySecondDifferenceOverDtSquared": 1.1778601544110145e-07
+    },
+    {
+      "opening": "window",
+      "responseScale": 1.0,
+      "roomAt60": 7.241789378968471,
+      "roomAt600": 12.018175143933199,
+      "roomAfter40Cooling": 5.901354228563754,
+      "fractionAfter40Cooling": 0.49103579852077384,
+      "materialAt600": 5.692068303792451,
+      "lateVelocityRange": 0.00040087233369393016,
+      "lateVelocitySecondDifferenceOverDtSquared": 4.131328812384538e-08
+    },
+    {
+      "opening": "window",
+      "responseScale": 2.0,
+      "roomAt60": 9.251458204753893,
+      "roomAt600": 12.195878709171689,
+      "roomAfter40Cooling": 4.165525667206648,
+      "fractionAfter40Cooling": 0.3415519099967795,
+      "materialAt600": 5.840465776588915,
+      "lateVelocityRange": 6.622123260652257e-05,
+      "lateVelocitySecondDifferenceOverDtSquared": 1.1575995939594463e-08
+    },
+    {
+      "opening": "window",
+      "responseScale": 10.0,
+      "roomAt60": 12.041999897510145,
+      "roomAt600": 12.211726106599192,
+      "roomAfter40Cooling": 0.6156504041303074,
+      "fractionAfter40Cooling": 0.05041469148228039,
+      "materialAt600": 5.853865163173398,
+      "lateVelocityRange": 3.567881682181584e-07,
+      "lateVelocitySecondDifferenceOverDtSquared": 5.3754686017005764e-09
+    },
+    {
+      "opening": "missing-wall",
+      "responseScale": 0.1,
+      "roomAt60": 1.9133258405504538,
+      "roomAt600": 5.766647218342751,
+      "roomAfter40Cooling": 4.501942577123837,
+      "fractionAfter40Cooling": 0.7806863167914803,
+      "materialAt600": 1.7919321984880996,
+      "lateVelocityRange": 0.018514426928894268,
+      "lateVelocitySecondDifferenceOverDtSquared": 3.1296144287207284e-06
+    },
+    {
+      "opening": "missing-wall",
+      "responseScale": 0.5,
+      "roomAt60": 4.673462050664107,
+      "roomAt600": 7.547732655105091,
+      "roomAfter40Cooling": 3.7519239040887733,
+      "fractionAfter40Cooling": 0.4970928456973193,
+      "materialAt600": 3.6558838439443764,
+      "lateVelocityRange": 0.007290960279204589,
+      "lateVelocitySecondDifferenceOverDtSquared": 4.2876983233908206e-06
+    },
+    {
+      "opening": "missing-wall",
+      "responseScale": 1.0,
+      "roomAt60": 5.8060190639452545,
+      "roomAt600": 7.726358708813069,
+      "roomAfter40Cooling": 2.8426177324743995,
+      "fractionAfter40Cooling": 0.3679116954836653,
+      "materialAt600": 3.860640864906833,
+      "lateVelocityRange": 0.0040766523180883335,
+      "lateVelocitySecondDifferenceOverDtSquared": 2.547486007975497e-06
+    },
+    {
+      "opening": "missing-wall",
+      "responseScale": 2.0,
+      "roomAt60": 6.86287587568993,
+      "roomAt600": 7.774169449756356,
+      "roomAfter40Cooling": 1.8410139187225045,
+      "fractionAfter40Cooling": 0.23681165308021454,
+      "materialAt600": 3.916945712522774,
+      "lateVelocityRange": 0.00042948141624110994,
+      "lateVelocitySecondDifferenceOverDtSquared": 2.2423539493277023e-07
+    },
+    {
+      "opening": "missing-wall",
+      "responseScale": 10.0,
+      "roomAt60": 7.740209434487613,
+      "roomAt600": 7.778490743160352,
+      "roomAfter40Cooling": 0.2594016425151815,
+      "fractionAfter40Cooling": 0.033348582788155154,
+      "materialAt600": 3.922513565587799,
+      "lateVelocityRange": 6.219229261592366e-05,
+      "lateVelocitySecondDifferenceOverDtSquared": 3.5586051772007465e-08
+    }
+  ]
+}

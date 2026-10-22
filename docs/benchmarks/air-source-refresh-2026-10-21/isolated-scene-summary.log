@@ -1,0 +1,7 @@
+Calculating task graph as configuration cache cannot be reused because an input to task ':build-logic:compileGroovy' has changed.
+[11:35:47] [main/INFO] [ne.ne.ne.ga.GameTestHooks/]: Enabled Gametest Namespaces: [meteodyne_air_scene]
+[11:35:49] [Server thread/INFO] [minecraft/GameTestServer]: 1 tests are now running at position -11707122, -59, -6524860!
+[11:36:58] [Server thread/INFO] [minecraft/GameTestServer]: ========= 1 GAME TESTS COMPLETE IN 1.164 min ======================
+[11:36:58] [Server thread/INFO] [minecraft/GameTestServer]: All 1 required tests passed :)
+BUILD SUCCESSFUL in 1m 25s
+Configuration cache entry stored.

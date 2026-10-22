@@ -1,0 +1,74 @@
+> Task :build-logic:compileJava FROM-CACHE
+> Task :sable-fixes:compileJava UP-TO-DATE
+> Task :sable-fixes:compileTestJava UP-TO-DATE
+> Task :sable-fixes:testClasses UP-TO-DATE
+> Task :sable-fixes:test UP-TO-DATE
+> Task :paradyne-lib:compileJava UP-TO-DATE
+> Task :paradyne-lib:compileTestJava UP-TO-DATE
+> Task :paradyne-lib:testClasses UP-TO-DATE
+> Task :paradyne-lib:test UP-TO-DATE
+> Task :sparse-ores:compileJava UP-TO-DATE
+> Task :sparse-ores:compileTestJava UP-TO-DATE
+> Task :sparse-ores:testClasses UP-TO-DATE
+> Task :seismic-surveyance:compileJava UP-TO-DATE
+> Task :sparse-ores:test UP-TO-DATE
+> Task :simple-spoilage:compileJava UP-TO-DATE
+> Task :simple-spoilage:compileTestJava UP-TO-DATE
+> Task :simple-spoilage:testClasses UP-TO-DATE
+> Task :frontier:compileJava UP-TO-DATE
+> Task :simple-spoilage:test UP-TO-DATE
+> Task :frontier:compileTestJava UP-TO-DATE
+> Task :frontier:testClasses UP-TO-DATE
+> Task :frontier:test UP-TO-DATE
+> Task :sable-fixes:runGameTestServer
+> Task :seismic-surveyance:compileTestJava UP-TO-DATE
+> Task :seismic-surveyance:testClasses UP-TO-DATE
+> Task :seismic-surveyance:test UP-TO-DATE
+> Task :meteodyne:compileJava UP-TO-DATE
+> Task :coreless:compileJava UP-TO-DATE
+> Task :compileJava UP-TO-DATE
+> Task :coreless:compileTestJava NO-SOURCE
+> Task :coreless:testClasses UP-TO-DATE
+> Task :coreless:test NO-SOURCE
+> Task :compileTestJava UP-TO-DATE
+> Task :testClasses UP-TO-DATE
+> Task :meteodyne:compileTestJava UP-TO-DATE
+> Task :meteodyne:testClasses UP-TO-DATE
+> Task :sable-fixes:runGameTestServer
+> Task :test
+> Task :sable-fixes:runGameTestServer
+[01:05:17] [Server thread/INFO] [minecraft/GameTestServer]: ========= 2 GAME TESTS COMPLETE IN 308.9 ms ======================
+[01:05:17] [Server thread/INFO] [minecraft/GameTestServer]: All 2 required tests passed :)
+> Task :runGameTestServer
+> Task :meteodyne:test
+> Task :runGameTestServer FAILED
+[01:05:46] [Server thread/ERROR] [minecraft/LogTestReporter]: thegametestserverhasnoseasons failed at -960474, -60, 8154477! no seasons: no provider, no calendar
+[01:05:47] [Server thread/INFO] [minecraft/GameTestServer]: ========= 262 GAME TESTS COMPLETE IN 12.16 s ======================
+[01:05:47] [Server thread/INFO] [minecraft/GameTestServer]: 1 required tests failed :(
+> Task :coreless:runGameTestServer
+[01:06:11] [Server thread/INFO] [minecraft/GameTestServer]: ========= 211 GAME TESTS COMPLETE IN 10.73 s ======================
+[01:06:11] [Server thread/INFO] [minecraft/GameTestServer]: All 211 required tests passed :)
+> Task :frontier:runGameTestServer
+[01:06:23] [Server thread/INFO] [minecraft/GameTestServer]: ========= 18 GAME TESTS COMPLETE IN 979.6 ms ======================
+[01:06:23] [Server thread/INFO] [minecraft/GameTestServer]: All 18 required tests passed :)
+> Task :meteodyne:runGameTestServer
+[01:06:40] [Server thread/INFO] [minecraft/GameTestServer]: ========= 95 GAME TESTS COMPLETE IN 7.802 s ======================
+[01:06:40] [Server thread/INFO] [minecraft/GameTestServer]: All 95 required tests passed :)
+> Task :paradyne-lib:runGameTestServer
+[01:06:49] [Server thread/INFO] [minecraft/GameTestServer]: ========= 3 GAME TESTS COMPLETE IN 225.0 ms ======================
+[01:06:49] [Server thread/INFO] [minecraft/GameTestServer]: All 3 required tests passed :)
+> Task :seismic-surveyance:runGameTestServer
+[01:07:00] [Server thread/INFO] [minecraft/GameTestServer]: ========= 20 GAME TESTS COMPLETE IN 448.0 ms ======================
+[01:07:00] [Server thread/INFO] [minecraft/GameTestServer]: All 20 required tests passed :)
+> Task :simple-spoilage:runGameTestServer
+[01:07:09] [Server thread/INFO] [minecraft/GameTestServer]: ========= 34 GAME TESTS COMPLETE IN 550.4 ms ======================
+[01:07:09] [Server thread/INFO] [minecraft/GameTestServer]: All 34 required tests passed :)
+> Task :sparse-ores:runGameTestServer
+[01:07:18] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 388.4 ms ======================
+[01:07:18] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+> Task :sparse-ores:runGameTestServerWithCreate
+[01:07:30] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 484.3 ms ======================
+[01:07:30] [Server thread/INFO] [minecraft/GameTestServer]: All 13 required tests passed :)
+FAILURE: Build failed with an exception.
+Execution failed for task ':runGameTestServer'.
+BUILD FAILED in 2m 24s

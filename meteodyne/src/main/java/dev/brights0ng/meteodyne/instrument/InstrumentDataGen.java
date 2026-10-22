@@ -1,4 +1,4 @@
-// Written by ChatGPT.
+// Written by ChatGPT; updated by Gemini.
 package dev.brights0ng.meteodyne.instrument;
 
 import java.awt.image.BufferedImage;
@@ -25,7 +25,7 @@ import net.minecraft.data.PackOutput;
 import net.minecraft.world.level.block.state.properties.AttachFace;
 import net.neoforged.neoforge.data.event.GatherDataEvent;
 
-/** Generates the thermometer's models, textures, and initial survival recipes. See docs/weather-instruments.md. */
+/** Generates the thermometer's models, textures, and initial survival recipes. See docs/meteodyne/weather-instruments.md. */
 public final class InstrumentDataGen implements DataProvider {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private final PackOutput output;

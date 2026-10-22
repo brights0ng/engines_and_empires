@@ -7,13 +7,6 @@
   "mixins": [
     "BoreheadBreakingMixin",
     "EncumberedWeightMixin",
-    "compat.minecolonies.CitizenAIWeatherMixin",
-    "compat.minecolonies.CitizenWanderWeatherMixin",
-    "compat.minecolonies.AISkeletonAccessor",
-    "compat.minecolonies.CraftingIdleWeatherMixin",
-    "compat.minecolonies.CookSeatingWeatherMixin",
-    "compat.minecolonies.LeisureSiteWeatherMixin",
-    "compat.minecolonies.ColonySoundWeatherMixin",
     "compat.coldsweat.HearthFuelAccessor",
     "compat.coldsweat.HearthReplacedMixin",
     "compat.coldsweat.HearthKinSmartMixin",

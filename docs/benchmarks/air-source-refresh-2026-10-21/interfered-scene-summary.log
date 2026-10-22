@@ -1,0 +1,4 @@
+[11:32:37] [Server thread/ERROR] [minecraft/LogTestReporter]: campfirecoldstartwarmsandinvalidationwithholdsthefield failed at 7126366, -60, -12203518! Larger scene progresses: COVERAGE / null / 
+[11:32:37] [Server thread/INFO] [minecraft/GameTestServer]: ========= 95 GAME TESTS COMPLETE IN 2.143 min ======================
+FAILURE: Build failed with an exception.
+BUILD FAILED in 2m 22s

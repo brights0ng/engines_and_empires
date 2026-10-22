@@ -1,7 +1,9 @@
+// Edited by Gemini: moved distance, direction, height, and accuracy out of board rows into the hover tooltip.
 package dev.brights0ng.seismicsurveyance.client;
 
 import org.lwjgl.glfw.GLFW;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -34,11 +36,10 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * The screen every board of readings shares: the logbook's, the smart logger's reader screen, and the portable record
- * display's list. A board of rows like a split-flap display, one per saved reading, with its ore swatch and name on the
- * left and, on the right, how far away it is and which way from where you stand. Beside it, a reader slot and five
- * buttons: Save, Load, Delete (asks for a second click), Rename, and Clear (wipes the reader's reading; also asks for a
- * second click if that would lose a reading). If the board holds more readings than it has rows, it scrolls, with the
- * mouse wheel or by dragging the bar on its right. Hovering over a row shows the reading in full.
+ * display's list. A board of rows like a split-flap display, one per saved reading, with its ore swatch and name. Beside
+ * it, a reader slot and five buttons: Save, Load, Delete (asks for a second click), Rename, and Clear (wipes the reader's
+ * reading; also asks for a second click if that would lose a reading). If the board holds more readings than it has rows,
+ * it scrolls, with the mouse wheel or by dragging the bar on its right. Hovering over a row shows the reading in full.
  *
  * <p>To rename a reading, select its row, then type in the name field along the top and press Enter or Rename. Clearing
  * it, or typing the default name back, puts the row back to being called by its number.
@@ -248,16 +249,21 @@ public abstract class ReadingBoardScreen<M extends ReadingBoardMenu> extends Abs
         }
     }
 
-    /** A reading in full: its name, ore, where it is, and how good a fix it is. Also used for the map's hover. */
+    /** A reading in full: its name, ore, where it is, how far and which way from the player, and how good a fix it is. */
     public static List<Component> details(LogbookEntry entry) {
         ReaderReading reading = entry.reading();
-        return List.of(
-                ReadingBoardMenu.displayName(entry).copy().withStyle(ChatFormatting.GOLD),
-                ReadingOres.colouredName(reading.ore()),
-                Component.translatable("seismic_surveyance.smart_logger.position", reading.x(),
-                        reading.hasHeight() ? String.valueOf(reading.y()) : "?", reading.z()).withStyle(ChatFormatting.WHITE),
-                Component.translatable("item.seismic_surveyance.windup_reader.confidence_"
-                        + reading.confidence().name().toLowerCase(Locale.ROOT)).withStyle(ChatFormatting.GRAY));
+        List<Component> lines = new ArrayList<>(5);
+        lines.add(ReadingBoardMenu.displayName(entry).copy().withStyle(ChatFormatting.GOLD));
+        lines.add(ReadingOres.colouredName(reading.ore()));
+        lines.add(Component.translatable("seismic_surveyance.smart_logger.position", reading.x(),
+                reading.hasHeight() ? String.valueOf(reading.y()) : "?", reading.z()).withStyle(ChatFormatting.WHITE));
+        Component where = relativeToPlayer(reading);
+        if (!where.getString().isEmpty()) {
+            lines.add(where.copy().withStyle(ChatFormatting.GRAY));
+        }
+        lines.add(Component.translatable("item.seismic_surveyance.windup_reader.confidence_"
+                + reading.confidence().name().toLowerCase(Locale.ROOT)).withStyle(ChatFormatting.GRAY));
+        return List.copyOf(lines);
     }
 
     @Override
@@ -291,14 +297,9 @@ public abstract class ReadingBoardScreen<M extends ReadingBoardMenu> extends Abs
             if (has) {
                 LogbookEntry entry = records.get(index);
                 ReaderReading reading = entry.reading();
-                Component where = layout.oreNames()
-                        ? ReadingOres.colouredName(reading.ore()).append(Component.literal("  ")).append(describe(reading))
-                        : describe(reading);
-                int whereWidth = font.width(where);
-                graphics.drawString(font, where, left + boardWidth - 3 - whereWidth, rowTop + 1, AMBER, false);
                 // The ore's swatch, in its map colour, then the name, cut short if it does not fit.
                 graphics.fill(left + 3, rowTop + 2, left + 8, rowTop + 7, ReadingOres.colour(reading.ore()));
-                graphics.drawString(font, fit(ReadingBoardMenu.displayName(entry).getString(), boardWidth - 18 - whereWidth),
+                graphics.drawString(font, fit(ReadingBoardMenu.displayName(entry).getString(), boardWidth - 14),
                         left + 11, rowTop + 1, AMBER, false);
             } else if (index == records.size()) {
                 graphics.drawString(font, "-", left + 3, rowTop + 1, DIM, false);
@@ -345,25 +346,41 @@ public abstract class ReadingBoardScreen<M extends ReadingBoardMenu> extends Abs
     }
 
     /**
-     * What is shown on the right of a row: the confidence tag, then how far away the reading is and which way, and how high
-     * if that is known.
+     * How far away the reading is and which way from the player, and how high if that is known, or which dimension it is in.
      */
-    static Component describe(ReaderReading reading) {
+    static Component relativeToPlayer(ReaderReading reading) {
         Minecraft minecraft = Minecraft.getInstance();
-        LocalPlayer player = minecraft.player;
+        LocalPlayer player = minecraft == null ? null : minecraft.player;
         if (player == null || minecraft.level == null) {
             return Component.empty();
         }
         ReadingSummary summary = ReadingSummary.of(reading, minecraft.level.dimension().location().toString(),
                 player.getX(), player.getY(), player.getZ());
-        MutableComponent tag = confidenceTag(summary.confidence());
-        if (!summary.sameDimension()) {
-            return tag.append(Component.literal(" "))
-                    .append(Component.translatable("gui.seismic_surveyance.logbook.elsewhere", summary.dimensionName()));
+        return relativeText(summary);
+    }
+
+    /**
+     * What is shown on the PRD's bottom strip: the confidence tag, then how far away the reading is and which way, and how high
+     * if that is known.
+     */
+    static Component describe(ReaderReading reading) {
+        Minecraft minecraft = Minecraft.getInstance();
+        LocalPlayer player = minecraft == null ? null : minecraft.player;
+        if (player == null || minecraft.level == null) {
+            return Component.empty();
         }
-        MutableComponent text = tag.append(Component.literal(" ")).append(summary.direction() == ReadingSummary.Compass8.HERE
+        ReadingSummary summary = ReadingSummary.of(reading, minecraft.level.dimension().location().toString(),
+                player.getX(), player.getY(), player.getZ());
+        return confidenceTag(summary.confidence()).append(Component.literal(" ")).append(relativeText(summary));
+    }
+
+    private static MutableComponent relativeText(ReadingSummary summary) {
+        if (!summary.sameDimension()) {
+            return Component.translatable("gui.seismic_surveyance.logbook.elsewhere", summary.dimensionName());
+        }
+        MutableComponent text = summary.direction() == ReadingSummary.Compass8.HERE
                 ? Component.translatable("gui.seismic_surveyance.logbook.here")
-                : Component.literal(summary.distance() + " " + summary.direction().name()));
+                : Component.literal(summary.distance() + " " + summary.direction().name());
         switch (summary.height()) {
             case UP -> text.append(Component.literal(", ")).append(Component.translatable("gui.seismic_surveyance.logbook.up", Math.abs(summary.heightDifference())));
             case DOWN -> text.append(Component.literal(", ")).append(Component.translatable("gui.seismic_surveyance.logbook.down", Math.abs(summary.heightDifference())));

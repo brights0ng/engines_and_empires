@@ -101,5 +101,17 @@
   "seismic_surveyance.smart_logger.scale": "Map: %s x %s blocks (zoom %s)",
   "seismic_surveyance.smart_logger.pointing": "Pointing at: %s, %s",
   "seismic_surveyance.smart_logger.position": "At: %s, %s, %s",
+  "seismic_surveyance.smart_logger.chunk": "Chunk: [%s, %s]",
+  "seismic_surveyance.smart_logger.tab_ores": "ORES",
+  "seismic_surveyance.smart_logger.tab_oil": "OIL",
+  "seismic_surveyance.smart_logger.tab_frontier": "FRONTIER",
+  "seismic_surveyance.smart_logger.tab_empire": "EMPIRE",
+  "gui.seismic_surveyance.portable_record_display.tab_ores": "ORES",
+  "gui.seismic_surveyance.portable_record_display.tab_oil": "OIL",
+  "gui.seismic_surveyance.portable_record_display.tab_frontier": "FRONTIER",
+  "gui.seismic_surveyance.portable_record_display.tab_empire": "EMPIRE",
+  "seismic_surveyance.oil.crude_oil": "Crude Oil",
+  "seismic_surveyance.oil.crude_oil_rich": "Crude Oil (Rich)",
+  "seismic_surveyance.oil.crude_oil_bottomless": "Crude Oil (Bottomless)",
   "itemGroup.seismic_surveyance.seismology": "Seismic Surveyance"
 }

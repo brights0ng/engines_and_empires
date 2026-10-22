@@ -1,0 +1,20 @@
+<!-- Written by ChatGPT. -->
+# Paced weather evidence
+
+Recorded 2026-10-21. See [the trial interpretation](../../airflow/local-air-weather-scene-results.md).
+
+`pilot/` contains the original `summary.json`, `pipeline.json` and `trace.csv` from the five-phase paced fixture. JSON comes from the ChatGPT-authored trial and existing heat benchmark; the trace is generated diagnostic data. No results were hand-edited. `pilot-summary.log` is extracted by ChatGPT from `build/air-weather-paced.log`; its opt-in invocation exited 0 and passed its single generated GameTest. The original five phases correspond to the first five phases of the final fixture. A sixth phase is subsequently added as a sustained fixed-topology gust control, together with explicit east/west ventilation probes.
+
+`gate-summary.log` records the complete check after removal of the two stale Domum expectations: `compileJava compileTestJava test runGameTestServer --continue --no-daemon --no-parallel --console=plain`, exit 0, BUILD SUCCESSFUL in 3m 18s. The exact recipe-set comparison remains; both removed entries belonged to the deliberately removed MineColonies library Domum Ornamentum. The build/metadata/compatibility changes and the existing Empires plan establish that removal, rather than a recipe regression in retained content.
+
+`full-summary.log` records the repeated complete check after the opt-in weather fixture and Gradle flag were introduced: exit 0, BUILD SUCCESSFUL in 2m 57s. Aggregate 262, coreless 212, Meteodyne 97, Frontier 17, Paradyne Lib 3, Sable Fixes 2, Seismic 20, Spoilage 34 and Sparse Ores 13 bare / 13 with Create all passed. Compilation and unit tasks passed. The only later Java changes add the sixth control phase and its ventilation probes; final targeted verification is recorded below. No numerical solver, production reading convention, worker limit, recipe implementation or gameplay calibration changed.
+
+The pilot is one headless fixture at a recorded location, with a 50 ms tick deadline, response scale 1 and explicit provider/time stimuli. It is not a whole-server MSPT, client FPS, multiplayer capacity, maximum-storm or arbitrary-location qualification. Windows per-job CPU counters are quantized. Field availability and represented age must be read together: a missing field is absent from the age series.
+
+## Final control and targeted checks
+
+`control/` contains the unmodified generated reports and trace for the final six-phase trial. `unavailable-streaks.json` is derived by ChatGPT by counting consecutive `available=False` rows separately within each phase. The combined door/gust phase has 338 unavailable samples in total and a longest streak of 335. The sustained gust-only control has 21 unavailable samples in total, each a single tick; the remaining 189 of its 210 samples are available. Wind-only changes add no geometry samples, reused cells or coverage units. In the final snapshots, west/east probes verify ventilation direction, all four topology transfers and all three source revisions are retained, and the energy/projection assertions pass.
+
+`control-summary.log` records `gradlew :meteodyne:runGameTestServer -Pmeteodyne.airWeatherScene=true --continue --no-daemon --no-parallel --console=plain`: exit 0, single generated GameTest passes, BUILD SUCCESSFUL in 1m 44s. The IDE also compiled the final control/probe edits successfully.
+
+After that trial-only extension, `confirmed-summary.log` records the normal standalone and focused unit invocation: `gradlew :paradyne-lib:test --tests '*GeometryTransferTest' :meteodyne:test --tests '*LocalAir*Test' :meteodyne:runGameTestServer --continue --no-daemon --no-parallel --console=plain`, exit 0, BUILD SUCCESSFUL in 25s. Ordinary Meteodyne remains 97/97 with the scene flags off. `local-air-unit-results.json` is extracted by ChatGPT from final JUnit XML: 98 local-air/mapper tests, zero failures/errors/skips. The repeated full check preceded only the final trial-only extension; no production code changed afterward. No failed final-check retries or weakened assertions were needed in this checkpoint.

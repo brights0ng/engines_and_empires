@@ -1,3 +1,4 @@
+// Edited by Gemini: broadened visibility for oil deposit generation.
 package dev.brights0ng.sparseores.worldgen;
 
 import dev.brights0ng.sparseores.BiomeRule;
@@ -29,7 +30,7 @@ import net.minecraft.world.level.levelgen.RandomState;
  *
  * <p>Holds no reference to the level, so it does not keep an unloaded level alive. Safe from any thread.
  */
-final class SurfaceBiomes {
+public final class SurfaceBiomes {
 
     private final ChunkGenerator generator;
     private final RandomState randomState;
@@ -41,31 +42,31 @@ final class SurfaceBiomes {
         this.heights = heights;
     }
 
-    static SurfaceBiomes forLevel(ServerLevel level) {
+    public static SurfaceBiomes forLevel(ServerLevel level) {
         return new SurfaceBiomes(level.getChunkSource().getGenerator(), level.getChunkSource().randomState(),
                 LevelHeightAccessor.create(level.getMinBuildHeight(), level.getHeight()));
     }
 
     /** The height of the terrain surface (top of solid ground, ignoring water) in a column. */
-    int surfaceY(int x, int z) {
+    public int surfaceY(int x, int z) {
         return generator.getBaseHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, heights, randomState);
     }
 
     /** The biome at the surface of a column. */
-    Holder<Biome> biomeAt(int x, int z) {
+    public Holder<Biome> biomeAt(int x, int z) {
         int y = surfaceY(x, z);
         return generator.getBiomeSource().getNoiseBiome(
                 QuartPos.fromBlock(x), QuartPos.fromBlock(y), QuartPos.fromBlock(z), randomState.sampler());
     }
 
     /** The size factor an ore's shallow deposits get in this column. 1 for an ore without biome rules. */
-    double factor(OreType type, int x, int z) {
+    public double factor(OreType type, int x, int z) {
         BiomeRule rule = rule(type, x, z);
         return rule == null ? 1.0 : rule.factor();
     }
 
     /** The biome rule an ore's deposits get in this column, or null for none. */
-    BiomeRule rule(OreType type, int x, int z) {
+    public BiomeRule rule(OreType type, int x, int z) {
         if (!type.hasBiomeRules()) {
             return null;
         }
@@ -74,7 +75,7 @@ final class SurfaceBiomes {
     }
 
     /** Whether a biome is picked out by a rule's selector. */
-    static boolean matches(Holder<Biome> biome, BiomeRule rule) {
+    public static boolean matches(Holder<Biome> biome, BiomeRule rule) {
         ResourceLocation id = ResourceLocation.parse(rule.id());
         return rule.isTag() ? biome.is(TagKey.create(Registries.BIOME, id)) : biome.is(id);
     }

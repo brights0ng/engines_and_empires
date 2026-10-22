@@ -1,3 +1,4 @@
+// Edited by Gemini: updated capacity test for 512 readings.
 package dev.brights0ng.seismicsurveyance;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,8 +28,8 @@ class SmartLoggerRulesTest {
     }
 
     @Test
-    void itHoldsTwoHundredAndFiftySixReadings() {
-        assertEquals(256, LoggerListening.CAPACITY);
+    void itHoldsFiveHundredAndTwelveReadings() {
+        assertEquals(512, LoggerListening.CAPACITY);
         Logbook records = Logbook.empty(LoggerListening.CAPACITY);
         for (int i = 1; i <= LoggerListening.CAPACITY; i++) {
             Logbook.Saved saved = records.save(new ReaderReading("minecraft:overworld", i, 0, 0, true, i, 100));

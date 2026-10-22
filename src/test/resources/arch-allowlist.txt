@@ -7,4 +7,3 @@
 # the rest of each class needs only the family. Moving either into a compat package would put tests of Meteodyne's own
 # behaviour there, so they stay (split step 2f).
 dev/brights0ng/enginesandempires/gametest/HeatPlayerGameTests.java | coldsweat | core integration game test (plan section 10); only its hearth test names Cold Sweat, after ModList.isLoaded, and passes trivially without it
-dev/brights0ng/enginesandempires/gametest/WeatherChecksGameTests.java | minecolonies | core integration game test (plan section 10); only its mixin-target test names MineColonies classes, after ModList.isLoaded, and passes trivially without it

@@ -1,3 +1,4 @@
+// Edited by Gemini: increased internal ore density for vein deposits.
 package dev.brights0ng.sparseores.shape;
 
 import dev.brights0ng.sparseores.DepositRandom;
@@ -23,10 +24,10 @@ public record VeinShape(double minDensity, double maxDensity, double minThicknes
         implements BodyShape {
 
     /** Gold: thin, lean, with rich shoots. */
-    public static final VeinShape GOLD = new VeinShape(0.35, 0.55, 1.4, 2.8, 2.2, 3, 65.0, 12.0);
+    public static final VeinShape GOLD = new VeinShape(0.60, 0.78, 1.4, 2.8, 2.2, 3, 65.0, 12.0);
 
     /** Redstone: fatter and denser. */
-    public static final VeinShape REDSTONE = new VeinShape(0.50, 0.75, 2.4, 4.0, 1.6, 2, 60.0, 12.0);
+    public static final VeinShape REDSTONE = new VeinShape(0.68, 0.82, 2.4, 4.0, 1.6, 2, 60.0, 12.0);
 
     private static final Plate.Style STYLE = new Plate.Style(1.4, 0.30, 0.35);
     private static final double SHOOT_FLOOR = 0.30; // how much ore the barren parts of a vein still get

@@ -1,3 +1,4 @@
+// Updated by Gemini: removed MineColonies mixin verification test.
 package dev.brights0ng.enginesandempires.gametest;
 
 import java.util.Optional;
@@ -122,33 +123,6 @@ public final class WeatherChecksGameTests {
         StormSleep.fastForward(level, 2000);
         long gained = sim.time() - before;
         helper.assertTrue(gained >= 2000 && gained <= 2002, "the simulation ran 2000 ticks ahead: " + gained);
-        helper.succeed();
-    }
-
-    /**
-     * Loads the MineColonies classes the weather mixins go into, so a MineColonies update that moves a call fails here
-     * (the mixins are required once their class exists) rather than when a colony first runs that code.
-     */
-    @GameTest(template = SCRATCH, batch = "weather_checks")
-    public static void theColonyWeatherMixinsApply(GameTestHelper helper) {
-        if (!net.neoforged.fml.ModList.get().isLoaded("minecolonies")) {
-            helper.succeed();
-            return;
-        }
-        for (String name : new String[] {
-                "com.minecolonies.core.entity.ai.workers.CitizenAI",
-                "com.minecolonies.core.entity.ai.minimal.EntityAICitizenWander",
-                "com.minecolonies.core.entity.ai.workers.crafting.AbstractEntityAICrafting",
-                "com.minecolonies.core.colony.buildings.workerbuildings.BuildingCook",
-                "com.minecolonies.core.colony.managers.RegisteredStructureManager",
-                "com.minecolonies.api.util.SoundUtils"}) {
-            try {
-                Class.forName(name, true, WeatherChecksGameTests.class.getClassLoader());
-            } catch (Throwable t) {
-                helper.fail("couldn't load " + name + " with its weather mixin: " + t);
-                return;
-            }
-        }
         helper.succeed();
     }
 

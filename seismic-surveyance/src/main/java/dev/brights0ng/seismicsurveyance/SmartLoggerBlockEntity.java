@@ -1,8 +1,10 @@
+// Edited by Gemini: added separate oil records list, active tab, and oil routing.
 package dev.brights0ng.seismicsurveyance;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 
@@ -71,6 +73,9 @@ public class SmartLoggerBlockEntity extends KineticBlockEntity {
     }
 
     private Logbook records = Logbook.empty(LoggerListening.CAPACITY);
+    private Logbook oilRecords = Logbook.empty(LoggerListening.CAPACITY);
+    private LoggerDisplay.Tab activeTab = LoggerDisplay.Tab.ORES;
+
     private boolean displaySwitch;
     private boolean redstone;
     private LoggerDisplay.View view;
@@ -204,10 +209,16 @@ public class SmartLoggerBlockEntity extends KineticBlockEntity {
 
     /** Keeps a reading, if the rules let it: see {@link Logbook#save}. */
     Logbook.Outcome keep(ReaderReading reading) {
-        Logbook.Saved saved = records.save(reading);
+        boolean isOil = OilTiers.isOil(reading.ore());
+        Logbook target = isOil ? oilRecords : records;
+        Logbook.Saved saved = target.save(reading);
         switch (saved.outcome()) {
             case ADDED, REPLACED -> {
-                records = saved.logbook();
+                if (isOil) {
+                    oilRecords = saved.logbook();
+                } else {
+                    records = saved.logbook();
+                }
                 changed();
             }
             case FULL -> {
@@ -224,13 +235,55 @@ public class SmartLoggerBlockEntity extends KineticBlockEntity {
         return records;
     }
 
-    /** Replaces the readings wholesale: the reader screen's saves, deletes and renames (and the game tests). */
+    public Logbook oilRecords() {
+        return oilRecords;
+    }
+
+    /** The records for the currently active tab (ORES or OIL). */
+    public Logbook currentRecords() {
+        return activeTab == LoggerDisplay.Tab.OIL ? oilRecords : records;
+    }
+
+    public LoggerDisplay.Tab activeTab() {
+        return activeTab;
+    }
+
+    public void setActiveTab(LoggerDisplay.Tab tab) {
+        if (tab != null && this.activeTab != tab) {
+            this.activeTab = tab;
+            changed();
+        }
+    }
+
+    public void setActiveTabLocally(LoggerDisplay.Tab tab) {
+        if (tab != null) {
+            this.activeTab = tab;
+        }
+    }
+
+    /** Replaces the ore readings wholesale: the reader screen's saves, deletes and renames (and the game tests). */
     public void setRecords(Logbook records) {
         this.records = records;
         if (!records.isFull()) {
             refused = 0;
         }
         changed();
+    }
+
+    public void setOilRecords(Logbook oilRecords) {
+        this.oilRecords = oilRecords;
+        if (!oilRecords.isFull()) {
+            refused = 0;
+        }
+        changed();
+    }
+
+    public void setCurrentRecords(Logbook records) {
+        if (activeTab == LoggerDisplay.Tab.OIL) {
+            setOilRecords(records);
+        } else {
+            setRecords(records);
+        }
     }
 
     // ---- the display ----
@@ -355,11 +408,12 @@ public class SmartLoggerBlockEntity extends KineticBlockEntity {
      * display is docked, the display is off, or there is no such entry. Returns what came of it, or null if nothing did.
      */
     public Logbook.Outcome sendToDisplay(Player player, int number) {
-        int row = records.indexOfNumber(number);
+        Logbook current = currentRecords();
+        int row = current.indexOfNumber(number);
         if (docked.isEmpty() || !displayOn() || row < 0) {
             return null;
         }
-        return send(player, records.get(row));
+        return send(player, current.get(row));
     }
 
     // ---- the dock ----
@@ -404,14 +458,25 @@ public class SmartLoggerBlockEntity extends KineticBlockEntity {
             if (!reading.knowsDeposit() && level instanceof ServerLevel server) {
                 reading = ReadingDeposits.identify(server.getServer(), reading);
             }
-            Logbook.Saved saved = records.save(reading);
+            boolean isOil = OilTiers.isOil(reading.ore());
+            Logbook target = isOil ? oilRecords : records;
+            Logbook.Saved saved = target.save(reading);
             switch (saved.outcome()) {
                 case ADDED -> {
-                    records = entry.hasName() ? saved.logbook().rename(saved.entry().number(), entry.name()) : saved.logbook();
+                    Logbook updatedBook = entry.hasName() ? saved.logbook().rename(saved.entry().number(), entry.name()) : saved.logbook();
+                    if (isOil) {
+                        oilRecords = updatedBook;
+                    } else {
+                        records = updatedBook;
+                    }
                     added++;
                 }
                 case REPLACED -> {
-                    records = saved.logbook();
+                    if (isOil) {
+                        oilRecords = saved.logbook();
+                    } else {
+                        records = saved.logbook();
+                    }
                     updated++;
                 }
                 case FULL -> refused++;
@@ -487,9 +552,12 @@ public class SmartLoggerBlockEntity extends KineticBlockEntity {
         if (!isMaster()) {
             return true;
         }
-        tooltip.add(line(Component.translatable(LANG + "readings", records.size(), records.capacity())
-                .withStyle(records.isFull() ? ChatFormatting.RED : ChatFormatting.GRAY)));
-        if (records.isFull() && refused > 0) {
+        Logbook current = currentRecords();
+        tooltip.add(line(Component.translatable(LANG + "readings", current.size(), current.capacity())
+                .append(" [").append(Component.translatable("seismic_surveyance.smart_logger.tab_"
+                        + activeTab.name().toLowerCase(Locale.ROOT))).append("]")
+                .withStyle(current.isFull() ? ChatFormatting.RED : ChatFormatting.GRAY)));
+        if (current.isFull() && refused > 0) {
             tooltip.add(line(Component.translatable(LANG + "refused", refused).withStyle(ChatFormatting.RED)));
         }
         tooltip.add(line(isListening()
@@ -523,6 +591,12 @@ public class SmartLoggerBlockEntity extends KineticBlockEntity {
             LogbookCodecs.ENTRIES.encodeStart(NbtOps.INSTANCE, records.entries())
                     .ifSuccess(entries -> compound.put("Readings", entries));
             compound.putInt("NextNumber", records.nextNumber());
+
+            LogbookCodecs.ENTRIES.encodeStart(NbtOps.INSTANCE, oilRecords.entries())
+                    .ifSuccess(entries -> compound.put("OilReadings", entries));
+            compound.putInt("NextOilNumber", oilRecords.nextNumber());
+            compound.putString("ActiveTab", activeTab.name());
+
             compound.putBoolean("DisplaySwitch", displaySwitch);
             compound.putBoolean("Redstone", redstone);
             if (view != null) {
@@ -548,6 +622,18 @@ public class SmartLoggerBlockEntity extends KineticBlockEntity {
             List<LogbookEntry> entries = LogbookCodecs.ENTRIES.parse(NbtOps.INSTANCE, compound.get("Readings"))
                     .result().orElse(List.of());
             records = new Logbook(entries, compound.getInt("NextNumber"), LoggerListening.CAPACITY);
+        }
+        if (compound.contains("OilReadings", Tag.TAG_LIST)) {
+            List<LogbookEntry> entries = LogbookCodecs.ENTRIES.parse(NbtOps.INSTANCE, compound.get("OilReadings"))
+                    .result().orElse(List.of());
+            oilRecords = new Logbook(entries, compound.getInt("NextOilNumber"), LoggerListening.CAPACITY);
+        }
+        if (compound.contains("ActiveTab", Tag.TAG_STRING)) {
+            try {
+                activeTab = LoggerDisplay.Tab.valueOf(compound.getString("ActiveTab"));
+            } catch (IllegalArgumentException e) {
+                activeTab = LoggerDisplay.Tab.ORES;
+            }
         }
         displaySwitch = compound.getBoolean("DisplaySwitch");
         redstone = compound.getBoolean("Redstone");

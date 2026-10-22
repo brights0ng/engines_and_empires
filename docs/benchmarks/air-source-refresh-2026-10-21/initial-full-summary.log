@@ -1,0 +1,13 @@
+[11:38:35] [Server thread/INFO] [minecraft/GameTestServer]: ========= 262 GAME TESTS COMPLETE IN 12.90 s ======================
+[11:39:03] [Server thread/INFO] [minecraft/GameTestServer]: ========= 211 GAME TESTS COMPLETE IN 11.72 s ======================
+[11:39:14] [Server thread/INFO] [minecraft/GameTestServer]: ========= 18 GAME TESTS COMPLETE IN 1.221 s ======================
+[11:39:32] [Server thread/ERROR] [minecraft/LogTestReporter]: campfirecoldstartwarmsandinvalidationwithholdsthefield failed at 5787331, -60, -14587873! Source refresh publishes a current field
+[11:39:32] [Server thread/INFO] [minecraft/GameTestServer]: ========= 95 GAME TESTS COMPLETE IN 8.119 s ======================
+[11:39:41] [Server thread/INFO] [minecraft/GameTestServer]: ========= 3 GAME TESTS COMPLETE IN 259.9 ms ======================
+[11:39:51] [Server thread/INFO] [minecraft/GameTestServer]: ========= 2 GAME TESTS COMPLETE IN 267.7 ms ======================
+[11:40:02] [Server thread/INFO] [minecraft/GameTestServer]: ========= 20 GAME TESTS COMPLETE IN 492.5 ms ======================
+[11:40:12] [Server thread/INFO] [minecraft/GameTestServer]: ========= 34 GAME TESTS COMPLETE IN 578.0 ms ======================
+[11:40:21] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 444.6 ms ======================
+[11:40:33] [Server thread/INFO] [minecraft/GameTestServer]: ========= 13 GAME TESTS COMPLETE IN 461.3 ms ======================
+FAILURE: Build failed with an exception.
+BUILD FAILED in 2m 53s

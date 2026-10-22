@@ -1,6 +1,7 @@
+<!-- Written by Claude; updated by Gemini. -->
 # Splitting the core mod into a mod family (plan v3.1, 2026-10-16)
 
-> **History (split step 4e).** The split is finished; this plan is kept as the record of the decisions and their reasons. It was moved from `docs/split/`. Its companions `mod-split-steps.md` and `mod-split-seams.csv` (and the step-1 scanner, seam list and baseline notes) were scaffolding and were deleted (see git history); `mod-split-manifest.csv` is still `docs/split/mod-split-manifest.csv`. `claude/...` paths below are Project paths (`docs/path-map.md`). The text below is as it was, so present-tense statements describe the plan, not the repo.
+> **History (split step 4e).** The split is finished; this plan is kept as the record of the decisions and their reasons. It was moved from `docs/split/`. Its companions `mod-split-steps.md` and `mod-split-seams.csv` (and the step-1 scanner, seam list and baseline notes) were scaffolding and were deleted (see git history); `mod-split-manifest.csv` is still `docs/split/mod-split-manifest.csv`. `claude/...` paths below are Project paths (`docs/history/path-map.md`). The text below is as it was, so present-tense statements describe the plan, not the repo.
 
 Status: **plan settled, nothing built.** Every question from v2 is answered (section 13). Decisions marked (Bright) are his. Facts come from the working tree at commit `9ebdb39` (clean; same as GitHub `brights0ng/engines_and_empires`): 530 main Java files (68.7k lines, including 31 game test classes that live in `src/main`) plus 124 unit test files. Companions: `claude/mod-split-manifest.csv` (every Java file -> target mod), `claude/mod-split-seams.csv` (every reference that would cross a forbidden boundary), and `claude/mod-split-steps.md` (the repo `CLAUDE.md` and one prompt per Claude Code cloud session).
 
@@ -30,13 +31,14 @@ Status: **plan settled, nothing built.** Every question from v2 is answered (sec
 | Meteodyne | `meteodyne` | `dev.brights0ng.meteodyne` | lib | Sable, Iris |
 | Frontier | `frontier` | `dev.brights0ng.frontier` | lib, Deeper and Darker (Bright, after 2d) | Seismic Surveyance (through one gated package) |
 | Simple Spoilage | `simple_spoilage` | `dev.brights0ng.simplespoilage` | lib | Sable (ship holds, through the lib) |
+| Empire | `empire` | `dev.brights0ng.empire` | lib | Frontier (through one gated package) |
 | Engines and Empires | `engines_and_empires` | `dev.brights0ng.enginesandempires` | lib, the five required feature mods (Sparse Ores, Seismic Surveyance, Meteodyne, Frontier, Simple Spoilage), Sable, Create, Simulated/Aeronautics/Offroad, Encumbered | Cold Sweat, MineColonies, Serene Seasons, AppleSkin, Diet, Guard Villagers, Born in Chaos, Naturalist |
 
 Sable Fixes is not required by the core: the dev aggregator loads it with the other mods (`loadMod`) and `buildAll` collects its jar, but no mod of ours depends on it.
 
 Not part of the family (split step 4c): `coreless_tests` (`coreless/`, package `dev.brights0ng.corelesstests`), a test-only mod that is never released. It holds the game tests of feature mods working together that need no core code, and runs them in the core-less combined run and the aggregate.
 
-Compile-time graph (must stay acyclic): lib <- Sparse Ores <- Seismic <- (gated) Frontier; lib <- Meteodyne; lib <- Simple Spoilage; everything <- core. Sable Fixes stands outside it. Seismic and Sparse Ores never reference Frontier.
+Compile-time graph (must stay acyclic): lib <- Sparse Ores <- Seismic <- (gated) Frontier; lib <- Meteodyne; lib <- Simple Spoilage; lib <- Empire; (gated) Frontier <- Empire; everything <- core. Sable Fixes stands outside it. Seismic and Sparse Ores never reference Frontier.
 
 Main lines today: Meteodyne ~36.9k (203 files), Seismic ~16.0k (102), Frontier ~8.0k (61), Sparse Ores ~6.3k (50), Simple Spoilage ~5.1k (47), core ~3.9k (42), lib ~2.5k (23), Sable Fixes ~0.1k (2).
 

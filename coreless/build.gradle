@@ -15,7 +15,7 @@ plugins {
 
 // The feature mods its tests use, compiled against and loaded (with what each requires); Sable Fixes is only loaded.
 def featureMods = [':paradyne-lib', ':sable-fixes', ':sparse-ores', ':seismic-surveyance', ':meteodyne', ':frontier',
-                   ':simple-spoilage']
+                   ':simple-spoilage', ':empire']
 featureMods.findAll { it != ':sable-fixes' }.each { requireMod(it) }
 loadMod(':sable-fixes')
 def featureModIds = featureMods.collect { project(it).mod_id }

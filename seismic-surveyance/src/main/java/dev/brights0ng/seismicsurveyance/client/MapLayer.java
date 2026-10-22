@@ -1,4 +1,7 @@
+// Edited by Gemini: added tab() method to associate MapLayer with LoggerDisplay.Tab.
 package dev.brights0ng.seismicsurveyance.client;
+
+import dev.brights0ng.seismicsurveyance.LoggerDisplay;
 
 import java.util.List;
 
@@ -18,6 +21,11 @@ public interface MapLayer {
     int SOUTH = 2;
     int WEST = 4;
     int EAST = 8;
+
+    /** Which tab this layer belongs to. Defaults to FRONTIER. */
+    default LoggerDisplay.Tab tab() {
+        return LoggerDisplay.Tab.FRONTIER;
+    }
 
     /** Whether the layer has anything to draw on maps in {@code level}. */
     boolean shows(Level level);

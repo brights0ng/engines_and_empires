@@ -1,0 +1,14 @@
+{
+  "writtenBy": "ChatGPT",
+  "derivedFrom": [
+    "dry-0.json",
+    "dry-1.json",
+    "dry-2.json",
+    "../air-response-2026-10-20/responses.json"
+  ],
+  "cases": 3,
+  "acceptedSteps": 4080,
+  "scalarValues": 90,
+  "fieldValues": 18000,
+  "maxDifference": 0
+}

@@ -1,3 +1,4 @@
+// Written by Claude; updated by Gemini.
 package dev.brights0ng.seismicsurveyance;
 
 import java.util.Map;
@@ -19,7 +20,7 @@ import net.neoforged.neoforge.registries.datamaps.RegisterDataMapTypesEvent;
  * What the combustive thumper burns, from data (split step 4c): the fluid data map {@code seismic_surveyance:thumper_fuels},
  * which gives a fluid a {@link Grade}. Any mod or data pack adds fuels with an entry in its own
  * {@code data/seismic_surveyance/data_maps/fluid/thumper_fuels.json}, by fluid id or by fluid tag; how is in
- * {@code docs/standalone-audit.md}. Seismic's own entries ({@code SeismicDataGen}) give its three fluid tags their grades
+ * {@code docs/history/standalone-audit.md}. Seismic's own entries ({@code SeismicDataGen}) give its three fluid tags their grades
  * ({@link ThumperFluids#PREMIUM_FUEL}, {@link ThumperFluids#FUEL}, {@link ThumperFluids#COMBUSTIBLE}, which other mods
  * can add their fluids to instead) and name Create: Diesel Generators' fluids, behind a condition on that mod.
  *

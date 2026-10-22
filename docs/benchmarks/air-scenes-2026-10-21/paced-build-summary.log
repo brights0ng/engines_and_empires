@@ -1,0 +1,5 @@
+Calculating task graph as configuration cache cannot be reused because file 'build.gradle' has changed.
+[11:04:21] [Server thread/INFO] [minecraft/GameTestServer]: ========= 95 GAME TESTS COMPLETE IN 1.492 min ======================
+[11:04:21] [Server thread/INFO] [minecraft/GameTestServer]: All 95 required tests passed :)
+BUILD SUCCESSFUL in 1m 43s
+Configuration cache entry stored.

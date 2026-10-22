@@ -1,0 +1,82 @@
+# Extracted by ChatGPT from build/air-weather-verified.log. No assertions altered.
+> Task :build-logic:extractPluginRequests UP-TO-DATE
+> Task :build-logic:generatePluginAdapters UP-TO-DATE
+> Task :build-logic:compileJava UP-TO-DATE
+> Task :build-logic:compileGroovy UP-TO-DATE
+> Task :build-logic:compileGroovyPlugins UP-TO-DATE
+> Task :build-logic:pluginDescriptors UP-TO-DATE
+> Task :build-logic:processResources UP-TO-DATE
+> Task :build-logic:classes UP-TO-DATE
+> Task :build-logic:jar UP-TO-DATE
+> Task :paradyne-lib:generateModMetadata UP-TO-DATE
+> Task :meteodyne:generateModMetadata UP-TO-DATE
+> Task :paradyne-lib:processTestResources NO-SOURCE
+> Task :paradyne-lib:jarJar NO-SOURCE
+> Task :paradyne-lib:processResources UP-TO-DATE
+> Task :meteodyne:writeGameTestServerLegacyClasspath UP-TO-DATE
+> Task :meteodyne:processTestResources UP-TO-DATE
+> Task :meteodyne:downloadAssets UP-TO-DATE
+> Task :meteodyne:createMinecraftArtifacts UP-TO-DATE
+> Task :coreless:createMinecraftArtifacts UP-TO-DATE
+> Task :paradyne-lib:createMinecraftArtifacts UP-TO-DATE
+> Task :seismic-surveyance:createMinecraftArtifacts UP-TO-DATE
+> Task :frontier:createMinecraftArtifacts UP-TO-DATE
+> Task :coreless:generateModMetadata UP-TO-DATE
+> Task :simple-spoilage:createMinecraftArtifacts UP-TO-DATE
+> Task :coreless:downloadAssets UP-TO-DATE
+> Task :coreless:writeGameTestServerLegacyClasspath UP-TO-DATE
+> Task :sparse-ores:createMinecraftArtifacts UP-TO-DATE
+> Task :frontier:generateModMetadata UP-TO-DATE
+> Task :sable-fixes:generateModMetadata UP-TO-DATE
+> Task :sable-fixes:processResources UP-TO-DATE
+> Task :seismic-surveyance:generateModMetadata UP-TO-DATE
+> Task :coreless:processResources UP-TO-DATE
+> Task :sable-fixes:createMinecraftArtifacts UP-TO-DATE
+> Task :simple-spoilage:generateModMetadata UP-TO-DATE
+> Task :frontier:processResources UP-TO-DATE
+> Task :sparse-ores:generateModMetadata UP-TO-DATE
+> Task :seismic-surveyance:processResources UP-TO-DATE
+> Task :meteodyne:processResources UP-TO-DATE
+> Task :simple-spoilage:processResources UP-TO-DATE
+> Task :sparse-ores:processResources UP-TO-DATE
+> Task :paradyne-lib:compileJava UP-TO-DATE
+> Task :sable-fixes:compileJava UP-TO-DATE
+> Task :paradyne-lib:classes UP-TO-DATE
+> Task :sable-fixes:classes UP-TO-DATE
+> Task :paradyne-lib:jar UP-TO-DATE
+> Task :paradyne-lib:compileTestJava UP-TO-DATE
+> Task :paradyne-lib:testClasses UP-TO-DATE
+> Task :simple-spoilage:compileJava UP-TO-DATE
+> Task :simple-spoilage:classes UP-TO-DATE
+> Task :sparse-ores:compileJava UP-TO-DATE
+> Task :sparse-ores:classes UP-TO-DATE
+> Task :seismic-surveyance:compileJava UP-TO-DATE
+> Task :seismic-surveyance:classes UP-TO-DATE
+> Task :meteodyne:compileJava UP-TO-DATE
+> Task :meteodyne:classes UP-TO-DATE
+> Task :meteodyne:prepareGameTestServerRun UP-TO-DATE
+> Task :frontier:compileJava UP-TO-DATE
+> Task :frontier:classes UP-TO-DATE
+> Task :coreless:compileJava UP-TO-DATE
+> Task :coreless:classes UP-TO-DATE
+> Task :coreless:prepareGameTestServerRun UP-TO-DATE
+> Task :meteodyne:compileTestJava UP-TO-DATE
+> Task :meteodyne:testClasses UP-TO-DATE
+> Task :meteodyne:test FAILED
+> Task :paradyne-lib:test
+> Task :meteodyne:runGameTestServer
+[16:22:54] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_diagnostics:0' (1 tests)...
+[16:22:55] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_weather:0' (1 tests)...
+[16:22:58] [Server thread/ERROR] [minecraft/LogTestReporter]: glazeskipsbrightlight failed at 711811, -60, 12184106! glaze next to glowstone
+[16:23:02] [Server thread/INFO] [minecraft/GameTestServer]: ========= 97 GAME TESTS COMPLETE IN 9.879 s ======================
+[16:23:02] [Server thread/INFO] [minecraft/GameTestServer]: 1 required tests failed :(
+> Task :meteodyne:runGameTestServer FAILED
+> Task :coreless:runGameTestServer
+[16:23:19] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_diagnostics:0' (1 tests)...
+[16:23:20] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'local_air_weather:0' (1 tests)...
+[16:23:30] [Server thread/INFO] [minecraft/GameTestServer]: ========= 212 GAME TESTS COMPLETE IN 12.39 s ======================
+[16:23:30] [Server thread/INFO] [minecraft/GameTestServer]: All 212 required tests passed :)
+FAILURE: Build completed with 2 failures.
+> java.io.IOException: Unable to delete directory 
+    - C:\Users\sdcol\IdeaProjects\EnginesAndEmpires\meteodyne\build\test-results\test\binary\output.bin
+BUILD FAILED in 57s

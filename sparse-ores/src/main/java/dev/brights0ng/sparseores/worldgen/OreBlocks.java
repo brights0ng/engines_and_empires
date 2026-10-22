@@ -1,3 +1,4 @@
+// Edited by Gemini: made public and added registerEntry for SparseOresApi.
 package dev.brights0ng.sparseores.worldgen;
 
 import java.util.HashMap;
@@ -34,7 +35,7 @@ import net.minecraft.world.level.block.state.BlockState;
  *
  * <p>Crystal has no rich block yet, so rich crystal is ordinary amethyst.
  */
-final class OreBlocks {
+public final class OreBlocks {
 
     /**
      * Below this height the overworld's rock is deepslate. Vanilla terrain is solid deepslate below y=0,
@@ -54,7 +55,7 @@ final class OreBlocks {
     /** Visible stand-ins for blocks from other mods, in case that mod is not loaded. */
     private static final Map<String, String> PLACEHOLDERS = Map.of("zinc", "minecraft:light_blue_concrete");
 
-    private static final Map<String, Entry> ENTRIES = buildEntries();
+    private static final Map<String, Entry> ENTRIES = new ConcurrentHashMap<>(buildEntries());
 
     private static final Map<String, BlockState> RESOLVED = new ConcurrentHashMap<>();
     private static final Map<String, Set<Block>> ORE_BLOCKS = new ConcurrentHashMap<>();
@@ -69,28 +70,39 @@ final class OreBlocks {
         return Map.copyOf(entries);
     }
 
+    public static void registerEntry(String oreId, String stone, String deepslate, String fallback) {
+        ENTRIES.put(oreId, new Entry(stone, deepslate, fallback));
+    }
+
+    public static void resetForTesting() {
+        ENTRIES.clear();
+        ENTRIES.putAll(buildEntries());
+        RESOLVED.clear();
+        ORE_BLOCKS.clear();
+    }
+
     /**
      * Every block a deposit of one ore can be made of, in a realm. Each has a stone version and a deepslate
      * version; where an ore has no separate deepslate block the two are the same.
      */
-    record Palette(BlockState ore, BlockState deepOre, BlockState rich, BlockState deepRich,
-                   BlockState host, BlockState deepHost) {
+    public record Palette(BlockState ore, BlockState deepOre, BlockState rich, BlockState deepRich,
+                          BlockState host, BlockState deepHost) {
 
-        BlockState ore(boolean deep) {
+        public BlockState ore(boolean deep) {
             return deep ? deepOre : ore;
         }
 
-        BlockState rich(boolean deep) {
+        public BlockState rich(boolean deep) {
             return deep ? deepRich : rich;
         }
 
-        BlockState host(boolean deep) {
+        public BlockState host(boolean deep) {
             return deep ? deepHost : host;
         }
     }
 
     /** The blocks for deposits of this ore in this realm. */
-    static Palette paletteFor(String oreId, Realm realm) {
+    public static Palette paletteFor(String oreId, Realm realm) {
         Entry entry = ENTRIES.get(oreId);
         if (entry == null) {
             throw new IllegalArgumentException("No blocks registered for ore '" + oreId + "'");
