@@ -1,0 +1,54 @@
+{
+  "accepts_rotting_meat": false,
+  "tiers": {
+    "1": [
+      {
+        "items": [
+          "minecraft:cod",
+          "naturalist:catfish"
+        ],
+        "multiplier": 0.75
+      }
+    ],
+    "2": [
+      {
+        "item": "minecraft:kelp",
+        "multiplier": 0.5
+      },
+      {
+        "item": "minecraft:clay_ball",
+        "multiplier": 0.5
+      }
+    ],
+    "3": [
+      {
+        "item": "createbigcannons:steel_ingot",
+        "multiplier": 0.1
+      },
+      {
+        "item": "farm_and_charm:simple_tomato_soup",
+        "multiplier": 0.35
+      }
+    ],
+    "4": [
+      {
+        "item": "minecraft:nautilus_shell",
+        "multiplier": 0.25
+      },
+      {
+        "item": "minecraft:heart_of_the_sea",
+        "multiplier": 0.03
+      }
+    ],
+    "5": [
+      {
+        "fluid": "createdieselgenerators:gasoline",
+        "multiplier": 0.22
+      },
+      {
+        "item": "farm_and_charm:chicken_wrapped_in_bacon",
+        "multiplier": 0.4
+      }
+    ]
+  }
+}

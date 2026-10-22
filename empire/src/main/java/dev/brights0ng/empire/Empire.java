@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; gods registered by Claude.
 package dev.brights0ng.empire;
 
 import org.slf4j.Logger;
@@ -8,6 +8,7 @@ import com.mojang.logging.LogUtils;
 import dev.brights0ng.empire.bonfire.BonfireEvents;
 import dev.brights0ng.empire.compat.frontier.FrontierCompat;
 import dev.brights0ng.empire.compat.sparseores.SparseOresCompat;
+import dev.brights0ng.empire.god.Gods;
 import dev.brights0ng.empire.talc.TalcInteractions;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.data.DataGenerator;
@@ -38,6 +39,7 @@ public final class Empire {
         SparseOresCompat.registerIfLoaded();
         NeoForge.EVENT_BUS.register(BonfireEvents.class);
         NeoForge.EVENT_BUS.register(TalcInteractions.class);
+        NeoForge.EVENT_BUS.addListener(Gods::onAddReloadListeners);
         modEventBus.addListener(Empire::gatherData);
     }
 

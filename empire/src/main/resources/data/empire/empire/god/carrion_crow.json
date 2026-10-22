@@ -1,0 +1,51 @@
+{
+  "accepts_rotting_meat": true,
+  "tiers": {
+    "1": [
+      {
+        "item": "minecraft:rotten_flesh",
+        "multiplier": 1.0
+      }
+    ],
+    "2": [
+      {
+        "item": "minecraft:glow_berries",
+        "multiplier": 0.33
+      },
+      {
+        "item": "minecraft:bone",
+        "multiplier": 0.2
+      }
+    ],
+    "3": [
+      {
+        "item": "create:blaze_cake",
+        "multiplier": 0.05
+      },
+      {
+        "item": "farm_and_charm:farmers_bread",
+        "multiplier": 1.0
+      }
+    ],
+    "4": [
+      {
+        "item": "minecraft:echo_shard",
+        "multiplier": 0.07
+      },
+      {
+        "item": "frontier:squelching_heart",
+        "multiplier": 0.03
+      }
+    ],
+    "5": [
+      {
+        "item": "createbigcannons:bronze_ingot",
+        "multiplier": 0.33
+      },
+      {
+        "item": "farm_and_charm:roasted_chicken",
+        "multiplier": 1.0
+      }
+    ]
+  }
+}

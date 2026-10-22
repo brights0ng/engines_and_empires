@@ -1,0 +1,51 @@
+{
+  "accepts_rotting_meat": false,
+  "tiers": {
+    "1": [
+      {
+        "item": "naturalist:lizard_tail",
+        "multiplier": 0.6
+      }
+    ],
+    "2": [
+      {
+        "item": "minecraft:cactus",
+        "multiplier": 0.5
+      },
+      {
+        "item": "minecraft:red_sand",
+        "multiplier": 1.0
+      }
+    ],
+    "3": [
+      {
+        "item": "minecraft:tinted_glass",
+        "multiplier": 0.07
+      },
+      {
+        "item": "farm_and_charm:roasted_corn",
+        "multiplier": 0.35
+      }
+    ],
+    "4": [
+      {
+        "tag": "minecraft:decorated_pot_sherds",
+        "multiplier": 0.1
+      },
+      {
+        "item": "minecraft:wither_skeleton_skull",
+        "multiplier": 0.025
+      }
+    ],
+    "5": [
+      {
+        "fluid": "createdieselgenerators:diesel",
+        "multiplier": 0.22
+      },
+      {
+        "item": "farm_and_charm:grandmothers_strawberry_cake",
+        "multiplier": 0.85
+      }
+    ]
+  }
+}

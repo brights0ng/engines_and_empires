@@ -1,0 +1,51 @@
+{
+  "accepts_rotting_meat": false,
+  "tiers": {
+    "1": [
+      {
+        "item": "minecraft:beef",
+        "multiplier": 1.0
+      }
+    ],
+    "2": [
+      {
+        "item": "minecraft:wheat",
+        "multiplier": 0.5
+      },
+      {
+        "item": "minecraft:leather",
+        "multiplier": 0.17
+      }
+    ],
+    "3": [
+      {
+        "item": "createbigcannons:cast_iron_ingot",
+        "multiplier": 0.09
+      },
+      {
+        "item": "farm_and_charm:goulash",
+        "multiplier": 0.07
+      }
+    ],
+    "4": [
+      {
+        "item": "minecraft:blaze_rod",
+        "multiplier": 1.0
+      },
+      {
+        "item": "minecraft:breeze_rod",
+        "multiplier": 0.5
+      }
+    ],
+    "5": [
+      {
+        "item": "createbigcannons:nethersteel_ingot",
+        "multiplier": 0.12
+      },
+      {
+        "item": "farm_and_charm:beef_patty_with_vegetables",
+        "multiplier": 0.5
+      }
+    ]
+  }
+}
