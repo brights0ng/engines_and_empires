@@ -1,15 +1,68 @@
-// Written by Gemini.
+// Written by Gemini; outside mods and required Frontier added by Claude.
 plugins {
     id 'eae.mod-conventions'
 }
 
 requireMod(':paradyne-lib')
+// Frontier is required (Bright, god sacrifices): the Carrion Crow's tier 4 asks for its squelching heart, and the
+// Settled/Civilized checks run through it. Empire still imports Frontier only inside dev.brights0ng.empire.compat.frontier.
+requireMod(':frontier')
+
+configurations {
+    // Outside mods Empire requires at runtime only: the gods' demands (data/empire/empire/god/*.json) name their items
+    // and fluids by id, and Empire never compiles against them. On its own runtime classpath, so its bare game test run
+    // and its data run load them, and offered as a consumable configuration to the root and the core-less combined run,
+    // whose runs load Empire (the same pattern as Frontier's).
+    requiredRuntime {
+        canBeConsumed = false
+        canBeResolved = false
+    }
+    runtimeOnly.extendsFrom requiredRuntime
+    requiredRuntimeElements {
+        canBeConsumed = true
+        canBeResolved = false
+        extendsFrom requiredRuntime
+    }
+}
 
 dependencies {
-    // Frontier is optional (plan section 3.1): Settled/Civilized checks run through Frontier when present.
-    // Empire may import Frontier only inside dev.brights0ng.empire.compat.frontier.
-    compileOnly project(':frontier')
-    testImplementation project(':frontier')
+    // Frontier's own outside requirement (Deeper and Darker), so Empire's runs load what the Frontier they load needs.
+    requiredRuntime(project(path: ':frontier', configuration: 'requiredRuntimeElements'))
+
+    // Create and the libraries it needs (brass, andesite alloy, sturdy sheets, electron tubes, precision mechanisms,
+    // blaze cakes). Non-transitive like Seismic Surveyance's.
+    // See https://wiki.createmod.net/developers/depend-on-create/neoforge-1.21.1
+    requiredRuntime("com.simibubi.create:create-${minecraft_version}:${create_version}:slim") { transitive = false }
+    requiredRuntime("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
+    requiredRuntime("dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}")
+    requiredRuntime("com.tterrag.registrate:Registrate:${registrate_version}")
+
+    // Create: Diesel Generators (biodiesel, gasoline and diesel demands).
+    requiredRuntime("maven.modrinth:create-diesel-generators:${diesel_generators_version}") { transitive = false }
+
+    // Create Aeronautics (levitite demands), the Simulated Project it is part of, and Sable, which they run on.
+    // Non-transitive like the root's: their poms pull in JEI, Curios, CC:Tweaked and a Sable build that isn't published.
+    requiredRuntime("dev.ryanhcode.sable:sable-neoforge-${minecraft_version}:${sable_version}") { transitive = false }
+    requiredRuntime("dev.simulated_team.simulated:simulated-neoforge-${minecraft_version}:${simulated_version}") { transitive = false }
+    requiredRuntime("dev.eriksonn.aeronautics:aeronautics-neoforge-${minecraft_version}:${simulated_version}") { transitive = false }
+    requiredRuntime("dev.ryanhcode.offroad:offroad-neoforge-${minecraft_version}:${simulated_version}") { transitive = false }
+
+    // Create Big Cannons (cast iron, steel, nethersteel, bronze, hardened nitro) and its library, RPL.
+    requiredRuntime("maven.modrinth:create-big-cannons:${big_cannons_version}") { transitive = false }
+    requiredRuntime("maven.modrinth:rpl:${rpl_version}") { transitive = false }
+
+    // Naturalist (venison, duck, catfish, bass, lizard tails: founding meats).
+    requiredRuntime("maven.modrinth:naturalist:${naturalist_version}") { transitive = false }
+
+    // Let's Do: Farm & Charm (the dishes) and Architectury, which it needs. Farm & Charm carries its Foundation library
+    // inside its own jar.
+    requiredRuntime("maven.modrinth:lets-do-farm-charm:${farm_charm_version}") { transitive = false }
+    requiredRuntime("maven.modrinth:architectury-api:${architectury_version}") { transitive = false }
+
+    // Simple Spoilage is optional: meat freshness is checked through it when present. Empire may import it only inside
+    // dev.brights0ng.empire.compat.simplespoilage, after ModList.isLoaded("simple_spoilage"). Not bound to Empire's runs
+    // (no requireMod), so the bare run goes without it; the root's runs and the core-less run load it.
+    compileOnly project(':simple-spoilage')
 
     // Sparse Ores is optional (plan section 3.1 and 5): Talc registers as a sparse ore when present.
     // Empire may import Sparse Ores only inside dev.brights0ng.empire.compat.sparseores.

@@ -1,4 +1,4 @@
-# Written by Gemini.
+# Written by Gemini; outside mods, required Frontier and optional Simple Spoilage added by Claude.
 modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
@@ -34,10 +34,10 @@ ${mod_description}
     ordering="AFTER"
     side="BOTH"
 
-# Frontier is optional: Settled/Civilized checks require it when present.
+# Frontier: the Settled/Civilized checks, and the Carrion Crow's squelching hearts.
 [[dependencies.${mod_id}]]
     modId="frontier"
-    type="optional"
+    type="required"
     versionRange="[0.1.0,)"
     ordering="AFTER"
     side="BOTH"
@@ -56,4 +56,77 @@ ${mod_description}
     type="optional"
     versionRange="[0.1.0,)"
     ordering="AFTER"
+    side="BOTH"
+
+# Simple Spoilage is optional: when present, the gods refuse stale and rotting founding meat (the Carrion Crow takes any
+# rotting raw meat).
+[[dependencies.${mod_id}]]
+    modId="simple_spoilage"
+    type="optional"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# The outside mods whose items and fluids the gods demand (data/empire/empire/god), named by id only.
+# Create: brass, andesite alloy, sturdy sheets, electron tubes, precision mechanisms, blaze cakes.
+[[dependencies.${mod_id}]]
+    modId="create"
+    type="required"
+    versionRange="${create_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Create: Diesel Generators: biodiesel, gasoline and diesel.
+[[dependencies.${mod_id}]]
+    modId="createdieselgenerators"
+    type="required"
+    versionRange="*"
+    ordering="NONE"
+    side="BOTH"
+
+# Sable and the Simulated Project, which Create Aeronautics runs on.
+[[dependencies.${mod_id}]]
+    modId="sable"
+    type="required"
+    versionRange="${sable_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="simulated"
+    type="required"
+    versionRange="${simulated_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# Create Aeronautics: levitite and pearlescent levitite. Empire replaces their block loot tables, so it loads AFTER.
+[[dependencies.${mod_id}]]
+    modId="aeronautics"
+    type="required"
+    versionRange="${simulated_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+# Create Big Cannons: cast iron, steel, nethersteel and bronze ingots, hardened nitro.
+[[dependencies.${mod_id}]]
+    modId="createbigcannons"
+    type="required"
+    versionRange="*"
+    ordering="NONE"
+    side="BOTH"
+
+# Naturalist: venison, duck, catfish, bass and lizard tails (founding meats).
+[[dependencies.${mod_id}]]
+    modId="naturalist"
+    type="required"
+    versionRange="*"
+    ordering="NONE"
+    side="BOTH"
+
+# Let's Do: Farm & Charm: barley and the dishes.
+[[dependencies.${mod_id}]]
+    modId="farm_and_charm"
+    type="required"
+    versionRange="*"
+    ordering="NONE"
     side="BOTH"
