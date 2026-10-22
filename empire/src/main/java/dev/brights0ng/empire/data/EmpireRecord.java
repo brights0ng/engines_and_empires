@@ -1,7 +1,8 @@
-// Written by Gemini.
+// Written by Gemini; god, sacrifice count and current demand added by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -9,12 +10,15 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import dev.brights0ng.empire.rules.DemandLine;
 import dev.brights0ng.empire.rules.EmpireState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.LongTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 
 public final class EmpireRecord {
 
@@ -24,6 +28,13 @@ public final class EmpireRecord {
     @Nullable
     private BlockPos mainBonfire;
     private final long foundedGameTime;
+    /** The god the empire was founded under, or null for an empire without one (founded before gods existed). */
+    @Nullable
+    private ResourceLocation god;
+    /** How many demands the empire has paid in full. */
+    private int sacrificeCount;
+    /** The god's current demand, with what has been paid towards each line. */
+    private final List<DemandLine> currentDemand = new ArrayList<>();
 
     public EmpireRecord(UUID id, UUID founder, EmpireState state, @Nullable BlockPos mainBonfire, long foundedGameTime) {
         this.id = id;
@@ -58,6 +69,38 @@ public final class EmpireRecord {
         return foundedGameTime;
     }
 
+    @Nullable
+    public ResourceLocation god() {
+        return god;
+    }
+
+    public void setGod(@Nullable ResourceLocation god) {
+        this.god = god;
+    }
+
+    public int sacrificeCount() {
+        return sacrificeCount;
+    }
+
+    public void setSacrificeCount(int sacrificeCount) {
+        this.sacrificeCount = Math.max(0, sacrificeCount);
+    }
+
+    /** The current demand's lines, in tier order. */
+    public List<DemandLine> currentDemand() {
+        return Collections.unmodifiableList(currentDemand);
+    }
+
+    public void setCurrentDemand(List<DemandLine> lines) {
+        currentDemand.clear();
+        currentDemand.addAll(lines);
+    }
+
+    /** Replaces one line of the current demand (a payment towards it). */
+    public void setDemandLine(int index, DemandLine line) {
+        currentDemand.set(index, line);
+    }
+
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
         tag.putUUID("id", id);
@@ -86,6 +129,25 @@ public final class EmpireRecord {
         stateTag.put("dormant", dormantTag);
 
         tag.put("state", stateTag);
+
+        if (god != null) {
+            tag.putString("god", god.toString());
+        }
+        tag.putInt("sacrifice_count", sacrificeCount);
+        ListTag demandTag = new ListTag();
+        for (DemandLine line : currentDemand) {
+            CompoundTag lineTag = new CompoundTag();
+            lineTag.putString("kind", line.kind().name());
+            ListTag idsTag = new ListTag();
+            for (String lineId : line.ids()) {
+                idsTag.add(StringTag.valueOf(lineId));
+            }
+            lineTag.put("ids", idsTag);
+            lineTag.putInt("required", line.required());
+            lineTag.putInt("paid", line.paid());
+            demandTag.add(lineTag);
+        }
+        tag.put("demand", demandTag);
         return tag;
     }
 
@@ -113,6 +175,29 @@ public final class EmpireRecord {
         }
 
         EmpireState state = new EmpireState(dominion, foundingChunk, staked, dormant);
-        return new EmpireRecord(id, founder, state, mainBonfire, founded);
+        EmpireRecord record = new EmpireRecord(id, founder, state, mainBonfire, founded);
+
+        // Records saved before gods existed have none of these: they load godless, with nothing demanded.
+        record.god = tag.contains("god", Tag.TAG_STRING) ? ResourceLocation.tryParse(tag.getString("god")) : null;
+        record.sacrificeCount = tag.getInt("sacrifice_count");
+        ListTag demandTag = tag.getList("demand", Tag.TAG_COMPOUND);
+        for (int i = 0; i < demandTag.size(); i++) {
+            CompoundTag lineTag = demandTag.getCompound(i);
+            DemandLine.Kind kind;
+            try {
+                kind = DemandLine.Kind.valueOf(lineTag.getString("kind"));
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+            List<String> ids = new ArrayList<>();
+            ListTag idsTag = lineTag.getList("ids", Tag.TAG_STRING);
+            for (int j = 0; j < idsTag.size(); j++) {
+                ids.add(idsTag.getString(j));
+            }
+            if (!ids.isEmpty()) {
+                record.currentDemand.add(new DemandLine(kind, ids, lineTag.getInt("required"), lineTag.getInt("paid")));
+            }
+        }
+        return record;
     }
 }
