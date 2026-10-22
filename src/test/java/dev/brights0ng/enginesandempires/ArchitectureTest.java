@@ -1,4 +1,5 @@
 // Updated by Gemini: accounted for removed MineColonies files in manifest checks; added empire mod.
+// Updated by Claude: Empire's required outside mods and its gated Simple Spoilage package.
 package dev.brights0ng.enginesandempires;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -90,7 +91,7 @@ class ArchitectureTest {
     private static final String GATED_PACKAGE = "dev.brights0ng.frontier.seismic";
     private static final Set<String> GATED_TARGETS = Set.of("seismic_surveyance", "sparse_ores");
 
-    /** The only Empire package that may mention Frontier (Frontier is optional to Empire). */
+    /** The only Empire package that may mention Frontier (required since god sacrifices, still behind one package). */
     private static final String EMPIRE_FRONTIER_GATED_PACKAGE = "dev.brights0ng.empire.compat.frontier";
 
     /** The only Empire package that may mention Sparse Ores (Sparse Ores is optional to Empire). */
@@ -98,6 +99,9 @@ class ArchitectureTest {
 
     /** The only Empire package that may mention Seismic Surveyance (Seismic Surveyance is optional to Empire). */
     private static final String EMPIRE_SEISMIC_GATED_PACKAGE = "dev.brights0ng.empire.compat.seismic";
+
+    /** The only Empire package that may mention Simple Spoilage (Simple Spoilage is optional to Empire). */
+    private static final String EMPIRE_SPOILAGE_GATED_PACKAGE = "dev.brights0ng.empire.compat.simplespoilage";
 
     /**
      * Outside mods, by key, and the packages that are theirs. A mention is the package followed by a dot, so a mod id
@@ -119,12 +123,19 @@ class ArchitectureTest {
         OUTSIDE.put("dieselgenerators", List.of("com.jesz.createdieselgenerators"));
         OUTSIDE.put("create", List.of("com.simibubi.create", "dev.engine_room.flywheel", "net.createmod.catnip"));
         OUTSIDE.put("encumbered", List.of("com.khofonyx.encumbered"));
+        // Empire's gods demand their items (by id only). Big Cannons brings RPL, Farm & Charm brings Architectury.
+        OUTSIDE.put("bigcannons", List.of("rbasamoyai.createbigcannons", "rbasamoyai.ritchiesprojectilelib"));
+        OUTSIDE.put("naturalist", List.of("com.crispytwig.naturalist"));
+        OUTSIDE.put("farmandcharm", List.of("net.satisfy.farm_and_charm", "dev.architectury"));
     }
 
     /** Plan section 2: the outside mods each mod requires, which it may mention anywhere. */
     private static final Map<String, Set<String>> REQUIRED = Map.of(
             "sable_fixes", Set.of("sable"),
             "seismic_surveyance", Set.of("create"),
+            // Frontier is required too, but Empire still mentions it only from empire.compat.frontier (above).
+            "empire", Set.of("create", "dieselgenerators", "sable", "simulated", "aeronautics", "bigcannons", "naturalist",
+                    "farmandcharm"),
             // Create, through Seismic Surveyance, which requires it; the combined run loads it.
             "coreless_tests", Set.of("create"),
             "engines_and_empires", Set.of("sable", "create", "simulated", "aeronautics", "offroad", "encumbered"));
@@ -268,6 +279,10 @@ class ArchitectureTest {
         }
         if (s.mod.equals("empire") && target.equals("sparse_ores")
                 && (s.pkg.equals(EMPIRE_SPARSEORES_GATED_PACKAGE) || s.pkg.startsWith(EMPIRE_SPARSEORES_GATED_PACKAGE + "."))) {
+            return true;
+        }
+        if (s.mod.equals("empire") && target.equals("simple_spoilage")
+                && (s.pkg.equals(EMPIRE_SPOILAGE_GATED_PACKAGE) || s.pkg.startsWith(EMPIRE_SPOILAGE_GATED_PACKAGE + "."))) {
             return true;
         }
         return s.mod.equals("empire") && target.equals("seismic_surveyance")

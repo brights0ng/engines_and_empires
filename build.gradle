@@ -1,4 +1,5 @@
 // Written by Claude; updated by Gemini.
+// Updated by Claude: the dev runs load Empire's required outside mods.
 // Updated by ChatGPT: isolate aggregate game-test files and mods from played client/server runs.
 // The root project is two things (split step 2b, docs/history/build-layout.md): the core mod, engines_and_empires, which
 // still holds every mod not yet sliced out, and the dev aggregator, whose client, server and game test runs load every
@@ -198,6 +199,9 @@ dependencies {
     // Deeper and Darker: Frontier requires it (its mobs are in the deep rosters and the provoked_from_below tag, by id
     // only) and declares it; these runs load it from there, as they load Frontier (split step 2f).
     localRuntime(project(path: ':frontier', configuration: 'requiredRuntimeElements'))
+    // Empire's required outside mods (Create Big Cannons, Naturalist, Farm & Charm and their libraries, and the ones the
+    // core already has): its gods' demands name their items by id. These runs load them from its declaration.
+    localRuntime(project(path: ':empire', configuration: 'requiredRuntimeElements'))
 
     // Cold Sweat (player temperature). Optional: the core mod's air temperature becomes its world temperature
     // (weather phase 8d, weather/climate/compat/ColdSweatCompat, only hooked up when it is installed).

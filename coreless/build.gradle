@@ -1,5 +1,7 @@
+// Updated by Claude: loads Empire's required outside mods.
 // The core-less combined run (split step 4b): the seven feature mods of the family together, without the core mod, and
-// what they require (Create for Seismic Surveyance, Sable for Sable Fixes, Deeper and Darker for Frontier), nothing else.
+// what they require (Create for Seismic Surveyance, Sable for Sable Fixes, Deeper and Darker for Frontier, Empire's outside
+// mods), nothing else.
 // Bright's standing principle: every mod runs complete without the core, and the feature mods work with each other
 // without it. Each mod's bare run proves the first half; this run proves the second: every feature mod's game tests,
 // in one game with all the others.
@@ -22,8 +24,9 @@ def featureModIds = featureMods.collect { project(it).mod_id }
 
 dependencies {
     // What the feature mods require from outside the family, as each one's own build.gradle declares it (the same
-    // artifacts the root's runs load). Optional outside mods (Diesel Generators, Iris, Cold Sweat, ...) stay out, as in
-    // the bare runs: they are integration, the core's business.
+    // artifacts the root's runs load). Optional outside mods (Iris, Cold Sweat, ...) stay out, as in the bare runs: they
+    // are integration, the core's business. Diesel Generators is optional to Seismic Surveyance but required by Empire,
+    // so it comes in with Empire's outside mods below.
     // Seismic Surveyance: Create and what it brings (Ponder, Flywheel, Registrate). Non-transitive like Seismic's. The
     // tests compile against it too: Seismic's blocks are Create's kinds of block.
     implementation("com.simibubi.create:create-${minecraft_version}:${create_version}:slim") { transitive = false }
@@ -35,6 +38,9 @@ dependencies {
     runtimeOnly("dev.ryanhcode.sable:sable-neoforge-${minecraft_version}:${sable_version}") { transitive = false }
     // Frontier: Deeper and Darker, from Frontier's own declaration.
     runtimeOnly(project(path: ':frontier', configuration: 'requiredRuntimeElements'))
+    // Empire: the outside mods whose items its gods demand (Create, Diesel Generators, Sable and the Simulated Project,
+    // Create Big Cannons, Naturalist, Farm & Charm and their libraries), from Empire's own declaration.
+    runtimeOnly(project(path: ':empire', configuration: 'requiredRuntimeElements'))
 }
 
 neoForge {
