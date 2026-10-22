@@ -1,0 +1,54 @@
+{
+  "accepts_rotting_meat": false,
+  "tiers": {
+    "1": [
+      {
+        "items": [
+          "minecraft:salmon",
+          "naturalist:bass"
+        ],
+        "multiplier": 0.75
+      }
+    ],
+    "2": [
+      {
+        "item": "minecraft:beetroot",
+        "multiplier": 0.45
+      },
+      {
+        "item": "minecraft:ice",
+        "multiplier": 0.33
+      }
+    ],
+    "3": [
+      {
+        "item": "create:sturdy_sheet",
+        "multiplier": 0.05
+      },
+      {
+        "item": "farm_and_charm:potato_soup",
+        "multiplier": 0.45
+      }
+    ],
+    "4": [
+      {
+        "item": "minecraft:prismarine_crystals",
+        "multiplier": 0.65
+      },
+      {
+        "item": "minecraft:dragon_breath",
+        "multiplier": 0.15
+      }
+    ],
+    "5": [
+      {
+        "item": "create:precision_mechanism",
+        "multiplier": 0.08
+      },
+      {
+        "item": "farm_and_charm:lamb_with_corn",
+        "multiplier": 0.35
+      }
+    ]
+  }
+}

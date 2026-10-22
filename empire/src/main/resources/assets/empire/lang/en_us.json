@@ -40,5 +40,14 @@
   "message.empire.tarnish.not_lit": "The soul campfire must be lit to tarnish talc",
   "gui.empire.claim_map.our_empire": "Empire Territory",
   "gui.empire.claim_map.other_empire": "Foreign Claim",
-  "gui.empire.claim_map.bonfire": "Main Bonfire"
+  "gui.empire.claim_map.bonfire": "Main Bonfire",
+  "god.empire.iron_aurochs": "The Iron Aurochs",
+  "god.empire.sunblessed_ram": "The Sunblessed Ram",
+  "god.empire.pale_stag": "The Pale Stag",
+  "god.empire.deep_boar": "The Deep Boar",
+  "god.empire.marsh_harrier": "The Marsh Harrier",
+  "god.empire.silt_dredger": "The Silt Dredger",
+  "god.empire.silver_current": "The Silver Current",
+  "god.empire.carrion_crow": "The Carrion Crow",
+  "god.empire.sun_scale": "The Sun-Scale"
 }

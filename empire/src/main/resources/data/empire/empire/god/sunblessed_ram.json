@@ -1,0 +1,51 @@
+{
+  "accepts_rotting_meat": false,
+  "tiers": {
+    "1": [
+      {
+        "item": "minecraft:mutton",
+        "multiplier": 1.0
+      }
+    ],
+    "2": [
+      {
+        "item": "farm_and_charm:barley",
+        "multiplier": 0.5
+      },
+      {
+        "tag": "minecraft:wool",
+        "multiplier": 0.5
+      }
+    ],
+    "3": [
+      {
+        "item": "create:brass_ingot",
+        "multiplier": 0.1
+      },
+      {
+        "item": "farm_and_charm:barley_soup",
+        "multiplier": 0.18
+      }
+    ],
+    "4": [
+      {
+        "item": "minecraft:emerald",
+        "multiplier": 0.5
+      },
+      {
+        "item": "minecraft:nether_star",
+        "multiplier": 0.025
+      }
+    ],
+    "5": [
+      {
+        "item": "create:electron_tube",
+        "multiplier": 0.17
+      },
+      {
+        "item": "farm_and_charm:baked_lamb_ham",
+        "multiplier": 0.5
+      }
+    ]
+  }
+}

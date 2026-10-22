@@ -1,0 +1,51 @@
+{
+  "accepts_rotting_meat": false,
+  "tiers": {
+    "1": [
+      {
+        "item": "minecraft:porkchop",
+        "multiplier": 1.0
+      }
+    ],
+    "2": [
+      {
+        "item": "minecraft:potato",
+        "multiplier": 0.5
+      },
+      {
+        "item": "minecraft:coal",
+        "multiplier": 0.35
+      }
+    ],
+    "3": [
+      {
+        "item": "createbigcannons:steel_ingot",
+        "multiplier": 0.1
+      },
+      {
+        "item": "farm_and_charm:bacon_with_eggs",
+        "multiplier": 0.45
+      }
+    ],
+    "4": [
+      {
+        "item": "minecraft:diamond",
+        "multiplier": 0.35
+      },
+      {
+        "item": "minecraft:netherite_scrap",
+        "multiplier": 0.08
+      }
+    ],
+    "5": [
+      {
+        "item": "aeronautics:pearlescent_levitite",
+        "multiplier": 0.1
+      },
+      {
+        "item": "farm_and_charm:farmers_breakfast",
+        "multiplier": 0.35
+      }
+    ]
+  }
+}

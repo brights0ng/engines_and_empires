@@ -1,0 +1,51 @@
+{
+  "accepts_rotting_meat": false,
+  "tiers": {
+    "1": [
+      {
+        "item": "naturalist:venison",
+        "multiplier": 0.8
+      }
+    ],
+    "2": [
+      {
+        "item": "minecraft:sweet_berries",
+        "multiplier": 0.5
+      },
+      {
+        "tag": "minecraft:logs",
+        "multiplier": 0.5
+      }
+    ],
+    "3": [
+      {
+        "item": "create:andesite_alloy",
+        "multiplier": 0.35
+      },
+      {
+        "item": "farm_and_charm:oatmeal_with_strawberries",
+        "multiplier": 0.35
+      }
+    ],
+    "4": [
+      {
+        "item": "minecraft:rabbit_foot",
+        "multiplier": 0.65
+      },
+      {
+        "item": "minecraft:sniffer_egg",
+        "multiplier": 0.1
+      }
+    ],
+    "5": [
+      {
+        "fluid": "createdieselgenerators:biodiesel",
+        "multiplier": 0.5
+      },
+      {
+        "item": "farm_and_charm:stuffed_rabbit",
+        "multiplier": 0.4
+      }
+    ]
+  }
+}
