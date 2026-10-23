@@ -1,4 +1,4 @@
-// Written by Gemini; god sacrifices (founding meat, adoption, paying demands, the demand readout) and the client's offering check by Claude.
+// Written by Gemini; god sacrifices (founding meat, adoption, paying demands, the demand readout), the client's offering check, members and joining by Claude.
 package dev.brights0ng.empire.sacrifice;
 
 import java.util.List;
@@ -54,8 +54,12 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
  *   <li>Paying, at the main bonfire: an item or fluid container that matches an unpaid line of the current demand goes
  *       towards it (as much as the line still needs). When every line is paid the empire gains
  *       {@link EmpireState#DOMINION_PER_SACRIFICE} dominion and the god rolls its next demand.</li>
+ *   <li>Joining, at an empire's main bonfire: a player in no empire offers {@link EmpireState#FOUNDING_MEAT} of the
+ *       empire's god's founding meat (by the founding freshness rule) and becomes a member. Physical access to the
+ *       bonfire is the only gate.</li>
  *   <li>An empty hand reads out the demand (anyone may look).</li>
  * </ul>
+ * Every member has equal control: any of them may adopt a god or pay.
  * Founding meat must be fresh or ripe when a spoilage mod says how fresh it is, for every unit taken; a god that accepts
  * rotting meat (the Carrion Crow) takes its own meat at any stage, and any raw meat once it is rotting. With
  * {@link EmpireConfig#uniqueGodsPerServer()} a god another empire has is refused.
@@ -84,12 +88,14 @@ public final class SacrificeInteractions {
         long chunk = ChunkKeys.pack(chunkPos.x, chunkPos.z);
         EmpireRecord owner = overworld ? data.getEmpireByChunk(chunk) : null;
         GodDefinition ownerGod = owner != null ? Gods.get(owner.god()) : null;
+        boolean member = owner != null && owner.isMember(player.getUUID());
 
         // 0. Is it an offering at all? (Anything else is left to do what it would do.) An unclaimed bonfire and a godless
         // empire take founding meat; an empire with a god takes what its demand still needs (nothing, if its god's data
-        // is gone).
-        boolean offering = owner == null || owner.god() == null ? isFoundingMeat(stack)
-                : ownerGod != null && demandLineFor(stack, owner, ownerGod) >= 0;
+        // is gone). A player who is not a member may be offering meat to join.
+        boolean joining = owner != null && !member && isJoinMeat(stack, owner, ownerGod);
+        boolean offering = joining || (owner == null || owner.god() == null ? isFoundingMeat(stack)
+                : ownerGod != null && demandLineFor(stack, owner, ownerGod) >= 0);
         if (!offering) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
@@ -111,9 +117,13 @@ public final class SacrificeInteractions {
             return found(stack, serverLevel, data, pos, chunkPos, chunk, player);
         }
 
-        // Claimed bonfire: player must be founder, and must be main bonfire
-        if (!player.getUUID().equals(owner.founder())) {
-            player.displayClientMessage(Component.translatable("message.empire.sacrifice.not_founder"), true);
+        if (joining) {
+            return join(stack, serverLevel, data, pos, owner, ownerGod, player);
+        }
+
+        // Claimed bonfire: player must be a member, and must be main bonfire
+        if (!member) {
+            player.displayClientMessage(Component.translatable("message.empire.sacrifice.not_member"), true);
             return ItemInteractionResult.FAIL;
         }
 
@@ -156,7 +166,7 @@ public final class SacrificeInteractions {
 
     private static ItemInteractionResult found(ItemStack stack, ServerLevel serverLevel, EmpireSavedData data, BlockPos pos,
             ChunkPos chunkPos, long chunk, Player player) {
-        if (data.getEmpireByFounder(player.getUUID()) != null) {
+        if (data.getEmpireOf(player.getUUID()) != null) {
             player.displayClientMessage(Component.translatable("message.empire.sacrifice.already_founded"), true);
             return ItemInteractionResult.FAIL;
         }
@@ -187,6 +197,7 @@ public final class SacrificeInteractions {
         EmpireRecord record = data.createEmpire(player.getUUID(), chunk, pos, serverLevel.getGameTime());
         record.setGod(god.id());
         Demands.rollNext(record, god);
+        record.feedGod();
         data.setDirty();
 
         celebrate(serverLevel, pos);
@@ -203,11 +214,70 @@ public final class SacrificeInteractions {
         consume(stack, EmpireState.FOUNDING_MEAT, player);
         owner.setGod(god.id());
         Demands.rollNext(owner, god);
+        owner.feedGod();
         data.setDirty();
 
         celebrate(serverLevel, pos);
         player.displayClientMessage(Component.translatable("message.empire.god.adopted", god.displayName()), true);
         return ItemInteractionResult.SUCCESS;
+    }
+
+    /**
+     * A player in no empire joins it with {@link EmpireState#FOUNDING_MEAT} of its god's founding meat at its main
+     * bonfire, by the founding freshness rule (a god that takes rotting meat also takes any rotting raw meat). Refused,
+     * with nothing taken, for a player already in an empire, at a bonfire that is not the main one, or when the empire
+     * has no god. An empire with no members can be joined.
+     */
+    private static ItemInteractionResult join(ItemStack stack, ServerLevel serverLevel, EmpireSavedData data, BlockPos pos,
+            EmpireRecord owner, @Nullable GodDefinition god, Player player) {
+        if (data.getEmpireOf(player.getUUID()) != null) {
+            player.displayClientMessage(Component.translatable("message.empire.join.already_member"), true);
+            return ItemInteractionResult.FAIL;
+        }
+        if (!pos.equals(owner.mainBonfire())) {
+            player.displayClientMessage(Component.translatable("message.empire.sacrifice.not_main"), true);
+            return ItemInteractionResult.FAIL;
+        }
+        if (owner.god() == null || god == null) {
+            player.displayClientMessage(Component.translatable("message.empire.join.godless"), true);
+            return ItemInteractionResult.FAIL;
+        }
+        int needed = EmpireState.FOUNDING_MEAT;
+        if (stack.getCount() < needed) {
+            player.displayClientMessage(Component.translatable("message.empire.sacrifice.need_meat", needed), true);
+            return ItemInteractionResult.FAIL;
+        }
+        GodDefinition taker = godFor(stack, needed);
+        boolean accepted = (taker != null && taker.id().equals(god.id()))
+                || (god.acceptsRottingMeat() && allRottingRawMeat(stack, needed));
+        if (!accepted) {
+            player.displayClientMessage(Component.translatable("message.empire.sacrifice.meat_not_fresh"), true);
+            return ItemInteractionResult.FAIL;
+        }
+
+        consume(stack, needed, player);
+        // The members already in the empire hear of it; the new member sees it on the action bar.
+        EmpireSavedData.messageMembers(owner, serverLevel.getServer(),
+                Component.translatable("message.empire.join.member_joined", player.getDisplayName()));
+        data.addMember(owner, player.getUUID());
+        owner.feedGod();
+        data.setDirty();
+
+        celebrate(serverLevel, pos);
+        player.displayClientMessage(Component.translatable("message.empire.join.joined", Component.translatable("message.empire.name", god.displayName())), true);
+        return ItemInteractionResult.SUCCESS;
+    }
+
+    /**
+     * Whether a player who is not a member of {@code owner} would be offering this stack to join it: its god's founding
+     * meat, or rotting raw meat for a god that takes it. At a godless empire any founding meat counts (and is refused).
+     */
+    private static boolean isJoinMeat(ItemStack stack, EmpireRecord owner, @Nullable GodDefinition god) {
+        if (owner.god() == null) {
+            return isFoundingMeat(stack);
+        }
+        return god != null && (isFoundingMeatOf(god, stack) || (god.acceptsRottingMeat()
+                && allRottingRawMeat(stack, Math.min(stack.getCount(), EmpireState.FOUNDING_MEAT))));
     }
 
     /**
@@ -355,6 +425,7 @@ public final class SacrificeInteractions {
         owner.state().addDominion(EmpireState.DOMINION_PER_SACRIFICE);
         owner.setSacrificeCount(owner.sacrificeCount() + 1);
         Demands.rollNext(owner, god);
+        owner.feedGod();
         data.setDirty();
 
         celebrate(serverLevel, pos);

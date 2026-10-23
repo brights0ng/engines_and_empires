@@ -1,4 +1,4 @@
-// Written by Gemini; god sacrifices wired in, particles spread over the bonfire model and Overworld-only registration by Claude.
+// Written by Gemini; god sacrifices wired in, particles spread over the bonfire model, Overworld-only registration and leaving an empire by Claude.
 package dev.brights0ng.empire.bonfire;
 
 import org.jetbrains.annotations.Nullable;
@@ -6,6 +6,7 @@ import org.jetbrains.annotations.Nullable;
 import dev.brights0ng.empire.EmpireContent;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
+import dev.brights0ng.empire.membership.LeaveInteractions;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.sacrifice.SacrificeInteractions;
 import dev.brights0ng.empire.talc.TalcInteractions;
@@ -208,6 +209,14 @@ public class BonfireBlock extends BaseEntityBlock {
 
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
+        // A member offering tarnished talc to leave their empire (lit or not); anything else with the talc passes on.
+        if (stack.is(EmpireContent.TARNISHED_TALC.get())) {
+            ItemInteractionResult leave = LeaveInteractions.tryLeave(stack, level, pos, player);
+            if (leave != ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION) {
+                return leave;
+            }
+        }
+
         if (stack.is(EmpireContent.RAW_TALC.get())) {
             return TalcInteractions.tryBless(level, pos, player, hand, stack);
         }
@@ -277,7 +286,7 @@ public class BonfireBlock extends BaseEntityBlock {
 
     /** Whether the bonfire has a use of its own for this item (as opposed to taking it as an offering). */
     private static boolean usesItself(BlockState state, ItemStack stack) {
-        if (stack.is(EmpireContent.RAW_TALC.get())) {
+        if (stack.is(EmpireContent.RAW_TALC.get()) || stack.is(EmpireContent.TARNISHED_TALC.get())) {
             return true;
         }
         return state.getValue(LIT) ? stack.is(ItemTags.SHOVELS) : stack.is(Items.FLINT_AND_STEEL) || stack.is(Items.FIRE_CHARGE);

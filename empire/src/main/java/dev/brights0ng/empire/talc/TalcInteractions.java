@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; member check edited by Claude.
 package dev.brights0ng.empire.talc;
 
 import dev.brights0ng.empire.EmpireContent;
@@ -45,9 +45,9 @@ public final class TalcInteractions {
             return ItemInteractionResult.FAIL;
         }
 
-        // 3. Founder and main bonfire check (P7, P9)
+        // 3. Member and main bonfire check (P7, P9)
         EmpireSavedData data = EmpireSavedData.of((ServerLevel) level);
-        EmpireRecord record = data.getEmpireByFounder(player.getUUID());
+        EmpireRecord record = data.getEmpireOf(player.getUUID());
         if (record == null) {
             player.displayClientMessage(Component.translatable("message.empire.no_empire"), true);
             return ItemInteractionResult.FAIL;

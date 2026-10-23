@@ -145,7 +145,7 @@ public final class EmpireSpoilageGameTests {
         } finally {
             FrontierCompat.registerIfLoaded();
         }
-        EmpireRecord record = EmpireSavedData.of(helper.getLevel().getServer()).getEmpireByFounder(player.getUUID());
+        EmpireRecord record = EmpireSavedData.of(helper.getLevel().getServer()).getEmpireOf(player.getUUID());
         if (record == null) {
             helper.assertTrue(player.getMainHandItem().getCount() == count, "a refused offering takes nothing");
         }

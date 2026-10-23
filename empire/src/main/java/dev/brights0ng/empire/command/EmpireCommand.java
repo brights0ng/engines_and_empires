@@ -1,4 +1,4 @@
-// Written by Gemini; core chunk lookup edited by Claude.
+// Written by Gemini; members edited by Claude.
 package dev.brights0ng.empire.command;
 
 import java.nio.charset.StandardCharsets;
@@ -96,8 +96,10 @@ public final class EmpireCommand {
 
         EmpireSavedData data = EmpireSavedData.of(source.getServer());
         for (EmpireRecord record : data.allEmpires()) {
-            if (record.founder().toString().equalsIgnoreCase(playerArg)) {
-                return record.founder();
+            for (UUID member : record.members()) {
+                if (member.toString().equalsIgnoreCase(playerArg)) {
+                    return member;
+                }
             }
         }
 
@@ -121,7 +123,7 @@ public final class EmpireCommand {
         }
 
         EmpireSavedData data = EmpireSavedData.of(source.getServer());
-        EmpireRecord record = data.getEmpireByFounder(targetId);
+        EmpireRecord record = data.getEmpireOf(targetId);
         if (record == null) {
             source.sendFailure(Component.translatable("message.empire.info.no_empire", displayName));
             return 0;
@@ -129,13 +131,38 @@ public final class EmpireCommand {
 
         long day = DawnClock.dayOf(source.getLevel().getDayTime());
         source.sendSuccess(() -> Component.literal("Empire ID: " + record.id()), false);
-        source.sendSuccess(() -> Component.literal("Founder: " + displayName + " (" + record.founder() + ")"), false);
+        source.sendSuccess(() -> Component.literal("Members: " + memberNames(source, record)), false);
         source.sendSuccess(() -> Component.literal("Dominion: " + record.state().dominion() + " (Available: " + record.state().available(day) + ")"), false);
         source.sendSuccess(() -> Component.literal("Staked chunks: " + record.state().stakedCount()), false);
         source.sendSuccess(() -> Component.literal("Dormant: " + record.state().dormant().size() + " points"), false);
         source.sendSuccess(() -> Component.literal("Main bonfire: " + (record.mainBonfire() != null ? record.mainBonfire().toShortString() : "None")), false);
         source.sendSuccess(() -> Component.literal("Founding chunk: [" + ChunkKeys.getX(record.state().foundingChunk()) + ", " + ChunkKeys.getZ(record.state().foundingChunk()) + "]"), false);
         return 1;
+    }
+
+    /** The members' names (their UUIDs when the server has never seen them), in joining order, or "none". */
+    private static String memberNames(CommandSourceStack source, EmpireRecord record) {
+        if (record.members().isEmpty()) {
+            return "none";
+        }
+        StringBuilder names = new StringBuilder();
+        for (UUID member : record.members()) {
+            if (names.length() > 0) {
+                names.append(", ");
+            }
+            ServerPlayer online = source.getServer().getPlayerList().getPlayer(member);
+            String name = member.toString();
+            if (online != null) {
+                name = online.getScoreboardName();
+            } else if (source.getServer().getProfileCache() != null) {
+                var profile = source.getServer().getProfileCache().get(member);
+                if (profile.isPresent()) {
+                    name = profile.get().getName();
+                }
+            }
+            names.append(name);
+        }
+        return names.toString();
     }
 
     private static int here(CommandSourceStack source) {
@@ -146,10 +173,10 @@ public final class EmpireCommand {
 
         EmpireRecord owner = data.getEmpireByChunk(chunk);
         source.sendSuccess(() -> Component.literal("Chunk: [" + chunkPos.x + ", " + chunkPos.z + "]"), false);
-        source.sendSuccess(() -> Component.literal("Owner: " + (owner != null ? owner.founder() : "Unclaimed")), false);
+        source.sendSuccess(() -> Component.literal("Owner: " + (owner != null ? "empire " + owner.id() + " (" + memberNames(source, owner) + ")" : "Unclaimed")), false);
 
         if (source.getEntity() instanceof ServerPlayer player) {
-            EmpireRecord callerEmpire = data.getEmpireByFounder(player.getUUID());
+            EmpireRecord callerEmpire = data.getEmpireOf(player.getUUID());
             if (callerEmpire != null) {
                 boolean adjacent = ClaimGraph.isAdjacent(callerEmpire.state().staked(), chunk);
                 boolean bridge = ClaimGraph.isBridge(callerEmpire.state().staked(), chunk);
@@ -167,7 +194,7 @@ public final class EmpireCommand {
     private static int setDominion(CommandSourceStack source, String playerArg, int n) {
         UUID targetId = resolvePlayerUuid(source, playerArg);
         EmpireSavedData data = EmpireSavedData.of(source.getServer());
-        EmpireRecord record = data.getEmpireByFounder(targetId);
+        EmpireRecord record = data.getEmpireOf(targetId);
         if (record == null) {
             source.sendFailure(Component.literal("No empire for " + playerArg));
             return 0;
@@ -181,7 +208,7 @@ public final class EmpireCommand {
     private static int addDominion(CommandSourceStack source, String playerArg, int n) {
         UUID targetId = resolvePlayerUuid(source, playerArg);
         EmpireSavedData data = EmpireSavedData.of(source.getServer());
-        EmpireRecord record = data.getEmpireByFounder(targetId);
+        EmpireRecord record = data.getEmpireOf(targetId);
         if (record == null) {
             source.sendFailure(Component.literal("No empire for " + playerArg));
             return 0;
@@ -195,7 +222,7 @@ public final class EmpireCommand {
     private static int debugStake(CommandSourceStack source, String playerArg) {
         UUID targetId = resolvePlayerUuid(source, playerArg);
         EmpireSavedData data = EmpireSavedData.of(source.getServer());
-        EmpireRecord record = data.getEmpireByFounder(targetId);
+        EmpireRecord record = data.getEmpireOf(targetId);
         if (record == null) {
             source.sendFailure(Component.literal("No empire for " + playerArg));
             return 0;
@@ -215,7 +242,7 @@ public final class EmpireCommand {
     private static int debugUnstake(CommandSourceStack source, String playerArg) {
         UUID targetId = resolvePlayerUuid(source, playerArg);
         EmpireSavedData data = EmpireSavedData.of(source.getServer());
-        EmpireRecord record = data.getEmpireByFounder(targetId);
+        EmpireRecord record = data.getEmpireOf(targetId);
         if (record == null) {
             source.sendFailure(Component.literal("No empire for " + playerArg));
             return 0;
@@ -234,7 +261,7 @@ public final class EmpireCommand {
     private static int debugDisband(CommandSourceStack source, String playerArg) {
         UUID targetId = resolvePlayerUuid(source, playerArg);
         EmpireSavedData data = EmpireSavedData.of(source.getServer());
-        EmpireRecord record = data.getEmpireByFounder(targetId);
+        EmpireRecord record = data.getEmpireOf(targetId);
         if (record == null) {
             source.sendFailure(Component.literal("No empire for " + playerArg));
             return 0;

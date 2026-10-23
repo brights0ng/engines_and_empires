@@ -1,4 +1,4 @@
-// Written by Gemini; the divine area edited by Claude.
+// Written by Gemini; members and the divine area edited by Claude.
 package dev.brights0ng.empire.gametest;
 
 import java.util.UUID;
@@ -285,12 +285,12 @@ public final class TalcGameTests {
         // Relight
         helper.setBlock(SPOT, helper.getBlockState(SPOT).setValue(BonfireBlock.LIT, true));
 
-        // 3. Non-founder fails
+        // 3. Non-member fails
         Player stranger = helper.makeMockPlayer(GameType.SURVIVAL);
         stranger.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(EmpireContent.RAW_TALC.get(), 2));
         interactWithBonfire(helper, SPOT, stranger);
         helper.assertTrue(stranger.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 2,
-                "Nothing consumed when non-founder attempts blessing");
+                "Nothing consumed when a non-member attempts blessing");
 
         // 4. Secondary bonfire (not main) fails
         BlockPos secondaryPos = SPOT.offset(5, 0, 5);

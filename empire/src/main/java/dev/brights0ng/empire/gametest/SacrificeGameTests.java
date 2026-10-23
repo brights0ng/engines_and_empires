@@ -1,4 +1,4 @@
-// Written by Gemini; moved from bread to god sacrifices (founding meat, paying the demand) by Claude.
+// Written by Gemini; moved from bread to god sacrifices (founding meat, paying the demand) by Claude; members edited by Claude.
 package dev.brights0ng.empire.gametest;
 
 import dev.brights0ng.empire.Empire;
@@ -63,7 +63,7 @@ public final class SacrificeGameTests {
 
         MinecraftServer server = helper.getLevel().getServer();
         EmpireSavedData data = EmpireSavedData.of(server);
-        EmpireRecord record = data.getEmpireByFounder(player.getUUID());
+        EmpireRecord record = data.getEmpireOf(player.getUUID());
         helper.assertTrue(record != null, "Empire created for founder");
         helper.assertTrue(record.state().dominion() == 10, "Founding dominion is 10");
         helper.assertTrue(record.state().stakedCount() == 9, "9 chunks staked at founding");
@@ -111,7 +111,7 @@ public final class SacrificeGameTests {
 
         MinecraftServer server = helper.getLevel().getServer();
         EmpireSavedData data = EmpireSavedData.of(server);
-        EmpireRecord record = data.getEmpireByFounder(player.getUUID());
+        EmpireRecord record = data.getEmpireOf(player.getUUID());
         helper.assertTrue(record != null, "Empire exists");
 
         // 2. Paying the god's first demand in full on the main bonfire
@@ -152,7 +152,7 @@ public final class SacrificeGameTests {
 
         helper.assertTrue(player1.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 5,
                 "Beef not consumed when bonfire is unlit");
-        helper.assertTrue(data.getEmpireByFounder(player1.getUUID()) == null,
+        helper.assertTrue(data.getEmpireOf(player1.getUUID()) == null,
                 "Empire not founded when bonfire is unlit");
 
         // Sub-case B: < 5 beef
@@ -162,24 +162,25 @@ public final class SacrificeGameTests {
 
         helper.assertTrue(player1.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 4,
                 "Beef not consumed when count < 5");
-        helper.assertTrue(data.getEmpireByFounder(player1.getUUID()) == null,
+        helper.assertTrue(data.getEmpireOf(player1.getUUID()) == null,
                 "Empire not founded with < 5 beef");
 
         // Now found empire legitimately with player1
         player1.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 5));
         interactWithBonfire(helper, SPOT, player1);
-        EmpireRecord record = data.getEmpireByFounder(player1.getUUID());
+        EmpireRecord record = data.getEmpireOf(player1.getUUID());
         helper.assertTrue(record != null, "Empire founded");
 
-        // Sub-case C: Non-founder on claimed bonfire, offering beef the god's demand asks for
+        // Sub-case C: Non-member on claimed bonfire offering beef the god's demand asks for: it is a join offering, and 4
+        // is too few, so nothing is paid
         Player player2 = helper.makeMockPlayer(GameType.SURVIVAL);
-        player2.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 5));
+        player2.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 4));
         interactWithBonfire(helper, SPOT, player2);
 
-        helper.assertTrue(player2.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 5,
-                "Beef not consumed when non-founder offers sacrifice");
-        helper.assertTrue(record.state().dominion() == 10,
-                "Dominion unchanged when non-founder attempts sacrifice");
+        helper.assertTrue(player2.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 4,
+                "Beef not consumed when a non-member offers sacrifice");
+        helper.assertTrue(record.state().dominion() == 10 && !record.isMember(player2.getUUID()),
+                "Dominion unchanged and no new member when a non-member offers too little");
 
         // Sub-case D: Not main bonfire (secondary bonfire placed in empire land)
         BlockPos secondaryPos = mainPos.offset(5, 0, 0);
@@ -222,7 +223,7 @@ public final class SacrificeGameTests {
 
         MinecraftServer server = helper.getLevel().getServer();
         EmpireSavedData data = EmpireSavedData.of(server);
-        EmpireRecord record = data.getEmpireByFounder(player.getUUID());
+        EmpireRecord record = data.getEmpireOf(player.getUUID());
         helper.assertTrue(record != null, "First empire founded");
         helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 5, "5 beef remaining");
 

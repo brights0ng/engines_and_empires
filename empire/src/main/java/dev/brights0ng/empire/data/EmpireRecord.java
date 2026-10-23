@@ -1,9 +1,11 @@
-// Written by Gemini; god, sacrifice count and current demand added by Claude.
+// Written by Gemini; god, sacrifice count, current demand and members added by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -16,6 +18,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.LongTag;
+import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
@@ -23,7 +26,8 @@ import net.minecraft.resources.ResourceLocation;
 public final class EmpireRecord {
 
     private final UUID id;
-    private final UUID founder;
+    /** Every member has equal control of the empire; the set may be empty (a frozen empire anyone can join). */
+    private final Set<UUID> members = new LinkedHashSet<>();
     private final EmpireState state;
     @Nullable
     private BlockPos mainBonfire;
@@ -36,9 +40,9 @@ public final class EmpireRecord {
     /** The god's current demand, with what has been paid towards each line. */
     private final List<DemandLine> currentDemand = new ArrayList<>();
 
-    public EmpireRecord(UUID id, UUID founder, EmpireState state, @Nullable BlockPos mainBonfire, long foundedGameTime) {
+    public EmpireRecord(UUID id, Collection<UUID> members, EmpireState state, @Nullable BlockPos mainBonfire, long foundedGameTime) {
         this.id = id;
-        this.founder = founder;
+        this.members.addAll(members);
         this.state = state;
         this.mainBonfire = mainBonfire;
         this.foundedGameTime = foundedGameTime;
@@ -48,8 +52,30 @@ public final class EmpireRecord {
         return id;
     }
 
-    public UUID founder() {
-        return founder;
+    /** The members, in the order they joined. */
+    public Set<UUID> members() {
+        return Collections.unmodifiableSet(members);
+    }
+
+    public boolean isMember(UUID player) {
+        return members.contains(player);
+    }
+
+    /** Use {@link EmpireSavedData#addMember}, which keeps its player index in step. */
+    boolean addMember(UUID player) {
+        return members.add(player);
+    }
+
+    /** Use {@link EmpireSavedData#removeMember}, which keeps its player index in step. */
+    boolean removeMember(UUID player) {
+        return members.remove(player);
+    }
+
+    /**
+     * Feeds the god: called at founding, joining, adoption and when a demand is paid in full. It does nothing yet (the
+     * god's satiety comes later).
+     */
+    public void feedGod() {
     }
 
     public EmpireState state() {
@@ -104,7 +130,11 @@ public final class EmpireRecord {
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
         tag.putUUID("id", id);
-        tag.putUUID("founder", founder);
+        ListTag membersTag = new ListTag();
+        for (UUID member : members) {
+            membersTag.add(NbtUtils.createUUID(member));
+        }
+        tag.put("members", membersTag);
         tag.putLong("founded", foundedGameTime);
         if (mainBonfire != null) {
             tag.putLong("main_bonfire", mainBonfire.asLong());
@@ -153,7 +183,15 @@ public final class EmpireRecord {
 
     public static EmpireRecord load(CompoundTag tag) {
         UUID id = tag.getUUID("id");
-        UUID founder = tag.getUUID("founder");
+        List<UUID> members = new ArrayList<>();
+        if (tag.contains("members", Tag.TAG_LIST)) {
+            for (Tag memberTag : tag.getList("members", Tag.TAG_INT_ARRAY)) {
+                members.add(NbtUtils.loadUUID(memberTag));
+            }
+        } else if (tag.hasUUID("founder")) {
+            // Saved before members (version 1): the founder was the only one who could act for the empire.
+            members.add(tag.getUUID("founder"));
+        }
         long founded = tag.getLong("founded");
         BlockPos mainBonfire = tag.contains("main_bonfire") ? BlockPos.of(tag.getLong("main_bonfire")) : null;
 
@@ -175,7 +213,7 @@ public final class EmpireRecord {
         }
 
         EmpireState state = new EmpireState(dominion, foundingChunk, staked, dormant);
-        EmpireRecord record = new EmpireRecord(id, founder, state, mainBonfire, founded);
+        EmpireRecord record = new EmpireRecord(id, members, state, mainBonfire, founded);
 
         // Records saved before gods existed have none of these: they load godless, with nothing demanded.
         record.god = tag.contains("god", Tag.TAG_STRING) ? ResourceLocation.tryParse(tag.getString("god")) : null;
