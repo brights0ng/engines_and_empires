@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; divine area case by Claude.
 package dev.brights0ng.empire.gametest;
 
 import java.util.UUID;
@@ -153,22 +153,30 @@ public final class TalcGameTests {
         helper.assertTrue(resCore == InteractionResult.FAIL, "Unstaking core chunk should fail");
         helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 10, "Nothing consumed on CORE_CHUNK");
 
-        // 3. BRIDGE_CHUNK:
-        // Set up a line: center chunk -> (center+1, 0) -> (center+2, 0).
-        // Remove perimeter chunks so (center+1, 0) becomes a bridge between center and (center+2, 0).
+        // 3. DIVINE_CHUNK: (center+1, 0) is in the 3x3 around the core chunk
+        BlockPos divinePos = new BlockPos((centerChunkPos.x + 1) << 4, centerPos.getY(), (centerChunkPos.z) << 4);
+        InteractionResult resDivine = useTarnishedTalc(player, divinePos);
+        helper.assertTrue(resDivine == InteractionResult.FAIL, "Unstaking a divine chunk should fail");
+        helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 10, "Nothing consumed on DIVINE_CHUNK");
+
+        // 4. BRIDGE_CHUNK:
+        // Set up a line beyond the divine 3x3: (center+1, 0) -> (center+2, 0) -> (center+3, 0).
+        // (center+2, 0) becomes a bridge between the 3x3 and (center+3, 0).
         long day = DawnClock.dayOf(helper.getLevel().getDayTime());
         record.state().addDominion(10);
         data.stakeChunk(record, ChunkKeys.pack(centerChunkPos.x + 2, centerChunkPos.z), day, true);
+        data.stakeChunk(record, ChunkKeys.pack(centerChunkPos.x + 3, centerChunkPos.z), day, true);
 
-        // (center+1, 0) is a bridge between center (and rest of 3x3) and (center+2, 0).
-        BlockPos bridgePos = new BlockPos((centerChunkPos.x + 1) << 4, centerPos.getY(), (centerChunkPos.z) << 4);
+        BlockPos bridgePos = new BlockPos((centerChunkPos.x + 2) << 4, centerPos.getY(), (centerChunkPos.z) << 4);
         InteractionResult resBridge = useTarnishedTalc(player, bridgePos);
         helper.assertTrue(resBridge == InteractionResult.FAIL, "Unstaking bridge chunk should fail");
         helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 10, "Nothing consumed on BRIDGE_CHUNK");
+        helper.assertTrue(record.state().staked().contains(ChunkKeys.pack(centerChunkPos.x + 2, centerChunkPos.z)),
+                "The bridge chunk stays staked");
 
-        // 4. OK: corner or leaf chunk: (center+2, 0)
-        BlockPos leafPos = new BlockPos((centerChunkPos.x + 2) << 4, centerPos.getY(), (centerChunkPos.z) << 4);
-        long leafChunk = ChunkKeys.pack(centerChunkPos.x + 2, centerChunkPos.z);
+        // 5. OK: leaf chunk: (center+3, 0)
+        BlockPos leafPos = new BlockPos((centerChunkPos.x + 3) << 4, centerPos.getY(), (centerChunkPos.z) << 4);
+        long leafChunk = ChunkKeys.pack(centerChunkPos.x + 3, centerChunkPos.z);
         InteractionResult resOk = useTarnishedTalc(player, leafPos);
         helper.assertTrue(resOk == InteractionResult.SUCCESS, "Unstaking non-bridge leaf chunk should succeed");
         helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 9, "1 Tarnished Talc consumed on OK");

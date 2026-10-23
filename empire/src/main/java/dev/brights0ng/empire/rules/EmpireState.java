@@ -1,4 +1,4 @@
-// Written by Gemini; founding meat count added by Claude.
+// Written by Gemini; founding meat count and the divine area added by Claude.
 package dev.brights0ng.empire.rules;
 
 import java.util.ArrayList;
@@ -115,6 +115,11 @@ public final class EmpireState {
         }
         if (chunk == coreChunk) {
             return UnstakeResult.CORE_CHUNK;
+        }
+        // The 3x3 around the core chunk is the empire's divine area and cannot be unstaked.
+        if (Math.max(Math.abs(ChunkKeys.getX(chunk) - ChunkKeys.getX(coreChunk)),
+                Math.abs(ChunkKeys.getZ(chunk) - ChunkKeys.getZ(coreChunk))) <= 1) {
+            return UnstakeResult.DIVINE_CHUNK;
         }
         if (ClaimGraph.isBridge(staked, chunk)) {
             return UnstakeResult.BRIDGE_CHUNK;

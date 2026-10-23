@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; divine area cases by Claude.
 package dev.brights0ng.empire.rules;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -92,20 +92,49 @@ class EmpireStateTest {
         // 3. BRIDGE_CHUNK: c20 connects c30 to the rest of the empire
         assertEquals(UnstakeResult.BRIDGE_CHUNK, state.unstake(c20, 0, core));
 
-        // 4. OK: corner is a leaf / non-bridge
+        // 4. DIVINE_CHUNK: the corner is in the 3x3 around the core
+        assertEquals(UnstakeResult.DIVINE_CHUNK, state.unstake(corner, 0, core));
+        assertTrue(state.staked().contains(corner));
+
+        // 5. OK: c30 is a leaf outside the divine area
         int stakedBefore = state.stakedCount();
-        assertEquals(UnstakeResult.OK, state.unstake(corner, 0, core));
-        assertFalse(state.staked().contains(corner));
+        assertEquals(UnstakeResult.OK, state.unstake(c30, 0, core));
+        assertFalse(state.staked().contains(c30));
         assertEquals(stakedBefore - 1, state.stakedCount());
     }
 
     @Test
+    void theThreeByThreeAroundTheCoreCannotBeUnstaked() {
+        state.addDominion(20);
+        for (int dz : new int[] {0, 1, -1, 2, -2}) {
+            assertEquals(StakeResult.OK, state.stake(ChunkKeys.pack(2, dz), 0, true, false));
+        }
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                long chunk = ChunkKeys.pack(dx, dz);
+                UnstakeResult expected = dx == 0 && dz == 0 ? UnstakeResult.CORE_CHUNK : UnstakeResult.DIVINE_CHUNK;
+                assertEquals(expected, state.unstake(chunk, 0, center), "chunk (" + dx + ", " + dz + ")");
+                assertTrue(state.staked().contains(chunk));
+            }
+        }
+        // Distance 2 is outside the divine area: (2, 2) is a leaf of the column at x = 2
+        assertEquals(UnstakeResult.OK, state.unstake(ChunkKeys.pack(2, 2), 0, center));
+
+        // The divine area follows the core chunk it is given
+        long movedCore = ChunkKeys.pack(1, 0);
+        assertEquals(UnstakeResult.DIVINE_CHUNK, state.unstake(ChunkKeys.pack(2, 1), 0, movedCore));
+        assertEquals(UnstakeResult.CORE_CHUNK, state.unstake(movedCore, 0, movedCore));
+    }
+
+    @Test
     void dormantPointsReleasedExactlyAtDayBoundary() {
-        long corner = ChunkKeys.pack(1, 1);
-        int availableBefore = state.available(0); // 1
+        // Stake a chunk outside the divine area, so there is one to unstake
+        long outside = ChunkKeys.pack(2, 0);
+        assertEquals(StakeResult.OK, state.stake(outside, 0, true, false));
+        int availableBefore = state.available(0); // 0
 
         // Unstake on day 0
-        assertEquals(UnstakeResult.OK, state.unstake(corner, 0, center));
+        assertEquals(UnstakeResult.OK, state.unstake(outside, 0, center));
         // On day 0, freed point is dormant (due on day 1)
         assertEquals(availableBefore, state.available(0));
         assertEquals(1, state.dormant().size());
