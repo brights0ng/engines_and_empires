@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; surroundingStaked test by Claude.
 package dev.brights0ng.empire.rules;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -10,6 +10,25 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class ClaimGraphTest {
+
+    @Test
+    void surroundingStakedNeedsTheChunkAndAllEightAroundIt() {
+        Set<Long> staked = new HashSet<>();
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                staked.add(ChunkKeys.pack(5 + dx, -3 + dz));
+            }
+        }
+        assertTrue(ClaimGraph.surroundingStaked(staked, ChunkKeys.pack(5, -3)));
+        assertFalse(ClaimGraph.surroundingStaked(staked, ChunkKeys.pack(6, -3)), "an edge chunk lacks neighbours");
+
+        staked.remove(ChunkKeys.pack(4, -4));
+        assertFalse(ClaimGraph.surroundingStaked(staked, ChunkKeys.pack(5, -3)), "a missing corner fails it");
+        staked.add(ChunkKeys.pack(4, -4));
+        staked.remove(ChunkKeys.pack(5, -3));
+        assertFalse(ClaimGraph.surroundingStaked(staked, ChunkKeys.pack(5, -3)), "the centre itself must be staked");
+        assertFalse(ClaimGraph.surroundingStaked(new HashSet<>(), ChunkKeys.pack(0, 0)));
+    }
 
     @Test
     void isAdjacentChecksCardinalNeighboursOnly() {

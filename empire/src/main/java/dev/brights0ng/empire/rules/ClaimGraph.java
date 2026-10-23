@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; surroundingStaked by Claude.
 package dev.brights0ng.empire.rules;
 
 import java.util.ArrayDeque;
@@ -21,6 +21,23 @@ public final class ClaimGraph {
                 || staked.contains(ChunkKeys.pack(x - 1, z))
                 || staked.contains(ChunkKeys.pack(x, z + 1))
                 || staked.contains(ChunkKeys.pack(x, z - 1));
+    }
+
+    /** Whether {@code chunk} and all 8 chunks around it are in the staked set. */
+    public static boolean surroundingStaked(Set<Long> staked, long chunk) {
+        if (staked == null) {
+            return false;
+        }
+        int x = ChunkKeys.getX(chunk);
+        int z = ChunkKeys.getZ(chunk);
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (!staked.contains(ChunkKeys.pack(x + dx, z + dz))) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**

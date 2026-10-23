@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; main bonfire eligibility tests by Claude.
 package dev.brights0ng.empire.gametest;
 
 import java.util.UUID;
@@ -13,6 +13,7 @@ import dev.brights0ng.empire.bonfire.BonfirePartBlock;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.ChunkKeys;
+import dev.brights0ng.empire.rules.StakeResult;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -234,6 +235,66 @@ public final class BonfireGameTests {
 
         data.disbandEmpire(record.id(), server);
         data.onBonfireRemoved(posNew, server);
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void nullMainIgnoresANewBonfireWhoseThreeByThreeIsNotStaked(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        EmpireSavedData data = EmpireSavedData.of(server);
+
+        // Empire at chunk (60, 60) stakes 59..61, plus (62, 60)
+        long centerChunk = ChunkKeys.pack(60, 60);
+        BlockPos posInitial = new BlockPos(60 * 16 + 8, 64, 60 * 16 + 8);
+        EmpireRecord record = data.createEmpire(UUID.randomUUID(), centerChunk, posInitial, server.overworld().getGameTime());
+        long edgeChunk = ChunkKeys.pack(62, 60);
+        helper.assertTrue(data.stakeChunk(record, edgeChunk, 0, true) == StakeResult.OK, "(62, 60) staked");
+        data.onBonfireRemoved(posInitial, server);
+        helper.assertTrue(record.mainBonfire() == null, "Empire is unanchored");
+
+        // (62, 60) is the empire's, but (63, *) and (62, 59/61) are not
+        BlockPos posEdge = new BlockPos(62 * 16 + 8, 64, 60 * 16 + 8);
+        BlockPos posCenter = new BlockPos(60 * 16 + 3, 64, 60 * 16 + 3);
+        try {
+            data.onBonfirePlaced(posEdge, server);
+            helper.assertTrue(record.mainBonfire() == null, "A bonfire whose 3x3 is not all staked does not become main");
+
+            data.onBonfirePlaced(posCenter, server);
+            helper.assertTrue(posCenter.equals(record.mainBonfire()), "A bonfire whose 3x3 is all staked becomes main");
+        } finally {
+            data.disbandEmpire(record.id(), server);
+            data.onBonfireRemoved(posEdge, server);
+            data.onBonfireRemoved(posCenter, server);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void mainReselectionSkipsACloserIneligibleBonfire(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        EmpireSavedData data = EmpireSavedData.of(server);
+
+        // Empire at chunk (70, 70) stakes 69..71, plus (72, 70); main bonfire on chunk 70's east edge
+        long centerChunk = ChunkKeys.pack(70, 70);
+        BlockPos posMain = new BlockPos(70 * 16 + 15, 64, 70 * 16 + 8);
+        EmpireRecord record = data.createEmpire(UUID.randomUUID(), centerChunk, posMain, server.overworld().getGameTime());
+        helper.assertTrue(data.stakeChunk(record, ChunkKeys.pack(72, 70), 0, true) == StakeResult.OK, "(72, 70) staked");
+
+        // 5 blocks east, in chunk 71: staked, but (72, 69) and (72, 71) are not
+        BlockPos posCloser = new BlockPos(70 * 16 + 20, 64, 70 * 16 + 8);
+        // 15 blocks west, in chunk 70: its whole 3x3 is staked
+        BlockPos posFarther = new BlockPos(70 * 16, 64, 70 * 16 + 8);
+        try {
+            data.onBonfirePlaced(posCloser, server);
+            data.onBonfirePlaced(posFarther, server);
+            data.onBonfireRemoved(posMain, server);
+            helper.assertTrue(posFarther.equals(record.mainBonfire()),
+                    "The closest eligible bonfire becomes main, not the closer ineligible one: " + record.mainBonfire());
+        } finally {
+            data.disbandEmpire(record.id(), server);
+            data.onBonfireRemoved(posCloser, server);
+            data.onBonfireRemoved(posFarther, server);
+        }
         helper.succeed();
     }
 

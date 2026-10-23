@@ -1,4 +1,4 @@
-// Written by Gemini; equal members and leave warnings by Claude.
+// Written by Gemini; equal members, leave warnings and main bonfire eligibility by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.Collection;
@@ -11,6 +11,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import dev.brights0ng.empire.rules.ChunkKeys;
+import dev.brights0ng.empire.rules.ClaimGraph;
 import dev.brights0ng.empire.rules.EmpireState;
 import dev.brights0ng.empire.rules.StakeResult;
 import dev.brights0ng.empire.rules.UnstakeResult;
@@ -160,7 +161,7 @@ public final class EmpireSavedData extends SavedData {
         UUID empireId = chunkIndex.get(chunk);
         if (empireId != null) {
             EmpireRecord record = empires.get(empireId);
-            if (record != null && record.mainBonfire() == null) {
+            if (record != null && record.mainBonfire() == null && canBeMain(record, pos)) {
                 record.setMainBonfire(pos.immutable());
                 notifyMainBonfireChange(record, server, pos);
             }
@@ -176,8 +177,7 @@ public final class EmpireSavedData extends SavedData {
                 double bestDistSq = Double.MAX_VALUE;
 
                 for (BlockPos candidate : bonfires.all()) {
-                    long cChunk = ChunkKeys.pack(candidate.getX() >> 4, candidate.getZ() >> 4);
-                    if (record.id().equals(chunkIndex.get(cChunk))) {
+                    if (canBeMain(record, candidate)) {
                         double distSq = candidate.distSqr(pos);
                         if (distSq < bestDistSq || (distSq == bestDistSq && (bestCandidate == null || candidate.asLong() < bestCandidate.asLong()))) {
                             bestCandidate = candidate;
@@ -191,6 +191,11 @@ public final class EmpireSavedData extends SavedData {
             }
         }
         setDirty();
+    }
+
+    /** A bonfire can be an empire's main bonfire only if the empire stakes the 3x3 of chunks centred on its own. */
+    private static boolean canBeMain(EmpireRecord record, BlockPos pos) {
+        return ClaimGraph.surroundingStaked(record.state().staked(), ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4));
     }
 
     private void notifyMainBonfireChange(EmpireRecord record, @Nullable MinecraftServer server, @Nullable BlockPos newMain) {
