@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "LCL",
+    "LBL"
+  ],
+  "key": {
+    "L": {
+      "tag": "minecraft:logs"
+    },
+    "C": {
+      "item": "minecraft:campfire"
+    },
+    "B": {
+      "item": "minecraft:coal_block"
+    }
+  },
+  "result": {
+    "id": "empire:bonfire",
+    "count": 1
+  }
+}
