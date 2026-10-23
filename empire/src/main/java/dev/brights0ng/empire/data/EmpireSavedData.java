@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; the main bonfire's 3x3 rule and the public core chunk by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.Collection;
@@ -10,6 +10,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import dev.brights0ng.empire.rules.ChunkKeys;
+import dev.brights0ng.empire.rules.ClaimGraph;
 import dev.brights0ng.empire.rules.EmpireState;
 import dev.brights0ng.empire.rules.StakeResult;
 import dev.brights0ng.empire.rules.UnstakeResult;
@@ -84,11 +85,17 @@ public final class EmpireSavedData extends SavedData {
         return result;
     }
 
+    /**
+     * The empire's core chunk: its main bonfire's chunk, else its founding chunk. The 3x3 centred on it is the divine
+     * area, which cannot be unstaked.
+     */
+    public static long coreChunk(EmpireRecord record) {
+        BlockPos main = record.mainBonfire();
+        return main != null ? ChunkKeys.pack(main.getX() >> 4, main.getZ() >> 4) : record.state().foundingChunk();
+    }
+
     public UnstakeResult unstakeChunk(EmpireRecord record, long chunk, long day) {
-        long coreChunk = record.mainBonfire() != null
-                ? ChunkKeys.pack(record.mainBonfire().getX() >> 4, record.mainBonfire().getZ() >> 4)
-                : record.state().foundingChunk();
-        UnstakeResult result = record.state().unstake(chunk, day, coreChunk);
+        UnstakeResult result = record.state().unstake(chunk, day, coreChunk(record));
         if (result == UnstakeResult.OK) {
             chunkIndex.remove(chunk);
             setDirty();
@@ -119,7 +126,7 @@ public final class EmpireSavedData extends SavedData {
         UUID empireId = chunkIndex.get(chunk);
         if (empireId != null) {
             EmpireRecord record = empires.get(empireId);
-            if (record != null && record.mainBonfire() == null) {
+            if (record != null && record.mainBonfire() == null && eligibleMain(record, pos)) {
                 record.setMainBonfire(pos.immutable());
                 notifyMainBonfireChange(record, server, pos);
             }
@@ -136,7 +143,7 @@ public final class EmpireSavedData extends SavedData {
 
                 for (BlockPos candidate : bonfires.all()) {
                     long cChunk = ChunkKeys.pack(candidate.getX() >> 4, candidate.getZ() >> 4);
-                    if (record.id().equals(chunkIndex.get(cChunk))) {
+                    if (record.id().equals(chunkIndex.get(cChunk)) && eligibleMain(record, candidate)) {
                         double distSq = candidate.distSqr(pos);
                         if (distSq < bestDistSq || (distSq == bestDistSq && (bestCandidate == null || candidate.asLong() < bestCandidate.asLong()))) {
                             bestCandidate = candidate;
@@ -150,6 +157,11 @@ public final class EmpireSavedData extends SavedData {
             }
         }
         setDirty();
+    }
+
+    /** A bonfire can be the main one only if the empire has staked all 9 chunks of the 3x3 centred on its chunk. */
+    private static boolean eligibleMain(EmpireRecord record, BlockPos pos) {
+        return ClaimGraph.surroundingStaked(record.state().staked(), ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4));
     }
 
     private void notifyMainBonfireChange(EmpireRecord record, @Nullable MinecraftServer server, @Nullable BlockPos newMain) {

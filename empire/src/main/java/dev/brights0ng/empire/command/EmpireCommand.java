@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; core chunk lookup edited by Claude.
 package dev.brights0ng.empire.command;
 
 import java.nio.charset.StandardCharsets;
@@ -153,9 +153,7 @@ public final class EmpireCommand {
             if (callerEmpire != null) {
                 boolean adjacent = ClaimGraph.isAdjacent(callerEmpire.state().staked(), chunk);
                 boolean bridge = ClaimGraph.isBridge(callerEmpire.state().staked(), chunk);
-                long coreChunk = callerEmpire.mainBonfire() != null
-                        ? ChunkKeys.pack(callerEmpire.mainBonfire().getX() >> 4, callerEmpire.mainBonfire().getZ() >> 4)
-                        : callerEmpire.state().foundingChunk();
+                long coreChunk = EmpireSavedData.coreChunk(callerEmpire);
                 boolean isCore = (chunk == coreChunk);
                 source.sendSuccess(() -> Component.literal("Adjacent: " + adjacent + ", Bridge: " + bridge + ", Core: " + isCore), false);
             }

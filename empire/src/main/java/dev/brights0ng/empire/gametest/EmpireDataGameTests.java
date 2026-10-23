@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; the divine area edited by Claude.
 package dev.brights0ng.empire.gametest;
 
 import java.util.UUID;
@@ -48,10 +48,12 @@ public final class EmpireDataGameTests {
         StakeResult stakeRes = data.stakeChunk(record, adjacentChunk, 0, true);
         helper.assertTrue(stakeRes == StakeResult.OK, "Adjacent chunk staked");
 
-        // Unstake a corner chunk (9, 19) creating a dormant point
-        long cornerChunk = ChunkKeys.pack(9, 19);
+        // Stake (13, 20) past it, then unstake it, creating a dormant point (the 3x3 around the core is divine land)
+        record.state().addDominion(1);
+        long cornerChunk = ChunkKeys.pack(13, 20);
+        helper.assertTrue(data.stakeChunk(record, cornerChunk, 0, true) == StakeResult.OK, "Outer chunk staked");
         UnstakeResult unstakeRes = data.unstakeChunk(record, cornerChunk, 0);
-        helper.assertTrue(unstakeRes == UnstakeResult.OK, "Corner chunk unstaked");
+        helper.assertTrue(unstakeRes == UnstakeResult.OK, "Outer chunk unstaked");
 
         // Save
         CompoundTag tag = data.save(new CompoundTag(), server.registryAccess());
@@ -65,11 +67,11 @@ public final class EmpireDataGameTests {
         helper.assertTrue(founderId.equals(loadedRecord.founder()), "Founder UUID matches");
         helper.assertTrue(loadedRecord.foundedGameTime() == 1000L, "Founded game time matches");
         helper.assertTrue(mainBonfire.equals(loadedRecord.mainBonfire()), "Main bonfire position matches");
-        helper.assertTrue(loadedRecord.state().dominion() == 10, "Dominion matches");
+        helper.assertTrue(loadedRecord.state().dominion() == 11, "Dominion matches (10 founding + 1 added)");
         helper.assertTrue(loadedRecord.state().foundingChunk() == centerChunk, "Founding chunk matches");
 
         // Staked chunks
-        helper.assertTrue(loadedRecord.state().stakedCount() == 9, "9 chunks staked (8 founding + 1 adjacent)");
+        helper.assertTrue(loadedRecord.state().stakedCount() == 10, "10 chunks staked (9 founding + 1 adjacent)");
         helper.assertTrue(loadedRecord.state().staked().contains(adjacentChunk), "Adjacent chunk in staked set");
         helper.assertTrue(!loadedRecord.state().staked().contains(cornerChunk), "Unstaked chunk not in staked set");
 

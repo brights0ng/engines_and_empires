@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; surroundingStaked by Claude.
 package dev.brights0ng.empire.rules;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -109,5 +109,23 @@ class ClaimGraphTest {
         staked.add(c1);
         assertFalse(ClaimGraph.isBridge(staked, c0));
         assertFalse(ClaimGraph.isBridge(staked, c1));
+    }
+
+    @Test
+    void surroundingStakedNeedsAllNineChunks() {
+        Set<Long> staked = new HashSet<>();
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                staked.add(ChunkKeys.pack(5 + dx, -3 + dz));
+            }
+        }
+        assertTrue(ClaimGraph.surroundingStaked(staked, ChunkKeys.pack(5, -3)));
+        assertFalse(ClaimGraph.surroundingStaked(staked, ChunkKeys.pack(6, -3)));
+
+        staked.remove(ChunkKeys.pack(4, -4));
+        assertFalse(ClaimGraph.surroundingStaked(staked, ChunkKeys.pack(5, -3)));
+        staked.add(ChunkKeys.pack(4, -4));
+        staked.remove(ChunkKeys.pack(5, -3));
+        assertFalse(ClaimGraph.surroundingStaked(staked, ChunkKeys.pack(5, -3)));
     }
 }

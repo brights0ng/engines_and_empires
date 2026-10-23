@@ -1,4 +1,4 @@
-// Written by Gemini; Overworld-only registration and campfire-tag tests added by Claude.
+// Written by Gemini; Overworld-only registration, campfire-tag and main bonfire 3x3 tests added by Claude.
 package dev.brights0ng.empire.gametest;
 
 import java.util.UUID;
@@ -238,6 +238,65 @@ public final class BonfireGameTests {
 
         data.disbandEmpire(record.id(), server);
         data.onBonfireRemoved(posNew, server);
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void nullMainIgnoresANewBonfireWhose3x3IsNotAllStaked(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        EmpireSavedData data = EmpireSavedData.of(server);
+
+        // Founded at chunk (-100, -100), with chunk (-98, -100) staked beyond the founding 3x3
+        long centerChunk = ChunkKeys.pack(-100, -100);
+        BlockPos posInitial = new BlockPos(-100 * 16 + 8, 64, -100 * 16 + 8);
+        EmpireRecord record = data.createEmpire(UUID.randomUUID(), centerChunk, posInitial, server.overworld().getGameTime());
+        long outer = ChunkKeys.pack(-98, -100);
+        data.stakeChunk(record, outer, 0, true);
+        helper.assertTrue(record.state().staked().contains(outer), "the outer chunk is staked");
+
+        data.onBonfireRemoved(posInitial, server);
+        helper.assertTrue(record.mainBonfire() == null, "Empire is unanchored");
+
+        // In the empire's land, but its 3x3 runs past it
+        BlockPos posOuter = new BlockPos(-98 * 16 + 8, 64, -100 * 16 + 8);
+        data.onBonfirePlaced(posOuter, server);
+        helper.assertTrue(record.mainBonfire() == null, "a bonfire whose 3x3 is not all staked does not become main");
+
+        BlockPos posCenter = new BlockPos(-100 * 16 + 3, 64, -100 * 16 + 3);
+        data.onBonfirePlaced(posCenter, server);
+        helper.assertTrue(posCenter.equals(record.mainBonfire()), "one whose 3x3 is all staked does");
+
+        data.disbandEmpire(record.id(), server);
+        data.onBonfireRemoved(posOuter, server);
+        data.onBonfireRemoved(posCenter, server);
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void mainReselectionSkipsACloserIneligibleBonfire(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        EmpireSavedData data = EmpireSavedData.of(server);
+
+        // Founded at chunk (-120, -100): only that chunk's 3x3 is all staked
+        long centerChunk = ChunkKeys.pack(-120, -100);
+        int minX = -120 * 16;
+        int minZ = -100 * 16;
+        BlockPos posMain = new BlockPos(minX + 15, 64, minZ + 8);
+        EmpireRecord record = data.createEmpire(UUID.randomUUID(), centerChunk, posMain, server.overworld().getGameTime());
+
+        BlockPos posCloserIneligible = new BlockPos(minX + 17, 64, minZ + 8); // chunk (-119, -100), 2 blocks away
+        BlockPos posFartherEligible = new BlockPos(minX + 1, 64, minZ + 8); // chunk (-120, -100), 14 blocks away
+        data.onBonfirePlaced(posCloserIneligible, server);
+        data.onBonfirePlaced(posFartherEligible, server);
+        helper.assertTrue(posMain.equals(record.mainBonfire()), "posMain is initially main");
+
+        data.onBonfireRemoved(posMain, server);
+        helper.assertTrue(posFartherEligible.equals(record.mainBonfire()),
+                "reselection skips the closer bonfire whose 3x3 is not all staked: " + record.mainBonfire());
+
+        data.disbandEmpire(record.id(), server);
+        data.onBonfireRemoved(posCloserIneligible, server);
+        data.onBonfireRemoved(posFartherEligible, server);
         helper.succeed();
     }
 
