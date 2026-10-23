@@ -1,4 +1,4 @@
-// Written by Gemini; god sacrifices wired in by Claude.
+// Written by Gemini; god sacrifices and leaving wired in by Claude.
 package dev.brights0ng.empire.bonfire;
 
 import org.jetbrains.annotations.Nullable;
@@ -7,6 +7,7 @@ import dev.brights0ng.empire.EmpireContent;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.ChunkKeys;
+import dev.brights0ng.empire.sacrifice.LeaveInteractions;
 import dev.brights0ng.empire.sacrifice.SacrificeInteractions;
 import dev.brights0ng.empire.talc.TalcInteractions;
 import dev.brights0ng.empire.tier.TierChecks;
@@ -250,6 +251,12 @@ public class BonfireBlock extends BaseEntityBlock {
             }
         }
 
+        // Tarnished talc from a member, lit or not, is leaving their empire.
+        ItemInteractionResult leave = LeaveInteractions.handleLeave(stack, level, pos, player);
+        if (leave != ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION) {
+            return leave;
+        }
+
         // Anything the bonfire does not use itself may be an offering to the gods (founding meat, or a demand payment).
         return SacrificeInteractions.handleSacrifice(stack, state, level, pos, player, hand);
     }
@@ -265,7 +272,7 @@ public class BonfireBlock extends BaseEntityBlock {
 
     /** Whether the bonfire has a use of its own for this item (as opposed to taking it as an offering). */
     private static boolean usesItself(BlockState state, ItemStack stack) {
-        if (stack.is(EmpireContent.RAW_TALC.get())) {
+        if (stack.is(EmpireContent.RAW_TALC.get()) || stack.is(EmpireContent.TARNISHED_TALC.get())) {
             return true;
         }
         return state.getValue(LIT) ? stack.is(ItemTags.SHOVELS) : stack.is(Items.FLINT_AND_STEEL) || stack.is(Items.FIRE_CHARGE);

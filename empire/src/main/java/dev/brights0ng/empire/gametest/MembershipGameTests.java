@@ -15,10 +15,13 @@ import java.util.UUID;
 
 import dev.brights0ng.empire.Empire;
 import dev.brights0ng.empire.EmpireContent;
+import dev.brights0ng.empire.bonfire.BonfireBlock;
+import dev.brights0ng.empire.bonfire.BonfirePartBlock;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.DemandLine;
+import dev.brights0ng.empire.sacrifice.LeaveInteractions;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -26,6 +29,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -42,7 +46,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Members: founding makes the founder the one member, joining at the main bonfire with the god's meat, who may not join,
- * what a member who did not found the empire may do, and saving members. Every test runs to the end in its first tick,
+ * what a member who did not found the empire may do, leaving (a warning, then a window), the empire the last member
+ * leaves, and saving members. Every test runs to the end in its first tick,
  * so the empires it makes never meet another test's.
  */
 @GameTestHolder(Empire.MODID)
@@ -223,6 +228,88 @@ public final class MembershipGameTests {
         EmpireRecord old = EmpireRecord.load(legacy);
         helper.assertTrue(old.members().equals(Set.of(first)), "a legacy record's founder is its one member: "
                 + old.members());
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void leavingWarnsFirstThenTakesFiveTarnishedTalcInsideTheWindow(GameTestHelper helper) {
+        withTierChecksPassing(() -> {
+            ServerLevel level = helper.getLevel();
+            EmpireSavedData data = EmpireSavedData.of(level.getServer());
+            Player founder = helper.makeMockPlayer(GameType.SURVIVAL);
+            EmpireRecord record = foundWithBeef(helper, founder);
+            BlockPos mainPos = helper.absolutePos(SPOT);
+            try {
+                Player member = joinWithBeef(helper, record);
+                // Any bonfire in the empire's land, lit or not; here a part of the unlit main one
+                helper.setBlock(SPOT, litBonfire().setValue(BonfireBlock.LIT, false));
+                member.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(EmpireContent.TARNISHED_TALC.get(), 7));
+                interact(level, mainPos.offset(BonfirePartBlock.PART_OFFSETS[0]), member);
+                ItemStack talc = member.getMainHandItem();
+                helper.assertTrue(talc.getCount() == 7 && record.isMember(member.getUUID()),
+                        "the first offering only warns, taking nothing");
+                Long warned = data.leaveWarnedAt(member.getUUID());
+                helper.assertTrue(warned != null && warned == level.getGameTime(), "the warning is recorded at "
+                        + level.getGameTime() + ", is " + warned);
+
+                LeaveInteractions.tryLeave(level, data, record, mainPos, member, talc, warned + 40);
+                helper.assertTrue(talc.getCount() == 7 && record.isMember(member.getUUID()),
+                        "40 ticks after the warning is too soon; nothing taken");
+
+                LeaveInteractions.tryLeave(level, data, record, mainPos, member, talc, warned + 80);
+                helper.assertTrue(talc.getCount() == 2, "leaving takes exactly 5 tarnished talc, " + talc.getCount() + " left");
+                helper.assertTrue(!record.isMember(member.getUUID()) && data.getEmpireOf(member.getUUID()) == null,
+                        "80 ticks after the warning the member leaves");
+                helper.assertTrue(record.members().equals(Set.of(founder.getUUID())), "the founder stays: "
+                        + record.members());
+
+                ItemStack founderTalc = new ItemStack(EmpireContent.TARNISHED_TALC.get(), 5);
+                long start = level.getGameTime();
+                LeaveInteractions.tryLeave(level, data, record, mainPos, founder, founderTalc, start);
+                LeaveInteractions.tryLeave(level, data, record, mainPos, founder, founderTalc, start + 300);
+                helper.assertTrue(founderTalc.getCount() == 5 && record.isMember(founder.getUUID()),
+                        "300 ticks after the warning is too late; nothing taken");
+                Long rewarned = data.leaveWarnedAt(founder.getUUID());
+                helper.assertTrue(rewarned != null && rewarned == start + 300, "too late warns again, at " + rewarned);
+            } finally {
+                data.disbandEmpire(record.id(), null);
+            }
+        });
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void theLastMemberLeavingKeepsTheEmpireForANewPlayerToJoin(GameTestHelper helper) {
+        withTierChecksPassing(() -> {
+            ServerLevel level = helper.getLevel();
+            EmpireSavedData data = EmpireSavedData.of(level.getServer());
+            Player founder = helper.makeMockPlayer(GameType.SURVIVAL);
+            EmpireRecord record = foundWithBeef(helper, founder);
+            BlockPos mainPos = helper.absolutePos(SPOT);
+            ChunkPos center = new ChunkPos(mainPos);
+            try {
+                ItemStack talc = new ItemStack(EmpireContent.TARNISHED_TALC.get(), 5);
+                long start = level.getGameTime();
+                LeaveInteractions.tryLeave(level, data, record, mainPos, founder, talc, start);
+                LeaveInteractions.tryLeave(level, data, record, mainPos, founder, talc, start + 80);
+                helper.assertTrue(talc.isEmpty() && record.members().isEmpty(), "the last member left: " + record.members());
+
+                helper.assertTrue(data.getEmpire(record.id()) == record, "the empire is not disbanded");
+                helper.assertTrue(record.state().stakedCount() == 9
+                        && data.getEmpireByChunk(ChunkKeys.pack(center.x, center.z)) == record,
+                        "its chunks stay staked");
+                helper.assertTrue(record.state().dominion() == 10, "its dominion is unchanged, is " + record.state().dominion());
+                helper.assertTrue(GodSacrificeGameTests.IRON_AUROCHS.equals(record.god()) && !record.currentDemand().isEmpty(),
+                        "it keeps its god and demand");
+                helper.assertTrue(mainPos.equals(record.mainBonfire()), "it keeps its main bonfire");
+
+                Player newcomer = joinWithBeef(helper, record);
+                helper.assertTrue(record.members().equals(Set.of(newcomer.getUUID())), "a new player joins the frozen empire: "
+                        + record.members());
+            } finally {
+                data.disbandEmpire(record.id(), null);
+            }
+        });
         helper.succeed();
     }
 

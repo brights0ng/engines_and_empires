@@ -1,4 +1,4 @@
-// Written by Gemini; equal members by Claude.
+// Written by Gemini; equal members and leave warnings by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.Collection;
@@ -36,6 +36,8 @@ public final class EmpireSavedData extends SavedData {
     private final Map<UUID, UUID> memberToEmpire = new HashMap<>();
     private final Long2ObjectMap<UUID> chunkIndex = new Long2ObjectOpenHashMap<>();
     private final BonfireRegistry bonfires = new BonfireRegistry();
+    /** When each player was last warned that offering again leaves their empire. Not saved. */
+    private final Map<UUID, Long> pendingLeave = new HashMap<>();
 
     public static EmpireSavedData of(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(
@@ -98,8 +100,19 @@ public final class EmpireSavedData extends SavedData {
             return false;
         }
         memberToEmpire.remove(player, record.id());
+        pendingLeave.remove(player);
         setDirty();
         return true;
+    }
+
+    /** The game time {@code player} was last warned about leaving, or null. */
+    @Nullable
+    public Long leaveWarnedAt(UUID player) {
+        return pendingLeave.get(player);
+    }
+
+    public void warnLeave(UUID player, long gameTime) {
+        pendingLeave.put(player, gameTime);
     }
 
     public StakeResult stakeChunk(EmpireRecord record, long chunk, long day, boolean tierOk) {
