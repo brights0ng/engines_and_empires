@@ -48,6 +48,8 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
  * <ul>
  *   <li>Founding, at an unclaimed bonfire: {@link EmpireState#FOUNDING_MEAT} of one god's founding (tier 1) meat, from
  *       the one stack in the hand used, found an empire under that god and roll its first demand.</li>
+ *   <li>Joining, at an empire's main bonfire: a player in no empire offers the same meat of the empire's god and
+ *       becomes a member (no invitation; reaching the bonfire is the gate).</li>
  *   <li>Adoption, at a godless empire's main bonfire (records from before gods): the same meat gives it that god and a
  *       demand; its dominion stays as it is. A godless empire has nothing to pay.</li>
  *   <li>Paying, at the main bonfire: an item or fluid container that matches an unpaid line of the current demand goes
@@ -85,9 +87,11 @@ public final class SacrificeInteractions {
 
         // 0. Is it an offering at all? (Anything else is left to do what it would do.) An unclaimed bonfire and a godless
         // empire take founding meat; an empire with a god takes what its demand still needs (nothing, if its god's data
-        // is gone).
-        boolean offering = owner == null || owner.god() == null ? isFoundingMeat(stack)
-                : ownerGod != null && demandLineFor(stack, owner, ownerGod) >= 0;
+        // is gone). A player outside the empire may offer its god's founding meat to join it.
+        boolean member = owner != null && owner.isMember(player.getUUID());
+        boolean joining = owner != null && !member && isJoiningMeat(stack, owner, ownerGod);
+        boolean offering = joining || (owner == null || owner.god() == null ? isFoundingMeat(stack)
+                : ownerGod != null && demandLineFor(stack, owner, ownerGod) >= 0);
         if (!offering) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
@@ -109,8 +113,12 @@ public final class SacrificeInteractions {
             return found(stack, serverLevel, data, pos, chunkPos, chunk, player);
         }
 
+        if (joining) {
+            return join(stack, serverLevel, data, pos, owner, ownerGod, player);
+        }
+
         // Claimed bonfire: player must be a member (any member; none is above the others), and must be main bonfire
-        if (!owner.isMember(player.getUUID())) {
+        if (!member) {
             player.displayClientMessage(Component.translatable("message.empire.sacrifice.not_member"), true);
             return ItemInteractionResult.FAIL;
         }
@@ -185,6 +193,7 @@ public final class SacrificeInteractions {
         EmpireRecord record = data.createEmpire(player.getUUID(), chunk, pos, serverLevel.getGameTime());
         record.setGod(god.id());
         Demands.rollNext(record, god);
+        record.feedGod();
         data.setDirty();
 
         celebrate(serverLevel, pos);
@@ -201,10 +210,52 @@ public final class SacrificeInteractions {
         consume(stack, EmpireState.FOUNDING_MEAT, player);
         owner.setGod(god.id());
         Demands.rollNext(owner, god);
+        owner.feedGod();
         data.setDirty();
 
         celebrate(serverLevel, pos);
         player.displayClientMessage(Component.translatable("message.empire.god.adopted", god.displayName()), true);
+        return ItemInteractionResult.SUCCESS;
+    }
+
+    /**
+     * Joining, at an empire's main bonfire: a player in no empire offers {@link EmpireState#FOUNDING_MEAT} of the empire's
+     * god's founding meat, fresh as a founding needs it, and becomes a member. Nobody is asked: reaching the bonfire is
+     * the gate. Refused, taking nothing, from a player already in an empire, away from the main bonfire, and by an empire
+     * without a god.
+     */
+    private static ItemInteractionResult join(ItemStack stack, ServerLevel serverLevel, EmpireSavedData data, BlockPos pos,
+            EmpireRecord owner, @Nullable GodDefinition god, Player player) {
+        if (data.getEmpireOf(player.getUUID()) != null) {
+            player.displayClientMessage(Component.translatable("message.empire.join.already_member"), true);
+            return ItemInteractionResult.FAIL;
+        }
+        if (!pos.equals(owner.mainBonfire())) {
+            player.displayClientMessage(Component.translatable("message.empire.sacrifice.not_main"), true);
+            return ItemInteractionResult.FAIL;
+        }
+        if (god == null) {
+            player.displayClientMessage(Component.translatable("message.empire.join.godless"), true);
+            return ItemInteractionResult.FAIL;
+        }
+        int needed = EmpireState.FOUNDING_MEAT;
+        if (stack.getCount() < needed) {
+            player.displayClientMessage(Component.translatable("message.empire.sacrifice.need_meat", needed), true);
+            return ItemInteractionResult.FAIL;
+        }
+        if (!takesOwnMeat(god, stack, needed) && !takesRottingMeat(god, stack, needed)) {
+            player.displayClientMessage(Component.translatable("message.empire.sacrifice.meat_not_fresh"), true);
+            return ItemInteractionResult.FAIL;
+        }
+
+        consume(stack, needed, player);
+        data.addMember(owner, player.getUUID());
+        owner.feedGod();
+
+        celebrate(serverLevel, pos);
+        player.displayClientMessage(Component.translatable("message.empire.join.joined", god.displayName()), true);
+        EmpireSavedData.messageMembers(owner, serverLevel.getServer(),
+                Component.translatable("message.empire.join.member_joined", player.getDisplayName()), player.getUUID());
         return ItemInteractionResult.SUCCESS;
     }
 
@@ -239,19 +290,39 @@ public final class SacrificeInteractions {
     @Nullable
     static GodDefinition godFor(ItemStack stack, int units) {
         for (GodDefinition god : Gods.all()) {
-            if (isFoundingMeatOf(god, stack) && (god.acceptsRottingMeat()
-                    || MeatFreshnessChecks.stalest(stack, units).isFresh())) {
+            if (takesOwnMeat(god, stack, units)) {
                 return god;
             }
         }
-        if (allRottingRawMeat(stack, units)) {
-            for (GodDefinition god : Gods.all()) {
-                if (god.acceptsRottingMeat()) {
-                    return god;
-                }
+        for (GodDefinition god : Gods.all()) {
+            if (takesRottingMeat(god, stack, units)) {
+                return god;
             }
         }
         return null;
+    }
+
+    /** Whether {@code god} takes {@code units} of this stack as its own founding meat: fresh enough, or at any stage. */
+    private static boolean takesOwnMeat(GodDefinition god, ItemStack stack, int units) {
+        return isFoundingMeatOf(god, stack) && (god.acceptsRottingMeat()
+                || MeatFreshnessChecks.stalest(stack, units).isFresh());
+    }
+
+    /** Whether {@code god} takes {@code units} of this stack as rotting raw meat (only a god that accepts rotting meat). */
+    private static boolean takesRottingMeat(GodDefinition god, ItemStack stack, int units) {
+        return god.acceptsRottingMeat() && allRottingRawMeat(stack, units);
+    }
+
+    /**
+     * Whether a joining would look at this stack, offered by a player outside {@code owner}: its god's founding meat (or,
+     * for a god that accepts rotting meat, rotting raw meat); any god's founding meat at a godless empire, which refuses.
+     */
+    private static boolean isJoiningMeat(ItemStack stack, EmpireRecord owner, @Nullable GodDefinition god) {
+        if (owner.god() == null) {
+            return isFoundingMeat(stack);
+        }
+        return god != null && (isFoundingMeatOf(god, stack)
+                || takesRottingMeat(god, stack, Math.min(stack.getCount(), EmpireState.FOUNDING_MEAT)));
     }
 
     /** Whether a founding (or adoption) would look at this stack: some god's founding meat, or rotting raw meat. */
@@ -353,6 +424,7 @@ public final class SacrificeInteractions {
         owner.state().addDominion(EmpireState.DOMINION_PER_SACRIFICE);
         owner.setSacrificeCount(owner.sacrificeCount() + 1);
         Demands.rollNext(owner, god);
+        owner.feedGod();
         data.setDirty();
 
         celebrate(serverLevel, pos);

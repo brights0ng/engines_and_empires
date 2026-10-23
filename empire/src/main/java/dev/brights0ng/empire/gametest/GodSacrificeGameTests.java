@@ -62,7 +62,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class GodSacrificeGameTests {
 
-    private static final BlockPos SPOT = new BlockPos(3, 1, 3);
+    static final BlockPos SPOT = new BlockPos(3, 1, 3);
     /** A second unclaimed bonfire, far from every test structure. */
     private static final BlockPos FAR = new BlockPos(1632, 64, -1632);
 

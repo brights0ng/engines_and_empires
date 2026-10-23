@@ -1,4 +1,4 @@
-// Written by Gemini; god, sacrifice count and current demand added by Claude; equal members by Claude.
+// Written by Gemini; god, sacrifice count and current demand added by Claude; equal members and the feeding hook by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.ArrayList;
@@ -118,6 +118,13 @@ public final class EmpireRecord {
     /** Replaces one line of the current demand (a payment towards it). */
     public void setDemandLine(int index, DemandLine line) {
         currentDemand.set(index, line);
+    }
+
+    /**
+     * The god is fed: at founding, at each join, at adoption and when a demand is paid in full. Does nothing yet; the
+     * god's satiety will hang off it.
+     */
+    public void feedGod() {
     }
 
     public CompoundTag save() {

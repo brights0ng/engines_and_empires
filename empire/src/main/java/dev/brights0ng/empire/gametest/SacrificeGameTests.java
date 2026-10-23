@@ -1,4 +1,4 @@
-// Written by Gemini; moved from bread to god sacrifices (founding meat, paying the demand) by Claude.
+// Written by Gemini; moved from bread to god sacrifices (founding meat, paying the demand) and members by Claude.
 package dev.brights0ng.empire.gametest;
 
 import dev.brights0ng.empire.Empire;
@@ -171,15 +171,19 @@ public final class SacrificeGameTests {
         EmpireRecord record = data.getEmpireOf(player1.getUUID());
         helper.assertTrue(record != null, "Empire founded");
 
-        // Sub-case C: Non-founder on claimed bonfire, offering beef the god's demand asks for
+        // Sub-case C: A member of another empire on this claimed bonfire, offering beef the god's demand asks for (a
+        // player in no empire would join with it; see MembershipGameTests)
         Player player2 = helper.makeMockPlayer(GameType.SURVIVAL);
+        EmpireRecord otherEmpire = data.createEmpire(player2.getUUID(), ChunkKeys.pack(-300, 300), null, helper.getLevel().getGameTime());
         player2.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 5));
         interactWithBonfire(helper, SPOT, player2);
 
         helper.assertTrue(player2.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 5,
-                "Beef not consumed when non-founder offers sacrifice");
+                "Beef not consumed when a non-member offers sacrifice");
         helper.assertTrue(record.state().dominion() == 10,
-                "Dominion unchanged when non-founder attempts sacrifice");
+                "Dominion unchanged when a non-member attempts sacrifice");
+        helper.assertTrue(!record.isMember(player2.getUUID()), "A member of another empire does not join");
+        data.disbandEmpire(otherEmpire.id(), null);
 
         // Sub-case D: Not main bonfire (secondary bonfire placed in empire land)
         BlockPos secondaryPos = mainPos.offset(5, 0, 0);
