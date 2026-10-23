@@ -4,11 +4,11 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 
-import dev.brights0ng.seismicsurveyance.GeophoneEntity;
-import dev.brights0ng.seismicsurveyance.GeophoneGlow;
-import dev.brights0ng.seismicsurveyance.GeophoneOrientation;
-import dev.brights0ng.seismicsurveyance.GeophoneSlide;
-import dev.brights0ng.seismicsurveyance.GeophoneTier;
+import dev.brights0ng.seismicsurveyance.entity.GeophoneEntity;
+import dev.brights0ng.seismicsurveyance.logic.GeophoneGlow;
+import dev.brights0ng.seismicsurveyance.logic.GeophoneOrientation;
+import dev.brights0ng.seismicsurveyance.logic.GeophoneSlide;
+import dev.brights0ng.seismicsurveyance.data.GeophoneTier;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LightTexture;

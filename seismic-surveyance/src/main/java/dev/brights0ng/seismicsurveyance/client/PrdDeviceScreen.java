@@ -3,7 +3,7 @@ package dev.brights0ng.seismicsurveyance.client;
 
 import org.lwjgl.glfw.GLFW;
 
-import dev.brights0ng.seismicsurveyance.Logbook;
+import dev.brights0ng.seismicsurveyance.data.Logbook;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;

@@ -4,8 +4,8 @@ import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
 
-import dev.brights0ng.seismicsurveyance.PrdItem;
-import dev.brights0ng.seismicsurveyance.PrdSignal;
+import dev.brights0ng.seismicsurveyance.item.PrdItem;
+import dev.brights0ng.seismicsurveyance.data.PrdSignal;
 import dev.brights0ng.seismicsurveyance.SeismicContent;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.client.KeyMapping;

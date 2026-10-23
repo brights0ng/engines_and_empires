@@ -6,9 +6,9 @@ import com.mojang.math.Axis;
 
 import org.joml.Matrix4f;
 
-import dev.brights0ng.seismicsurveyance.LoggerDisplay;
-import dev.brights0ng.seismicsurveyance.PrdItem;
-import dev.brights0ng.seismicsurveyance.PrdShape;
+import dev.brights0ng.seismicsurveyance.logic.LoggerDisplay;
+import dev.brights0ng.seismicsurveyance.item.PrdItem;
+import dev.brights0ng.seismicsurveyance.logic.PrdShape;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;

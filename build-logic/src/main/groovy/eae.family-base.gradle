@@ -1,4 +1,4 @@
-// Updated by Gemini: removed CurseMaven repository.
+// Updated by Gemini: removed CurseMaven repository; updated by Claude: requireMod also loads the required mod's requiredRuntimeElements.
 // What every project of the family's build shares, whether it builds a mod or only runs mods (split step 4b): Java,
 // the repositories, NeoForge and Parchment, the helpers that bind other projects' mods to this project's runs
 // (requireMod, loadMod), run logging, and one Minecraft run at a time. eae.mod-conventions applies it and adds the
@@ -78,6 +78,11 @@ ext.requireMod = { String path ->
     // of the mod next to its folders in mods {}. Test code compiles against it too.
     dependencies.add('compileOnly', required)
     dependencies.add('testImplementation', required)
+    // Outside mods the required mod needs at runtime (its requiredRuntimeElements, e.g. Paradyne Lib's GeckoLib): this
+    // project's runs load them too, since the mods {} binding carries only the mod's own classes and resources.
+    if (required.configurations.findByName('requiredRuntimeElements') != null) {
+        dependencies.add('runtimeOnly', dependencies.project(path: path, configuration: 'requiredRuntimeElements'))
+    }
     ([path] + required.requiredModPaths).each { String p ->
         if (requiredModPaths.add(p)) {
             bindMod(project(p))

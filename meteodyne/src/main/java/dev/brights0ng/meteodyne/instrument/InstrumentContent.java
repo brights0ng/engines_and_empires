@@ -1,4 +1,4 @@
-// Written by ChatGPT.
+// Written by ChatGPT; vanilla creative-tab entries removed by Claude (see MeteodyneTab).
 package dev.brights0ng.meteodyne.instrument;
 
 import java.util.function.Supplier;
@@ -7,7 +7,6 @@ import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -15,7 +14,6 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -59,18 +57,7 @@ public final class InstrumentContent {
         COMPONENTS.register(bus);
         BLOCK_ENTITIES.register(bus);
         MENUS.register(bus);
-        bus.addListener(InstrumentContent::creativeTab);
         bus.addListener(InstrumentDataGen::gatherData);
-    }
-
-    private static void creativeTab(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
-            event.accept(THERMOMETER);
-            event.accept(WIND_GAUGE);
-        } else if (event.getTabKey() == CreativeModeTabs.REDSTONE_BLOCKS) {
-            event.accept(TEMPERATURE_SENSOR_ITEM);
-            event.accept(WIND_SENSOR_ITEM);
-        }
     }
 
     private InstrumentContent() { }

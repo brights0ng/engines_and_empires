@@ -5,7 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntityRenderer;
 
-import dev.brights0ng.seismicsurveyance.CombustiveThumperBlockEntity;
+import dev.brights0ng.seismicsurveyance.blockentity.CombustiveThumperBlockEntity;
 import dev.engine_room.flywheel.api.visualization.VisualizationManager;
 import net.createmod.catnip.render.CachedBuffers;
 import net.minecraft.client.Minecraft;

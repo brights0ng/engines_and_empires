@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 
 import javax.imageio.ImageIO;
 
+import dev.brights0ng.seismicsurveyance.datagen.ThumperTextures;
 import org.junit.jupiter.api.Test;
 
 /**

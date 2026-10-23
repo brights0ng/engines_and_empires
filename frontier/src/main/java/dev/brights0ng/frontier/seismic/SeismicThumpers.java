@@ -1,7 +1,7 @@
 package dev.brights0ng.frontier.seismic;
 
 import dev.brights0ng.frontier.incursion.ThumperAccess;
-import dev.brights0ng.seismicsurveyance.ChokedThumpers;
+import dev.brights0ng.seismicsurveyance.logic.ChokedThumpers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.state.BlockState;

@@ -5,7 +5,7 @@ import java.util.function.Consumer;
 import com.simibubi.create.AllPartialModels;
 import com.simibubi.create.content.kinetics.base.SingleAxisRotatingVisual;
 
-import dev.brights0ng.seismicsurveyance.MechanicalThumperBlockEntity;
+import dev.brights0ng.seismicsurveyance.blockentity.MechanicalThumperBlockEntity;
 import dev.engine_room.flywheel.api.instance.Instance;
 import dev.engine_room.flywheel.api.visual.DynamicVisual;
 import dev.engine_room.flywheel.api.visualization.VisualizationContext;

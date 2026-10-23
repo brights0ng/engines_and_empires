@@ -1,4 +1,4 @@
-// Written by Gemini; loot condition type added by Claude.
+// Written by Gemini; loot condition type and creative tab added by Claude.
 package dev.brights0ng.empire;
 
 import dev.brights0ng.empire.bonfire.BonfireBlock;
@@ -9,9 +9,11 @@ import dev.brights0ng.empire.loot.CorrectToolForDrops;
 import dev.brights0ng.empire.talc.BlessedTalcItem;
 import dev.brights0ng.empire.talc.TarnishedTalcItem;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -19,11 +21,12 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.storage.loot.predicates.LootItemConditionType;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
+
+import java.util.function.Supplier;
 
 public final class EmpireContent {
 
@@ -33,6 +36,8 @@ public final class EmpireContent {
             DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, Empire.MODID);
     public static final DeferredRegister<LootItemConditionType> LOOT_CONDITION_TYPES =
             DeferredRegister.create(Registries.LOOT_CONDITION_TYPE, Empire.MODID);
+    public static final DeferredRegister<CreativeModeTab> TABS =
+            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Empire.MODID);
 
     /** {@code empire:correct_tool_for_drops} (levitite's loot tables). */
     public static final DeferredHolder<LootItemConditionType, LootItemConditionType> CORRECT_TOOL_FOR_DROPS =
@@ -99,27 +104,30 @@ public final class EmpireContent {
             BLOCK_ENTITY_TYPES.register("bonfire",
                     () -> BlockEntityType.Builder.of(BonfireBlockEntity::new, BONFIRE.get()).build(null));
 
+    /**
+     * The creative tab for everything Empire registers, icon the bonfire. The items are only in this tab, not also in the
+     * game's own (same pattern as Seismic Surveyance's tab). The bonfire's structure part has no item.
+     */
+    public static final Supplier<CreativeModeTab> EMPIRE_TAB = TABS.register("empire",
+            () -> CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup.empire.empire"))
+                    .icon(() -> new ItemStack(BONFIRE_ITEM.get()))
+                    .displayItems((parameters, output) -> {
+                        output.accept(BONFIRE_ITEM.get());
+                        output.accept(TALC_ORE_ITEM.get());
+                        output.accept(DEEPSLATE_TALC_ORE_ITEM.get());
+                        output.accept(RAW_TALC.get());
+                        output.accept(BLESSED_TALC.get());
+                        output.accept(TARNISHED_TALC.get());
+                    })
+                    .build());
+
     public static void register(IEventBus modEventBus) {
         BLOCKS.register(modEventBus);
         ITEMS.register(modEventBus);
         BLOCK_ENTITY_TYPES.register(modEventBus);
         LOOT_CONDITION_TYPES.register(modEventBus);
-        modEventBus.addListener(EmpireContent::onBuildCreativeModeTabContents);
-    }
-
-    private static void onBuildCreativeModeTabContents(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
-            event.accept(BONFIRE_ITEM.get());
-            event.accept(BLESSED_TALC.get());
-            event.accept(TARNISHED_TALC.get());
-        } else if (event.getTabKey() == CreativeModeTabs.NATURAL_BLOCKS) {
-            event.accept(TALC_ORE_ITEM.get());
-            event.accept(DEEPSLATE_TALC_ORE_ITEM.get());
-        } else if (event.getTabKey() == CreativeModeTabs.INGREDIENTS) {
-            event.accept(RAW_TALC.get());
-            event.accept(BLESSED_TALC.get());
-            event.accept(TARNISHED_TALC.get());
-        }
+        TABS.register(modEventBus);
     }
 
     private EmpireContent() {

@@ -1,7 +1,7 @@
 package dev.brights0ng.seismicsurveyance.client;
 
-import dev.brights0ng.seismicsurveyance.ReaderCompass;
-import dev.brights0ng.seismicsurveyance.ReaderReading;
+import dev.brights0ng.seismicsurveyance.logic.ReaderCompass;
+import dev.brights0ng.seismicsurveyance.data.ReaderReading;
 import dev.brights0ng.seismicsurveyance.SeismicContent;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.client.Minecraft;

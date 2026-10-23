@@ -1,4 +1,4 @@
-// Written by Gemini; god sacrifices wired in by Claude.
+// Written by Gemini; god sacrifices wired in, particles spread over the bonfire model and Overworld-only registration by Claude.
 package dev.brights0ng.empire.bonfire;
 
 import org.jetbrains.annotations.Nullable;
@@ -60,6 +60,17 @@ public class BonfireBlock extends BaseEntityBlock {
     public static final int LIGHT_ROARING = 15;
 
     protected static final VoxelShape SHAPE = Block.box(0.0D, 0.0D, 0.0D, 16.0D, 7.0D, 16.0D);
+
+    /**
+     * Where the particles go, in blocks from the core block's bottom centre, matching the 3x3x3 model: flames within
+     * {@link #FLAME_RADIUS} of the centre, rising from the flame bases; smoke from about the flame tips.
+     */
+    private static final double FLAME_RADIUS = 0.8D;
+    private static final double FLAME_BASE = 0.4D;
+    private static final double FLAME_SPAN = 1.0D;
+    private static final double SMOKE_RADIUS = 0.5D;
+    private static final double SMOKE_BASE = 1.8D;
+    private static final double SMOKE_SPAN = 0.6D;
 
     private static final ThreadLocal<Boolean> REMOVING_BONFIRE = ThreadLocal.withInitial(() -> false);
 
@@ -127,7 +138,8 @@ public class BonfireBlock extends BaseEntityBlock {
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean isMoving) {
         super.onPlace(state, level, pos, oldState, isMoving);
-        if (!state.is(oldState.getBlock()) && !level.isClientSide() && level instanceof ServerLevel serverLevel) {
+        // Only Overworld bonfires belong to empires (P10); the registry holds positions without their dimension.
+        if (!state.is(oldState.getBlock()) && level instanceof ServerLevel serverLevel && serverLevel.dimension() == Level.OVERWORLD) {
             EmpireSavedData.of(serverLevel.getServer()).onBonfirePlaced(pos, serverLevel.getServer());
         }
     }
@@ -148,7 +160,7 @@ public class BonfireBlock extends BaseEntityBlock {
                     REMOVING_BONFIRE.set(false);
                 }
             }
-            if (!level.isClientSide() && level instanceof ServerLevel serverLevel) {
+            if (level instanceof ServerLevel serverLevel && serverLevel.dimension() == Level.OVERWORLD) {
                 EmpireSavedData.of(serverLevel.getServer()).onBonfireRemoved(pos, serverLevel.getServer());
             }
         }
@@ -308,10 +320,18 @@ public class BonfireBlock extends BaseEntityBlock {
 
         int particleCount = roaring ? 6 : 2;
         for (int i = 0; i < particleCount; i++) {
-            double px = x + (random.nextDouble() - 0.5D) * 0.6D;
-            double py = y + random.nextDouble() * 0.4D;
-            double pz = z + (random.nextDouble() - 0.5D) * 0.6D;
-            level.addParticle(ParticleTypes.CAMPFIRE_COSY_SMOKE, px, py, pz, 0.0D, 0.07D, 0.0D);
+            double angle = random.nextDouble() * Math.PI * 2.0D;
+            double r = Math.sqrt(random.nextDouble());
+            double sx = x + Math.cos(angle) * r * SMOKE_RADIUS;
+            double sy = pos.getY() + SMOKE_BASE + random.nextDouble() * SMOKE_SPAN;
+            double sz = z + Math.sin(angle) * r * SMOKE_RADIUS;
+            level.addParticle(ParticleTypes.CAMPFIRE_COSY_SMOKE, sx, sy, sz, 0.0D, 0.07D, 0.0D);
+
+            angle = random.nextDouble() * Math.PI * 2.0D;
+            r = Math.sqrt(random.nextDouble());
+            double px = x + Math.cos(angle) * r * FLAME_RADIUS;
+            double py = pos.getY() + FLAME_BASE + random.nextDouble() * FLAME_SPAN;
+            double pz = z + Math.sin(angle) * r * FLAME_RADIUS;
             if (roaring) {
                 level.addParticle(ParticleTypes.SOUL_FIRE_FLAME, px, py, pz, 0.0D, 0.02D, 0.0D);
             } else {

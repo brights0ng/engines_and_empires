@@ -1,5 +1,6 @@
 {
   "meteodyne.configuration.title": "Meteodyne",
+  "itemGroup.meteodyne.meteodyne": "Meteodyne",
   "block.meteodyne.glaze": "Glaze",
   "item.meteodyne.thermometer": "Thermometer",
   "item.meteodyne.wind_gauge": "Wind Gauge",

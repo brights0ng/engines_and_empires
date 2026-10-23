@@ -1,7 +1,7 @@
 // Edited by Gemini: added tab-filtered showing() and hasLayer() for MapLayers.
 package dev.brights0ng.seismicsurveyance.client;
 
-import dev.brights0ng.seismicsurveyance.LoggerDisplay;
+import dev.brights0ng.seismicsurveyance.logic.LoggerDisplay;
 
 import java.util.ArrayList;
 import java.util.List;

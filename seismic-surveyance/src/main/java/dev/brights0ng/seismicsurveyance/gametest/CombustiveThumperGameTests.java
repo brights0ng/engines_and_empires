@@ -3,8 +3,8 @@ package dev.brights0ng.seismicsurveyance.gametest;
 import java.lang.reflect.Field;
 
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
-import dev.brights0ng.seismicsurveyance.CombustiveThumperBlock;
-import dev.brights0ng.seismicsurveyance.CombustiveThumperBlockEntity;
+import dev.brights0ng.seismicsurveyance.block.CombustiveThumperBlock;
+import dev.brights0ng.seismicsurveyance.blockentity.CombustiveThumperBlockEntity;
 import dev.brights0ng.seismicsurveyance.SeismicContent;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.core.BlockPos;

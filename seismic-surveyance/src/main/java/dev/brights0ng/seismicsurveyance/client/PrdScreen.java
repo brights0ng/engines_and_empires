@@ -1,7 +1,7 @@
 package dev.brights0ng.seismicsurveyance.client;
 
-import dev.brights0ng.seismicsurveyance.PrdMenu;
-import dev.brights0ng.seismicsurveyance.PrdSignal;
+import dev.brights0ng.seismicsurveyance.menu.PrdMenu;
+import dev.brights0ng.seismicsurveyance.data.PrdSignal;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;

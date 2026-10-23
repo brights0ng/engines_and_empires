@@ -74,3 +74,6 @@ Gradle and javac enforce the graph between projects; `ArchitectureTest` (core un
 
 ## Conventions
 `git mv` for moves (keep history). One logical change per commit. Commit messages say what and why. Ids, lang keys and resource paths are public: change one only when Bright asks, and list every rename in the PR. Optional-mod glue never makes the mod it lives in require that mod.
+
+### Creative tabs
+Each mod with its own content gets one dedicated creative tab, built the way Seismic Surveyance's `SEISMOLOGY_TAB`, Empire's `EMPIRE_TAB` and Meteodyne's `MeteodyneTab` are (Bright's standard): a `DeferredRegister<CreativeModeTab> TABS` registered on the mod bus; title key `itemGroup.<modid>.<name>`; icon is the mod's signature item; `displayItems` lists every obtainable item the mod registers, in the order a player would use them; items appear only in that tab, not also in vanilla tabs. Technical blocks with no item (multiblock parts) are left out.

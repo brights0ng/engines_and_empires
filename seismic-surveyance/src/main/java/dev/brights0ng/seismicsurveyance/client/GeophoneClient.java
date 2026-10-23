@@ -1,6 +1,6 @@
 package dev.brights0ng.seismicsurveyance.client;
 
-import dev.brights0ng.seismicsurveyance.GeophoneGlow;
+import dev.brights0ng.seismicsurveyance.logic.GeophoneGlow;
 import dev.brights0ng.seismicsurveyance.SeismicContent;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.client.resources.model.ModelResourceLocation;

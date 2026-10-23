@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "minecraft:item/quartz"
+    "layer0": "empire:item/blessed_talc"
   }
 }

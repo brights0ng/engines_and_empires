@@ -4,11 +4,11 @@ import java.lang.reflect.Field;
 
 import dev.brights0ng.enginesandempires.EnginesAndEmpires;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
-import dev.brights0ng.seismicsurveyance.CombustiveFiring;
-import dev.brights0ng.seismicsurveyance.CombustiveThumperBlock;
-import dev.brights0ng.seismicsurveyance.CombustiveThumperBlockEntity;
+import dev.brights0ng.seismicsurveyance.logic.CombustiveFiring;
+import dev.brights0ng.seismicsurveyance.block.CombustiveThumperBlock;
+import dev.brights0ng.seismicsurveyance.blockentity.CombustiveThumperBlockEntity;
 import dev.brights0ng.seismicsurveyance.SeismicContent;
-import dev.brights0ng.seismicsurveyance.ThumperFluids;
+import dev.brights0ng.seismicsurveyance.logic.ThumperFluids;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestAssertException;

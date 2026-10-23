@@ -15,6 +15,8 @@ import java.util.regex.Pattern;
 
 import javax.imageio.ImageIO;
 
+import dev.brights0ng.seismicsurveyance.datagen.SeismicTextures;
+import dev.brights0ng.seismicsurveyance.logic.GeophoneOrientation;
 import org.junit.jupiter.api.Test;
 
 /**

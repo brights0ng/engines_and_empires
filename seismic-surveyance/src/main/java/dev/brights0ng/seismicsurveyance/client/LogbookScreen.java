@@ -1,7 +1,7 @@
 package dev.brights0ng.seismicsurveyance.client;
 
-import dev.brights0ng.seismicsurveyance.Logbook;
-import dev.brights0ng.seismicsurveyance.LogbookMenu;
+import dev.brights0ng.seismicsurveyance.data.Logbook;
+import dev.brights0ng.seismicsurveyance.menu.LogbookMenu;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 

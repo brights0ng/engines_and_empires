@@ -3,13 +3,13 @@ package dev.brights0ng.seismicsurveyance.gametest;
 import com.mojang.serialization.JsonOps;
 
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
-import dev.brights0ng.seismicsurveyance.LoggerDisplay;
-import dev.brights0ng.seismicsurveyance.ReaderCodecs;
-import dev.brights0ng.seismicsurveyance.ReaderReading;
+import dev.brights0ng.seismicsurveyance.logic.LoggerDisplay;
+import dev.brights0ng.seismicsurveyance.data.ReaderCodecs;
+import dev.brights0ng.seismicsurveyance.data.ReaderReading;
 import dev.brights0ng.seismicsurveyance.SeismicContent;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
-import dev.brights0ng.seismicsurveyance.SmartLoggerBlock;
-import dev.brights0ng.seismicsurveyance.SmartLoggerBlockEntity;
+import dev.brights0ng.seismicsurveyance.block.SmartLoggerBlock;
+import dev.brights0ng.seismicsurveyance.blockentity.SmartLoggerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -193,7 +193,7 @@ public final class SmartLoggerGameTests {
     @GameTest(template = SCRATCH)
     public static void theOreIsSavedWithAReading(GameTestHelper helper) {
         ReaderReading reading = new ReaderReading("minecraft:overworld", 1, 2, 3, true, 9, 50,
-                dev.brights0ng.seismicsurveyance.ReaderAccuracy.Confidence.PRECISE, "iron");
+                dev.brights0ng.seismicsurveyance.logic.ReaderAccuracy.Confidence.PRECISE, "iron");
         var json = ReaderCodecs.READING.encodeStart(JsonOps.INSTANCE, reading).getOrThrow();
         if (!reading.equals(ReaderCodecs.READING.parse(JsonOps.INSTANCE, json).getOrThrow())) {
             helper.fail("the reading did not come back the same");

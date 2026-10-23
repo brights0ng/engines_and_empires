@@ -1,4 +1,4 @@
-# Written by Gemini; outside mods, required Frontier and optional Simple Spoilage added by Claude.
+# Written by Gemini; outside mods, required Frontier, optional Simple Spoilage and GeckoLib added by Claude.
 modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
@@ -31,6 +31,14 @@ ${mod_description}
     modId="paradyne_lib"
     type="required"
     versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# GeckoLib: the bonfire's model (block and item). Paradyne Lib requires it too; Empire uses it directly.
+[[dependencies.${mod_id}]]
+    modId="geckolib"
+    type="required"
+    versionRange="${geckolib_version_range}"
     ordering="AFTER"
     side="BOTH"
 

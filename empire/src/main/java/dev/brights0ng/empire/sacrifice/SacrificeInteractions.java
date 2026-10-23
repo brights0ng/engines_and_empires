@@ -1,4 +1,4 @@
-// Written by Gemini; god sacrifices (founding meat, adoption, paying demands, the demand readout) by Claude.
+// Written by Gemini; god sacrifices (founding meat, adoption, paying demands, the demand readout) and the client's offering check by Claude.
 package dev.brights0ng.empire.sacrifice;
 
 import java.util.List;
@@ -11,6 +11,7 @@ import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.god.Demands;
 import dev.brights0ng.empire.god.GodDefinition;
+import dev.brights0ng.empire.god.GodOfferings;
 import dev.brights0ng.empire.god.Gods;
 import dev.brights0ng.empire.god.Offerings;
 import dev.brights0ng.empire.rules.ChunkKeys;
@@ -69,9 +70,10 @@ public final class SacrificeInteractions {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         if (level.isClientSide()) {
-            // The client knows neither the gods (server data) nor the empire's demand, so it hands any item at a lit
-            // Overworld bonfire to the server, which decides (and lets the item do its own thing when nobody wants it).
-            return level.dimension() == Level.OVERWORLD && state.getValue(BonfireBlock.LIT)
+            // The client knows neither the gods (server data) nor the empire's demand. It claims the click only for an
+            // item some god could take (the server sends that list), so the item is not also eaten, poured or used; any
+            // other item does what it would do. The server decides.
+            return level.dimension() == Level.OVERWORLD && state.getValue(BonfireBlock.LIT) && GodOfferings.clientMightTake(stack)
                     ? ItemInteractionResult.SUCCESS : ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
 

@@ -1,7 +1,7 @@
 // Written by Gemini.
 package dev.brights0ng.empire.compat.seismic;
 
-import dev.brights0ng.seismicsurveyance.LoggerDisplay;
+import dev.brights0ng.seismicsurveyance.logic.LoggerDisplay;
 
 import java.util.ArrayList;
 import java.util.List;
