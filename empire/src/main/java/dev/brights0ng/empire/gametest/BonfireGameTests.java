@@ -1,6 +1,7 @@
-// Written by Gemini; main bonfire eligibility tests by Claude.
+// Written by Gemini; main bonfire eligibility and recipe tests by Claude.
 package dev.brights0ng.empire.gametest;
 
+import java.util.List;
 import java.util.UUID;
 
 import dev.brights0ng.empire.Empire;
@@ -22,6 +23,10 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.CraftingBookCategory;
+import net.minecraft.world.item.crafting.CraftingInput;
+import net.minecraft.world.item.crafting.CraftingRecipe;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -323,6 +328,33 @@ public final class BonfireGameTests {
         helper.assertTrue(mainClone.is(EmpireContent.BONFIRE_ITEM.get()), "Main block drops bonfire item on pick");
         helper.assertTrue(partClone.is(EmpireContent.BONFIRE_ITEM.get()), "Part block drops bonfire item on pick");
 
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void theBonfireRecipeIsTwoRowsOfLogsCampfireAndCoalBlock(GameTestHelper helper) {
+        RecipeHolder<?> holder = helper.getLevel().getRecipeManager().byKey(Empire.id("bonfire")).orElse(null);
+        helper.assertTrue(holder != null && holder.value() instanceof CraftingRecipe, "the bonfire recipe is a crafting recipe");
+        CraftingRecipe recipe = (CraftingRecipe) holder.value();
+        helper.assertTrue(recipe.category() == CraftingBookCategory.MISC, "the bonfire recipe is in the misc category");
+        ItemStack result = recipe.getResultItem(helper.getLevel().registryAccess());
+        helper.assertTrue(result.is(EmpireContent.BONFIRE_ITEM.get()) && result.getCount() == 1, "it makes 1 bonfire, makes " + result);
+
+        ItemStack log = new ItemStack(Items.OAK_LOG);
+        ItemStack campfire = new ItemStack(Items.CAMPFIRE);
+        ItemStack coal = new ItemStack(Items.COAL_BLOCK);
+        ItemStack spruce = new ItemStack(Items.SPRUCE_LOG);
+        CraftingInput pattern = CraftingInput.of(3, 2, List.of(log, campfire, spruce, log, coal, log));
+        helper.assertTrue(recipe.matches(pattern, helper.getLevel()), "LCL over LBL (any logs) makes a bonfire");
+
+        ItemStack empty = ItemStack.EMPTY;
+        CraftingInput lowerRows = CraftingInput.of(3, 3, List.of(empty, empty, empty, log, campfire, log, log, coal, log));
+        helper.assertTrue(recipe.matches(lowerRows, helper.getLevel()), "the two rows may sit at the bottom of the grid");
+
+        CraftingInput swapped = CraftingInput.of(3, 2, List.of(log, coal, log, log, campfire, log));
+        helper.assertFalse(recipe.matches(swapped, helper.getLevel()), "the campfire goes above the coal block");
+        CraftingInput planks = CraftingInput.of(3, 2, List.of(new ItemStack(Items.OAK_PLANKS), campfire, log, log, coal, log));
+        helper.assertFalse(recipe.matches(planks, helper.getLevel()), "planks are not logs");
         helper.succeed();
     }
 
