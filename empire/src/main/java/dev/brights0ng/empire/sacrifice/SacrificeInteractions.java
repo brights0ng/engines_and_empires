@@ -1,4 +1,4 @@
-// Written by Gemini; god sacrifices (founding meat, adoption, paying demands, the demand readout) by Claude.
+// Written by Gemini; god sacrifices (founding meat, adoption, paying demands, the demand readout), members and joining by Claude.
 package dev.brights0ng.empire.sacrifice;
 
 import java.util.List;
@@ -109,9 +109,9 @@ public final class SacrificeInteractions {
             return found(stack, serverLevel, data, pos, chunkPos, chunk, player);
         }
 
-        // Claimed bonfire: player must be founder, and must be main bonfire
-        if (!player.getUUID().equals(owner.founder())) {
-            player.displayClientMessage(Component.translatable("message.empire.sacrifice.not_founder"), true);
+        // Claimed bonfire: player must be a member (any member; none is above the others), and must be main bonfire
+        if (!owner.isMember(player.getUUID())) {
+            player.displayClientMessage(Component.translatable("message.empire.sacrifice.not_member"), true);
             return ItemInteractionResult.FAIL;
         }
 
@@ -154,7 +154,7 @@ public final class SacrificeInteractions {
 
     private static ItemInteractionResult found(ItemStack stack, ServerLevel serverLevel, EmpireSavedData data, BlockPos pos,
             ChunkPos chunkPos, long chunk, Player player) {
-        if (data.getEmpireByFounder(player.getUUID()) != null) {
+        if (data.getEmpireOf(player.getUUID()) != null) {
             player.displayClientMessage(Component.translatable("message.empire.sacrifice.already_founded"), true);
             return ItemInteractionResult.FAIL;
         }

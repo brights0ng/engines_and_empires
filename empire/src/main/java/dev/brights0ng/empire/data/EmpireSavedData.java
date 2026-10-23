@@ -1,9 +1,10 @@
-// Written by Gemini.
+// Written by Gemini; equal members by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -31,7 +32,8 @@ public final class EmpireSavedData extends SavedData {
     public static final String FILE_NAME = "empire_empires";
 
     private final Map<UUID, EmpireRecord> empires = new HashMap<>();
-    private final Map<UUID, UUID> founderToEmpire = new HashMap<>();
+    /** Each member's empire: a player belongs to at most one. */
+    private final Map<UUID, UUID> memberToEmpire = new HashMap<>();
     private final Long2ObjectMap<UUID> chunkIndex = new Long2ObjectOpenHashMap<>();
     private final BonfireRegistry bonfires = new BonfireRegistry();
 
@@ -47,9 +49,11 @@ public final class EmpireSavedData extends SavedData {
 
     public void rebuildChunkIndex() {
         chunkIndex.clear();
-        founderToEmpire.clear();
+        memberToEmpire.clear();
         for (EmpireRecord record : empires.values()) {
-            founderToEmpire.put(record.founder(), record.id());
+            for (UUID member : record.members()) {
+                memberToEmpire.putIfAbsent(member, record.id());
+            }
             for (long chunk : record.state().staked()) {
                 chunkIndex.put(chunk, record.id());
             }
@@ -60,10 +64,10 @@ public final class EmpireSavedData extends SavedData {
         UUID empireId = UUID.randomUUID();
         EmpireState state = new EmpireState();
         state.found(centerChunk);
-        EmpireRecord record = new EmpireRecord(empireId, founder, state, mainBonfire != null ? mainBonfire.immutable() : null, gameTime);
+        EmpireRecord record = new EmpireRecord(empireId, List.of(founder), state, mainBonfire != null ? mainBonfire.immutable() : null, gameTime);
 
         empires.put(empireId, record);
-        founderToEmpire.put(founder, empireId);
+        memberToEmpire.put(founder, empireId);
         for (long chunk : state.staked()) {
             chunkIndex.put(chunk, empireId);
         }
@@ -72,6 +76,30 @@ public final class EmpireSavedData extends SavedData {
         }
         setDirty();
         return record;
+    }
+
+    /** Adds {@code player} to the empire; false if they already belong to one (this one or another). */
+    public boolean addMember(EmpireRecord record, UUID player) {
+        if (memberToEmpire.containsKey(player)) {
+            return false;
+        }
+        record.addMember(player);
+        memberToEmpire.put(player, record.id());
+        setDirty();
+        return true;
+    }
+
+    /**
+     * Takes {@code player} out of the empire; false if they were not in it. The empire stays when its last member
+     * leaves, with its land, dominion, god and demand, for anyone to join.
+     */
+    public boolean removeMember(EmpireRecord record, UUID player) {
+        if (!record.removeMember(player)) {
+            return false;
+        }
+        memberToEmpire.remove(player, record.id());
+        setDirty();
+        return true;
     }
 
     public StakeResult stakeChunk(EmpireRecord record, long chunk, long day, boolean tierOk) {
@@ -85,10 +113,7 @@ public final class EmpireSavedData extends SavedData {
     }
 
     public UnstakeResult unstakeChunk(EmpireRecord record, long chunk, long day) {
-        long coreChunk = record.mainBonfire() != null
-                ? ChunkKeys.pack(record.mainBonfire().getX() >> 4, record.mainBonfire().getZ() >> 4)
-                : record.state().foundingChunk();
-        UnstakeResult result = record.state().unstake(chunk, day, coreChunk);
+        UnstakeResult result = record.state().unstake(chunk, day, coreChunk(record));
         if (result == UnstakeResult.OK) {
             chunkIndex.remove(chunk);
             setDirty();
@@ -96,20 +121,23 @@ public final class EmpireSavedData extends SavedData {
         return result;
     }
 
+    /** The empire's core chunk: its main bonfire's chunk, or its founding chunk while it has no main bonfire. */
+    public long coreChunk(EmpireRecord record) {
+        BlockPos main = record.mainBonfire();
+        return main != null ? ChunkKeys.pack(main.getX() >> 4, main.getZ() >> 4) : record.state().foundingChunk();
+    }
+
     public void disbandEmpire(UUID empireId, @Nullable MinecraftServer server) {
         EmpireRecord record = empires.remove(empireId);
         if (record != null) {
-            founderToEmpire.remove(record.founder());
+            for (UUID member : record.members()) {
+                memberToEmpire.remove(member, empireId);
+            }
             for (long chunk : record.state().staked()) {
                 chunkIndex.remove(chunk);
             }
             setDirty();
-            if (server != null) {
-                ServerPlayer player = server.getPlayerList().getPlayer(record.founder());
-                if (player != null) {
-                    player.sendSystemMessage(Component.translatable("message.empire.disbanded"));
-                }
-            }
+            messageMembers(record, server, Component.translatable("message.empire.disbanded"), null);
         }
     }
 
@@ -153,15 +181,20 @@ public final class EmpireSavedData extends SavedData {
     }
 
     private void notifyMainBonfireChange(EmpireRecord record, @Nullable MinecraftServer server, @Nullable BlockPos newMain) {
+        messageMembers(record, server, newMain != null
+                ? Component.translatable("message.empire.main_bonfire_changed", newMain.getX(), newMain.getY(), newMain.getZ())
+                : Component.translatable("message.empire.main_bonfire_lost"), null);
+    }
+
+    /** Sends {@code message} to the chat of every online member, except {@code except}. */
+    public static void messageMembers(EmpireRecord record, @Nullable MinecraftServer server, Component message, @Nullable UUID except) {
         if (server == null) {
             return;
         }
-        ServerPlayer player = server.getPlayerList().getPlayer(record.founder());
-        if (player != null) {
-            if (newMain != null) {
-                player.sendSystemMessage(Component.translatable("message.empire.main_bonfire_changed", newMain.getX(), newMain.getY(), newMain.getZ()));
-            } else {
-                player.sendSystemMessage(Component.translatable("message.empire.main_bonfire_lost"));
+        for (UUID member : record.members()) {
+            ServerPlayer player = member.equals(except) ? null : server.getPlayerList().getPlayer(member);
+            if (player != null) {
+                player.sendSystemMessage(message);
             }
         }
     }
@@ -172,8 +205,8 @@ public final class EmpireSavedData extends SavedData {
     }
 
     @Nullable
-    public EmpireRecord getEmpireByFounder(UUID founder) {
-        UUID empireId = founderToEmpire.get(founder);
+    public EmpireRecord getEmpireOf(UUID player) {
+        UUID empireId = memberToEmpire.get(player);
         return empireId != null ? empires.get(empireId) : null;
     }
 
@@ -212,7 +245,7 @@ public final class EmpireSavedData extends SavedData {
 
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
-        tag.putInt("version", 1);
+        tag.putInt("version", 2);
         ListTag empiresTag = new ListTag();
         for (EmpireRecord record : empires.values()) {
             empiresTag.add(record.save());

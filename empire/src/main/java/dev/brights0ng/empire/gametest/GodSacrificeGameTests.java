@@ -78,12 +78,12 @@ public final class GodSacrificeGameTests {
             player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 4));
             interact(helper.getLevel(), helper.absolutePos(SPOT), player);
             helper.assertTrue(player.getMainHandItem().getCount() == 4, "4 beef are not enough and are not taken");
-            helper.assertTrue(data.getEmpireByFounder(player.getUUID()) == null, "no empire from 4 beef");
+            helper.assertTrue(data.getEmpireOf(player.getUUID()) == null, "no empire from 4 beef");
 
             player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 7));
             interact(helper.getLevel(), helper.absolutePos(SPOT), player);
             helper.assertTrue(player.getMainHandItem().getCount() == 2, "exactly 5 beef are taken");
-            EmpireRecord record = data.getEmpireByFounder(player.getUUID());
+            EmpireRecord record = data.getEmpireOf(player.getUUID());
             helper.assertTrue(record != null, "5 beef found an empire");
             try {
                 helper.assertTrue(IRON_AUROCHS.equals(record.god()), "beef is the Iron Aurochs' meat, god is " + record.god());
@@ -124,18 +124,18 @@ public final class GodSacrificeGameTests {
                 EmpireConfig.UNIQUE_GODS_PER_SERVER.set(true);
                 first.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(item("naturalist:lizard_tail"), 5));
                 interact(helper.getLevel(), helper.absolutePos(SPOT), first);
-                EmpireRecord a = data.getEmpireByFounder(first.getUUID());
+                EmpireRecord a = data.getEmpireOf(first.getUUID());
                 helper.assertTrue(a != null && Empire.id("sun_scale").equals(a.god()), "lizard tails found under the Sun-Scale");
 
                 second.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(item("naturalist:lizard_tail"), 5));
                 interact(overworld, FAR, second);
-                helper.assertTrue(data.getEmpireByFounder(second.getUUID()) == null,
+                helper.assertTrue(data.getEmpireOf(second.getUUID()) == null,
                         "with unique gods, a second empire cannot take the Sun-Scale");
                 helper.assertTrue(second.getMainHandItem().getCount() == 5, "the refused lizard tails are not taken");
 
                 EmpireConfig.UNIQUE_GODS_PER_SERVER.set(false);
                 interact(overworld, FAR, second);
-                EmpireRecord b = data.getEmpireByFounder(second.getUUID());
+                EmpireRecord b = data.getEmpireOf(second.getUUID());
                 helper.assertTrue(b != null && Empire.id("sun_scale").equals(b.god()),
                         "without unique gods, two empires may share the Sun-Scale");
                 helper.assertTrue(second.getMainHandItem().isEmpty(), "the second founding took its 5 lizard tails");
@@ -259,7 +259,7 @@ public final class GodSacrificeGameTests {
             Player player = helper.makeMockPlayer(GameType.SURVIVAL);
             player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.ROTTEN_FLESH, 5));
             interact(helper.getLevel(), helper.absolutePos(SPOT), player);
-            EmpireRecord record = data.getEmpireByFounder(player.getUUID());
+            EmpireRecord record = data.getEmpireOf(player.getUUID());
             try {
                 helper.assertTrue(record != null && Empire.id("carrion_crow").equals(record.god()),
                         "rotten flesh founds under the Carrion Crow, god is " + (record == null ? null : record.god()));
@@ -396,7 +396,7 @@ public final class GodSacrificeGameTests {
         placeLitBonfire(helper, SPOT);
         player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BEEF, 5));
         interact(helper.getLevel(), helper.absolutePos(SPOT), player);
-        EmpireRecord record = EmpireSavedData.of(helper.getLevel().getServer()).getEmpireByFounder(player.getUUID());
+        EmpireRecord record = EmpireSavedData.of(helper.getLevel().getServer()).getEmpireOf(player.getUUID());
         helper.assertTrue(record != null && IRON_AUROCHS.equals(record.god()), "5 beef found an empire under the Iron Aurochs");
         return record;
     }
@@ -479,7 +479,7 @@ public final class GodSacrificeGameTests {
 
     private static void disband(EmpireSavedData data, Player... players) {
         for (Player player : players) {
-            EmpireRecord record = data.getEmpireByFounder(player.getUUID());
+            EmpireRecord record = data.getEmpireOf(player.getUUID());
             if (record != null) {
                 data.disbandEmpire(record.id(), null);
             }

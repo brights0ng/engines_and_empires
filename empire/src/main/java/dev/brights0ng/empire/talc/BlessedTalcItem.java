@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; members by Claude.
 package dev.brights0ng.empire.talc;
 
 import dev.brights0ng.empire.data.EmpireRecord;
@@ -46,9 +46,9 @@ public class BlessedTalcItem extends Item {
             return InteractionResult.FAIL;
         }
 
-        // 2. Empire founder check (P9)
+        // 2. Empire member check (P9; every member may)
         EmpireSavedData data = EmpireSavedData.of(serverLevel);
-        EmpireRecord record = data.getEmpireByFounder(player.getUUID());
+        EmpireRecord record = data.getEmpireOf(player.getUUID());
         if (record == null) {
             player.displayClientMessage(Component.translatable("message.empire.no_empire"), true);
             return InteractionResult.FAIL;
