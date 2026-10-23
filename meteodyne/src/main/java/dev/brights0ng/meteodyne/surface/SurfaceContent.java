@@ -1,3 +1,4 @@
+// Vanilla creative-tab entry removed by Claude (see MeteodyneTab).
 package dev.brights0ng.meteodyne.surface;
 
 import dev.brights0ng.meteodyne.Meteodyne;
@@ -8,14 +9,12 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -52,14 +51,7 @@ public final class SurfaceContent {
     public static void register(IEventBus modEventBus) {
         BLOCKS.register(modEventBus);
         ITEMS.register(modEventBus);
-        modEventBus.addListener(SurfaceContent::addToCreativeTab);
         modEventBus.addListener(SurfaceDataGen::gatherData);
-    }
-
-    private static void addToCreativeTab(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.NATURAL_BLOCKS) {
-            event.accept(GLAZE_ITEM.get());
-        }
     }
 
     private static ResourceLocation id(String path) {

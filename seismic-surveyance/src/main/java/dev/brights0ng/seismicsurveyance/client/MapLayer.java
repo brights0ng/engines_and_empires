@@ -1,7 +1,7 @@
 // Edited by Gemini: added tab() method to associate MapLayer with LoggerDisplay.Tab.
 package dev.brights0ng.seismicsurveyance.client;
 
-import dev.brights0ng.seismicsurveyance.LoggerDisplay;
+import dev.brights0ng.seismicsurveyance.logic.LoggerDisplay;
 
 import java.util.List;
 

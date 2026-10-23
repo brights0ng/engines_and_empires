@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; Overworld-only registration and campfire-tag tests added by Claude.
 package dev.brights0ng.empire.gametest;
 
 import java.util.UUID;
@@ -18,11 +18,15 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CampfireBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -263,6 +267,38 @@ public final class BonfireGameTests {
         helper.assertTrue(partClone.is(EmpireContent.BONFIRE_ITEM.get()), "Part block drops bonfire item on pick");
 
         helper.succeed();
+    }
+
+    /** A bonfire outside the Overworld is never added to the registry, so it can never become an empire's main bonfire. */
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void bonfireOutsideOverworldIsNotRegistered(GameTestHelper helper) {
+        ServerLevel nether = helper.getLevel().getServer().getLevel(Level.NETHER);
+        helper.assertTrue(nether != null, "the Nether exists");
+        BlockPos overworldPos = helper.absolutePos(SPOT);
+        BlockPos pos = new BlockPos(overworldPos.getX(), 64, overworldPos.getZ());
+        BlockState before = nether.getBlockState(pos);
+        EmpireSavedData data = EmpireSavedData.of(helper.getLevel().getServer());
+
+        nether.setBlock(pos, EmpireContent.BONFIRE.get().defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        boolean registered = data.bonfires().contains(pos);
+        nether.setBlock(pos, before, net.minecraft.world.level.block.Block.UPDATE_ALL);
+
+        helper.assertFalse(registered, "a Nether bonfire is not in the bonfire registry");
+        helper.succeed();
+    }
+
+    /** The bonfire counts as a campfire (vanilla's splash-water and smoke checks), and an unlit bonfire stops roaring. */
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void bonfireIsCampfireAndStopsRoaringWhenUnlit(GameTestHelper helper) {
+        BlockState lit = EmpireContent.BONFIRE.get().defaultBlockState().setValue(BonfireBlock.LIT, true);
+        helper.assertTrue(lit.is(BlockTags.CAMPFIRES), "the bonfire is in #minecraft:campfires");
+        helper.assertTrue(CampfireBlock.isLitCampfire(lit), "vanilla sees a lit bonfire as a lit campfire");
+
+        clearArea(helper, SPOT);
+        // As a splash water potion leaves it: unlit, but still roaring.
+        helper.setBlock(SPOT, lit.setValue(BonfireBlock.LIT, false).setValue(BonfireBlock.ROARING, true));
+        helper.succeedWhen(() -> helper.assertFalse(helper.getBlockState(SPOT).getValue(BonfireBlock.ROARING),
+                "an unlit bonfire is not roaring"));
     }
 
     private static void clearArea(GameTestHelper helper, BlockPos center) {

@@ -12,15 +12,15 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
-import dev.brights0ng.seismicsurveyance.LogbookEntry;
-import dev.brights0ng.seismicsurveyance.LoggerDisplay;
-import dev.brights0ng.seismicsurveyance.ReaderReading;
-import dev.brights0ng.seismicsurveyance.ReadingBoardMenu;
-import dev.brights0ng.seismicsurveyance.OilTiers;
-import dev.brights0ng.seismicsurveyance.ReadingOres;
+import dev.brights0ng.seismicsurveyance.data.LogbookEntry;
+import dev.brights0ng.seismicsurveyance.logic.LoggerDisplay;
+import dev.brights0ng.seismicsurveyance.data.ReaderReading;
+import dev.brights0ng.seismicsurveyance.menu.ReadingBoardMenu;
+import dev.brights0ng.seismicsurveyance.data.OilTiers;
+import dev.brights0ng.seismicsurveyance.sim.ReadingOres;
 import dev.brights0ng.seismicsurveyance.SeismicContent;
-import dev.brights0ng.seismicsurveyance.SmartLoggerBlock;
-import dev.brights0ng.seismicsurveyance.SmartLoggerBlockEntity;
+import dev.brights0ng.seismicsurveyance.block.SmartLoggerBlock;
+import dev.brights0ng.seismicsurveyance.blockentity.SmartLoggerBlockEntity;
 
 /**
  * What the local player's crosshair is pointing at on a smart logger's map: used by the goggles, to call out the reading under

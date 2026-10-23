@@ -1,3 +1,4 @@
+<!-- Edited by Claude (2026-10-23): Pass 1 brought in line with what Bright decided and what is built; marked "Updated". -->
 # Engines and Empires: "Empires" Conceptual Design & Architecture Specification
 
 **Date:** 2026-10-20  
@@ -23,8 +24,8 @@
 
 ### 2.1 Founding a Settlement
 * **The Bonfire Block:** A **3×3×3 ornate campfire multiblock/structure**.
-* **Placement Precondition:** The Bonfire must be placed in a chunk whose tier in `Frontier` is already **`Settled` or `Civilized`** (requiring the player to establish anchors and habitation before founding)[cite: 3].
-* **Founding Ritual:** The player offers a **Tier 1 sacrifice (1× Raw Meat)** to the lit Bonfire.
+* **Settled Precondition (Updated):** The Bonfire's own chunk must be **`Settled` or `Civilized`** in `Frontier` when it is first lit and when the empire is founded. Placing it is not checked, so a bonfire placed early isn't wasted. None of the 3×3 chunks around it may belong to another empire[cite: 3].
+* **Founding Ritual (Updated):** The player offers **5× of one god's raw meat** (its Tier 1 item) to the lit Bonfire.
   * The type of raw meat offered permanently selects the empire's initial **Patron Totem God** (see §2.4).
   * **Initial Territory & Dominion:** Founding immediately grants the empire a **Dominion ($D$) score of 10** and automatically stakes the **3×3 chunk grid (9 chunks)** centered on the Bonfire, leaving **1 free Dominion point** available to stake immediately.
 * **System Hooks:**
@@ -50,6 +51,8 @@
   * If a chunk is forcibly de-staked (exact triggers TBD in a later pass), **that Dominion point is lost indefinitely** (reducing the empire's current Dominion $D$ by 1).
 
 ### 2.3 Continuous Sacrifice Scaling & Sliding Material Tiers
+> **Updated:** the tier bands, Qmax values and each god's items below are superseded by `docs/empire/sacrifice-tables-draft.md` (built 2026-10-22). Each sacrifice is now a rotating demand: one item per active tier, from two options per god. The pack uses Farm & Charm instead of Farmer's Delight.
+
 More Dominion is acquired by offering further sacrifices at the Bonfire. Each completed sacrifice after founding grants **+5 Dominion**.
 * **Rubber-Banding Protection:** Sacrifice requirements are a function of **current Dominion $D$ (active + dormant)**, *not* total historical sacrifices. An empire that forcibly loses Dominion drops back down the cost curve rather than paying inflated prices to recover lost land.
 * **5 Material Tiers (Sliding Window of 2–3 Active Tiers):**

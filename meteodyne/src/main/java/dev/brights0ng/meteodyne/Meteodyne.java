@@ -1,4 +1,4 @@
-// Edited by ChatGPT: registered weather instruments and their assets.
+// Edited by ChatGPT: registered weather instruments and their assets; creative tab registration added by Claude.
 package dev.brights0ng.meteodyne;
 
 import org.slf4j.Logger;
@@ -63,6 +63,7 @@ public final class Meteodyne {
         // Weather on the ground: glaze (freezing rain's ice layer) and the crops hail knocks back
         SurfaceContent.register(modEventBus);
         InstrumentContent.register(modEventBus);
+        MeteodyneTab.register(modEventBus);
         // Ships (Sable sub-levels) as cover, rooms and decks. Sable is optional: everything that touches it is in the
         // sable sub-package, reached only from here, when it is loaded
         if (ModList.get().isLoaded("sable")) {

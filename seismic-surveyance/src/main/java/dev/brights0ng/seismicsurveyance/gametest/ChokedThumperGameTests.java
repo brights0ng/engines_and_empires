@@ -1,9 +1,9 @@
 package dev.brights0ng.seismicsurveyance.gametest;
 
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
-import dev.brights0ng.seismicsurveyance.ChokedThumperBlock;
-import dev.brights0ng.seismicsurveyance.ChokedThumpers;
-import dev.brights0ng.seismicsurveyance.CombustiveThumperBlock;
+import dev.brights0ng.seismicsurveyance.block.ChokedThumperBlock;
+import dev.brights0ng.seismicsurveyance.logic.ChokedThumpers;
+import dev.brights0ng.seismicsurveyance.block.CombustiveThumperBlock;
 import dev.brights0ng.seismicsurveyance.SeismicContent;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import net.minecraft.core.BlockPos;

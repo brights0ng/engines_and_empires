@@ -1,8 +1,8 @@
 // Edited by Gemini: added ORES/OIL/FRONTIER/EMPIRE filter tabs with scaled font layout.
 package dev.brights0ng.seismicsurveyance.client;
 
-import dev.brights0ng.seismicsurveyance.LogbookEntry;
-import dev.brights0ng.seismicsurveyance.ReadingBoardMenu;
+import dev.brights0ng.seismicsurveyance.data.LogbookEntry;
+import dev.brights0ng.seismicsurveyance.menu.ReadingBoardMenu;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 

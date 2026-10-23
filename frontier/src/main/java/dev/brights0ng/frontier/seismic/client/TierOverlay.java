@@ -1,7 +1,7 @@
 // Edited by Gemini: associated TierOverlay with LoggerDisplay.Tab.FRONTIER.
 package dev.brights0ng.frontier.seismic.client;
 
-import dev.brights0ng.seismicsurveyance.LoggerDisplay;
+import dev.brights0ng.seismicsurveyance.logic.LoggerDisplay;
 
 import java.util.ArrayList;
 import java.util.List;

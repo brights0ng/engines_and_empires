@@ -1,9 +1,9 @@
-<!-- Written by Claude -->
+<!-- Written by Claude; brought up to date with the built mod by Claude (2026-10-23) -->
 # Empire: Foundations plan (bonfire, settlement basics, flat sacrifice, Talc)
 
-**Date:** 2026-10-21 · **Status:** ready to build, phases 0–5a. Phase 5b is waiting on a decision.
-**Design source:** `docs/empire/empire-plan-brainstorming.md` §2.1–2.2 (Pass 1). Bright's decisions of 2026-10-21 (below) override that doc where they differ.
-**Out of scope:** gods, the tiered sacrifice curve, civilians, outposts, protection, forcible de-staking, the claim overlay.
+**Date:** 2026-10-21, updated 2026-10-23 · **Status:** built, phases 0–6. After phase 6, the flat bread sacrifice was replaced by the gods and their tiered demands (§7). Rows marked **Superseded** record what changed.
+**Design source:** `docs/empire/empire-plan-brainstorming.md` §2.1–2.4 (Pass 1). The demand numbers are in `docs/empire/sacrifice-tables-draft.md`. Bright's decisions (below) override the brainstorming doc where they differ.
+**Out of scope here:** civilians, outposts, protection, forcible de-staking triggers, god satiety and abandonment, god boons.
 
 ---
 
@@ -12,9 +12,9 @@
 | # | Decision |
 |---|---|
 | D1 | New mod. Folder `empire/`, mod id `empire`, package `dev.brights0ng.empire`, version 0.1.0, All Rights Reserved. |
-| D2 | Frontier is **optional**. Without Frontier, every "must be Settled/Civilized" check is skipped (passes). |
+| D2 | **Superseded 2026-10-22:** Frontier is **required**. It is still imported only in `empire.compat.frontier`; `TierChecks` keeps its always-pass default for the moment before the Frontier check is installed. (Was: optional, with Settled checks skipped without it.) |
 | D3 | Bonfire = **one placed item** (a 3×3×3 structure). States: **unlit**, **lit**, **roaring**. Roaring lasts **30 s (600 ticks)** after the bonfire is lit, then drops to lit. Roaring is much brighter and louder. Placeholder visuals: unlit = unlit campfire model, lit = campfire model, roaring = soul campfire model. Real models come later (ChatGPT). |
-| D4 | Founding = the **first sacrifice of 5 bread** at a lit bonfire. Every later sacrifice is also 5 bread (flat, every empire). |
+| D4 | **Superseded 2026-10-22:** founding = **5 of one god's founding meat** (its tier 1 item) at a lit, unclaimed bonfire; the meat chooses the empire's god. Every later sacrifice pays the god's current **rotating demand** (§7). (Was: 5 bread, flat.) |
 | D5 | Founding stakes the 3×3 chunks around the bonfire. Only the **bonfire's own chunk** must be Settled/Civilized; the 8 around it need not be. A bonfire **cannot be lit for the first time** if any of those 9 chunks is staked by another empire. |
 | D6 | Bonfires can be broken: slow, **iron axe minimum**. When the main bonfire breaks, the empire keeps everything (Dominion, land), but **sacrifices and every other bonfire-dependent action are blocked**. If the empire has another bonfire, the **closest** one becomes main automatically. Otherwise, the **first bonfire placed afterwards** becomes main. |
 | D7 | Staked chunks have **no effect** yet: no protection, no buffs. |
@@ -22,7 +22,7 @@
 | D9 | Membership: **founder only**. One player = at most one empire. |
 
 Still in force from the brainstorming doc (§2.1–2.2):
-- Founding gives **D = 10** and stakes 9 chunks, leaving 1 point available. Each later sacrifice gives **+5 D**.
+- Founding gives **D = 10** and stakes 9 chunks, leaving 1 point available. Each completed demand gives **+5 D**.
 - An empire holds at most D staked chunks. Staking claims the whole vertical column.
 - **Blessed Talc:** right-click the (main, lit) bonfire with Raw Talc. Using Blessed Talc on a block in an unstaked chunk stakes that chunk, uses 1 point and consumes 1 Blessed Talc. Requirements:
   - the chunk is **cardinally adjacent** (N/S/E/W) to the empire's land;
@@ -45,18 +45,18 @@ These are the gaps the decisions don't cover. Each is a **single named constant 
 | P2 | Light levels | Vanilla caps light at 15 and a lit campfire already emits 15, so "much brighter" needs lit < 15: **unlit 0, lit 11, roaring 15** (constants). Emitted by the main block only. |
 | P3 | "Louder" | Roaring: the campfire crackle plays at higher volume and twice as often, plus an occasional `fire.ambient`. Constants only; Bright will tune. |
 | P4 | Break speed | Hardness **50** (obsidian-like, ~12.5 s with an iron axe). Tags `minecraft:mineable/axe` + `minecraft:needs_iron_tool`. Without an axe of iron tier or better, break speed is **0** (`PlayerEvent.BreakSpeed`), so it is truly unbreakable, not just slow. Explosion resistance 1200. |
-| P5 | Paying 5 bread | Must hold ≥ 5 bread in the hand used. One right-click consumes exactly 5. No partial deposits, so no stored progress. Only `minecraft:bread`. |
+| P5 | Paying | **Superseded:** founding takes exactly 5 of the founding meat, from one stack in the hand used. A demand takes partial payments: each click pays as much of one unpaid line as the held stack (or fluid container) covers, and progress is saved on the empire (§7). |
 | P6 | Which bonfire belongs to an empire | A bonfire belongs to the empire that has staked its chunk. Replacement main bonfires (D6) must be in the empire's land. A bonfire outside any empire is "unclaimed" and can found a new empire. |
 | P7 | Bonfire-dependent actions | Sacrifice and blessing Raw Talc both need the empire's **main** bonfire, lit or roaring. **Staking with already-blessed Talc does not** need a bonfire. |
 | P8 | Core chunk for Tarnished Talc | The chunk of the **current main bonfire**. With no main bonfire: the **founding chunk** (stored on the empire). |
-| P9 | Who may act | Only the founder can sacrifice, bless or use Talc for their empire. At an unclaimed bonfire, only a player with no empire can found. Anyone can light, extinguish or break any bonfire (D7: no protection). |
-| P10 | Dimension | Empires exist in the **Overworld only** (Frontier only tracks the Overworld). Bonfires can be placed anywhere, but founding, sacrifice and Talc use fail outside the Overworld with a message. |
+| P9 | Who may act | Only the founder can sacrifice, bless or use Talc for their empire. At an unclaimed bonfire, only a player with no empire can found. Anyone can light, extinguish or break any bonfire (D7: no protection). Anyone can read a bonfire's demand with an empty hand. |
+| P10 | Dimension | Empires exist in the **Overworld only** (Frontier only tracks the Overworld). Bonfires can be placed anywhere, but founding, sacrifice and Talc use fail outside the Overworld with a message. Only Overworld bonfires are added to the bonfire registry, so a bonfire in another dimension never becomes an empire's main bonfire (fixed 2026-10-23). |
 | P11 | Placement rule | Placing a bonfire needs a clear 3×3×3 space (bottom-centre on the clicked face). The Settled check runs at **first lighting/founding**, not at placement. That way a bonfire placed early isn't wasted, and secondary bonfires in decayed land still place. |
-| P12 | Obtaining a bonfire | **No survival recipe yet.** Creative tab + `/give` only, until Bright gives a recipe. |
+| P12 | Obtaining a bonfire | **No survival recipe yet.** Creative tab + `/give` only. Bright gave the recipe on 2026-10-23; it is not built yet. |
 | P13 | Raw Talc → Blessed/Tarnished | 1 : 1, instant, one item per right-click. Does not consume the bonfire's fuel (there is none). |
 | P14 | Soul Fire | Fire blocks can't be clicked (they have no clickable shape), so only the Soul Campfire block works for tarnishing in v1. Possible later addition, waiting on Bright: a Create haunting recipe (Raw Talc → Tarnished Talc), data-only with a `neoforge:mod_loaded` condition. **Not built now.** |
 | P15 | Common-ore numbers | Stone + deepslate talc ore. Vein size 9, 8 veins/chunk, uniform y 0–96, overworld `#minecraft:is_overworld`. **Placeholders**; Bright tunes. |
-| P16 | Meteodyne heat | An entry for `empire:bonfire` filtered on `lit=true`. Values are **placeholders** (2× the campfire: `power` 2.0, `radiant` 0.6, `max_offset` 60). Roaring gets no extra heat yet: one data-map value per block. |
+| P16 | Meteodyne heat | An entry for `empire:bonfire` filtered on `lit=true`. Values are **placeholders** (2× the campfire: `power` 2.0, `radiant` 0.6, `max_offset` 60). Roaring gets no extra heat yet: one data-map value per block. Since 2026-10-23 the bonfire is also in `#minecraft:campfires`, which Meteodyne's own `heat_sources` entry already covers with the same values. |
 | P17 | Core mod relationship | Root `build.gradle` uses `loadMod(':empire')` (the core does not require Empire). No `/eae` redirect yet. |
 
 ## 3. Architecture
@@ -97,10 +97,10 @@ Naming: do **not** call anything `Settlement`. Frontier already has `incursion.S
 - **`ClaimGraph`**:
   - `isAdjacent(LongSet, chunk)` checks the 4 cardinal neighbours.
   - `isBridge(LongSet, chunk)`: remove the chunk, flood fill (4-neighbour) from any remaining chunk. It's a bridge if fewer than |set| − 1 chunks are reached. O(n), n ≤ D; fine.
-- **`SacrificeCost`**: `List<Requirement> costFor(int dominion)`; `Requirement(String itemId, int count)` (item id as a string, no MC import). `FlatSacrificeCost` returns `[("minecraft:bread", 5)]` for every D. The gods/tier curve replaces this class later, so keep callers on the interface.
+- **Superseded:** the planned `SacrificeCost`/`FlatSacrificeCost` (5 bread) was replaced by `SacrificeCurve` (the tier quantities Q(D)) and `DemandRoller` (one option per active tier), with `DemandLine`/`DemandOption` as the data. See §7.
 - **`DawnClock`**: `long dayOf(long dayTime) = Math.floorDiv(dayTime, 24000)`. A freed point gets `availableOnDay = dayOf(now) + 1`, so it is due once the world clock passes the next 0-tick (dawn). The world is frozen offline, so no ticking is needed: release lazily on every read.
 
-Unit tests (JUnit, `empire/src/test/java/dev/brights0ng/empire/rules/`): `EmpireStateTest`, `ClaimGraphTest`, `DawnClockTest`, `FlatSacrificeCostTest`. Cover:
+Unit tests (JUnit, `empire/src/test/java/dev/brights0ng/empire/rules/`): `EmpireStateTest`, `ClaimGraphTest`, `DawnClockTest`, `SacrificeCurveTest`, `DemandRollerTest`, `OfferingKeysTest`. Cover:
 - founding = 9 chunks, D 10, available 1;
 - every StakeResult and UnstakeResult branch;
 - the ring/line/T-shape bridge cases;
@@ -138,6 +138,7 @@ Codec/NBT with a `version` int (= 1). `setDirty()` on every change.
   - `boolean everLit`, used for D5 "first lit" (see below).
   - Client: campfire smoke/flame particles from the main block; roaring = more and larger particles.
 - **Lighting (P1):** handle flint & steel / fire charge / burning projectile like `CampfireBlock`.
+  - The bonfire is in `#minecraft:campfires` (2026-10-23). It has no waterlogged state, so water never puts it out by flowing. A splash water potion douses only the block it hits and that block's neighbours. The 26 parts enclose the core block, so in practice a potion never reaches the core and never puts the bonfire out. Whenever the bonfire is unlit, the block entity clears `roaring`.
   - **First-lighting gate (D5):** if the bonfire is not yet the main bonfire of a founded empire **and** its chunk is not staked by anyone:
     - check that none of the 9 chunks around it is owned by any empire (`OWNED_BY_OTHER` message);
     - check the Settled rule on its own chunk (`NOT_SETTLED` message, via `TierChecks`).
@@ -157,17 +158,19 @@ Codec/NBT with a `version` int (= 1). `setDirty()` on every change.
 - `FrontierTierCheck`: for each section Y from `level.getMinSection()` to `getMaxSection() - 1`, call `FrontierLevels.tierAt(level, sectionCentre)`. Return true on the first one with `atLeast(Tier.SETTLED)`. (About 24 lookups per click; only on clicks, never per tick.) No Frontier code changes.
 
 ### 3.7 Sacrifice (`sacrifice`)
-Right-click the main block (or any part) holding bread. Order of checks, each with an action-bar message and **no consumption on failure**:
+**Superseded in part by §7.** Right-click the main block (or any part) with an offering. Order of checks, each with an action-bar message and **no consumption on failure**:
 1. Overworld (P10).
 2. The bonfire is lit or roaring.
 3. Resolve the bonfire's owner:
    - **Unclaimed bonfire:** the player must have no empire (P9). Re-run the D5 checks: 9 chunks free and own chunk Settled. This repeats the first-lighting gate because another empire could have claimed land since the bonfire was lit.
    - **Claimed bonfire:** the player must be its founder, and it must be that empire's **main** bonfire (P7).
-4. The held stack satisfies `SacrificeCost.costFor(D)` (P5: ≥ 5 bread in this hand).
+4. Unclaimed: the held stack is ≥ 5 of one god's founding meat, fresh enough for that god. Claimed: the held stack (or fluid container) matches an unpaid line of the current demand.
 5. Consume the items.
-   - Unclaimed: create the empire, `found(chunk)`, set this bonfire as main, rebuild the chunk index entries.
-   - Claimed: `addDominion(5)`.
+   - Unclaimed: create the empire under that god, `found(chunk)`, set this bonfire as main, rebuild the chunk index entries, roll the first demand.
+   - Claimed: pay towards the line. When every line is paid, `addDominion(5)`, count the sacrifice and roll the next demand.
 6. Feedback: sound + particles + action bar "Dominion: D (available A)".
+
+Client side: the client knows neither the gods nor any empire's demand. The server sends every client the item, tag and fluid ids any god could take (`GodOfferingsNetwork`, on login and after `/reload`). The client claims a click on a lit Overworld bonfire only for such an item, and lets any other item do what it normally would.
 
 ### 3.8 Talc (`talc`)
 - **Ids (public, final once committed):** `empire:talc_ore`, `empire:deepslate_talc_ore`, `empire:raw_talc`, `empire:blessed_talc`, `empire:tarnished_talc`, `empire:bonfire`, `empire:bonfire_part`. Placeholder textures are fine; flag them for ChatGPT.
@@ -199,7 +202,7 @@ Each phase = one or more commits, ending green on the targeted tests. **Stop for
 | **1 Rules** | `rules` package + unit tests (§3.3) | `:empire:test` |
 | **2 Data + commands** | `EmpireSavedData`, `EmpireRecord`, `BonfireRegistry`, chunk index, `/empire` commands (§3.4, §3.9) | Game tests: save/load round trip; debug stake/unstake obey rules; disband frees chunks |
 | **3 Bonfire** | blocks, BE, states, roar timer, lighting + first-lighting gate, break rule, registry + main selection, Frontier tag + Meteodyne data (§3.5–3.6) | Game tests: place needs clear 3×3×3; breaking a part removes all 27 and drops 1; lit → roaring → lit after 600 ticks; no break progress without an iron axe; first lighting refused if a neighbour chunk is owned; main reselection picks the closest bonfire; null main + new bonfire in land → main |
-| **4 Sacrifice** | §3.7 | Game tests: founding = D 10 / 9 chunks / available 1; second sacrifice D 15; refused when unlit / non-founder / not main / < 5 bread (nothing consumed); founder can't found twice |
+| **4 Sacrifice** | §3.7 (built as 5 bread, then replaced by §7) | Game tests: founding = D 10 / 9 chunks / available 1; second sacrifice D 15; refused when unlit / non-founder / not main / not enough (nothing consumed); founder can't found twice |
 | **5a Talc** | items, ores, worldgen (conditional), bless/tarnish/stake/unstake (§3.8) | Game tests: every StakeResult/UnstakeResult end to end; dormant point unavailable until the day rolls over (set `dayTime`); blessing needs the lit main bonfire; tarnishing at a soul campfire leaves its cooking slots untouched. Coreless/aggregate: Frontier Settled check blocks staking/founding in Uninhabited land and passes in Settled land |
 | **5b Talc as a Sparse Ore** | `SparseOresApi.registerOre` dynamic hook (Option A), `SparseOresCompat` in `empire.compat.sparseores` (S=192, SeamShape.COAL, size 350, depth -48..96, rich 0.15), distinct celadon glow in Seismic Surveyance | `:sparse-ores:test`, `:empire:test`, `:seismic-surveyance:test`, `:coreless:runGameTestServer` (`EmpireSparseOresGameTests`: 4 tests) |
 | **6 Claim overlay** | Claim overlay on Seismic maps (`ClaimOverlay`), pure grid/request rules (`ClaimGrid`, `ClaimRequests`), client cache (`ClaimMapCache`), network sync (`ClaimMapPayloads`, `ClaimMapNetwork`), gated compat (`EmpireSeismicClient`) | `:empire:test` (`ClaimGridTest`, `ClaimRequestsTest`), `:coreless:runGameTestServer` (`EmpireSeismicGameTests`: 2 tests) |
@@ -229,3 +232,14 @@ Implemented following the Frontier `TierOverlay` pattern:
 - **Pure Rules**: `ClaimGrid` (2-bit packing/unpacking, edge detection) and `ClaimRequests` (10s refresh interval, 500ms min gap debouncing).
 - **Network Sync**: `ClaimMapPayloads` (`Request` and `Answer`) and `ClaimMapNetwork`.
 - **Gated Architecture**: Gated package `dev.brights0ng.empire.compat.seismic` registered dynamically on client boot if `seismic_surveyance` is loaded. Empire functions completely standalone without Seismic Surveyance.
+
+## 7. Gods and tiered demands — Completed (2026-10-22)
+Replaces the flat 5-bread sacrifice (D4, P5, §3.3, §3.7). The numbers and item choices are in `docs/empire/sacrifice-tables-draft.md`.
+- **Gods as data:** `data/<namespace>/empire/god/<name>.json`, loaded by `god.Gods` (a reload listener) and parsed by `GodDefinition`. Each god has options for tiers 1–5, each with a multiplier 0–1, plus `accepts_rotting_meat`. The nine gods ship in Empire's own data. Lang key: `god.<namespace>.<name>`.
+- **Pure rules:** `SacrificeCurve` gives Q per tier at a Dominion D. `DemandRoller` picks one option per active tier, seeded by (empire id, sacrifice count, tier). The count is `max(1, ceil(Q·m))`, and an option needs Q·m ≥ 0.5 to be picked at random.
+- **Saved on the empire:** `god`, `sacrifice_count`, `demand` (each line's kind, ids, required and paid). Records saved before gods existed load godless; 5 of a god's founding meat at the main bonfire gives them that god ("adoption").
+- **Meat freshness:** with Simple Spoilage (`empire.compat.simplespoilage`), founding meat and demanded founding meat must be fresh or ripe. The Carrion Crow takes rotten flesh and any raw meat at the Rotting stage.
+- **Fluids** (T5 fuels) are counted in 1000 mB units and drained from the held container through its fluid-handler capability.
+- **`uniqueGodsPerServer`** (server config, default `false`): a god another empire already has is refused at founding and adoption.
+- **Levitite:** Empire ships loot tables for `aeronautics:levitite` and `aeronautics:pearlescent_levitite`. The block drops itself only to a Silk Touch pickaxe that passes `isCorrectToolForDrops` on a `needs_diamond_tool` state.
+- **Still to design:** satiety and abandonment, god boons, multiple members (Bright's decisions of 2026-10-23 are being turned into a plan).

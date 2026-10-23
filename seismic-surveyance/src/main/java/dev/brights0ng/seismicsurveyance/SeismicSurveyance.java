@@ -1,5 +1,7 @@
 package dev.brights0ng.seismicsurveyance;
 
+import dev.brights0ng.seismicsurveyance.datagen.SeismicDataGen;
+import dev.brights0ng.seismicsurveyance.logic.ThumperFuels;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;

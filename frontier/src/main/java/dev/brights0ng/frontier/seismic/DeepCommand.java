@@ -11,7 +11,7 @@ import dev.brights0ng.frontier.debug.FrontierCommand;
 import dev.brights0ng.frontier.deep.SculkListeners;
 import dev.brights0ng.frontier.deep.StirredDeposits;
 import dev.brights0ng.frontier.deep.ThumperIncursions;
-import dev.brights0ng.seismicsurveyance.ShotSource;
+import dev.brights0ng.seismicsurveyance.data.ShotSource;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;

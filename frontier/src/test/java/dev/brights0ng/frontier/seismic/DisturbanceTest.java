@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import dev.brights0ng.frontier.seismic.Disturbance.Outcome;
-import dev.brights0ng.seismicsurveyance.ShotSource;
+import dev.brights0ng.seismicsurveyance.data.ShotSource;
 
 class DisturbanceTest {
 

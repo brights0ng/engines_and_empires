@@ -1,3 +1,4 @@
+# Added by Claude: GeckoLib is required.
 modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
@@ -22,6 +23,13 @@ ${mod_description}
     modId="minecraft"
     type="required"
     versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="geckolib"
+    type="required"
+    versionRange="${geckolib_version_range}"
     ordering="NONE"
     side="BOTH"
 

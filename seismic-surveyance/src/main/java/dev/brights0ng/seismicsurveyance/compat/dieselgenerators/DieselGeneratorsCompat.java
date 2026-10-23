@@ -7,9 +7,9 @@ import java.util.List;
 
 import com.jesz.createdieselgenerators.CDGConfig;
 
-import dev.brights0ng.seismicsurveyance.GeophoneRegistry;
-import dev.brights0ng.seismicsurveyance.SeismicWave;
-import dev.brights0ng.seismicsurveyance.WaveModel;
+import dev.brights0ng.seismicsurveyance.registry.GeophoneRegistry;
+import dev.brights0ng.seismicsurveyance.sim.SeismicWave;
+import dev.brights0ng.seismicsurveyance.sim.WaveModel;
 import dev.brights0ng.sparseores.compat.dieselgenerators.OilDeposit;
 import dev.brights0ng.sparseores.compat.dieselgenerators.OilDepositLedger;
 import net.minecraft.server.level.ServerLevel;

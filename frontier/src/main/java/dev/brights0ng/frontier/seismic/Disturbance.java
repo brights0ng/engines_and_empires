@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-import dev.brights0ng.seismicsurveyance.ShotSource;
+import dev.brights0ng.seismicsurveyance.data.ShotSource;
 
 /**
  * The disturbance thumping makes: too many shots too close together call up an incursion from below.

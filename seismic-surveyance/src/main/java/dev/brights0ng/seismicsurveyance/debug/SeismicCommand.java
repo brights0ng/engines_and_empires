@@ -7,9 +7,9 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 
-import dev.brights0ng.seismicsurveyance.DepositFinder;
-import dev.brights0ng.seismicsurveyance.DepositScanner;
-import dev.brights0ng.seismicsurveyance.SeismicShots;
+import dev.brights0ng.seismicsurveyance.sim.DepositFinder;
+import dev.brights0ng.seismicsurveyance.sim.DepositScanner;
+import dev.brights0ng.seismicsurveyance.sim.SeismicShots;
 import dev.brights0ng.seismicsurveyance.SeismicSurveyance;
 import dev.brights0ng.sparseores.DepositBody;
 import dev.brights0ng.sparseores.OreType;

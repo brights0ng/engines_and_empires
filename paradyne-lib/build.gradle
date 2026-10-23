@@ -1,12 +1,30 @@
 // Extended by ChatGPT: opt-in thermal/airflow benchmarks, including thermal traversal controls.
 // Edited by ChatGPT with offline numerical benchmark tasks and qualification controls.
+// Edited by Claude: GeckoLib dependency.
 plugins {
     id 'eae.mod-conventions'
 }
 
 // The library requires no other mod of ours.
 
+configurations {
+    // Outside mods the lib requires. api, so the lib and everything compiling against it sees them; offered as a
+    // consumable configuration to every project that requires the lib (eae.family-base's requireMod), so their runs load them.
+    requiredRuntime {
+        canBeConsumed = false
+        canBeResolved = false
+    }
+    api.extendsFrom requiredRuntime
+    requiredRuntimeElements {
+        canBeConsumed = true
+        canBeResolved = false
+        extendsFrom requiredRuntime
+    }
+}
+
 dependencies {
+    // GeckoLib (animated models), required. Modrinth maven, like the other outside mods.
+    requiredRuntime("maven.modrinth:geckolib:${geckolib_version}") { transitive = false }
     testImplementation 'com.google.code.gson:gson:2.10.1'
     // Sable is optional (plan section 2): only the sable sub-packages touch it, and only after ModList.isLoaded("sable"),
     // so it is compiled against but never on the runtime classpath of the library's own runs. Non-transitive: its pom

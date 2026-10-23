@@ -1,4 +1,4 @@
-// Written by Claude; updated by Gemini.
+// Written by Claude; updated by Gemini; geckolib_version_range added by Claude.
 // Shared settings for every mod in the family (split step 2b; layout in docs/history/build-layout.md). A mod project's
 // build.gradle applies this plugin, then lists the mods it requires with requireMod(':path') and adds its outside
 // dependencies; everything else is here, or in eae.family-base, which this applies (split step 4b: what a project that
@@ -76,6 +76,7 @@ def generateModMetadata = tasks.register('generateModMetadata', ProcessResources
             simulated_version_range : simulated_version_range,
             encumbered_version_range: encumbered_version_range,
             sable_version_range     : sable_version_range,
+            geckolib_version_range  : geckolib_version_range,
             mod_id                  : mod_id,
             mod_name                : mod_name,
             mod_license             : mod_license,
@@ -112,4 +113,3 @@ tasks.named('test') {
 tasks.named('jar', Jar) {
     exclude('**/*GameTests.class', '**/*GameTests$*.class')
 }
-

@@ -7,7 +7,7 @@ import com.simibubi.create.content.kinetics.base.RotatingInstance;
 import com.simibubi.create.content.kinetics.base.SingleAxisRotatingVisual;
 import com.simibubi.create.foundation.render.AllInstanceTypes;
 
-import dev.brights0ng.seismicsurveyance.CombustiveThumperBlockEntity;
+import dev.brights0ng.seismicsurveyance.blockentity.CombustiveThumperBlockEntity;
 import dev.engine_room.flywheel.api.instance.Instance;
 import dev.engine_room.flywheel.api.visual.DynamicVisual;
 import dev.engine_room.flywheel.api.visualization.VisualizationContext;
