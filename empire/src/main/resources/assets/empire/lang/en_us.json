@@ -22,6 +22,7 @@
   "message.empire.unstake.ok": "Chunk unstaked successfully",
   "message.empire.unstake.not_ours": "This chunk is not staked by your empire",
   "message.empire.unstake.core_chunk": "Cannot unstake the core chunk",
+  "message.empire.unstake.divine_chunk": "Cannot unstake the divine land around the core chunk",
   "message.empire.unstake.bridge_chunk": "Cannot unstake a bridge chunk; it would divide your land",
   "message.empire.main_bonfire_changed": "Main bonfire moved to [%d, %d, %d]",
   "message.empire.main_bonfire_lost": "Main bonfire destroyed; empire is unanchored",
