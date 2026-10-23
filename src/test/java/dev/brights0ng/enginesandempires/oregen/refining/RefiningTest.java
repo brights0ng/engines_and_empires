@@ -1,3 +1,4 @@
+// Updated by Claude: Farm & Charm's mincer ore recipes are off.
 package dev.brights0ng.enginesandempires.oregen.refining;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -228,6 +229,25 @@ class RefiningTest {
                 assertTrue(json.getAsJsonArray("results").size() <= 7, file.getKey());
             }
         }
+    }
+
+    /** Farm & Charm's mincer makes no ore into metal or gems: the pack replaces each such recipe with one that never loads. */
+    @Test
+    void farmAndCharmsMincerOreRecipesAreOff() {
+        int off = 0;
+        for (Map.Entry<String, JsonObject> file : FILES.entrySet()) {
+            if (file.getKey().startsWith("farm_and_charm/")) {
+                assertTrue(file.getKey().startsWith("farm_and_charm/recipe/mincer/") && file.getKey().contains("_ore.json"),
+                        file.getKey() + ": only the mincer's ore recipes are replaced");
+                JsonArray conditions = file.getValue().getAsJsonArray("neoforge:conditions");
+                assertEquals(1, file.getValue().size(), file.getKey() + " holds nothing but its condition");
+                assertEquals("neoforge:false", conditions.get(0).getAsJsonObject().get("type").getAsString(), file.getKey());
+                off++;
+            }
+        }
+        // Copper, iron, gold, emerald, lapis and redstone, ordinary and deepslate
+        assertEquals(12, off);
+        assertTrue(FILES.containsKey("farm_and_charm/recipe/mincer/raw_iron_from_deepslate_iron_ore.json"));
     }
 
     /** What the data generator wrote is what the rules say today. If this fails, run the Data run configuration. */

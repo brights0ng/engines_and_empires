@@ -255,6 +255,15 @@ Core mod for the Engines and Empires modpack.
     ordering="NONE"
     side="BOTH"
 
+# Let's Do: Farm & Charm (optional; Empire requires it). The core turns its mincer's ore recipes off by replacing them
+# under their ids (oregen/refining/RefiningRecipes), so it loads AFTER it.
+[[dependencies.${mod_id}]]
+    modId="farm_and_charm"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
 # Mixins: one config per mod (split step 1b), with a plugin that applies a mixin only when the mod it targets is loaded.
 # Every other mod of the family registers its own config in its own metadata (since steps 2b-2e; Seismic Surveyance has
 # no mixins), so only the core's is left here.

@@ -32,7 +32,7 @@ Status: **plan settled, nothing built.** Every question from v2 is answered (sec
 | Frontier | `frontier` | `dev.brights0ng.frontier` | lib, Deeper and Darker (Bright, after 2d) | Seismic Surveyance (through one gated package) |
 | Simple Spoilage | `simple_spoilage` | `dev.brights0ng.simplespoilage` | lib | Sable (ship holds, through the lib) |
 | Empire | `empire` | `dev.brights0ng.empire` | lib, Frontier (through one gated package), Create, Create: Diesel Generators, Sable, Simulated, Aeronautics, Create Big Cannons, Naturalist, Farm & Charm (god sacrifices; outside mods named by id only) | Sparse Ores, Seismic Surveyance, Simple Spoilage (each through one gated package) |
-| Engines and Empires | `engines_and_empires` | `dev.brights0ng.enginesandempires` | lib, the five required feature mods (Sparse Ores, Seismic Surveyance, Meteodyne, Frontier, Simple Spoilage), Sable, Create, Simulated/Aeronautics/Offroad, Encumbered | Cold Sweat, MineColonies, Serene Seasons, AppleSkin, Diet, Guard Villagers, Born in Chaos, Naturalist |
+| Engines and Empires | `engines_and_empires` | `dev.brights0ng.enginesandempires` | lib, the five required feature mods (Sparse Ores, Seismic Surveyance, Meteodyne, Frontier, Simple Spoilage), Sable, Create, Simulated/Aeronautics/Offroad, Encumbered | Cold Sweat, MineColonies, Serene Seasons, AppleSkin, Diet, Guard Villagers, Born in Chaos, Naturalist, Farm & Charm (the core turns its mincer's ore recipes off) |
 
 Sable Fixes is not required by the core: the dev aggregator loads it with the other mods (`loadMod`) and `buildAll` collects its jar, but no mod of ours depends on it.
 

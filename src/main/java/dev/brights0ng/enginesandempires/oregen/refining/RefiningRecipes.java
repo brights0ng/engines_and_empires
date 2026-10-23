@@ -1,3 +1,4 @@
+// Updated by Claude: disables Farm & Charm's mincer ore recipes.
 package dev.brights0ng.enginesandempires.oregen.refining;
 
 import java.util.LinkedHashMap;
@@ -22,7 +23,9 @@ import dev.brights0ng.sparseores.rich.RichOres;
  *
  * <p>Every recipe here replaces vanilla's, Create's or Sparse Ores', written under <em>their</em> ids (for example
  * {@code minecraft:iron_ingot_from_smelting_raw_iron}, {@code sparse_ores:smelting/rich_iron_ore}), so the pack's file
- * is loaded instead of theirs. This mod loads after Create and Sparse Ores, so its data wins.
+ * is loaded instead of theirs. This mod loads after Create and Sparse Ores, so its data wins. Farm and Charm's mincer
+ * recipes for ore blocks are replaced the same way, by files that never load ({@link #disabled}), so the mincer is no way
+ * round the pack's refining (Bright, 2026-10-23); the core loads after Farm and Charm for that.
  */
 public final class RefiningRecipes {
 
@@ -40,6 +43,7 @@ public final class RefiningRecipes {
         ordinaryOres(recipe);
         richOres(recipe);
         otherSources(recipe);
+        mincerOres(recipe);
         return files;
     }
 
@@ -164,7 +168,33 @@ public final class RefiningRecipes {
         recipe.accept("create:splashing/soul_sand", processing("create:splashing", "minecraft:soul_sand", soulSand, 0));
     }
 
+    /** Farm and Charm's mincer turns ore blocks straight into 3-6 raw metal or gems: the pack turns every one of them off. */
+    static final String[] MINCER_ORE_RECIPES = {
+            "raw_copper_from_copper_ore", "raw_copper_from_deepslate_copper_ore",
+            "raw_iron_from_iron_ore", "raw_iron_from_deepslate_iron_ore",
+            "raw_gold_from_gold_ore", "raw_gold_from_deepslate_gold_ore",
+            "emerald_from_emerald_ore", "emerald_from_deepslate_emerald_ore",
+            "lapis_from_lapis_ore", "lapis_from_deepslate_lapis_ore",
+            "redstone_dust_from_redstone_ore", "redstone_dust_from_deepslate_redstone_ore"};
+
+    private static void mincerOres(BiConsumer<String, JsonObject> recipe) {
+        for (String path : MINCER_ORE_RECIPES) {
+            recipe.accept("farm_and_charm:mincer/" + path, disabled());
+        }
+    }
+
     // ---- recipe pieces ----
+
+    /** A recipe file that never loads (its only condition is NeoForge's {@code neoforge:false}), replacing another's. */
+    static JsonObject disabled() {
+        JsonObject never = new JsonObject();
+        never.addProperty("type", "neoforge:false");
+        JsonArray conditions = new JsonArray();
+        conditions.add(never);
+        JsonObject json = new JsonObject();
+        json.add("neoforge:conditions", conditions);
+        return json;
+    }
 
     /** A crushing recipe for one ore block, {@code times} as rich as the ordinary block. */
     static JsonObject crushing(Refining.Ore ore, RichOres.Variant variant, int times) {

@@ -1,4 +1,5 @@
 // Updated by Gemini: removed MineColonies from optional dependency expectations.
+// Updated by Claude: Farm & Charm is optional (the core turns its mincer's ore recipes off).
 package dev.brights0ng.enginesandempires;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -36,6 +37,6 @@ class CoreMetadataTest {
                 "meteodyne", "frontier", "simple_spoilage", "sable", "create", "simulated", "aeronautics", "offroad",
                 "encumbered")), required);
         assertEquals(new TreeSet<>(Set.of("cold_sweat", "sereneseasons", "appleskin", "appleseed",
-                "guardvillagers", "born_in_chaos_v1", "naturalist")), optional);
+                "guardvillagers", "born_in_chaos_v1", "naturalist", "farm_and_charm")), optional);
     }
 }
