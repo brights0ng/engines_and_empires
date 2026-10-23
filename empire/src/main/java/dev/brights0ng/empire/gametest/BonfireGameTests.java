@@ -1,6 +1,7 @@
-// Written by Gemini; Overworld-only registration, campfire-tag and main bonfire 3x3 tests added by Claude.
+// Written by Gemini; Overworld-only registration, campfire-tag, main bonfire 3x3 and recipe tests added by Claude.
 package dev.brights0ng.empire.gametest;
 
+import java.util.List;
 import java.util.UUID;
 
 import dev.brights0ng.empire.Empire;
@@ -23,6 +24,8 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.CraftingInput;
+import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -297,6 +300,30 @@ public final class BonfireGameTests {
         data.disbandEmpire(record.id(), server);
         data.onBonfireRemoved(posCloserIneligible, server);
         data.onBonfireRemoved(posFartherEligible, server);
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void bonfireRecipeIsLogsAroundACampfireOverACoalBlock(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        var holder = level.getRecipeManager().byKey(Empire.id("bonfire"));
+        helper.assertTrue(holder.isPresent(), "the bonfire recipe exists");
+        helper.assertTrue(holder.get().value() instanceof ShapedRecipe, "it is shaped");
+        ShapedRecipe recipe = (ShapedRecipe) holder.get().value();
+        helper.assertTrue(recipe.getWidth() == 3 && recipe.getHeight() == 2, "it is 3 wide and 2 tall");
+        ItemStack result = recipe.getResultItem(level.registryAccess());
+        helper.assertTrue(result.is(EmpireContent.BONFIRE_ITEM.get()) && result.getCount() == 1, "it makes one bonfire");
+
+        ItemStack log = new ItemStack(Items.OAK_LOG);
+        ItemStack spruce = new ItemStack(Items.SPRUCE_LOG);
+        CraftingInput good = CraftingInput.of(3, 2, List.of(
+                log, new ItemStack(Items.CAMPFIRE), spruce,
+                spruce, new ItemStack(Items.COAL_BLOCK), log));
+        helper.assertTrue(recipe.matches(good, level), "logs around a campfire over a coal block match");
+        CraftingInput swapped = CraftingInput.of(3, 2, List.of(
+                log, new ItemStack(Items.COAL_BLOCK), log,
+                log, new ItemStack(Items.CAMPFIRE), log));
+        helper.assertFalse(recipe.matches(swapped, level), "the campfire goes on top");
         helper.succeed();
     }
 
