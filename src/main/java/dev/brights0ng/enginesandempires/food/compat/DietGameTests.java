@@ -1,3 +1,4 @@
+// Updated by Claude: the respawn and clone tests use a server-side player.
 package dev.brights0ng.enginesandempires.food.compat;
 
 import java.util.List;
@@ -112,7 +113,7 @@ public final class DietGameTests {
 
     @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void dyingResetsToAQuarter(GameTestHelper helper) {
-        Player player = player(helper);
+        Player player = serverPlayer(helper);
         setAll(player, 0.9f);
         NeoForge.EVENT_BUS.post(new PlayerEvent.PlayerRespawnEvent(player, false));
         for (IDietGroup group : DietGroups.getGroups(helper.getLevel())) {
@@ -124,9 +125,9 @@ public final class DietGameTests {
 
     @GameTest(templateNamespace = EnginesAndEmpires.MODID, template = SCRATCH)
     public static void comingBackFromTheEndKeepsNutrition(GameTestHelper helper) {
-        Player before = player(helper);
+        Player before = serverPlayer(helper);
         setAll(before, 0.8f);
-        Player after = player(helper);
+        Player after = serverPlayer(helper);
         NeoForge.EVENT_BUS.post(new PlayerEvent.Clone(after, before, false));
         NeoForge.EVENT_BUS.post(new PlayerEvent.PlayerRespawnEvent(after, true));
         for (IDietGroup group : DietGroups.getGroups(helper.getLevel())) {
@@ -181,6 +182,16 @@ public final class DietGameTests {
         player.setNoGravity(true);
         player.setInvulnerable(true);
         player.setPos(helper.absoluteVec(new net.minecraft.world.phys.Vec3(1.5, 3, 1.5)));
+        setAll(player, 0.5f);
+        return player;
+    }
+
+    /**
+     * A server-side player, for the tests that post respawn and clone events: the game only ever posts them with one, and
+     * other mods' listeners count on it (Architectury, which Farm and Charm brings, casts the player to ServerPlayer).
+     */
+    private static Player serverPlayer(GameTestHelper helper) {
+        Player player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "diet_test"));
         setAll(player, 0.5f);
         return player;
     }
