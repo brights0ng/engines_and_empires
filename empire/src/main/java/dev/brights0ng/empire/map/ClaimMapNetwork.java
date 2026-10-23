@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; viewer lookup by membership edited by Claude.
 package dev.brights0ng.empire.map;
 
 import java.util.ArrayList;
@@ -86,7 +86,7 @@ public final class ClaimMapNetwork {
         byte[] states = new byte[size * size];
 
         EmpireSavedData savedData = EmpireSavedData.of(level);
-        EmpireRecord playerEmpire = viewerUuid != null ? savedData.getEmpireByFounder(viewerUuid) : null;
+        EmpireRecord playerEmpire = viewerUuid != null ? savedData.getEmpireOf(viewerUuid) : null;
 
         int minChunkX = cx - r;
         int minChunkZ = cz - r;

@@ -1,4 +1,4 @@
-// Written by Gemini; the divine area edited by Claude.
+// Written by Gemini; members and the divine area edited by Claude.
 package dev.brights0ng.empire.gametest;
 
 import java.util.UUID;
@@ -64,7 +64,7 @@ public final class EmpireDataGameTests {
         // Verify loaded data
         EmpireRecord loadedRecord = loaded.getEmpire(record.id());
         helper.assertTrue(loadedRecord != null, "Empire record found after load");
-        helper.assertTrue(founderId.equals(loadedRecord.founder()), "Founder UUID matches");
+        helper.assertTrue(loadedRecord.members().size() == 1 && loadedRecord.isMember(founderId), "Founder is the only member");
         helper.assertTrue(loadedRecord.foundedGameTime() == 1000L, "Founded game time matches");
         helper.assertTrue(mainBonfire.equals(loadedRecord.mainBonfire()), "Main bonfire position matches");
         helper.assertTrue(loadedRecord.state().dominion() == 11, "Dominion matches (10 founding + 1 added)");
@@ -80,7 +80,7 @@ public final class EmpireDataGameTests {
         helper.assertTrue(loadedRecord.state().dormant().get(0).availableOnDay() == 1, "Dormant point available on day 1");
 
         // Rebuilt indices
-        helper.assertTrue(record.id().equals(loaded.getEmpireByFounder(founderId).id()), "Founder index rebuilt");
+        helper.assertTrue(record.id().equals(loaded.getEmpireOf(founderId).id()), "Member index rebuilt");
         helper.assertTrue(record.id().equals(loaded.getEmpireByChunk(adjacentChunk).id()), "Chunk index rebuilt for adjacent");
         helper.assertTrue(loaded.getEmpireByChunk(cornerChunk) == null, "Unstaked chunk not in chunk index");
 
@@ -217,7 +217,7 @@ public final class EmpireDataGameTests {
         EmpireRecord record = data.createEmpire(founderId, centerChunk, testPos, server.overworld().getGameTime());
 
         helper.assertTrue(data.isChunkStaked(centerChunk), "Chunk is staked initially");
-        helper.assertTrue(data.getEmpireByFounder(founderId) != null, "Empire exists before disband");
+        helper.assertTrue(data.getEmpireOf(founderId) != null, "Empire exists before disband");
 
         CommandDispatcher<CommandSourceStack> dispatcher = server.getCommands().getDispatcher();
         CommandSourceStack op = server.createCommandSourceStack()
@@ -231,7 +231,7 @@ public final class EmpireDataGameTests {
             helper.fail("Disband command failed: " + e.getMessage());
         }
 
-        helper.assertTrue(data.getEmpireByFounder(founderId) == null, "Empire removed after disband");
+        helper.assertTrue(data.getEmpireOf(founderId) == null, "Empire removed after disband");
         helper.assertTrue(data.getEmpire(record.id()) == null, "Record removed after disband");
 
         // Verify all 9 chunks are freed
