@@ -1,4 +1,4 @@
-// Written by Gemini; gods, config, Simple Spoilage compat and levitite drops registered by Claude.
+// Written by Gemini; gods, config, Simple Spoilage compat, levitite drops and divine protection registered by Claude.
 package dev.brights0ng.empire;
 
 import org.slf4j.Logger;
@@ -11,6 +11,7 @@ import dev.brights0ng.empire.compat.simplespoilage.SimpleSpoilageCompat;
 import dev.brights0ng.empire.compat.sparseores.SparseOresCompat;
 import dev.brights0ng.empire.god.Gods;
 import dev.brights0ng.empire.loot.LevititeDrops;
+import dev.brights0ng.empire.protect.DivineProtection;
 import dev.brights0ng.empire.talc.TalcInteractions;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.data.DataGenerator;
@@ -44,6 +45,7 @@ public final class Empire {
         modContainer.registerConfig(ModConfig.Type.SERVER, EmpireConfig.SPEC);
         NeoForge.EVENT_BUS.register(BonfireEvents.class);
         NeoForge.EVENT_BUS.register(TalcInteractions.class);
+        NeoForge.EVENT_BUS.register(DivineProtection.class);
         NeoForge.EVENT_BUS.addListener(Gods::onAddReloadListeners);
         NeoForge.EVENT_BUS.addListener(LevititeDrops::onBlockDrops);
         modEventBus.addListener(Empire::gatherData);

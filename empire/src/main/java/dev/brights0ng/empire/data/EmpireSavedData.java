@@ -1,4 +1,4 @@
-// Written by Gemini; members, the main bonfire's 3x3 rule and the public core chunk by Claude.
+// Written by Gemini; members, the main bonfire's 3x3 rule, the public core chunk and the divine index by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.Collection;
@@ -12,6 +12,7 @@ import javax.annotation.Nullable;
 
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.ClaimGraph;
+import dev.brights0ng.empire.rules.DivineArea;
 import dev.brights0ng.empire.rules.EmpireState;
 import dev.brights0ng.empire.rules.StakeResult;
 import dev.brights0ng.empire.rules.UnstakeResult;
@@ -35,6 +36,8 @@ public final class EmpireSavedData extends SavedData {
     private final Map<UUID, EmpireRecord> empires = new HashMap<>();
     private final Map<UUID, UUID> memberToEmpire = new HashMap<>();
     private final Long2ObjectMap<UUID> chunkIndex = new Long2ObjectOpenHashMap<>();
+    /** Each empire's divine area (the 3x3 around its core chunk), chunk to empire. Not saved: rebuilt from the records. */
+    private final Long2ObjectMap<UUID> divineIndex = new Long2ObjectOpenHashMap<>();
     private final BonfireRegistry bonfires = new BonfireRegistry();
 
     public static EmpireSavedData of(MinecraftServer server) {
@@ -58,6 +61,17 @@ public final class EmpireSavedData extends SavedData {
                 chunkIndex.put(chunk, record.id());
             }
         }
+        rebuildDivineIndex();
+    }
+
+    /** Rebuilds the divine index; called on load and whenever an empire's core chunk can change. */
+    public void rebuildDivineIndex() {
+        divineIndex.clear();
+        for (EmpireRecord record : empires.values()) {
+            for (long chunk : DivineArea.chunks(coreChunk(record))) {
+                divineIndex.putIfAbsent(chunk, record.id());
+            }
+        }
     }
 
     public EmpireRecord createEmpire(UUID founder, long centerChunk, @Nullable BlockPos mainBonfire, long gameTime) {
@@ -74,6 +88,7 @@ public final class EmpireSavedData extends SavedData {
         if (mainBonfire != null) {
             bonfires.add(mainBonfire);
         }
+        rebuildDivineIndex();
         setDirty();
         return record;
     }
@@ -142,6 +157,7 @@ public final class EmpireSavedData extends SavedData {
             for (long chunk : record.state().staked()) {
                 chunkIndex.remove(chunk);
             }
+            rebuildDivineIndex();
             setDirty();
             messageMembers(record, server, Component.translatable("message.empire.disbanded"));
         }
@@ -155,6 +171,7 @@ public final class EmpireSavedData extends SavedData {
             EmpireRecord record = empires.get(empireId);
             if (record != null && record.mainBonfire() == null && eligibleMain(record, pos)) {
                 record.setMainBonfire(pos.immutable());
+                rebuildDivineIndex();
                 notifyMainBonfireChange(record, server, pos);
             }
         }
@@ -180,6 +197,7 @@ public final class EmpireSavedData extends SavedData {
                 }
 
                 record.setMainBonfire(bestCandidate);
+                rebuildDivineIndex();
                 notifyMainBonfireChange(record, server, bestCandidate);
             }
         }
@@ -225,6 +243,13 @@ public final class EmpireSavedData extends SavedData {
     @Nullable
     public EmpireRecord getEmpireByChunk(long chunk) {
         UUID empireId = chunkIndex.get(chunk);
+        return empireId != null ? empires.get(empireId) : null;
+    }
+
+    /** The empire whose divine area holds {@code chunk} (an Overworld chunk), or null. */
+    @Nullable
+    public EmpireRecord getDivineOwner(long chunk) {
+        UUID empireId = divineIndex.get(chunk);
         return empireId != null ? empires.get(empireId) : null;
     }
 
