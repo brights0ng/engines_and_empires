@@ -26,6 +26,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -54,6 +56,9 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * <p>Speech runs on the server once a second and only near players: a line now and then ({@link CivilianLines}), a
  * greeting for a player who comes close, and short scripted conversations with a nearby civilian. Each line goes to the
  * tracking clients ({@link CivilianNetwork}), which draw it as a bubble.
+ *
+ * <p>Right-clicking (main hand, any item, never used up) starts a dialogue: the civilian stops, faces the player and
+ * greets them, and each later click gets a reply, until the player leaves, goes idle or is gone.
  */
 public class CivilianEntity extends PathfinderMob {
 
@@ -72,6 +77,11 @@ public class CivilianEntity extends PathfinderMob {
     public static final int TALK_RADIUS = 4;
     /** Ticks between the lines of a conversation (provisional). */
     public static final int TALK_LINE_GAP = 100;
+    /** A dialogue ends once its player has been further than DIALOGUE_RANGE for DIALOGUE_LEAVE ticks in a row, or has
+     *  not clicked for DIALOGUE_IDLE ticks (provisional). */
+    public static final int DIALOGUE_RANGE = 5;
+    public static final int DIALOGUE_LEAVE = 200;
+    public static final int DIALOGUE_IDLE = 600;
 
     private static final double RAIN_CHANCE = 0.5;
     private static final double NIGHT_CHANCE = 0.4;
@@ -79,6 +89,8 @@ public class CivilianEntity extends PathfinderMob {
     /** Partners further apart than this end their conversation. */
     private static final double TALK_BREAK_DISTANCE = 6.0;
     private static final int SPEECH_INTERVAL = 20;
+    /** Clicks this soon after the civilian's last line get no new line. */
+    private static final int CLICK_GAP = 10;
 
     private static final EntityDataAccessor<Integer> APPEARANCE =
             SynchedEntityData.defineId(CivilianEntity.class, EntityDataSerializers.INT);
@@ -109,6 +121,11 @@ public class CivilianEntity extends PathfinderMob {
     /** The conversation's script; only the civilian that started it holds this. */
     @Nullable
     private Conversation conversation;
+    /** The player this civilian is in dialogue with. */
+    @Nullable
+    private UUID dialoguePlayer;
+    private int lastClickTick;
+    private int awayTicks;
 
     private static final class Conversation {
         final CivilianEntity partner;
@@ -240,15 +257,69 @@ public class CivilianEntity extends PathfinderMob {
     @Override
     public void aiStep() {
         super.aiStep();
-        if (!level().isClientSide && (tickCount + getId()) % SPEECH_INTERVAL == 0) {
-            tickSpeech();
+        if (!level().isClientSide) {
+            tickDialogue();
+            if ((tickCount + getId()) % SPEECH_INTERVAL == 0) {
+                tickSpeech();
+            }
         }
     }
 
     /** Who {@link CivilianFaceGoal} keeps this civilian facing, or null. */
     @Nullable
     Entity faceTarget() {
+        if (dialoguePlayer != null) {
+            return level().getPlayerByUUID(dialoguePlayer);
+        }
         return talkPartner;
+    }
+
+    /** The player this civilian is in dialogue with, or null. */
+    @Nullable
+    public UUID dialoguePlayer() {
+        return dialoguePlayer;
+    }
+
+    @Override
+    protected InteractionResult mobInteract(Player player, InteractionHand hand) {
+        if (hand != InteractionHand.MAIN_HAND) {
+            return InteractionResult.PASS;
+        }
+        return talkTo(player);
+    }
+
+    /** A right-click: starts or continues the dialogue with {@code player}. The held item is never used. */
+    InteractionResult talkTo(Player player) {
+        if (!level().isClientSide) {
+            endConversation();
+            boolean started = !player.getUUID().equals(dialoguePlayer);
+            dialoguePlayer = player.getUUID();
+            lastClickTick = tickCount;
+            awayTicks = 0;
+            if (tickCount - lastLineTick >= CLICK_GAP) {
+                say(started ? CivilianLines.Category.GREETING : CivilianLines.Category.REPLY);
+            }
+        }
+        return InteractionResult.sidedSuccess(level().isClientSide);
+    }
+
+    private void tickDialogue() {
+        if (dialoguePlayer == null) {
+            return;
+        }
+        // Null when the player has left or is in another dimension.
+        Player player = level().getPlayerByUUID(dialoguePlayer);
+        if (player == null || !player.isAlive() || tickCount - lastClickTick > DIALOGUE_IDLE) {
+            dialoguePlayer = null;
+            return;
+        }
+        if (distanceToSqr(player) > (double) DIALOGUE_RANGE * DIALOGUE_RANGE) {
+            if (++awayTicks >= DIALOGUE_LEAVE) {
+                dialoguePlayer = null;
+            }
+        } else {
+            awayTicks = 0;
+        }
     }
 
     private void tickSpeech() {
@@ -258,6 +329,9 @@ public class CivilianEntity extends PathfinderMob {
         }
         if (talkPartner != null) {
             tickConversation();
+            return;
+        }
+        if (dialoguePlayer != null) {
             return;
         }
         if (!playerWithin(SPEECH_RADIUS)) {
@@ -322,7 +396,7 @@ public class CivilianEntity extends PathfinderMob {
 
     /** Whether this civilian can be drawn into a conversation. */
     private boolean available() {
-        return isAlive() && talkPartner == null;
+        return isAlive() && talkPartner == null && dialoguePlayer == null;
     }
 
     private boolean startConversation() {
@@ -362,6 +436,7 @@ public class CivilianEntity extends PathfinderMob {
             return;
         }
         if (partner.isRemoved() || !partner.isAlive() || partner.talkPartner != this
+                || dialoguePlayer != null || partner.dialoguePlayer != null
                 || distanceToSqr(partner) > TALK_BREAK_DISTANCE * TALK_BREAK_DISTANCE) {
             endConversation();
             return;
