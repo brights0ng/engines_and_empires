@@ -268,6 +268,11 @@ public final class SacrificeInteractions {
         return ItemInteractionResult.SUCCESS;
     }
 
+    /** Whether this stack, held by a player who is not a member of {@code owner}, is an offering to join it. */
+    public static boolean isJoinOffering(ItemStack stack, EmpireRecord owner) {
+        return !stack.isEmpty() && isJoinMeat(stack, owner, Gods.get(owner.god()));
+    }
+
     /**
      * Whether a player who is not a member of {@code owner} would be offering this stack to join it: its god's founding
      * meat, or rotting raw meat for a god that takes it. At a godless empire any founding meat counts (and is refused).

@@ -50,6 +50,7 @@
   "message.empire.leave.wait": "Wait a moment, then offer again to leave",
   "message.empire.leave.left": "You have left %s",
   "message.empire.leave.member_left": "%s has left the empire",
+  "message.empire.protected": "This land is protected by its empire's god",
   "message.empire.name": "the empire of %s",
   "message.empire.name.godless": "your godless empire",
   "message.empire.bless.success": "The talc is blessed by the sacred flame",
