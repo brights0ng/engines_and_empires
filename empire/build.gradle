@@ -1,4 +1,4 @@
-// Written by Gemini; outside mods, required Frontier and optional Meteodyne added by Claude.
+// Written by Gemini; outside mods, required Frontier, optional Meteodyne and test Gson added by Claude.
 plugins {
     id 'eae.mod-conventions'
 }
@@ -78,4 +78,7 @@ dependencies {
     // Empire may import Seismic Surveyance only inside dev.brights0ng.empire.compat.seismic.
     compileOnly project(':seismic-surveyance')
     testImplementation project(':seismic-surveyance')
+
+    // Gson for unit tests that read Empire's resources (CivilianLinesTest checks the lang file); same version as the lib's.
+    testImplementation 'com.google.code.gson:gson:2.10.1'
 }
