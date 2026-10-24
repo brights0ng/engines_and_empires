@@ -1,0 +1,8 @@
+{
+  "values": [
+    {
+      "id": "empire:civilian",
+      "required": false
+    }
+  ]
+}
