@@ -1,4 +1,4 @@
-// Written by Gemini; members and the god's hunger edited by Claude.
+// Written by Gemini; members, the god's hunger and the civilian debug commands edited by Claude.
 package dev.brights0ng.empire.command;
 
 import java.nio.charset.StandardCharsets;
@@ -52,6 +52,7 @@ public final class EmpireCommand {
                         .executes(ctx -> here(ctx.getSource())))
                 .then(Commands.literal("debug")
                         .requires(source -> source.hasPermission(2))
+                        .then(CivilianDebugCommands.node())
                         .then(Commands.literal("dominion")
                                 .then(Commands.argument("player", StringArgumentType.word())
                                         .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(ctx.getSource().getOnlinePlayerNames(), builder))
