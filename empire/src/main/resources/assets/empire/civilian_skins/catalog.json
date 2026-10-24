@@ -1,0 +1,265 @@
+{
+  "schema_version": 1,
+  "content_version": "civilian_skins_v6",
+  "model": {
+    "kind": "minecraft_player",
+    "variant": "slim",
+    "arm_width_pixels": 3,
+    "width": 64,
+    "height": 64,
+    "optional_geometry": "empire:geo/slim_player.geo.json",
+    "outer_skin_layer_required": true
+  },
+  "composition_order": [
+    "skin",
+    "pants",
+    "shoes",
+    "shirt",
+    "hair"
+  ],
+  "categories": {
+    "skin": {
+      "styles": [
+        {
+          "id": "skin_01",
+          "label": "Freckled / sage eyes",
+          "texture": "empire:textures/entity/civilian/templates/skin/skin_01.png",
+          "lookup_key": "skin_01"
+        },
+        {
+          "id": "skin_02",
+          "label": "Clear / hazel eyes",
+          "texture": "empire:textures/entity/civilian/templates/skin/skin_02.png",
+          "lookup_key": "skin_02"
+        },
+        {
+          "id": "skin_03",
+          "label": "Clear / brown eyes",
+          "texture": "empire:textures/entity/civilian/templates/skin/skin_03.png",
+          "lookup_key": "skin_03"
+        },
+        {
+          "id": "skin_04",
+          "label": "Weathered / sage eyes",
+          "texture": "empire:textures/entity/civilian/templates/skin/skin_04.png",
+          "lookup_key": "skin_04"
+        },
+        {
+          "id": "skin_05",
+          "label": "Round cheeks / beauty mark",
+          "texture": "empire:textures/entity/civilian/templates/skin/skin_05.png",
+          "lookup_key": "skin_05"
+        }
+      ],
+      "palette_ids": [
+        "skin_color_01",
+        "skin_color_02",
+        "skin_color_03",
+        "skin_color_04",
+        "skin_color_05"
+      ]
+    },
+    "hair": {
+      "styles": [
+        {
+          "id": "hair_01",
+          "label": "Crop",
+          "texture": "empire:textures/entity/civilian/templates/hair/hair_01.png",
+          "lookup_key": "hair_01"
+        },
+        {
+          "id": "hair_02",
+          "label": "Side sweep",
+          "texture": "empire:textures/entity/civilian/templates/hair/hair_02.png",
+          "lookup_key": "hair_02"
+        },
+        {
+          "id": "hair_03",
+          "label": "Braid",
+          "texture": "empire:textures/entity/civilian/templates/hair/hair_03.png",
+          "lookup_key": "hair_03"
+        },
+        {
+          "id": "hair_04",
+          "label": "Jaw-length waves",
+          "texture": "empire:textures/entity/civilian/templates/hair/hair_04.png",
+          "lookup_key": "hair_04"
+        },
+        {
+          "id": "hair_05",
+          "label": "Coiled curls",
+          "texture": "empire:textures/entity/civilian/templates/hair/hair_05.png",
+          "lookup_key": "hair_05"
+        }
+      ],
+      "palette_ids": [
+        "hair_color_01",
+        "hair_color_02",
+        "hair_color_03",
+        "hair_color_04",
+        "hair_color_05"
+      ]
+    },
+    "shirt": {
+      "styles": [
+        {
+          "id": "shirt_01",
+          "label": "Linen henley",
+          "texture": "empire:textures/entity/civilian/templates/shirt/shirt_01.png",
+          "lookup_key": "shirt_01"
+        },
+        {
+          "id": "shirt_02",
+          "label": "Canvas workshirt",
+          "texture": "empire:textures/entity/civilian/templates/shirt/shirt_02.png",
+          "lookup_key": "shirt_02"
+        },
+        {
+          "id": "shirt_03",
+          "label": "Wool-linen tunic",
+          "texture": "empire:textures/entity/civilian/templates/shirt/shirt_03.png",
+          "lookup_key": "shirt_03"
+        },
+        {
+          "id": "shirt_04",
+          "label": "Open-neck herringbone smock",
+          "texture": "empire:textures/entity/civilian/templates/shirt/shirt_04.png",
+          "lookup_key": "shirt_04"
+        },
+        {
+          "id": "shirt_05",
+          "label": "Cross-wrap linen shirt",
+          "texture": "empire:textures/entity/civilian/templates/shirt/shirt_05.png",
+          "lookup_key": "shirt_05"
+        }
+      ],
+      "palette_ids": [
+        "shirt_color_01",
+        "shirt_color_02",
+        "shirt_color_03",
+        "shirt_color_04",
+        "shirt_color_05"
+      ]
+    },
+    "pants": {
+      "styles": [
+        {
+          "id": "pants_01",
+          "label": "Plain canvas",
+          "texture": "empire:textures/entity/civilian/templates/pants/pants_01.png",
+          "lookup_key": "pants_01"
+        },
+        {
+          "id": "pants_02",
+          "label": "Felled seams / back pockets",
+          "texture": "empire:textures/entity/civilian/templates/pants/pants_02.png",
+          "lookup_key": "pants_02"
+        },
+        {
+          "id": "pants_03",
+          "label": "Patched canvas",
+          "texture": "empire:textures/entity/civilian/templates/pants/pants_03.png",
+          "lookup_key": "pants_03"
+        },
+        {
+          "id": "pants_04",
+          "label": "Pleated canvas",
+          "texture": "empire:textures/entity/civilian/templates/pants/pants_04.png",
+          "lookup_key": "pants_04"
+        },
+        {
+          "id": "pants_05",
+          "label": "Corduroy / turn-ups",
+          "texture": "empire:textures/entity/civilian/templates/pants/pants_05.png",
+          "lookup_key": "pants_05"
+        }
+      ],
+      "palette_ids": [
+        "pants_color_01",
+        "pants_color_02",
+        "pants_color_03",
+        "pants_color_04",
+        "pants_color_05"
+      ]
+    },
+    "shoes": {
+      "styles": [
+        {
+          "id": "shoes_01",
+          "label": "Ankle boots",
+          "texture": "empire:textures/entity/civilian/templates/shoes/shoes_01.png",
+          "lookup_key": "shoes_01"
+        },
+        {
+          "id": "shoes_02",
+          "label": "Tall buckle boots",
+          "texture": "empire:textures/entity/civilian/templates/shoes/shoes_02.png",
+          "lookup_key": "shoes_02"
+        },
+        {
+          "id": "shoes_03",
+          "label": "Wrapped boots",
+          "texture": "empire:textures/entity/civilian/templates/shoes/shoes_03.png",
+          "lookup_key": "shoes_03"
+        },
+        {
+          "id": "shoes_04",
+          "label": "Laced low shoes",
+          "texture": "empire:textures/entity/civilian/templates/shoes/shoes_04.png",
+          "lookup_key": "shoes_04"
+        },
+        {
+          "id": "shoes_05",
+          "label": "Double-strap boots",
+          "texture": "empire:textures/entity/civilian/templates/shoes/shoes_05.png",
+          "lookup_key": "shoes_05"
+        }
+      ],
+      "palette_ids": [
+        "shoes_color_01",
+        "shoes_color_02",
+        "shoes_color_03",
+        "shoes_color_04",
+        "shoes_color_05"
+      ]
+    }
+  },
+  "lookup_tables": "empire:civilian_skins/shade_luts.json",
+  "palettes": "empire:civilian_skins/palettes.json",
+  "encoding": {
+    "template": "rgba8 grayscale shade ID; not linear luminance",
+    "alpha": [
+      0,
+      255
+    ],
+    "lookup_rgb": "#RRGGBB; exact byte substitution, no multiply/gamma/filtering",
+    "texture_paths": "full resource paths including textures/ and .png",
+    "pixel_index": "y * 64 + x; top-left origin",
+    "blend": "transparent pixels skip; opaque recolored pixels replace"
+  },
+  "recipe_contract": {
+    "selection": "one stable style ID and palette ID in every category",
+    "cache_key": "content version plus all ten selection IDs",
+    "saved_npc_data": "persist/synchronize chosen IDs; do not reroll each render",
+    "reserved_future_topmost_category": "job"
+  },
+  "supported_recipes": 9765625,
+  "waist_contract": {
+    "pants_start_body_row": 10,
+    "shirt_minimum_end_exclusive": 10,
+    "shirt_lengths": [
+      10,
+      12,
+      14,
+      12,
+      11
+    ],
+    "shoe_heights": [
+      4,
+      6,
+      5,
+      3,
+      6
+    ]
+  }
+}

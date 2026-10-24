@@ -1,0 +1,781 @@
+{
+  "schema": 1,
+  "uniqueness": "All 25 primary colors and all ramp swatches are disjoint between categories. Named small accents are separate finishes.",
+  "categories": {
+    "skin": [
+      {
+        "id": "skin_color_01",
+        "label": "Warm peach",
+        "primary": "#d3a17d",
+        "ramp": [
+          "#99694f",
+          "#ba8868",
+          "#d3a17d",
+          "#e4b995",
+          "#ecc8a5"
+        ],
+        "roles": {
+          "tone_0": "#99694f",
+          "tone_1": "#ba8868",
+          "tone_2": "#d3a17d",
+          "tone_3": "#e4b995",
+          "tone_4": "#ecc8a5",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "skin_color_02",
+        "label": "Amber",
+        "primary": "#b77e57",
+        "ramp": [
+          "#80503b",
+          "#9c6749",
+          "#b77e57",
+          "#ce976b",
+          "#d9ab7f"
+        ],
+        "roles": {
+          "tone_0": "#80503b",
+          "tone_1": "#9c6749",
+          "tone_2": "#b77e57",
+          "tone_3": "#ce976b",
+          "tone_4": "#d9ab7f",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#9d684a",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "skin_color_03",
+        "label": "Umber",
+        "primary": "#76503c",
+        "ramp": [
+          "#422e29",
+          "#5b3d30",
+          "#76503c",
+          "#94684d",
+          "#aa7e5d"
+        ],
+        "roles": {
+          "tone_0": "#422e29",
+          "tone_1": "#5b3d30",
+          "tone_2": "#76503c",
+          "tone_3": "#94684d",
+          "tone_4": "#aa7e5d",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#5d4033",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "skin_color_04",
+        "label": "Light beige",
+        "primary": "#e8c8aa",
+        "ramp": [
+          "#af8c72",
+          "#cfae90",
+          "#e8c8aa",
+          "#f0d7ba",
+          "#f8e7d0"
+        ],
+        "roles": {
+          "tone_0": "#af8c72",
+          "tone_1": "#cfae90",
+          "tone_2": "#e8c8aa",
+          "tone_3": "#f0d7ba",
+          "tone_4": "#f8e7d0",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#cdab8f",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "skin_color_05",
+        "label": "Deep sienna",
+        "primary": "#50352f",
+        "ramp": [
+          "#2c201f",
+          "#3e2926",
+          "#50352f",
+          "#6c4a3b",
+          "#87604b"
+        ],
+        "roles": {
+          "tone_0": "#2c201f",
+          "tone_1": "#3e2926",
+          "tone_2": "#50352f",
+          "tone_3": "#6c4a3b",
+          "tone_4": "#87604b",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#3f2b27",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      }
+    ],
+    "hair": [
+      {
+        "id": "hair_color_01",
+        "label": "Chestnut",
+        "primary": "#654432",
+        "ramp": [
+          "#30231f",
+          "#483027",
+          "#654432",
+          "#80583c",
+          "#a17a52"
+        ],
+        "roles": {
+          "tone_0": "#30231f",
+          "tone_1": "#483027",
+          "tone_2": "#654432",
+          "tone_3": "#80583c",
+          "tone_4": "#a17a52",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "hair_color_02",
+        "label": "Blue black",
+        "primary": "#354046",
+        "ramp": [
+          "#191e23",
+          "#252e32",
+          "#354046",
+          "#49545a",
+          "#667073"
+        ],
+        "roles": {
+          "tone_0": "#191e23",
+          "tone_1": "#252e32",
+          "tone_2": "#354046",
+          "tone_3": "#49545a",
+          "tone_4": "#667073",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "hair_color_03",
+        "label": "Copper",
+        "primary": "#895136",
+        "ramp": [
+          "#482b23",
+          "#663b28",
+          "#895136",
+          "#ad7448",
+          "#c69561"
+        ],
+        "roles": {
+          "tone_0": "#482b23",
+          "tone_1": "#663b28",
+          "tone_2": "#895136",
+          "tone_3": "#ad7448",
+          "tone_4": "#c69561",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "hair_color_04",
+        "label": "Ash blond",
+        "primary": "#b4a079",
+        "ramp": [
+          "#554b3c",
+          "#817154",
+          "#b4a079",
+          "#cdbc95",
+          "#dfd3b2"
+        ],
+        "roles": {
+          "tone_0": "#554b3c",
+          "tone_1": "#817154",
+          "tone_2": "#b4a079",
+          "tone_3": "#cdbc95",
+          "tone_4": "#dfd3b2",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "hair_color_05",
+        "label": "Silver",
+        "primary": "#9a9e9b",
+        "ramp": [
+          "#454c50",
+          "#6e787a",
+          "#9a9e9b",
+          "#bec0b9",
+          "#ddded3"
+        ],
+        "roles": {
+          "tone_0": "#454c50",
+          "tone_1": "#6e787a",
+          "tone_2": "#9a9e9b",
+          "tone_3": "#bec0b9",
+          "tone_4": "#ddded3",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      }
+    ],
+    "shirt": [
+      {
+        "id": "shirt_color_01",
+        "label": "Flax",
+        "primary": "#c1b28e",
+        "ramp": [
+          "#85745c",
+          "#a49374",
+          "#c1b28e",
+          "#d9caa5",
+          "#eee0bd"
+        ],
+        "roles": {
+          "tone_0": "#85745c",
+          "tone_1": "#a49374",
+          "tone_2": "#c1b28e",
+          "tone_3": "#d9caa5",
+          "tone_4": "#eee0bd",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "shirt_color_02",
+        "label": "Indigo",
+        "primary": "#577686",
+        "ramp": [
+          "#2e404c",
+          "#415a69",
+          "#577686",
+          "#7293a0",
+          "#9cb6ba"
+        ],
+        "roles": {
+          "tone_0": "#2e404c",
+          "tone_1": "#415a69",
+          "tone_2": "#577686",
+          "tone_3": "#7293a0",
+          "tone_4": "#9cb6ba",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "shirt_color_03",
+        "label": "Moss",
+        "primary": "#66724e",
+        "ramp": [
+          "#343d30",
+          "#4b5940",
+          "#66724e",
+          "#839164",
+          "#a9ae7c"
+        ],
+        "roles": {
+          "tone_0": "#343d30",
+          "tone_1": "#4b5940",
+          "tone_2": "#66724e",
+          "tone_3": "#839164",
+          "tone_4": "#a9ae7c",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "shirt_color_04",
+        "label": "Oxblood",
+        "primary": "#813c48",
+        "ramp": [
+          "#3f232d",
+          "#5b2c3a",
+          "#813c48",
+          "#a65a61",
+          "#c78586"
+        ],
+        "roles": {
+          "tone_0": "#3f232d",
+          "tone_1": "#5b2c3a",
+          "tone_2": "#813c48",
+          "tone_3": "#a65a61",
+          "tone_4": "#c78586",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "shirt_color_05",
+        "label": "Harvest ochre",
+        "primary": "#b19a4d",
+        "ramp": [
+          "#62532c",
+          "#89743a",
+          "#b19a4d",
+          "#c9b66c",
+          "#e0cf94"
+        ],
+        "roles": {
+          "tone_0": "#62532c",
+          "tone_1": "#89743a",
+          "tone_2": "#b19a4d",
+          "tone_3": "#c9b66c",
+          "tone_4": "#e0cf94",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      }
+    ],
+    "pants": [
+      {
+        "id": "pants_color_01",
+        "label": "Charcoal",
+        "primary": "#50575a",
+        "ramp": [
+          "#282b2e",
+          "#3b4144",
+          "#50575a",
+          "#697073",
+          "#858a87"
+        ],
+        "roles": {
+          "tone_0": "#282b2e",
+          "tone_1": "#3b4144",
+          "tone_2": "#50575a",
+          "tone_3": "#697073",
+          "tone_4": "#858a87",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "pants_color_02",
+        "label": "Earth brown",
+        "primary": "#6c5541",
+        "ramp": [
+          "#3b2e28",
+          "#524035",
+          "#6c5541",
+          "#88715a",
+          "#a38b6d"
+        ],
+        "roles": {
+          "tone_0": "#3b2e28",
+          "tone_1": "#524035",
+          "tone_2": "#6c5541",
+          "tone_3": "#88715a",
+          "tone_4": "#a38b6d",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "pants_color_03",
+        "label": "Slate",
+        "primary": "#5d6b73",
+        "ramp": [
+          "#303941",
+          "#45505a",
+          "#5d6b73",
+          "#7b878c",
+          "#9ba4a2"
+        ],
+        "roles": {
+          "tone_0": "#303941",
+          "tone_1": "#45505a",
+          "tone_2": "#5d6b73",
+          "tone_3": "#7b878c",
+          "tone_4": "#9ba4a2",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "pants_color_04",
+        "label": "Peat green",
+        "primary": "#43544a",
+        "ramp": [
+          "#25362e",
+          "#334438",
+          "#43544a",
+          "#607062",
+          "#839183"
+        ],
+        "roles": {
+          "tone_0": "#25362e",
+          "tone_1": "#334438",
+          "tone_2": "#43544a",
+          "tone_3": "#607062",
+          "tone_4": "#839183",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "pants_color_05",
+        "label": "Russet",
+        "primary": "#714438",
+        "ramp": [
+          "#382721",
+          "#523229",
+          "#714438",
+          "#916151",
+          "#ae8470"
+        ],
+        "roles": {
+          "tone_0": "#382721",
+          "tone_1": "#523229",
+          "tone_2": "#714438",
+          "tone_3": "#916151",
+          "tone_4": "#ae8470",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      }
+    ],
+    "shoes": [
+      {
+        "id": "shoes_color_01",
+        "label": "Brown leather",
+        "primary": "#604b39",
+        "ramp": [
+          "#2b201c",
+          "#413129",
+          "#604b39",
+          "#80654a"
+        ],
+        "roles": {
+          "tone_0": "#2b201c",
+          "tone_1": "#413129",
+          "tone_2": "#604b39",
+          "tone_3": "#80654a",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "shoes_color_02",
+        "label": "Graphite leather",
+        "primary": "#505451",
+        "ramp": [
+          "#222426",
+          "#363939",
+          "#505451",
+          "#72776b"
+        ],
+        "roles": {
+          "tone_0": "#222426",
+          "tone_1": "#363939",
+          "tone_2": "#505451",
+          "tone_3": "#72776b",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "shoes_color_03",
+        "label": "Honey leather",
+        "primary": "#756247",
+        "ramp": [
+          "#352c24",
+          "#514231",
+          "#756247",
+          "#9b8965"
+        ],
+        "roles": {
+          "tone_0": "#352c24",
+          "tone_1": "#514231",
+          "tone_2": "#756247",
+          "tone_3": "#9b8965",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "shoes_color_04",
+        "label": "Oxhide",
+        "primary": "#542f32",
+        "ramp": [
+          "#20171b",
+          "#392026",
+          "#542f32",
+          "#7a4c49"
+        ],
+        "roles": {
+          "tone_0": "#20171b",
+          "tone_1": "#392026",
+          "tone_2": "#542f32",
+          "tone_3": "#7a4c49",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      },
+      {
+        "id": "shoes_color_05",
+        "label": "Oil navy",
+        "primary": "#26323b",
+        "ramp": [
+          "#111b25",
+          "#1b2730",
+          "#26323b",
+          "#48545b"
+        ],
+        "roles": {
+          "tone_0": "#111b25",
+          "tone_1": "#1b2730",
+          "tone_2": "#26323b",
+          "tone_3": "#48545b",
+          "eye_white_light": "#e4d5b7",
+          "eye_white_dark": "#c7b695",
+          "iris_sage": "#607b74",
+          "iris_hazel": "#8d794c",
+          "iris_brown": "#8b6a49",
+          "freckle": "#b77c59",
+          "braid_tie": "#c5b68a",
+          "horn_button": "#756044",
+          "brass_button": "#c2ac7c",
+          "tunic_braid": "#b5a076",
+          "tunic_braid_light": "#d0bc8c",
+          "boot_buckle": "#b29c6c"
+        }
+      }
+    ]
+  }
+}
