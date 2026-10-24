@@ -31,14 +31,14 @@ Status: **plan settled, nothing built.** Every question from v2 is answered (sec
 | Meteodyne | `meteodyne` | `dev.brights0ng.meteodyne` | lib | Sable, Iris |
 | Frontier | `frontier` | `dev.brights0ng.frontier` | lib, Deeper and Darker (Bright, after 2d) | Seismic Surveyance (through one gated package) |
 | Simple Spoilage | `simple_spoilage` | `dev.brights0ng.simplespoilage` | lib | Sable (ship holds, through the lib) |
-| Empire | `empire` | `dev.brights0ng.empire` | lib, Frontier (through one gated package), Create, Create: Diesel Generators, Sable, Simulated, Aeronautics, Create Big Cannons, Naturalist, Farm & Charm (god sacrifices; outside mods named by id only) | Sparse Ores, Seismic Surveyance, Simple Spoilage (each through one gated package) |
+| Empire | `empire` | `dev.brights0ng.empire` | lib, Frontier (through one gated package), Create, Create: Diesel Generators, Sable, Simulated, Aeronautics, Create Big Cannons, Naturalist, Farm & Charm (god sacrifices; outside mods named by id only) | Sparse Ores, Seismic Surveyance, Simple Spoilage, Meteodyne (each through one gated package) |
 | Engines and Empires | `engines_and_empires` | `dev.brights0ng.enginesandempires` | lib, the five required feature mods (Sparse Ores, Seismic Surveyance, Meteodyne, Frontier, Simple Spoilage), Sable, Create, Simulated/Aeronautics/Offroad, Encumbered | Cold Sweat, MineColonies, Serene Seasons, AppleSkin, Diet, Guard Villagers, Born in Chaos, Naturalist, Farm & Charm (the core turns its mincer's ore recipes off) |
 
 Sable Fixes is not required by the core: the dev aggregator loads it with the other mods (`loadMod`) and `buildAll` collects its jar, but no mod of ours depends on it.
 
 Not part of the family (split step 4c): `coreless_tests` (`coreless/`, package `dev.brights0ng.corelesstests`), a test-only mod that is never released. It holds the game tests of feature mods working together that need no core code, and runs them in the core-less combined run and the aggregate.
 
-Compile-time graph (must stay acyclic): lib <- Sparse Ores <- Seismic <- (gated) Frontier; lib <- Meteodyne; lib <- Simple Spoilage; lib <- Empire; (gated) Frontier <- Empire; (gated) Simple Spoilage <- Empire; everything <- core. Sable Fixes stands outside it. Seismic and Sparse Ores never reference Frontier.
+Compile-time graph (must stay acyclic): lib <- Sparse Ores <- Seismic <- (gated) Frontier; lib <- Meteodyne; lib <- Simple Spoilage; lib <- Empire; (gated) Frontier <- Empire; (gated) Simple Spoilage <- Empire; (gated) Meteodyne <- Empire; everything <- core. Sable Fixes stands outside it. Seismic and Sparse Ores never reference Frontier.
 
 Main lines today: Meteodyne ~36.9k (203 files), Seismic ~16.0k (102), Frontier ~8.0k (61), Sparse Ores ~6.3k (50), Simple Spoilage ~5.1k (47), core ~3.9k (42), lib ~2.5k (23), Sable Fixes ~0.1k (2).
 

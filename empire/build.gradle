@@ -1,4 +1,4 @@
-// Written by Gemini; outside mods and required Frontier added by Claude.
+// Written by Gemini; outside mods, required Frontier and optional Meteodyne added by Claude.
 plugins {
     id 'eae.mod-conventions'
 }
@@ -63,6 +63,11 @@ dependencies {
     // dev.brights0ng.empire.compat.simplespoilage, after ModList.isLoaded("simple_spoilage"). Not bound to Empire's runs
     // (no requireMod), so the bare run goes without it; the root's runs and the core-less run load it.
     compileOnly project(':simple-spoilage')
+
+    // Meteodyne is optional: a god's patience is Meteodyne's year when present. Empire may import Meteodyne only inside
+    // dev.brights0ng.empire.compat.meteodyne, after ModList.isLoaded("meteodyne"). Not bound to Empire's runs, so the
+    // bare run goes without it (and uses the default 72-day year); the root's runs and the core-less run load it.
+    compileOnly project(':meteodyne')
 
     // Sparse Ores is optional (plan section 3.1 and 5): Talc registers as a sparse ore when present.
     // Empire may import Sparse Ores only inside dev.brights0ng.empire.compat.sparseores.

@@ -1,4 +1,4 @@
-// Written by Gemini; god sacrifices (founding meat, adoption, paying demands, the demand readout), the client's offering check, members and joining by Claude.
+// Written by Gemini; god sacrifices (founding meat, adoption, paying demands, the demand readout), the client's offering check, members, joining and satiety offerings by Claude.
 package dev.brights0ng.empire.sacrifice;
 
 import java.util.List;
@@ -54,6 +54,10 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
  *   <li>Paying, at the main bonfire: an item or fluid container that matches an unpaid line of the current demand goes
  *       towards it (as much as the line still needs). When every line is paid the empire gains
  *       {@link EmpireState#DOMINION_PER_SACRIFICE} dominion and the god rolls its next demand.</li>
+ *   <li>Satiety, at the main bonfire: when no line of the demand that asks for the god's founding (tier 1) meat is
+ *       unpaid, {@link #SATIETY_MEAT} of that meat (by the founding freshness rule) feed the god; refused, with nothing
+ *       taken, while the god is not hungry at all. Paying 5 or more towards a founding meat line in one click, and
+ *       paying a demand in full, feed it too ({@link EmpireRecord#feedGod}).</li>
  *   <li>Joining, at an empire's main bonfire: a player in no empire offers {@link EmpireState#FOUNDING_MEAT} of the
  *       empire's god's founding meat (by the founding freshness rule) and becomes a member. Physical access to the
  *       bonfire is the only gate.</li>
@@ -68,6 +72,8 @@ public final class SacrificeInteractions {
 
     /** Any raw meat a god that accepts rotting meat takes once it is rotting. */
     private static final TagKey<Item> RAW_MEAT = Tags.Items.FOODS_RAW_MEAT;
+    /** The founding meat that feeds the god in one click, as a demand payment or a plain offering. */
+    public static final int SATIETY_MEAT = 5;
 
     public static ItemInteractionResult handleSacrifice(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand) {
         if (stack.isEmpty()) {
@@ -95,7 +101,7 @@ public final class SacrificeInteractions {
         // is gone). A player who is not a member may be offering meat to join.
         boolean joining = owner != null && !member && isJoinMeat(stack, owner, ownerGod);
         boolean offering = joining || (owner == null || owner.god() == null ? isFoundingMeat(stack)
-                : ownerGod != null && demandLineFor(stack, owner, ownerGod) >= 0);
+                : ownerGod != null && (demandLineFor(stack, owner, ownerGod) >= 0 || isSatietyOffering(stack, owner, ownerGod)));
         if (!offering) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
@@ -399,6 +405,9 @@ public final class SacrificeInteractions {
     private static ItemInteractionResult pay(ItemStack stack, ServerLevel serverLevel, EmpireSavedData data, BlockPos pos,
             EmpireRecord owner, GodDefinition god, Player player, InteractionHand hand) {
         int index = demandLineFor(stack, owner, god);
+        if (index < 0) {
+            return sate(stack, serverLevel, data, pos, owner, god, player);
+        }
         DemandLine line = owner.currentDemand().get(index);
         int amount;
         if (line.kind() == DemandLine.Kind.FLUID) {
@@ -419,6 +428,9 @@ public final class SacrificeInteractions {
         }
 
         owner.setDemandLine(index, line.withPaid(line.paid() + amount));
+        if (amount >= SATIETY_MEAT && isFoundingMeatLine(god, line)) {
+            owner.feedGod();
+        }
         data.setDirty();
 
         if (!DemandLine.allPaid(owner.currentDemand())) {
@@ -435,6 +447,50 @@ public final class SacrificeInteractions {
 
         celebrate(serverLevel, pos);
         sendSuccess(serverLevel, owner, player);
+        return ItemInteractionResult.SUCCESS;
+    }
+
+    /**
+     * Whether a member's stack is a plain satiety offering: the god's founding meat (or rotting raw meat for a god that
+     * takes it) while no founding meat line of the demand is unpaid.
+     */
+    private static boolean isSatietyOffering(ItemStack stack, EmpireRecord owner, GodDefinition god) {
+        for (DemandLine line : owner.currentDemand()) {
+            if (!line.isPaid() && isFoundingMeatLine(god, line)) {
+                return false;
+            }
+        }
+        return isFoundingMeatOf(god, stack) || (god.acceptsRottingMeat()
+                && allRottingRawMeat(stack, Math.min(stack.getCount(), SATIETY_MEAT)));
+    }
+
+    /**
+     * A plain satiety offering: exactly {@link #SATIETY_MEAT} of the god's founding meat, by the founding freshness rule,
+     * feed it. Refused, with nothing taken, when the god has not grown hungry at all since it was last fed.
+     */
+    private static ItemInteractionResult sate(ItemStack stack, ServerLevel serverLevel, EmpireSavedData data, BlockPos pos,
+            EmpireRecord owner, GodDefinition god, Player player) {
+        if (owner.hungerTicks() == 0) {
+            player.displayClientMessage(Component.translatable("message.empire.god.sated", god.displayName()), true);
+            return ItemInteractionResult.FAIL;
+        }
+        if (stack.getCount() < SATIETY_MEAT) {
+            player.displayClientMessage(Component.translatable("message.empire.sacrifice.need_meat", SATIETY_MEAT), true);
+            return ItemInteractionResult.FAIL;
+        }
+        boolean accepted = (isFoundingMeatOf(god, stack) && (god.acceptsRottingMeat()
+                || MeatFreshnessChecks.stalest(stack, SATIETY_MEAT).isFresh()))
+                || (god.acceptsRottingMeat() && allRottingRawMeat(stack, SATIETY_MEAT));
+        if (!accepted) {
+            player.displayClientMessage(Component.translatable("message.empire.sacrifice.meat_not_fresh"), true);
+            return ItemInteractionResult.FAIL;
+        }
+        consume(stack, SATIETY_MEAT, player);
+        owner.feedGod();
+        data.setDirty();
+
+        celebrate(serverLevel, pos);
+        player.displayClientMessage(Component.translatable("message.empire.god.fed", god.displayName()), true);
         return ItemInteractionResult.SUCCESS;
     }
 

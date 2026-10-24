@@ -1,4 +1,4 @@
-// Written by Gemini; god, sacrifice count, current demand and members added by Claude.
+// Written by Gemini; god, sacrifice count, current demand, members and the god's hunger added by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.ArrayList;
@@ -39,6 +39,8 @@ public final class EmpireRecord {
     private int sacrificeCount;
     /** The god's current demand, with what has been paid towards each line. */
     private final List<DemandLine> currentDemand = new ArrayList<>();
+    /** Ticks since the god was last fed, counted only while a member is online ({@code god.GodHunger}). */
+    private long hungerTicks;
 
     public EmpireRecord(UUID id, Collection<UUID> members, EmpireState state, @Nullable BlockPos mainBonfire, long foundedGameTime) {
         this.id = id;
@@ -72,10 +74,19 @@ public final class EmpireRecord {
     }
 
     /**
-     * Feeds the god: called at founding, joining, adoption and when a demand is paid in full. It does nothing yet (the
-     * god's satiety comes later).
+     * Feeds the god: called at founding, joining, adoption, when a demand is paid in full and when 5 of its tier 1 meat
+     * are given at once. Its hunger starts again from 0.
      */
     public void feedGod() {
+        hungerTicks = 0;
+    }
+
+    public long hungerTicks() {
+        return hungerTicks;
+    }
+
+    public void setHungerTicks(long hungerTicks) {
+        this.hungerTicks = Math.max(0, hungerTicks);
     }
 
     public EmpireState state() {
@@ -178,6 +189,7 @@ public final class EmpireRecord {
             demandTag.add(lineTag);
         }
         tag.put("demand", demandTag);
+        tag.putLong("hunger_ticks", hungerTicks);
         return tag;
     }
 
@@ -218,6 +230,7 @@ public final class EmpireRecord {
         // Records saved before gods existed have none of these: they load godless, with nothing demanded.
         record.god = tag.contains("god", Tag.TAG_STRING) ? ResourceLocation.tryParse(tag.getString("god")) : null;
         record.sacrificeCount = tag.getInt("sacrifice_count");
+        record.hungerTicks = Math.max(0, tag.getLong("hunger_ticks"));
         ListTag demandTag = tag.getList("demand", Tag.TAG_COMPOUND);
         for (int i = 0; i < demandTag.size(); i++) {
             CompoundTag lineTag = demandTag.getCompound(i);
