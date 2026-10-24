@@ -1,14 +1,19 @@
 // Written by Claude.
 package dev.brights0ng.empire.civilian;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
+import java.util.random.RandomGenerator;
 
 import javax.annotation.Nullable;
 
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.ChunkKeys;
+import dev.brights0ng.empire.civilian.CivilianNetwork.CivilianSpeechPayload;
 import dev.brights0ng.empire.rules.CivilianAppearance;
+import dev.brights0ng.empire.rules.CivilianLines;
 import dev.brights0ng.empire.rules.CivilianNames;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -22,6 +27,7 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
@@ -39,15 +45,40 @@ import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * A civilian of an empire: a slim-player-shaped townsperson with a composited skin ({@link CivilianAppearance}), a name
  * from {@link CivilianNames}, and a home it wanders around. Never despawns.
+ *
+ * <p>Speech runs on the server once a second and only near players: a line now and then ({@link CivilianLines}), a
+ * greeting for a player who comes close, and short scripted conversations with a nearby civilian. Each line goes to the
+ * tracking clients ({@link CivilianNetwork}), which draw it as a bubble.
  */
 public class CivilianEntity extends PathfinderMob {
 
     /** How far from home a civilian wanders (provisional). */
     public static final int HOME_RADIUS = 16;
+    /** A civilian speaks only with a (non-spectator) player this close (provisional). */
+    public static final int SPEECH_RADIUS = 16;
+    /** Ticks between a civilian's lines, rolled in [MIN, MAX] (provisional). */
+    public static final int COOLDOWN_MIN = 1200;
+    public static final int COOLDOWN_MAX = 3600;
+    /** A player coming this close may be greeted, at most once per GREET_GAP ticks (provisional). */
+    public static final int GREET_RADIUS = 6;
+    public static final int GREET_GAP = 6000;
+    /** Chance a due line starts a conversation instead, with a civilian this close (provisional). */
+    public static final double TALK_CHANCE = 0.25;
+    public static final int TALK_RADIUS = 4;
+    /** Ticks between the lines of a conversation (provisional). */
+    public static final int TALK_LINE_GAP = 100;
+
+    private static final double RAIN_CHANCE = 0.5;
+    private static final double NIGHT_CHANCE = 0.4;
+    private static final double GREET_CHANCE = 0.5;
+    /** Partners further apart than this end their conversation. */
+    private static final double TALK_BREAK_DISTANCE = 6.0;
+    private static final int SPEECH_INTERVAL = 20;
 
     private static final EntityDataAccessor<Integer> APPEARANCE =
             SynchedEntityData.defineId(CivilianEntity.class, EntityDataSerializers.INT);
@@ -62,6 +93,34 @@ public class CivilianEntity extends PathfinderMob {
     private UUID empire;
     /** Set when the look was chosen before spawning (debug commands), so finalizeSpawn keeps it. */
     private boolean appearancePreset;
+
+    // Speech state; transient, rebuilt after a reload. Times are in this civilian's tickCount.
+    private final RandomGenerator rng = () -> random.nextLong();
+    private int nextLineTick = -1;
+    private int lastGreetTick = Integer.MIN_VALUE / 2;
+    private int lastLineTick = Integer.MIN_VALUE / 2;
+    @Nullable
+    private CivilianLines.Category lastCategory;
+    private int lastIndex = -1;
+    private final Set<UUID> playersInGreetRange = new HashSet<>();
+    /** Who this civilian is in conversation with (both sides hold it). */
+    @Nullable
+    private CivilianEntity talkPartner;
+    /** The conversation's script; only the civilian that started it holds this. */
+    @Nullable
+    private Conversation conversation;
+
+    private static final class Conversation {
+        final CivilianEntity partner;
+        final int exchange;
+        int step;
+        int nextTick;
+
+        Conversation(CivilianEntity partner, int exchange) {
+            this.partner = partner;
+            this.exchange = exchange;
+        }
+    }
 
     public CivilianEntity(EntityType<? extends CivilianEntity> type, Level level) {
         super(type, level);
@@ -80,6 +139,7 @@ public class CivilianEntity extends PathfinderMob {
     @Override
     protected void registerGoals() {
         goalSelector.addGoal(0, new FloatGoal(this));
+        goalSelector.addGoal(1, new CivilianFaceGoal(this));
         goalSelector.addGoal(2, new OpenDoorGoal(this, true));
         goalSelector.addGoal(4, new MoveTowardsRestrictionGoal(this, 0.6));
         goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.5));
@@ -175,6 +235,183 @@ public class CivilianEntity extends PathfinderMob {
         if (home != null) {
             restrictTo(home, HOME_RADIUS);
         }
+    }
+
+    @Override
+    public void aiStep() {
+        super.aiStep();
+        if (!level().isClientSide && (tickCount + getId()) % SPEECH_INTERVAL == 0) {
+            tickSpeech();
+        }
+    }
+
+    /** Who {@link CivilianFaceGoal} keeps this civilian facing, or null. */
+    @Nullable
+    Entity faceTarget() {
+        return talkPartner;
+    }
+
+    private void tickSpeech() {
+        if (nextLineTick < 0) {
+            // The first wait is shorter and random, so a crowd does not speak in sync.
+            nextLineTick = tickCount + random.nextInt(COOLDOWN_MIN + 1);
+        }
+        if (talkPartner != null) {
+            tickConversation();
+            return;
+        }
+        if (!playerWithin(SPEECH_RADIUS)) {
+            playersInGreetRange.clear();
+            return;
+        }
+        if (tickGreeting()) {
+            return;
+        }
+        if (tickCount < nextLineTick) {
+            return;
+        }
+        if (random.nextDouble() < TALK_CHANCE && startConversation()) {
+            return;
+        }
+        say(ambientCategory());
+        resetLineCooldown();
+    }
+
+    private CivilianLines.Category ambientCategory() {
+        if (level().isRainingAt(blockPosition().above()) && random.nextDouble() < RAIN_CHANCE) {
+            return CivilianLines.Category.RAIN;
+        }
+        if (level().isNight() && random.nextDouble() < NIGHT_CHANCE) {
+            return CivilianLines.Category.NIGHT;
+        }
+        return CivilianLines.Category.IDLE;
+    }
+
+    /** Greets (half the time) when a player newly comes within GREET_RADIUS and the last greeting was GREET_GAP ago. */
+    private boolean tickGreeting() {
+        Set<UUID> now = new HashSet<>();
+        for (Player player : level().players()) {
+            if (!player.isSpectator() && distanceToSqr(player) <= (double) GREET_RADIUS * GREET_RADIUS) {
+                now.add(player.getUUID());
+            }
+        }
+        boolean newcomer = !playersInGreetRange.containsAll(now);
+        playersInGreetRange.clear();
+        playersInGreetRange.addAll(now);
+        if (newcomer && tickCount - lastGreetTick >= GREET_GAP && random.nextDouble() < GREET_CHANCE) {
+            lastGreetTick = tickCount;
+            say(CivilianLines.Category.GREETING);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean playerWithin(double radius) {
+        double r2 = radius * radius;
+        for (Player player : level().players()) {
+            if (!player.isSpectator() && distanceToSqr(player) <= r2) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void resetLineCooldown() {
+        nextLineTick = tickCount + COOLDOWN_MIN + random.nextInt(COOLDOWN_MAX - COOLDOWN_MIN + 1);
+    }
+
+    /** Whether this civilian can be drawn into a conversation. */
+    private boolean available() {
+        return isAlive() && talkPartner == null;
+    }
+
+    private boolean startConversation() {
+        CivilianEntity partner = null;
+        double best = Double.MAX_VALUE;
+        for (CivilianEntity other : level().getEntitiesOfClass(CivilianEntity.class, getBoundingBox().inflate(TALK_RADIUS))) {
+            double d2 = distanceToSqr(other);
+            if (other != this && other.available() && d2 <= (double) TALK_RADIUS * TALK_RADIUS && d2 < best
+                    && hasLineOfSight(other)) {
+                partner = other;
+                best = d2;
+            }
+        }
+        if (partner == null) {
+            return false;
+        }
+        Conversation c = new Conversation(partner, random.nextInt(CivilianLines.TALK_LENGTHS.length));
+        conversation = c;
+        talkPartner = partner;
+        partner.talkPartner = this;
+        partner.conversation = null;
+        c.nextTick = tickCount;
+        tickConversation();
+        return true;
+    }
+
+    private void tickConversation() {
+        CivilianEntity partner = talkPartner;
+        if (partner == null) {
+            return;
+        }
+        if (conversation == null) {
+            // The partner's side: the starter drives the script; drop the link if the starter is gone or let go.
+            if (partner.isRemoved() || partner.talkPartner != this) {
+                endConversation();
+            }
+            return;
+        }
+        if (partner.isRemoved() || !partner.isAlive() || partner.talkPartner != this
+                || distanceToSqr(partner) > TALK_BREAK_DISTANCE * TALK_BREAK_DISTANCE) {
+            endConversation();
+            return;
+        }
+        Conversation c = conversation;
+        if (tickCount < c.nextTick) {
+            return;
+        }
+        CivilianEntity speaker = c.step % 2 == 0 ? this : partner;
+        speaker.sayKey(CivilianLines.talkKey(c.exchange, c.step));
+        c.step++;
+        if (c.step >= CivilianLines.TALK_LENGTHS[c.exchange]) {
+            endConversation();
+        } else {
+            c.nextTick = tickCount + TALK_LINE_GAP;
+        }
+    }
+
+    /** Ends this civilian's conversation, on both sides; both get a fresh cooldown. */
+    void endConversation() {
+        CivilianEntity other = talkPartner;
+        if (other == null) {
+            return;
+        }
+        talkPartner = null;
+        conversation = null;
+        resetLineCooldown();
+        if (other.talkPartner == this) {
+            other.talkPartner = null;
+            other.conversation = null;
+            other.resetLineCooldown();
+        }
+    }
+
+    /** Says a line of {@code category}, never the one this civilian said last. */
+    public void say(CivilianLines.Category category) {
+        int last = category == lastCategory ? lastIndex : -1;
+        int index = CivilianLines.pick(category, rng, last);
+        lastCategory = category;
+        lastIndex = index;
+        sayKey(CivilianLines.key(category, index));
+    }
+
+    /** Sends a line (a lang key) to the players tracking this civilian. */
+    public void sayKey(String key) {
+        if (level().isClientSide) {
+            return;
+        }
+        lastLineTick = tickCount;
+        PacketDistributor.sendToPlayersTrackingEntity(this, new CivilianSpeechPayload(getId(), key));
     }
 
     @Override
