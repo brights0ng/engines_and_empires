@@ -1,15 +1,18 @@
-// Written by Gemini; loot condition type, creative tab and bonfire solidity added by Claude.
+// Written by Gemini; loot condition type, creative tab, bonfire solidity and the civilian entity added by Claude.
 package dev.brights0ng.empire;
 
 import dev.brights0ng.empire.bonfire.BonfireBlock;
 import dev.brights0ng.empire.bonfire.BonfireBlockEntity;
 import dev.brights0ng.empire.bonfire.BonfireItem;
 import dev.brights0ng.empire.bonfire.BonfirePartBlock;
+import dev.brights0ng.empire.civilian.CivilianEntity;
 import dev.brights0ng.empire.loot.CorrectToolForDrops;
 import dev.brights0ng.empire.talc.BlessedTalcItem;
 import dev.brights0ng.empire.talc.TarnishedTalcItem;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
@@ -21,6 +24,7 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.storage.loot.predicates.LootItemConditionType;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -38,6 +42,8 @@ public final class EmpireContent {
             DeferredRegister.create(Registries.LOOT_CONDITION_TYPE, Empire.MODID);
     public static final DeferredRegister<CreativeModeTab> TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Empire.MODID);
+    public static final DeferredRegister<EntityType<?>> ENTITY_TYPES =
+            DeferredRegister.create(Registries.ENTITY_TYPE, Empire.MODID);
 
     /** {@code empire:correct_tool_for_drops} (levitite's loot tables). */
     public static final DeferredHolder<LootItemConditionType, LootItemConditionType> CORRECT_TOOL_FOR_DROPS =
@@ -108,6 +114,14 @@ public final class EmpireContent {
             BLOCK_ENTITY_TYPES.register("bonfire",
                     () -> BlockEntityType.Builder.of(BonfireBlockEntity::new, BONFIRE.get()).build(null));
 
+    /** {@code empire:civilian}. No spawn egg and no creative-tab entry. */
+    public static final DeferredHolder<EntityType<?>, EntityType<CivilianEntity>> CIVILIAN =
+            ENTITY_TYPES.register("civilian", () -> EntityType.Builder.of(CivilianEntity::new, MobCategory.MISC)
+                    .sized(0.6F, 1.8F)
+                    .eyeHeight(1.62F)
+                    .clientTrackingRange(10)
+                    .build("civilian"));
+
     /**
      * The creative tab for everything Empire registers, icon the bonfire. The items are only in this tab, not also in the
      * game's own (same pattern as Seismic Surveyance's tab). The bonfire's structure part has no item.
@@ -132,6 +146,12 @@ public final class EmpireContent {
         BLOCK_ENTITY_TYPES.register(modEventBus);
         LOOT_CONDITION_TYPES.register(modEventBus);
         TABS.register(modEventBus);
+        ENTITY_TYPES.register(modEventBus);
+        modEventBus.addListener(EmpireContent::onEntityAttributes);
+    }
+
+    private static void onEntityAttributes(EntityAttributeCreationEvent event) {
+        event.put(CIVILIAN.get(), CivilianEntity.createAttributes().build());
     }
 
     private EmpireContent() {
