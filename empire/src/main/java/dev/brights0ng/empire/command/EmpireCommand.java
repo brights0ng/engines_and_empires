@@ -1,4 +1,4 @@
-// Written by Gemini; members edited by Claude.
+// Written by Gemini; members and the god's hunger edited by Claude.
 package dev.brights0ng.empire.command;
 
 import java.nio.charset.StandardCharsets;
@@ -6,15 +6,18 @@ import java.util.UUID;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 
 import dev.brights0ng.empire.Empire;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
+import dev.brights0ng.empire.god.GodHunger;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.ClaimGraph;
 import dev.brights0ng.empire.rules.DawnClock;
+import dev.brights0ng.empire.rules.GodSatiety;
 import dev.brights0ng.empire.rules.StakeResult;
 import dev.brights0ng.empire.rules.UnstakeResult;
 import dev.brights0ng.empire.tier.TierChecks;
@@ -73,7 +76,14 @@ public final class EmpireCommand {
                         .then(Commands.literal("disband")
                                 .then(Commands.argument("player", StringArgumentType.word())
                                         .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(ctx.getSource().getOnlinePlayerNames(), builder))
-                                        .executes(ctx -> debugDisband(ctx.getSource(), StringArgumentType.getString(ctx, "player")))))));
+                                        .executes(ctx -> debugDisband(ctx.getSource(), StringArgumentType.getString(ctx, "player")))))
+                        .then(Commands.literal("hunger")
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(ctx.getSource().getOnlinePlayerNames(), builder))
+                                        .then(Commands.argument("ticks", LongArgumentType.longArg(0))
+                                                .executes(ctx -> debugHunger(ctx.getSource(),
+                                                        StringArgumentType.getString(ctx, "player"),
+                                                        LongArgumentType.getLong(ctx, "ticks"))))))));
     }
 
     public static UUID resolvePlayerUuid(CommandSourceStack source, String playerArg) {
@@ -137,7 +147,23 @@ public final class EmpireCommand {
         source.sendSuccess(() -> Component.literal("Dormant: " + record.state().dormant().size() + " points"), false);
         source.sendSuccess(() -> Component.literal("Main bonfire: " + (record.mainBonfire() != null ? record.mainBonfire().toShortString() : "None")), false);
         source.sendSuccess(() -> Component.literal("Founding chunk: [" + ChunkKeys.getX(record.state().foundingChunk()) + ", " + ChunkKeys.getZ(record.state().foundingChunk()) + "]"), false);
+        source.sendSuccess(() -> godLine(source, record), false);
         return 1;
+    }
+
+    /** "God: &lt;name&gt;, fed N days ago; abandons in M days", or "God: none". */
+    private static Component godLine(CommandSourceStack source, EmpireRecord record) {
+        if (record.god() == null) {
+            return Component.literal("God: none");
+        }
+        long limit = GodHunger.limitTicks(source.getServer().overworld());
+        long hunger = record.hungerTicks();
+        String abandons = limit > 0
+                ? "abandons in " + Math.max(0, Math.ceilDiv(limit - hunger, 24000L)) + " days"
+                : "never abandons";
+        String hungry = GodSatiety.state(hunger, limit) == GodSatiety.State.HUNGRY ? " (hungry)" : "";
+        return Component.literal("God: ").append(GodHunger.godName(record.god()))
+                .append(", fed " + hunger / 24000L + " days ago; " + abandons + hungry);
     }
 
     /** The members' names (their UUIDs when the server has never seen them), in joining order, or "none". */
@@ -268,6 +294,23 @@ public final class EmpireCommand {
         }
         data.disbandEmpire(record.id(), source.getServer());
         source.sendSuccess(() -> Component.literal("Disbanded empire for " + playerArg), true);
+        return 1;
+    }
+
+    private static int debugHunger(CommandSourceStack source, String playerArg, long ticks) {
+        UUID targetId = resolvePlayerUuid(source, playerArg);
+        EmpireSavedData data = EmpireSavedData.of(source.getServer());
+        EmpireRecord record = data.getEmpireOf(targetId);
+        if (record == null) {
+            source.sendFailure(Component.literal("No empire for " + playerArg));
+            return 0;
+        }
+        if (record.god() == null) {
+            source.sendFailure(Component.literal("The empire of " + playerArg + " has no god"));
+            return 0;
+        }
+        GodHunger.setHunger(source.getServer(), data, record, ticks, GodHunger.limitTicks(source.getServer().overworld()));
+        source.sendSuccess(() -> Component.literal("Set the god's hunger to " + ticks + " ticks for " + playerArg), true);
         return 1;
     }
 

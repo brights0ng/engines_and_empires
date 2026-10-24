@@ -1,4 +1,4 @@
-# Written by Gemini; outside mods, required Frontier, optional Simple Spoilage and GeckoLib added by Claude.
+# Written by Gemini; outside mods, required Frontier, optional Simple Spoilage and Meteodyne, and GeckoLib added by Claude.
 modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
@@ -70,6 +70,15 @@ ${mod_description}
 # rotting raw meat).
 [[dependencies.${mod_id}]]
     modId="simple_spoilage"
+    type="optional"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# Meteodyne is optional: when present, a god's patience (how long it goes unfed before abandoning its empire) is
+# Meteodyne's year.
+[[dependencies.${mod_id}]]
+    modId="meteodyne"
     type="optional"
     versionRange="[0.1.0,)"
     ordering="AFTER"

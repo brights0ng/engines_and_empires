@@ -1,5 +1,5 @@
 // Updated by Gemini: accounted for removed MineColonies files in manifest checks; added empire mod.
-// Updated by Claude: Empire's required outside mods and its gated Simple Spoilage package.
+// Updated by Claude: Empire's required outside mods and its gated Simple Spoilage and Meteodyne packages.
 package dev.brights0ng.enginesandempires;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -102,6 +102,9 @@ class ArchitectureTest {
 
     /** The only Empire package that may mention Simple Spoilage (Simple Spoilage is optional to Empire). */
     private static final String EMPIRE_SPOILAGE_GATED_PACKAGE = "dev.brights0ng.empire.compat.simplespoilage";
+
+    /** The only Empire package that may mention Meteodyne (Meteodyne is optional to Empire: the year a god waits). */
+    private static final String EMPIRE_METEODYNE_GATED_PACKAGE = "dev.brights0ng.empire.compat.meteodyne";
 
     /**
      * Outside mods, by key, and the packages that are theirs. A mention is the package followed by a dot, so a mod id
@@ -279,6 +282,10 @@ class ArchitectureTest {
         }
         if (s.mod.equals("empire") && target.equals("sparse_ores")
                 && (s.pkg.equals(EMPIRE_SPARSEORES_GATED_PACKAGE) || s.pkg.startsWith(EMPIRE_SPARSEORES_GATED_PACKAGE + "."))) {
+            return true;
+        }
+        if (s.mod.equals("empire") && target.equals("meteodyne")
+                && (s.pkg.equals(EMPIRE_METEODYNE_GATED_PACKAGE) || s.pkg.startsWith(EMPIRE_METEODYNE_GATED_PACKAGE + "."))) {
             return true;
         }
         if (s.mod.equals("empire") && target.equals("simple_spoilage")
