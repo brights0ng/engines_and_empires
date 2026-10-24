@@ -1,4 +1,4 @@
-// Written by Gemini; god sacrifices wired in, particles spread over the bonfire model, Overworld-only registration and leaving an empire by Claude.
+// Written by Gemini; god sacrifices wired in, particles spread over the bonfire model, Overworld-only registration, leaving an empire, main-only lighting, model-shaped hitbox and campfire burning by Claude.
 package dev.brights0ng.empire.bonfire;
 
 import org.jetbrains.annotations.Nullable;
@@ -22,6 +22,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
@@ -60,7 +61,8 @@ public class BonfireBlock extends BaseEntityBlock {
     public static final int LIGHT_LIT = 11;
     public static final int LIGHT_ROARING = 15;
 
-    protected static final VoxelShape SHAPE = Block.box(0.0D, 0.0D, 0.0D, 16.0D, 7.0D, 16.0D);
+    /** What the fire does to a living entity in it each tick, as a campfire's (soul campfires do 2). */
+    public static final float FIRE_DAMAGE = 1.0F;
 
     /**
      * Where the particles go, in blocks from the core block's bottom centre, matching the 3x3x3 model: flames within
@@ -96,7 +98,7 @@ public class BonfireBlock extends BaseEntityBlock {
 
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return SHAPE;
+        return BonfireShapes.core();
     }
 
     @Override
@@ -122,6 +124,22 @@ public class BonfireBlock extends BaseEntityBlock {
     @Override
     public RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
+    }
+
+    @Override
+    protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity) {
+        burn(state, level, pos, entity);
+        super.entityInside(state, level, pos, entity);
+    }
+
+    /**
+     * Burns {@code entity} as a lit campfire would, if it is in this bonfire's fire (the pit, not the logs around it).
+     * Called from the core and from every part the entity overlaps; hurt cooldown keeps that to one hit.
+     */
+    public static void burn(BlockState coreState, Level level, BlockPos core, Entity entity) {
+        if (coreState.getValue(LIT) && entity instanceof LivingEntity && BonfireShapes.inFire(core, entity)) {
+            entity.hurt(level.damageSources().campfire(), FIRE_DAMAGE);
+        }
     }
 
     @Nullable
@@ -168,6 +186,20 @@ public class BonfireBlock extends BaseEntityBlock {
         super.onRemove(state, level, pos, newState, isMoving);
     }
 
+    /**
+     * The main bonfire of the empire whose land holds {@code pos}, when that is another bonfire (so the one at
+     * {@code pos} may not burn); else null. Overworld server side only.
+     */
+    @Nullable
+    public static BlockPos mainElsewhere(Level level, BlockPos pos) {
+        if (!(level instanceof ServerLevel serverLevel) || level.dimension() != Level.OVERWORLD) {
+            return null;
+        }
+        EmpireRecord owner = EmpireSavedData.of(serverLevel.getServer()).getEmpireByChunk(ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4));
+        BlockPos main = owner != null ? owner.mainBonfire() : null;
+        return main != null && !main.equals(pos) ? main : null;
+    }
+
     public static boolean canLight(Level level, BlockPos pos, @Nullable Player player) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return true;
@@ -177,8 +209,17 @@ public class BonfireBlock extends BaseEntityBlock {
         long chunk = ChunkKeys.pack(chunkPos.x, chunkPos.z);
         EmpireRecord owner = data.getEmpireByChunk(chunk);
 
-        // Bonfires inside an empire's own land skip this gate
+        // Bonfires inside an empire's land skip the first-lighting gate, but only the main bonfire burns there
+        // (Bright, 2026-10-24): with a main bonfire, no other bonfire of the empire can be lit.
         if (owner != null) {
+            BlockPos main = owner.mainBonfire();
+            if (main != null && !main.equals(pos)) {
+                if (player != null) {
+                    player.displayClientMessage(Component.translatable("message.empire.light.not_main",
+                            main.getX(), main.getY(), main.getZ()), true);
+                }
+                return false;
+            }
             return true;
         }
 

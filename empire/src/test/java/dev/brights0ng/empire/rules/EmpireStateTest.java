@@ -1,4 +1,4 @@
-// Written by Gemini; the divine area by Claude.
+// Written by Gemini; the divine area and unstaking without a main bonfire by Claude.
 package dev.brights0ng.empire.rules;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -165,5 +165,14 @@ class EmpireStateTest {
         for (UnstakeResult result : UnstakeResult.values()) {
             assertTrue(result.translationKey().startsWith("message.empire.unstake."));
         }
+    }
+
+    @Test
+    void withoutAMainBonfireOnlyTheCoreChunkCannotBeUnstaked() {
+        long side = ChunkKeys.pack(1, 0);
+        assertEquals(UnstakeResult.DIVINE_CHUNK, state.unstake(side, 0, center, true));
+        assertEquals(UnstakeResult.CORE_CHUNK, state.unstake(center, 0, center, false));
+        assertEquals(UnstakeResult.OK, state.unstake(side, 0, center, false));
+        assertFalse(state.staked().contains(side));
     }
 }

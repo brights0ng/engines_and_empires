@@ -75,7 +75,10 @@ public final class TalcBorderGeometry {
         void boxes(int x, int y, int z, BoxSink sink);
     }
 
-    /** The border edges to draw, each with a style (claim state: 1 our empire, 2 another empire). */
+    /** Border style of protected (divine) land, drawn in gold; claim states use their own values (1 ours, 2 another's). */
+    public static final int STYLE_PROTECTED = 3;
+
+    /** The border edges to draw, each with a style (1 our empire, 2 another empire, {@link #STYLE_PROTECTED}). */
     public static final class Borders {
         /** Edge (x, z): the segment (x, z)-(x + 1, z) on plane z, between cells (x, z - 1) and (x, z). */
         final Map<Long, Integer> zEdges = new HashMap<>();
@@ -240,13 +243,16 @@ public final class TalcBorderGeometry {
         return (int) (k >> 32);
     }
 
-    /** Our empire wins over a rival where differently styled borders touch. */
+    /** Where differently styled borders touch, protected land wins, then our empire over a rival. */
     static int mergeStyle(int a, int b) {
         if (a == 0) {
             return b;
         }
         if (b == 0) {
             return a;
+        }
+        if (a == STYLE_PROTECTED || b == STYLE_PROTECTED) {
+            return STYLE_PROTECTED;
         }
         return (a == 1 || b == 1) ? 1 : a;
     }

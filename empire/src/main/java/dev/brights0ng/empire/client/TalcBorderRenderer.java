@@ -1,4 +1,4 @@
-// Written by Gemini; rewritten by Claude (geometry moved to TalcBorderGeometry, mesh cached, colours and claim rules kept).
+// Written by Gemini; rewritten by Claude (geometry moved to TalcBorderGeometry, mesh cached, colours and claim rules kept); golden protected land by Claude; claims now asked for by ClaimCacheKeeper.
 package dev.brights0ng.empire.client;
 
 import org.joml.Matrix4f;
@@ -7,7 +7,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import dev.brights0ng.empire.map.ClaimMapCache;
-import dev.brights0ng.empire.map.ClaimMapPayloads;
 import dev.brights0ng.empire.rules.ClaimGrid;
 import dev.brights0ng.empire.talc.BlessedTalcItem;
 import dev.brights0ng.empire.talc.TarnishedTalcItem;
@@ -32,19 +31,19 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * Draws claim borders while the player holds Blessed or Tarnished Talc: chalk lines draped over the terrain and
- * shimmering light veils above them. The geometry (see {@link TalcBorderGeometry}) is built from the claim cache and
+ * shimmering light veils above them. Protected land (the 3x3 around an empire's main bonfire) has its own golden
+ * outline, which takes the place of a claim border where the two meet. The claims come from the cache, which
+ * {@link ClaimCacheKeeper} keeps fresh around the player. The geometry (see {@link TalcBorderGeometry}) is built from
+ * the claim cache and
  * the world, cached, and rebuilt when the claims around the player change, the player changes chunk, a block changes in
  * a column the mesh was built from ({@link ClientBlockChanges}), a chunk loads nearby, or every
  * {@link #FALLBACK_REFRESH_TICKS} ticks in case anything slipped past those. Each frame only re-colours the cached quads.
  */
 public final class TalcBorderRenderer {
 
-    /** Chunk radius around the player to ask the server about. */
-    private static final int QUERY_RADIUS = 7;
     /** Chunk radius around the player whose borders are drawn. */
     private static final int RENDER_RADIUS = 5;
     /** Lines and veils fade out between these horizontal distances from the camera. */
@@ -113,11 +112,6 @@ public final class TalcBorderRenderer {
 
         int pcx = player.blockPosition().getX() >> 4;
         int pcz = player.blockPosition().getZ() >> 4;
-        long now = System.currentTimeMillis();
-        if (ClaimMapCache.shouldAsk("talc_borders", pcx, pcz, QUERY_RADIUS, now)) {
-            PacketDistributor.sendToServer(new ClaimMapPayloads.Request(pcx, pcz, QUERY_RADIUS));
-        }
-
         long gameTime = level.getGameTime();
         long chunk = ChunkPos.asLong(pcx, pcz);
         long claims = claimSignature(pcx, pcz);
@@ -145,7 +139,7 @@ public final class TalcBorderRenderer {
         int r = RENDER_RADIUS + 1;
         for (int cz = pcz - r; cz <= pcz + r; cz++) {
             for (int cx = pcx - r; cx <= pcx + r; cx++) {
-                h = h * 31 + ClaimMapCache.claim(cx, cz);
+                h = h * 31 + ClaimMapCache.claim(cx, cz) + 4L * ClaimMapCache.protection(cx, cz);
             }
         }
         return h;
@@ -156,6 +150,20 @@ public final class TalcBorderRenderer {
         // A rival's border with our empire is drawn once, from our side.
         return state != ClaimGrid.UNCLAIMED && neighbour != state
                 && !(state == ClaimGrid.OTHER_EMPIRE && neighbour == ClaimGrid.OUR_EMPIRE);
+    }
+
+    /**
+     * The style a chunk draws its side with, facing a neighbour, or 0 for none. Where the protection differs the side is
+     * a golden protected border, drawn once (from the protected side; between two empires' protected land, from the
+     * lower side value) and in place of any claim border there; otherwise the claim rule applies.
+     */
+    private static int sideStyle(int state, int protection, int neighbour, int neighbourProtection) {
+        if (protection != neighbourProtection) {
+            boolean drawsHere = protection != ClaimGrid.UNCLAIMED
+                    && (neighbourProtection == ClaimGrid.UNCLAIMED || protection < neighbourProtection);
+            return drawsHere ? TalcBorderGeometry.STYLE_PROTECTED : 0;
+        }
+        return drawsBorder(state, neighbour) ? state : 0;
     }
 
     private static TalcBorderGeometry.Mesh buildMesh(ClientLevel level, LocalPlayer player, int pcx, int pcz) {
@@ -171,22 +179,23 @@ public final class TalcBorderRenderer {
                 }
                 int x0 = cx << 4;
                 int z0 = cz << 4;
-                boolean north = drawsBorder(state, ClaimMapCache.claim(cx, cz - 1));
-                boolean south = drawsBorder(state, ClaimMapCache.claim(cx, cz + 1));
-                boolean west = drawsBorder(state, ClaimMapCache.claim(cx - 1, cz));
-                boolean east = drawsBorder(state, ClaimMapCache.claim(cx + 1, cz));
+                int prot = ClaimMapCache.protection(cx, cz);
+                int north = sideStyle(state, prot, ClaimMapCache.claim(cx, cz - 1), ClaimMapCache.protection(cx, cz - 1));
+                int south = sideStyle(state, prot, ClaimMapCache.claim(cx, cz + 1), ClaimMapCache.protection(cx, cz + 1));
+                int west = sideStyle(state, prot, ClaimMapCache.claim(cx - 1, cz), ClaimMapCache.protection(cx - 1, cz));
+                int east = sideStyle(state, prot, ClaimMapCache.claim(cx + 1, cz), ClaimMapCache.protection(cx + 1, cz));
                 for (int i = 0; i < 16; i++) {
-                    if (north && near(x0 + i + 0.5, z0, px, pz, maxSq)) {
-                        borders.addZEdge(x0 + i, z0, state);
+                    if (north != 0 && near(x0 + i + 0.5, z0, px, pz, maxSq)) {
+                        borders.addZEdge(x0 + i, z0, north);
                     }
-                    if (south && near(x0 + i + 0.5, z0 + 16, px, pz, maxSq)) {
-                        borders.addZEdge(x0 + i, z0 + 16, state);
+                    if (south != 0 && near(x0 + i + 0.5, z0 + 16, px, pz, maxSq)) {
+                        borders.addZEdge(x0 + i, z0 + 16, south);
                     }
-                    if (west && near(x0, z0 + i + 0.5, px, pz, maxSq)) {
-                        borders.addXEdge(x0, z0 + i, state);
+                    if (west != 0 && near(x0, z0 + i + 0.5, px, pz, maxSq)) {
+                        borders.addXEdge(x0, z0 + i, west);
                     }
-                    if (east && near(x0 + 16, z0 + i + 0.5, px, pz, maxSq)) {
-                        borders.addXEdge(x0 + 16, z0 + i, state);
+                    if (east != 0 && near(x0 + 16, z0 + i + 0.5, px, pz, maxSq)) {
+                        borders.addXEdge(x0 + 16, z0 + i, east);
                     }
                 }
             }
@@ -213,8 +222,10 @@ public final class TalcBorderRenderer {
 
         int[] ours = new int[6];
         int[] rival = new int[6];
+        int[] gold = new int[6];
         colors(ClaimGrid.OUR_EMPIRE, tarnished, ours);
         colors(ClaimGrid.OTHER_EMPIRE, tarnished, rival);
+        colors(TalcBorderGeometry.STYLE_PROTECTED, tarnished, gold);
         // Camera position relative to the mesh origin, so distances stay in small floats.
         float camX = (float) (cam.x - m.originX());
         float camZ = (float) (cam.z - m.originZ());
@@ -232,7 +243,8 @@ public final class TalcBorderRenderer {
             if (maxFade <= 0.0F) {
                 continue;
             }
-            int[] c = m.style(q) == ClaimGrid.OUR_EMPIRE ? ours : rival;
+            int style = m.style(q);
+            int[] c = style == ClaimGrid.OUR_EMPIRE ? ours : style == TalcBorderGeometry.STYLE_PROTECTED ? gold : rival;
             boolean veil = m.kind(q) == TalcBorderGeometry.Mesh.VEIL;
             for (int v = 0; v < 4; v++) {
                 float x = m.x(q, v);
@@ -260,7 +272,14 @@ public final class TalcBorderRenderer {
 
     /** Line colour in out[0..2], veil colour in out[3..5]. */
     private static void colors(int state, boolean tarnished, int[] out) {
-        if (state == ClaimGrid.OUR_EMPIRE) {
+        if (state == TalcBorderGeometry.STYLE_PROTECTED) {
+            // Protected land: burnished gold, a little dulled under tarnished talc
+            if (tarnished) {
+                set(out, 225, 180, 70, 235, 195, 95);
+            } else {
+                set(out, 255, 200, 55, 255, 215, 90);
+            }
+        } else if (state == ClaimGrid.OUR_EMPIRE) {
             if (tarnished) {
                 // Smoky silver-white for tarnished talc
                 set(out, 225, 230, 235, 220, 225, 235);

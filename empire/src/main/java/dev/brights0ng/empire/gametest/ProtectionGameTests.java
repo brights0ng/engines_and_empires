@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; empires given a main bonfire (protection needs one) by Claude.
 package dev.brights0ng.empire.gametest;
 
 import static dev.brights0ng.empire.gametest.GodSacrificeGameTests.clearArea;
@@ -63,7 +63,8 @@ public final class ProtectionGameTests {
         EmpireSavedData data = EmpireSavedData.of(level.getServer());
         ServerPlayer member = player(helper, "empire_member");
         ServerPlayer outsider = player(helper, "empire_outsider");
-        EmpireRecord record = data.createEmpire(member.getUUID(), chunkOf(helper.absolutePos(SPOT)), null, level.getGameTime());
+        EmpireRecord record = withMain(data,
+                data.createEmpire(member.getUUID(), chunkOf(helper.absolutePos(SPOT)), null, level.getGameTime()));
         BlockPos stone = helper.absolutePos(new BlockPos(1, 1, 1));
         BlockPos floor = helper.absolutePos(new BlockPos(5, 1, 5));
         BlockPos lever = floor.above();
@@ -139,7 +140,7 @@ public final class ProtectionGameTests {
         List<BlockPos> dirt = List.of(center.above(), center.below(), center.north(), center.south(), center.east(), center.west());
 
         // Inside: the empire's core is this chunk.
-        EmpireRecord inside = data.createEmpire(UUID.randomUUID(), chunk, null, level.getGameTime());
+        EmpireRecord inside = withMain(data, data.createEmpire(UUID.randomUUID(), chunk, null, level.getGameTime()));
         try {
             dirt.forEach(pos -> level.setBlock(pos, Blocks.DIRT.defaultBlockState(), 3));
             explode(level, center);
@@ -323,6 +324,17 @@ public final class ProtectionGameTests {
 
     private static long chunkOf(BlockPos pos) {
         return ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4);
+    }
+
+    /**
+     * Gives the empire a main bonfire in its founding chunk (a record only: no block, nothing in the bonfire registry),
+     * since only an empire with a main bonfire has a divine area.
+     */
+    private static EmpireRecord withMain(EmpireSavedData data, EmpireRecord record) {
+        long core = record.state().foundingChunk();
+        record.setMainBonfire(new BlockPos((ChunkKeys.getX(core) << 4) + 8, 0, (ChunkKeys.getZ(core) << 4) + 8));
+        data.rebuildDivineIndex();
+        return record;
     }
 
     private ProtectionGameTests() {

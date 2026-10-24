@@ -1,4 +1,4 @@
-// Written by Gemini.
+// Written by Gemini; model-shaped hitbox and campfire burning by Claude.
 package dev.brights0ng.empire.bonfire;
 
 import java.util.HashMap;
@@ -9,6 +9,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
@@ -73,12 +74,22 @@ public class BonfirePartBlock extends Block {
 
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return Shapes.block();
+        return BonfireShapes.part(state.getValue(OFFSET));
     }
 
     @Override
     public VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return Shapes.empty();
+    }
+
+    @Override
+    protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity) {
+        BlockPos mainPos = pos.subtract(PART_OFFSETS[state.getValue(OFFSET)]);
+        BlockState mainState = level.getBlockState(mainPos);
+        if (mainState.getBlock() instanceof BonfireBlock) {
+            BonfireBlock.burn(mainState, level, mainPos, entity);
+        }
+        super.entityInside(state, level, pos, entity);
     }
 
     @Override

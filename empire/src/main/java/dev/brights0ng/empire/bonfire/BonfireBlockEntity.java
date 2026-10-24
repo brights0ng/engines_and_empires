@@ -1,4 +1,4 @@
-// Written by Gemini; GeckoLib animatable (for the bonfire model) and clearing the roar when put out added by Claude.
+// Written by Gemini; GeckoLib animatable (for the bonfire model), clearing the roar when put out and putting out non-main bonfires added by Claude.
 package dev.brights0ng.empire.bonfire;
 
 import java.util.UUID;
@@ -9,6 +9,8 @@ import dev.brights0ng.empire.EmpireContent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -25,6 +27,8 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 public class BonfireBlockEntity extends BlockEntity implements GeoBlockEntity {
 
     public static final int ROAR_DURATION_TICKS = 600;
+    /** How often, in ticks, a lit bonfire checks whether another bonfire is its empire's main one (and goes out if so). */
+    public static final int NOT_MAIN_CHECK_TICKS = 40;
 
     private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
     private int roarTicks;
@@ -55,6 +59,11 @@ public class BonfireBlockEntity extends BlockEntity implements GeoBlockEntity {
             be.setChanged();
             return;
         }
+        // Checked every NOT_MAIN_CHECK_TICKS, spread over bonfires by position.
+        if (Math.floorMod(level.getGameTime() + pos.asLong(), NOT_MAIN_CHECK_TICKS) == 0
+                && putOutIfNotMain(level, pos, state, be)) {
+            return;
+        }
         if (be.roarTicks > 0) {
             be.roarTicks--;
             if (be.roarTicks == 0) {
@@ -64,6 +73,21 @@ public class BonfireBlockEntity extends BlockEntity implements GeoBlockEntity {
                 be.setChanged();
             }
         }
+    }
+
+    /**
+     * Only the main bonfire burns in an empire's land (Bright, 2026-10-24): puts this bonfire out if it is lit and another
+     * bonfire is its empire's main one. Returns whether it did.
+     */
+    public static boolean putOutIfNotMain(Level level, BlockPos pos, BlockState state, BonfireBlockEntity be) {
+        if (!state.getValue(BonfireBlock.LIT) || BonfireBlock.mainElsewhere(level, pos) == null) {
+            return false;
+        }
+        level.setBlock(pos, state.setValue(BonfireBlock.LIT, false).setValue(BonfireBlock.ROARING, false), Block.UPDATE_ALL);
+        be.roarTicks = 0;
+        be.setChanged();
+        level.playSound(null, pos, SoundEvents.GENERIC_EXTINGUISH_FIRE, SoundSource.BLOCKS, 0.8F, 1.0F);
+        return true;
     }
 
     public int roarTicks() {

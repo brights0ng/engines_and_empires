@@ -1,10 +1,11 @@
-// Written by Gemini; member check edited by Claude.
+// Written by Gemini; member and main bonfire checks edited by Claude.
 package dev.brights0ng.empire.talc;
 
 import dev.brights0ng.empire.EmpireContent;
 import dev.brights0ng.empire.bonfire.BonfireBlock;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
+import dev.brights0ng.empire.sacrifice.SacrificeInteractions;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
@@ -52,8 +53,7 @@ public final class TalcInteractions {
             player.displayClientMessage(Component.translatable("message.empire.no_empire"), true);
             return ItemInteractionResult.FAIL;
         }
-        if (record.mainBonfire() == null || !record.mainBonfire().equals(pos)) {
-            player.displayClientMessage(Component.translatable("message.empire.bless.not_main_bonfire"), true);
+        if (!SacrificeInteractions.atMainBonfire(data, record, pos, (ServerLevel) level, player)) {
             return ItemInteractionResult.FAIL;
         }
 

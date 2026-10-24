@@ -1,9 +1,9 @@
-<!-- Written by Claude; brought up to date with the built mod by Claude (2026-10-23) -->
+<!-- Written by Claude; brought up to date with the built mod by Claude (2026-10-23, 2026-10-24, 2026-10-24 review) -->
 # Empire: Foundations plan (bonfire, settlement basics, flat sacrifice, Talc)
 
-**Date:** 2026-10-21, updated 2026-10-23 · **Status:** built, phases 0–6. After phase 6, the flat bread sacrifice was replaced by the gods and their tiered demands (§7). Rows marked **Superseded** record what changed.
+**Date:** 2026-10-21, updated 2026-10-24 · **Status:** built, phases 0–6, then gods (§7) and members/protection/satiety (§8). After phase 6, the flat bread sacrifice was replaced by the gods and their tiered demands (§7). Rows marked **Superseded** or **Built** record what changed. Open items are in §9.
 **Design source:** `docs/empire/empire-plan-brainstorming.md` §2.1–2.4 (Pass 1). The demand numbers are in `docs/empire/sacrifice-tables-draft.md`. Bright's decisions (below) override the brainstorming doc where they differ.
-**Out of scope here:** civilians, outposts, protection, forcible de-staking triggers, god satiety and abandonment, god boons.
+**Out of scope here:** civilians, outposts, forcible de-staking triggers (wait on Empire's own invasions), god boons (wait on civilians). Protection and god satiety were out of scope at first and are now built (§8).
 
 ---
 
@@ -52,7 +52,7 @@ These are the gaps the decisions don't cover. Each is a **single named constant 
 | P9 | Who may act | Only the founder can sacrifice, bless or use Talc for their empire. At an unclaimed bonfire, only a player with no empire can found. Anyone can light, extinguish or break any bonfire (D7: no protection). Anyone can read a bonfire's demand with an empty hand. |
 | P10 | Dimension | Empires exist in the **Overworld only** (Frontier only tracks the Overworld). Bonfires can be placed anywhere, but founding, sacrifice and Talc use fail outside the Overworld with a message. Only Overworld bonfires are added to the bonfire registry, so a bonfire in another dimension never becomes an empire's main bonfire (fixed 2026-10-23). |
 | P11 | Placement rule | Placing a bonfire needs a clear 3×3×3 space (bottom-centre on the clicked face). The Settled check runs at **first lighting/founding**, not at placement. That way a bonfire placed early isn't wasted, and secondary bonfires in decayed land still place. |
-| P12 | Obtaining a bonfire | **No survival recipe yet.** Creative tab + `/give` only. Bright gave the recipe on 2026-10-23; it is not built yet. |
+| P12 | Obtaining a bonfire | **Built 2026-10-23** (`data/empire/recipe/bonfire.json`): shaped, top row empty, then `L C L` / `L B L` (L any log, C campfire, B coal block). |
 | P13 | Raw Talc → Blessed/Tarnished | 1 : 1, instant, one item per right-click. Does not consume the bonfire's fuel (there is none). |
 | P14 | Soul Fire | Fire blocks can't be clicked (they have no clickable shape), so only the Soul Campfire block works for tarnishing in v1. Possible later addition, waiting on Bright: a Create haunting recipe (Raw Talc → Tarnished Talc), data-only with a `neoforge:mod_loaded` condition. **Not built now.** |
 | P15 | Common-ore numbers | Stone + deepslate talc ore. Vein size 9, 8 veins/chunk, uniform y 0–96, overworld `#minecraft:is_overworld`. **Placeholders**; Bright tunes. |
@@ -242,4 +242,30 @@ Replaces the flat 5-bread sacrifice (D4, P5, §3.3, §3.7). The numbers and item
 - **Fluids** (T5 fuels) are counted in 1000 mB units and drained from the held container through its fluid-handler capability.
 - **`uniqueGodsPerServer`** (server config, default `false`): a god another empire already has is refused at founding and adoption.
 - **Levitite:** Empire ships loot tables for `aeronautics:levitite` and `aeronautics:pearlescent_levitite`. The block drops itself only to a Silk Touch pickaxe that passes `isCorrectToolForDrops` on a `needs_diamond_tool` state.
-- **Still to design:** satiety and abandonment, god boons, multiple members (Bright's decisions of 2026-10-23 are being turned into a plan).
+- **Still to design:** god boons. Members, protection and satiety are built (§8).
+
+## 8. Members, main bonfire, protection, satiety — Built (2026-10-23/24)
+Supersedes D7 (no protection), D9 (founder only) and P9 (who may act).
+- **Members:** every member has equal control. A player with no empire joins by offering 5 of the god's tier-1 meat at the lit main bonfire. A member leaves by offering 5 Tarnished Talc at any of the empire's bonfires twice: clicks in the first 3 s after the warning are ignored, a click from 3 s to 30 s confirms, and later clicks warn again. The last member leaving leaves the empire **frozen** (land, Dominion, god kept) for anyone to join.
+- **Main bonfire:** a bonfire can be main only when all 9 chunks of the 3×3 around it are staked by its empire. With no main, a qualifying bonfire becomes main automatically when it is placed, when a chunk staking completes its 3×3, or when a member uses it (the closest to the core chunk wins). The refusal message gives the main bonfire's position, or "N of 9 staked here".
+- **Only the main bonfire burns:** while an empire has a main bonfire, its other bonfires cannot be lit. A lit one goes out (checked every 40 ticks).
+- **Protection (divine land):** only an empire **with a main bonfire** has protected land: the 3×3 around the main bonfire, full column. Outsiders cannot break, place, use blocks, use buckets, touch item frames or armour stands, or trample farmland there. Explosions break no blocks there. Outsiders may read the demand, offer meat to join, and, at a frozen empire, light the main bonfire. Without a main bonfire nothing is protected, so outsiders can place a bonfire anywhere in a frozen empire's land. Only members can break an empire's bonfires.
+- **Unstaking:** with a main bonfire, its 3×3 cannot be unstaked. Without one, only the core chunk (the last main bonfire's chunk, saved as `core_chunk`) cannot be.
+- **Golden outline:** while Blessed or Tarnished Talc is held, protected land is outlined in gold. The gold replaces the claim border where the two meet. The client works the protected land out from the main-bonfire markers in its claim cache.
+- **Satiety:** see the god-hunger rules in `GodSatiety`. The god is fed by founding, joining, adoption, a completed demand, or 5 of its meat in one click. From 75 % of one in-game year of member-online time the god is hungry and puts out the main bonfire every 15 s; at 100 % it leaves.
+- **Client prediction (2026-10-24):** the server decides everything; the client only predicts refusals, so an outsider no longer sees break progress, a placed block, an opened block or moved fluid that the server then undoes.
+  - `ClaimCacheKeeper` (client) keeps the claim cache fresh in the Overworld, radius `ClaimMapNetwork.AROUND_PLAYER_RADIUS` = 7 chunks around the player, every 10 s and on moving. The talc borders read the same cache and no longer ask on their own. The cache is cleared on leaving a server.
+  - The server pushes fresh claims (`ClaimMapNetwork.pushNear`, players within 16 chunks) when protected land appears or goes: founding, a main bonfire set or lost, disbanding. Joining or leaving pushes to that player (their side of every claim changes).
+  - `DivineProtection` resolves "outsider" on the client from `ClaimMapCache.protection` (and, for bonfires anywhere, the claim of the main block's chunk). Right clicks, bucket use and entity interactions still send their packet, so a stale cache costs only the prediction. Breaking is the exception: a stale "protected" can hold up breaking until the next refresh (≤ 10 s). Nothing is predicted at a bonfire (joining, reading and lighting are the server's call).
+
+## 9. Open items (review, 2026-10-24)
+| # | Item | Status |
+|---|---|---|
+| O1 | Create Big Guns explosions in protected land | **Unverified.** Protection filters only `ExplosionEvent.Detonate`. Add a game test that detonates a CBG shell in divine land; if it bypasses the event, Bright decides whether that is intended (like Create machines). |
+| O2 | Main bonfire reselection uses two distance rules | `onBonfireRemoved`: 3D distance to the old main; `tryAssignMain`: 2D distance to the core chunk centre. Usually the same pick; fold into one method. |
+| O3 | `EmpireState.forciblyDestake` | Stub, unused. Waits on Empire's invasion mechanics (Bright, 2026-10-24). |
+| O4 | Haunting recipe Raw Talc → Tarnished Talc (P14) | Waiting on Bright. |
+| O5 | Placeholders | Light levels (P2), roar sounds (P3), common talc ore numbers (P15), Meteodyne heat (P16). Bright tunes. |
+| O6 | Client prediction | Not covered by game tests (server only). Check by hand with two clients. |
+
+**Next track (Bright, 2026-10-24):** civilians. God boons wait on civilians (that is where boons act); forcible de-staking waits on invasions; outposts come much later. Chunk loading direction: `docs/empire/empire-plan-brainstorming.md` §5, Pass 4.

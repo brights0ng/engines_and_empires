@@ -110,13 +110,21 @@ public final class EmpireState {
     }
 
     public UnstakeResult unstake(long chunk, long day, long coreChunk) {
+        return unstake(chunk, day, coreChunk, true);
+    }
+
+    /**
+     * Un-stakes {@code chunk}. The core chunk never can be; the 8 chunks around it cannot while {@code divineAroundCore}
+     * (the empire has a main bonfire, so they are its protected land).
+     */
+    public UnstakeResult unstake(long chunk, long day, long coreChunk, boolean divineAroundCore) {
         if (!staked.contains(chunk)) {
             return UnstakeResult.NOT_OURS;
         }
         if (chunk == coreChunk) {
             return UnstakeResult.CORE_CHUNK;
         }
-        if (Math.abs(ChunkKeys.getX(chunk) - ChunkKeys.getX(coreChunk)) <= 1
+        if (divineAroundCore && Math.abs(ChunkKeys.getX(chunk) - ChunkKeys.getX(coreChunk)) <= 1
                 && Math.abs(ChunkKeys.getZ(chunk) - ChunkKeys.getZ(coreChunk)) <= 1) {
             return UnstakeResult.DIVINE_CHUNK;
         }

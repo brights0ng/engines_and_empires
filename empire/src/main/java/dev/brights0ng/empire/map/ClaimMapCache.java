@@ -1,6 +1,7 @@
-// Written by Gemini.
+// Written by Gemini; bonfire markers kept across answers by Claude.
 package dev.brights0ng.empire.map;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,8 @@ public final class ClaimMapCache {
 
     /** Beyond this many columns the cache starts over rather than grow without end. */
     private static final int MAX_COLUMNS = 400_000;
+    /** Beyond this many main bonfire markers the oldest are dropped. */
+    private static final int MAX_BONFIRES = 4_096;
 
     private static final Long2ByteOpenHashMap CLAIMS = new Long2ByteOpenHashMap();
     private static volatile List<ClaimMapPayloads.BonfireMarker> bonfires = List.of();
@@ -33,6 +36,23 @@ public final class ClaimMapCache {
 
     public static List<ClaimMapPayloads.BonfireMarker> bonfires() {
         return bonfires;
+    }
+
+    /**
+     * The protected (divine) land a chunk is in, as the client knows it: {@link ClaimGrid#OUR_EMPIRE} or
+     * {@link ClaimGrid#OTHER_EMPIRE} for a chunk in the 3x3 around a known main bonfire of that side (and claimed by
+     * it), else {@link ClaimGrid#UNCLAIMED}. Only an empire with a main bonfire has protected land.
+     */
+    public static int protection(int cx, int cz) {
+        for (ClaimMapPayloads.BonfireMarker marker : bonfires) {
+            if (Math.abs((marker.x() >> 4) - cx) <= 1 && Math.abs((marker.z() >> 4) - cz) <= 1) {
+                int side = marker.ourEmpire() ? ClaimGrid.OUR_EMPIRE : ClaimGrid.OTHER_EMPIRE;
+                if (claim(cx, cz) == side) {
+                    return side;
+                }
+            }
+        }
+        return ClaimGrid.UNCLAIMED;
     }
 
     /** Takes in an answer from the server. */
@@ -54,7 +74,23 @@ public final class ClaimMapCache {
                 }
             }
         }
-        bonfires = List.copyOf(answer.bonfires());
+        // The answer lists the main bonfires inside its square: replace the ones known there, keep the rest (another
+        // map, or the talc borders, may have asked about somewhere else).
+        int minX = answer.x() << 4;
+        int minZ = answer.z() << 4;
+        int maxX = (answer.x() + answer.size()) << 4;
+        int maxZ = (answer.z() + answer.size()) << 4;
+        List<ClaimMapPayloads.BonfireMarker> merged = new ArrayList<>();
+        for (ClaimMapPayloads.BonfireMarker marker : bonfires) {
+            if (marker.x() < minX || marker.x() > maxX || marker.z() < minZ || marker.z() > maxZ) {
+                merged.add(marker);
+            }
+        }
+        merged.addAll(answer.bonfires());
+        if (merged.size() > MAX_BONFIRES) {
+            merged = merged.subList(merged.size() - MAX_BONFIRES, merged.size());
+        }
+        bonfires = List.copyOf(merged);
     }
 
     /**

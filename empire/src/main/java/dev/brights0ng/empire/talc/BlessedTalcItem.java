@@ -1,4 +1,4 @@
-// Written by Gemini; member check edited by Claude.
+// Written by Gemini; member check and main bonfire assignment on staking edited by Claude.
 package dev.brights0ng.empire.talc;
 
 import dev.brights0ng.empire.data.EmpireRecord;
@@ -61,7 +61,7 @@ public class BlessedTalcItem extends Item {
         long day = DawnClock.dayOf(serverLevel.getDayTime());
         boolean tierOk = TierChecks.columnSettled(serverLevel, chunkPos);
 
-        StakeResult result = data.stakeChunk(record, chunk, day, tierOk);
+        StakeResult result = data.stakeChunk(record, chunk, day, tierOk, serverLevel.getServer());
         if (result == StakeResult.OK) {
             if (!player.hasInfiniteMaterials()) {
                 context.getItemInHand().shrink(1);

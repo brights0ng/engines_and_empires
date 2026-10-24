@@ -1,4 +1,4 @@
-<!-- Edited by Claude (2026-10-23): Pass 1 brought in line with what Bright decided and what is built; marked "Updated". -->
+<!-- Edited by Claude (2026-10-23): Pass 1 brought in line with what Bright decided and what is built; marked "Updated". Pass 3B/3C sequencing and the Pass 4 chunk-loading direction added 2026-10-24. -->
 # Engines and Empires: "Empires" Conceptual Design & Architecture Specification
 
 **Date:** 2026-10-20  
@@ -207,6 +207,8 @@ The following questions remain open for upcoming planning sessions:
 4. **Schedule Customization:** Is the daily schedule fixed (Dawn setup: Morning Work $\rightarrow$ Midday Meal $\rightarrow$ Afternoon Work $\rightarrow$ Evening Pub $\rightarrow$ Night Sleep), or can players assign night shifts (e.g., nocturnal guards or 24-hour rotating factory crews)?
 
 ### Pass 3B — God Boons, Specialization & "Reach" Progression
+> **Sequencing (Bright, 2026-10-24):** boons wait until civilians exist; that is where they act.
+
 5. **The 9 God Boons:** What specific passive/active blessings does each of the 9 Totem Gods grant to an empire, and do those boons scale with current Dominion ($D$) or Satiety?
 6. **Settlement Specialization Mechanics (Brainstorm Q10–12):**
    * How are systematic settlement perks unlocked (number of workers in a job, sum of job skill levels, local biome tags, or combinations)[cite: 1]?
@@ -214,6 +216,8 @@ The following questions remain open for upcoming planning sessions:
 7. **Intertwining Empires with "Reach" (Brainstorm Q11):** How do trained civilians, soldiers, and specialized settlements concretely enable operating farther, deeper ($Y < 0$), and in harsher `Meteodyne` climate bands[cite: 1, 8]?
 
 ### Pass 3C — Outposts & Forcible De-Staking
+> **Sequencing (Bright, 2026-10-24):** forcible de-staking waits on Empire's own invasion mechanics; outposts come much later.
+
 8. **Outpost Mechanics (Brainstorm Q3):**
    * What block/ritual establishes an **Outpost** (since Bonfires are strictly 1 per empire for the main settlement)?
    * How many chunks and civilians can an Outpost hold, and does it draw from the Empire's main Dominion pool?
@@ -221,6 +225,13 @@ The following questions remain open for upcoming planning sessions:
 
 ### Pass 4 — Create Integration, Chunk Loading & Low-LOD Simulation
 10. **Chunk Loading Rules (Brainstorm Q13–15):**
+    > **Current direction (Bright, 2026-10-24; not locked):** each civilian keeps the **3×3 chunks** around itself loaded, whether or not a player is near. Invasions, mob spawning and the like happen only around players, so civilians are safe while their players are offline. Civilians mostly live near each other, so their areas overlap; at about 20 civilians per empire (a mechanically encouraged cap, set later) that is at most 180 chunks with no overlap, less than one player at simulation distance 10. A server config enables it, or limits it to empires with a member online. A cheaper low-LOD version may replace it later.
+    >
+    > **Decided (Bright, 2026-10-24):** an empire keeps working while none of its members is online, even though its god's hunger is paused; this is intended, so members who play less often don't fall far behind. Civilians **count as habitation** for Frontier.
+    >
+    > **Options under discussion (Bright, 2026-10-24):** only empire chunks are ever loaded by civilians; a civilian outside the empire whose chunk is not loaded is moved to the empire's border. Every empire chunk is one of: (1) fully force-loaded; (2) block updates everywhere, entities frozen except in the 3×3 around civilians; (3) kept in memory, with a 3×3 entity-ticking and 5×5 block-ticking area around civilians.
+    >
+    > **Narrowed (Bright, 2026-10-24):** option 1 is out: late-game empires are expected to reach about **200 Dominion**, mostly sprawling farms rather than land civilians live on. Offline loading is a **civilian** perk, not an empire-wide one. Civilians do not work outside empire land for now (no civilians on moving vehicles for a while; remote work comes with outposts, later); the limit this puts on them is accepted. Choosing between option 2 and option 3 with a catch-up (e.g. crops grow for the time their chunk was unloaded); performance is the deciding factor, implementation effort is not.
     * While at least one player in the empire is online, which chunks stay force-loaded (all staked chunks, only chunks with active civilians/machines, or dynamic ticket loading for approaching Create trains)[cite: 1]?
     * How does Low-LOD simulation (when an empire player is online, but no player is within entity-rendering distance of the settlement) execute civilian tasks and fake crop growth[cite: 1]?
 11. **Lore, Relics & Factions (Later):**

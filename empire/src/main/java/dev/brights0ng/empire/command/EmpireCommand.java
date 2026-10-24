@@ -260,7 +260,7 @@ public final class EmpireCommand {
         long day = DawnClock.dayOf(source.getLevel().getDayTime());
         boolean tierOk = TierChecks.columnSettled(source.getLevel(), chunkPos);
 
-        StakeResult result = data.stakeChunk(record, chunk, day, tierOk);
+        StakeResult result = data.stakeChunk(record, chunk, day, tierOk, source.getServer());
         source.sendSuccess(() -> Component.literal(result.name()), true);
         return 1;
     }

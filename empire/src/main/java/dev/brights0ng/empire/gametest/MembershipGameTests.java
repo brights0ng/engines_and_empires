@@ -198,7 +198,7 @@ public final class MembershipGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = GameTestStructures.EMPTY, timeoutTicks = 400)
+    @GameTest(template = GameTestStructures.EMPTY, timeoutTicks = 800)
     public static void leavingWarnsThenWaitsThenTakesFiveTalcAndAWarningLapses(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         EmpireSavedData data = EmpireSavedData.of(level.getServer());
@@ -226,10 +226,15 @@ public final class MembershipGameTests {
                     "and the player has left");
             helper.assertTrue(record.members().equals(java.util.Set.of(lingerer.getUUID())), "one member is left");
         });
-        helper.runAtTickTime(300, () -> {
+        helper.runAtTickTime(500, () -> {
+            // Still within 30 s of its warning: a confirming offer would take the talc, so only check the clock.
+            helper.assertTrue(LeaveInteractions.LEAVE_LOCK_TICKS + LeaveInteractions.LEAVE_CONFIRM_TICKS == 600,
+                    "the warning lapses 30 s after it is given");
+        });
+        helper.runAtTickTime(620, () -> {
             LeaveInteractions.tryLeave(lingerer.getMainHandItem(), level, LEAVE_FAR, lingerer);
             helper.assertTrue(lingerer.getMainHandItem().getCount() == 5 && record.isMember(lingerer.getUUID()),
-                    "an offer 300 ticks after the warning only warns again");
+                    "an offer more than 30 s after the warning only warns again");
             data.disbandEmpire(record.id(), null);
             helper.succeed();
         });

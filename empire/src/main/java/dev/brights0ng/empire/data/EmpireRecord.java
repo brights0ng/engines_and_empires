@@ -1,4 +1,4 @@
-// Written by Gemini; god, sacrifice count, current demand, members and the god's hunger added by Claude.
+// Written by Gemini; god, sacrifice count, current demand, members, the god's hunger and the kept core chunk added by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.ArrayList;
@@ -13,6 +13,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import dev.brights0ng.empire.rules.DemandLine;
+import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.EmpireState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -41,6 +42,11 @@ public final class EmpireRecord {
     private final List<DemandLine> currentDemand = new ArrayList<>();
     /** Ticks since the god was last fed, counted only while a member is online ({@code god.GodHunger}). */
     private long hungerTicks;
+    /**
+     * The chunk of the last main bonfire (the founding chunk until there is one). While there is no main bonfire it stays
+     * the core chunk, so the divine area stays on land whose 3x3 the empire could not unstake while it was the core.
+     */
+    private long coreChunk;
 
     public EmpireRecord(UUID id, Collection<UUID> members, EmpireState state, @Nullable BlockPos mainBonfire, long foundedGameTime) {
         this.id = id;
@@ -48,6 +54,7 @@ public final class EmpireRecord {
         this.state = state;
         this.mainBonfire = mainBonfire;
         this.foundedGameTime = foundedGameTime;
+        this.coreChunk = mainBonfire != null ? chunkOf(mainBonfire) : state.foundingChunk();
     }
 
     public UUID id() {
@@ -100,6 +107,18 @@ public final class EmpireRecord {
 
     public void setMainBonfire(@Nullable BlockPos mainBonfire) {
         this.mainBonfire = mainBonfire;
+        if (mainBonfire != null) {
+            coreChunk = chunkOf(mainBonfire);
+        }
+    }
+
+    /** The chunk of the main bonfire, or of the last one while there is none (see the field). */
+    public long coreChunk() {
+        return mainBonfire != null ? chunkOf(mainBonfire) : coreChunk;
+    }
+
+    private static long chunkOf(BlockPos pos) {
+        return ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4);
     }
 
     public long foundedGameTime() {
@@ -190,6 +209,7 @@ public final class EmpireRecord {
         }
         tag.put("demand", demandTag);
         tag.putLong("hunger_ticks", hungerTicks);
+        tag.putLong("core_chunk", coreChunk());
         return tag;
     }
 
@@ -231,6 +251,9 @@ public final class EmpireRecord {
         record.god = tag.contains("god", Tag.TAG_STRING) ? ResourceLocation.tryParse(tag.getString("god")) : null;
         record.sacrificeCount = tag.getInt("sacrifice_count");
         record.hungerTicks = Math.max(0, tag.getLong("hunger_ticks"));
+        if (tag.contains("core_chunk", Tag.TAG_LONG)) {
+            record.coreChunk = tag.getLong("core_chunk");
+        }
         ListTag demandTag = tag.getList("demand", Tag.TAG_COMPOUND);
         for (int i = 0; i < demandTag.size(); i++) {
             CompoundTag lineTag = demandTag.getCompound(i);

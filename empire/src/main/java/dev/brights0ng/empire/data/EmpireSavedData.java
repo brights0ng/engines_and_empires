@@ -1,4 +1,4 @@
-// Written by Gemini; members, the main bonfire's 3x3 rule, the public core chunk and the divine index by Claude.
+// Written by Gemini; members, the main bonfire's 3x3 rule, the public core chunk, the divine index, main bonfire assignment and protection pushes by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.Collection;
@@ -10,6 +10,7 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import dev.brights0ng.empire.map.ClaimMapNetwork;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.ClaimGraph;
 import dev.brights0ng.empire.rules.DivineArea;
@@ -64,12 +65,21 @@ public final class EmpireSavedData extends SavedData {
         rebuildDivineIndex();
     }
 
-    /** Rebuilds the divine index; called on load and whenever an empire's core chunk can change. */
+    /**
+     * Rebuilds the divine index; called on load and whenever an empire's main bonfire can change. Only an empire with a
+     * main bonfire has protected (divine) land: the 3x3 around the main bonfire's chunk (Bright, 2026-10-24).
+     */
     public void rebuildDivineIndex() {
         divineIndex.clear();
         for (EmpireRecord record : empires.values()) {
+            if (record.mainBonfire() == null) {
+                continue;
+            }
             for (long chunk : DivineArea.chunks(coreChunk(record))) {
-                divineIndex.putIfAbsent(chunk, record.id());
+                // Only the empire's own land: the divine area never reaches into another empire's or unclaimed land.
+                if (record.state().staked().contains(chunk)) {
+                    divineIndex.putIfAbsent(chunk, record.id());
+                }
             }
         }
     }
@@ -94,10 +104,19 @@ public final class EmpireSavedData extends SavedData {
     }
 
     public StakeResult stakeChunk(EmpireRecord record, long chunk, long day, boolean tierOk) {
+        return stakeChunk(record, chunk, day, tierOk, null);
+    }
+
+    /**
+     * Stakes {@code chunk} for the empire. When it has no main bonfire, a bonfire in its land whose 3x3 the new chunk
+     * completes becomes the main one (the members online are told, given a {@code server}).
+     */
+    public StakeResult stakeChunk(EmpireRecord record, long chunk, long day, boolean tierOk, @Nullable MinecraftServer server) {
         boolean ownedElsewhere = chunkIndex.containsKey(chunk) && !record.id().equals(chunkIndex.get(chunk));
         StakeResult result = record.state().stake(chunk, day, tierOk, ownedElsewhere);
         if (result == StakeResult.OK) {
             chunkIndex.put(chunk, record.id());
+            tryAssignMain(record, server);
             setDirty();
         }
         return result;
@@ -131,16 +150,16 @@ public final class EmpireSavedData extends SavedData {
     }
 
     /**
-     * The empire's core chunk: its main bonfire's chunk, else its founding chunk. The 3x3 centred on it is the divine
-     * area, which cannot be unstaked.
+     * The empire's core chunk: its main bonfire's chunk, else the last main bonfire's (the founding chunk before any).
+     * The 3x3 centred on it is the divine area, which cannot be unstaked.
      */
     public static long coreChunk(EmpireRecord record) {
-        BlockPos main = record.mainBonfire();
-        return main != null ? ChunkKeys.pack(main.getX() >> 4, main.getZ() >> 4) : record.state().foundingChunk();
+        return record.coreChunk();
     }
 
     public UnstakeResult unstakeChunk(EmpireRecord record, long chunk, long day) {
-        UnstakeResult result = record.state().unstake(chunk, day, coreChunk(record));
+        // Without a main bonfire nothing is divine: only the core chunk is kept, so the empire always holds land.
+        UnstakeResult result = record.state().unstake(chunk, day, coreChunk(record), record.mainBonfire() != null);
         if (result == UnstakeResult.OK) {
             chunkIndex.remove(chunk);
             setDirty();
@@ -160,22 +179,55 @@ public final class EmpireSavedData extends SavedData {
             rebuildDivineIndex();
             setDirty();
             messageMembers(record, server, Component.translatable("message.empire.disbanded"));
+            ClaimMapNetwork.pushNear(server, coreChunk(record));
         }
     }
 
     public void onBonfirePlaced(BlockPos pos, @Nullable MinecraftServer server) {
         bonfires.add(pos);
-        long chunk = ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4);
-        UUID empireId = chunkIndex.get(chunk);
-        if (empireId != null) {
-            EmpireRecord record = empires.get(empireId);
-            if (record != null && record.mainBonfire() == null && eligibleMain(record, pos)) {
-                record.setMainBonfire(pos.immutable());
-                rebuildDivineIndex();
-                notifyMainBonfireChange(record, server, pos);
-            }
+        EmpireRecord record = getEmpireByChunk(ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4));
+        if (record != null) {
+            tryAssignMain(record, server);
         }
         setDirty();
+    }
+
+    /**
+     * When the empire has no main bonfire, makes one of its bonfires the main one: of those in its land whose 3x3 it has
+     * fully staked, the one closest to the core chunk's centre (ties: the lowest {@link BlockPos#asLong}). Returns whether
+     * it assigned one. Called when a bonfire is placed, a chunk is staked, and a member uses a bonfire.
+     */
+    public boolean tryAssignMain(EmpireRecord record, @Nullable MinecraftServer server) {
+        if (record.mainBonfire() != null) {
+            return false;
+        }
+        long core = record.coreChunk();
+        double cx = (ChunkKeys.getX(core) << 4) + 8.0;
+        double cz = (ChunkKeys.getZ(core) << 4) + 8.0;
+        BlockPos best = null;
+        double bestDistSq = Double.MAX_VALUE;
+        for (BlockPos candidate : bonfires.all()) {
+            long chunk = ChunkKeys.pack(candidate.getX() >> 4, candidate.getZ() >> 4);
+            if (!record.id().equals(chunkIndex.get(chunk)) || !eligibleMain(record, candidate)) {
+                continue;
+            }
+            double dx = candidate.getX() + 0.5 - cx;
+            double dz = candidate.getZ() + 0.5 - cz;
+            double distSq = dx * dx + dz * dz;
+            if (distSq < bestDistSq || (distSq == bestDistSq && candidate.asLong() < best.asLong())) {
+                best = candidate;
+                bestDistSq = distSq;
+            }
+        }
+        if (best == null) {
+            return false;
+        }
+        record.setMainBonfire(best.immutable());
+        rebuildDivineIndex();
+        notifyMainBonfireChange(record, server, best);
+        ClaimMapNetwork.pushNear(server, ChunkKeys.pack(best.getX() >> 4, best.getZ() >> 4));
+        setDirty();
+        return true;
     }
 
     public void onBonfireRemoved(BlockPos pos, @Nullable MinecraftServer server) {
@@ -199,14 +251,30 @@ public final class EmpireSavedData extends SavedData {
                 record.setMainBonfire(bestCandidate);
                 rebuildDivineIndex();
                 notifyMainBonfireChange(record, server, bestCandidate);
+                ClaimMapNetwork.pushNear(server, ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4));
             }
         }
         setDirty();
     }
 
     /** A bonfire can be the main one only if the empire has staked all 9 chunks of the 3x3 centred on its chunk. */
-    private static boolean eligibleMain(EmpireRecord record, BlockPos pos) {
+    public static boolean eligibleMain(EmpireRecord record, BlockPos pos) {
         return ClaimGraph.surroundingStaked(record.state().staked(), ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4));
+    }
+
+    /** How many of the 9 chunks of the 3x3 centred on {@code pos}'s chunk the empire has staked. */
+    public static int stakedAround(EmpireRecord record, BlockPos pos) {
+        int cx = pos.getX() >> 4;
+        int cz = pos.getZ() >> 4;
+        int count = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (record.state().staked().contains(ChunkKeys.pack(cx + dx, cz + dz))) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     private void notifyMainBonfireChange(EmpireRecord record, @Nullable MinecraftServer server, @Nullable BlockPos newMain) {

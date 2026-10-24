@@ -1,4 +1,4 @@
-// Written by Gemini; loot condition type and creative tab added by Claude.
+// Written by Gemini; loot condition type, creative tab and bonfire solidity added by Claude.
 package dev.brights0ng.empire;
 
 import dev.brights0ng.empire.bonfire.BonfireBlock;
@@ -49,6 +49,8 @@ public final class EmpireContent {
                     .strength(50.0F, 1200.0F)
                     .sound(SoundType.WOOD)
                     .noOcclusion()
+                    // Solid whatever its shape, so water and lava cannot wash it away.
+                    .forceSolidOn()
                     .isViewBlocking((state, level, pos) -> false)
                     .isSuffocating((state, level, pos) -> false)
                     .isRedstoneConductor((state, level, pos) -> false)
@@ -62,6 +64,8 @@ public final class EmpireContent {
                     .strength(50.0F, 1200.0F)
                     .sound(SoundType.WOOD)
                     .noOcclusion()
+                    // The flame-only parts have no shape; forced solid, fluids still cannot flow in and break the bonfire.
+                    .forceSolidOn()
                     .isViewBlocking((state, level, pos) -> false)
                     .isSuffocating((state, level, pos) -> false)
                     .isRedstoneConductor((state, level, pos) -> false)

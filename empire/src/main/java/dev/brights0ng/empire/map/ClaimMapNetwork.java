@@ -1,4 +1,4 @@
-// Written by Gemini; viewer lookup by membership edited by Claude.
+// Written by Gemini; viewer lookup by membership edited by Claude; pushes on protection changes by Claude.
 package dev.brights0ng.empire.map;
 
 import java.util.ArrayList;
@@ -7,12 +7,15 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.WeakHashMap;
 
+import javax.annotation.Nullable;
+
 import dev.brights0ng.empire.Empire;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.ClaimGrid;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
@@ -37,6 +40,10 @@ public final class ClaimMapNetwork {
     private static final int ANSWER_GAP = 5;
     /** How far from a player, in chunks, a map may ask about. */
     private static final int MAX_DISTANCE = 512;
+    /** Chunk radius of the area the client keeps fresh around its player, and that a push refreshes. */
+    public static final int AROUND_PLAYER_RADIUS = 7;
+    /** Players within this many chunks of a change in protection get a push. */
+    private static final int PUSH_DISTANCE = 16;
 
     private static final Map<UUID, Long> LAST_ANSWERED = new WeakHashMap<>();
 
@@ -77,6 +84,41 @@ public final class ClaimMapNetwork {
         }
         LAST_ANSWERED.put(player.getUUID(), now);
         PacketDistributor.sendToPlayer(player, build(level, player.getUUID(), request.x(), request.z(), request.radius()));
+    }
+
+    /**
+     * Sends every Overworld player within {@link #PUSH_DISTANCE} chunks of {@code chunk} the claims around them, so their
+     * client's protection guess is right at once. Called when an empire's protected land appears or goes (a main bonfire
+     * set or lost, founding, disbanding).
+     */
+    public static void pushNear(@Nullable MinecraftServer server, long chunk) {
+        if (server == null) {
+            return;
+        }
+        int cx = ChunkKeys.getX(chunk);
+        int cz = ChunkKeys.getZ(chunk);
+        for (ServerPlayer player : server.overworld().players()) {
+            if (Math.abs((player.blockPosition().getX() >> 4) - cx) <= PUSH_DISTANCE
+                    && Math.abs((player.blockPosition().getZ() >> 4) - cz) <= PUSH_DISTANCE) {
+                push(player);
+            }
+        }
+    }
+
+    /** Sends {@code player} the claims around them (their side of every claim changes when they join or leave). */
+    public static void push(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        if (level.dimension() != Level.OVERWORLD || !canReceive(player)) {
+            return;
+        }
+        PacketDistributor.sendToPlayer(player, build(level, player.getUUID(),
+                player.blockPosition().getX() >> 4, player.blockPosition().getZ() >> 4, AROUND_PLAYER_RADIUS));
+    }
+
+    /** Whether {@code player} has a client listening for answers: game tests' mock players have no network channel. */
+    private static boolean canReceive(ServerPlayer player) {
+        return player.connection != null && player.connection.getConnection().channel() != null
+                && player.connection.hasChannel(ClaimMapPayloads.Answer.TYPE);
     }
 
     /** The answer for the columns within {@code radius} (capped) of chunk ({@code cx}, {@code cz}). */

@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; client-side prediction by Claude (2026-10-24).
 package dev.brights0ng.empire.protect;
 
 import java.util.List;
@@ -11,7 +11,9 @@ import dev.brights0ng.empire.EmpireContent;
 import dev.brights0ng.empire.bonfire.BonfirePartBlock;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
+import dev.brights0ng.empire.map.ClaimMapCache;
 import dev.brights0ng.empire.rules.ChunkKeys;
+import dev.brights0ng.empire.rules.ClaimGrid;
 import dev.brights0ng.empire.sacrifice.SacrificeInteractions;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -23,6 +25,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.decoration.HangingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -55,6 +58,13 @@ import net.neoforged.neoforge.event.level.ExplosionEvent;
  * </ul>
  * Physical access through Create is intended: fake players (deployers) are never stopped, and contraptions, drills, mobs
  * and fire spread fire none of these events. Creative players with permission level {@link #BYPASS_PERMISSION} pass.
+ *
+ * <p>The server decides. The client only predicts the refusal, so an outsider sees no break progress, placed block,
+ * opened block or moved fluid that the server would undo. It reads protected land from {@link ClaimMapCache} (kept
+ * fresh around the player by {@code ClaimCacheKeeper}, and pushed by the server when membership or a main bonfire
+ * changes). Every predicted refusal except breaking still sends the click to the server, so a stale cache costs only
+ * the prediction; a stale cache can hold up breaking until the next refresh (at most {@code ClaimRequests.REFRESH_MILLIS}).
+ * The client does not predict anything at a bonfire: who may join, read or light it is the server's to say.
  */
 public final class DivineProtection {
 
@@ -86,22 +96,39 @@ public final class DivineProtection {
 
     /** Whether {@code player} is stopped from breaking: an outsider in a divine area, or not of the bonfire's empire. */
     private static boolean mayNotBreak(Player player, Level level, BlockPos pos, BlockState state) {
+        if (level.isClientSide()) {
+            BlockPos main = bonfireMain(pos, state);
+            return outsiderAt(player, level, pos) || (main != null && clientMayStop(player, level)
+                    && ClaimMapCache.claim(main.getX() >> 4, main.getZ() >> 4) == ClaimGrid.OTHER_EMPIRE);
+        }
         return outsiderAt(player, level, pos) || isOutsider(player, bonfireOwner(level, pos, state));
     }
 
     /** The empire whose staked chunk holds this bonfire's main block, or null (not a bonfire, or unclaimed). */
     @Nullable
     private static EmpireRecord bonfireOwner(Level level, BlockPos pos, BlockState state) {
-        BlockPos main;
-        if (state.is(EmpireContent.BONFIRE.get())) {
-            main = pos;
-        } else if (state.is(EmpireContent.BONFIRE_PART.get())) {
-            main = pos.subtract(BonfirePartBlock.PART_OFFSETS[state.getValue(BonfirePartBlock.OFFSET)]);
-        } else {
+        BlockPos main = bonfireMain(pos, state);
+        if (main == null) {
             return null;
         }
         EmpireSavedData data = data(level);
         return data != null ? data.getEmpireByChunk(chunkOf(main)) : null;
+    }
+
+    /** The main block of the bonfire {@code state} at {@code pos} is part of, or null if it is no bonfire. */
+    @Nullable
+    private static BlockPos bonfireMain(BlockPos pos, BlockState state) {
+        if (state.is(EmpireContent.BONFIRE.get())) {
+            return pos;
+        }
+        if (state.is(EmpireContent.BONFIRE_PART.get())) {
+            return pos.subtract(BonfirePartBlock.PART_OFFSETS[state.getValue(BonfirePartBlock.OFFSET)]);
+        }
+        return null;
+    }
+
+    private static boolean isBonfire(BlockState state) {
+        return state.is(EmpireContent.BONFIRE.get()) || state.is(EmpireContent.BONFIRE_PART.get());
     }
 
     // ---- placing ----
@@ -130,20 +157,43 @@ public final class DivineProtection {
         Player player = event.getEntity();
         Level level = event.getLevel();
         BlockPos pos = event.getPos();
+        if (level.isClientSide()) {
+            predictRightClickBlock(event, player, level, pos);
+            return;
+        }
         EmpireRecord owner = divineOwner(level, pos);
         if (!isOutsider(player, owner)) {
             return;
         }
         // At the empire's bonfire an outsider may read the demand (empty hand) or offer the god's meat to join.
+        // At a frozen empire's bonfire (no members) an outsider may also light it, so the empire can be joined.
         BlockState state = level.getBlockState(pos);
         ItemStack stack = event.getItemStack();
-        if ((state.is(EmpireContent.BONFIRE.get()) || state.is(EmpireContent.BONFIRE_PART.get()))
-                && (stack.isEmpty() || SacrificeInteractions.isJoinOffering(stack, owner))) {
+        if (isBonfire(state)
+                && (stack.isEmpty() || SacrificeInteractions.isJoinOffering(stack, owner)
+                    || (owner.members().isEmpty() && (stack.is(Items.FLINT_AND_STEEL) || stack.is(Items.FIRE_CHARGE))))) {
             return;
         }
         event.setUseBlock(TriState.FALSE);
         event.setUseItem(TriState.FALSE);
         tell(player);
+    }
+
+    /**
+     * The client's guess at {@link #onRightClickBlock}: no block use and no item use in another empire's protected land,
+     * and no block placed into it from outside (the server's place check). The click still reaches the server.
+     */
+    private static void predictRightClickBlock(PlayerInteractEvent.RightClickBlock event, Player player, Level level, BlockPos pos) {
+        if (isBonfire(level.getBlockState(pos))) {
+            return;
+        }
+        if (outsiderAt(player, level, pos)) {
+            event.setUseBlock(TriState.FALSE);
+            event.setUseItem(TriState.FALSE);
+        } else if (event.getItemStack().getItem() instanceof BlockItem
+                && outsiderAt(player, level, pos.relative(event.getHitVec().getDirection()))) {
+            event.setUseItem(TriState.FALSE);
+        }
     }
 
     /**
@@ -155,7 +205,7 @@ public final class DivineProtection {
         ItemStack stack = event.getItemStack();
         Player player = event.getEntity();
         Level level = event.getLevel();
-        if (!(stack.getItem() instanceof BucketItem) || level.isClientSide()) {
+        if (!(stack.getItem() instanceof BucketItem)) {
             return;
         }
         Vec3 eye = player.getEyePosition();
@@ -170,6 +220,10 @@ public final class DivineProtection {
         if (outsiderAt(player, level, pos) || outsiderAt(player, level, front)) {
             event.setCanceled(true);
             event.setCancellationResult(InteractionResult.FAIL);
+            if (level.isClientSide()) {
+                // Prediction only: the use still reaches the server, which refuses it and says why.
+                return;
+            }
             if (player instanceof ServerPlayer serverPlayer) {
                 // The client may already show the fluid moved and the bucket changed.
                 serverPlayer.connection.send(new ClientboundBlockUpdatePacket(level, pos));
@@ -208,7 +262,9 @@ public final class DivineProtection {
     private static boolean guardedEntity(Player player, Entity target) {
         if ((target instanceof HangingEntity || target instanceof ArmorStand)
                 && outsiderAt(player, target.level(), target.blockPosition())) {
-            tell(player);
+            if (!target.level().isClientSide()) {
+                tell(player);
+            }
             return true;
         }
         return false;
@@ -234,9 +290,21 @@ public final class DivineProtection {
 
     // ---- shared ----
 
-    /** Whether {@code player} is an outsider of the divine area holding {@code pos}. */
+    /**
+     * Whether {@code player} is an outsider of the divine area holding {@code pos}. On the client: whether the claim cache
+     * shows it as another empire's protected land.
+     */
     private static boolean outsiderAt(Player player, Level level, BlockPos pos) {
+        if (level.isClientSide()) {
+            return clientMayStop(player, level)
+                    && ClaimMapCache.protection(pos.getX() >> 4, pos.getZ() >> 4) == ClaimGrid.OTHER_EMPIRE;
+        }
         return isOutsider(player, divineOwner(level, pos));
+    }
+
+    /** On the client: whether another empire's claims can stop this player at all (in the Overworld, without a bypass). */
+    private static boolean clientMayStop(Player player, Level level) {
+        return level.dimension() == Level.OVERWORLD && !passes(player);
     }
 
     private static boolean isOutsider(Player player, @Nullable EmpireRecord owner) {

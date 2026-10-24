@@ -1,4 +1,4 @@
-// Written by Gemini; Overworld-only registration, campfire-tag, main bonfire 3x3 and recipe tests added by Claude.
+// Written by Gemini; Overworld-only registration, campfire-tag, main bonfire 3x3, recipe, hitbox and burning tests added by Claude.
 package dev.brights0ng.empire.gametest;
 
 import java.util.List;
@@ -11,17 +11,21 @@ import dev.brights0ng.empire.bonfire.BonfireBlockEntity;
 import dev.brights0ng.empire.bonfire.BonfireEvents;
 import dev.brights0ng.empire.bonfire.BonfireItem;
 import dev.brights0ng.empire.bonfire.BonfirePartBlock;
+import dev.brights0ng.empire.bonfire.BonfireShapes;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingInput;
@@ -385,6 +389,64 @@ public final class BonfireGameTests {
         helper.setBlock(SPOT, lit.setValue(BonfireBlock.LIT, false).setValue(BonfireBlock.ROARING, true));
         helper.succeedWhen(() -> helper.assertFalse(helper.getBlockState(SPOT).getValue(BonfireBlock.ROARING),
                 "an unlit bonfire is not roaring"));
+    }
+
+    /**
+     * The hitbox follows the model: the log ring has shape, the flame-only cells (top row, middle of the second row)
+     * have none, and the core holds the ember bed.
+     */
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void bonfireHitboxFollowsTheLogs(GameTestHelper helper) {
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                helper.assertTrue(BonfireShapes.part(BonfirePartBlock.getOffsetIndex(dx, 2, dz)).isEmpty(),
+                        "top-row cell (" + dx + ", 2, " + dz + ") has no shape");
+            }
+        }
+        helper.assertTrue(BonfireShapes.part(BonfirePartBlock.getOffsetIndex(0, 1, 0)).isEmpty(),
+                "the middle of the second row (flames) has no shape");
+        helper.assertFalse(BonfireShapes.part(BonfirePartBlock.getOffsetIndex(1, 0, 0)).isEmpty(), "a bottom edge cell has logs");
+        helper.assertFalse(BonfireShapes.part(BonfirePartBlock.getOffsetIndex(1, 1, 1)).isEmpty(), "a second-row corner has logs");
+        helper.assertFalse(BonfireShapes.core().isEmpty(), "the core holds the ember bed");
+        helper.assertTrue(BonfireShapes.core().max(Direction.Axis.Y) < 0.5D, "the ember bed is low");
+        helper.succeed();
+    }
+
+    /** Water beside the shapeless top row does not flow in and break the bonfire. */
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void waterDoesNotWashAwayFlameCells(GameTestHelper helper) {
+        clearArea(helper, SPOT);
+        helper.setBlock(SPOT, EmpireContent.BONFIRE.get());
+        BonfireItem.placeParts(helper.getLevel(), helper.absolutePos(SPOT));
+        helper.setBlock(SPOT.offset(2, 2, 0), Blocks.WATER);
+        helper.runAfterDelay(30, () -> {
+            helper.assertBlockPresent(EmpireContent.BONFIRE_PART.get(), SPOT.offset(1, 2, 0));
+            helper.assertBlockPresent(EmpireContent.BONFIRE.get(), SPOT);
+            helper.succeed();
+        });
+    }
+
+    /** A lit bonfire burns what is in its pit, as a campfire does. */
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void litBonfireBurnsEntitiesInThePit(GameTestHelper helper) {
+        clearArea(helper, SPOT);
+        helper.setBlock(SPOT, EmpireContent.BONFIRE.get().defaultBlockState().setValue(BonfireBlock.LIT, true));
+        BonfireItem.placeParts(helper.getLevel(), helper.absolutePos(SPOT));
+        Pig pig = helper.spawn(EntityType.PIG, SPOT.above());
+        helper.succeedWhen(() -> helper.assertTrue(pig.getHealth() < pig.getMaxHealth(), "the pig in the pit is burnt"));
+    }
+
+    /** An unlit bonfire burns nothing. */
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void unlitBonfireDoesNotBurn(GameTestHelper helper) {
+        clearArea(helper, SPOT);
+        helper.setBlock(SPOT, EmpireContent.BONFIRE.get());
+        BonfireItem.placeParts(helper.getLevel(), helper.absolutePos(SPOT));
+        Pig pig = helper.spawn(EntityType.PIG, SPOT.above());
+        helper.runAfterDelay(40, () -> {
+            helper.assertTrue(pig.getHealth() == pig.getMaxHealth(), "the pig in a cold pit is unhurt");
+            helper.succeed();
+        });
     }
 
     private static void clearArea(GameTestHelper helper, BlockPos center) {

@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; protection push on leaving by Claude.
 package dev.brights0ng.empire.membership;
 
 import java.util.HashMap;
@@ -10,10 +10,12 @@ import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.god.GodDefinition;
 import dev.brights0ng.empire.god.Gods;
+import dev.brights0ng.empire.map.ClaimMapNetwork;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.ItemInteractionResult;
@@ -24,14 +26,16 @@ import net.minecraft.world.level.Level;
 /**
  * Leaving an empire (Bright's design): a member offers {@link #LEAVE_TALC} tarnished talc at any bonfire (main or part,
  * lit or not) in their own empire's land. The first offer only warns. An offer within {@link #LEAVE_LOCK_TICKS} of the
- * warning is ignored; one in the {@link #LEAVE_CONFIRM_TICKS} after that takes the talc and the player leaves; a later
- * one warns again. The last member leaving does not disband the empire: it stays, frozen, for anyone to join.
+ * warning is ignored; one in the {@link #LEAVE_CONFIRM_TICKS} after that (up to 30 s after the warning) takes the talc and
+ * the player leaves; a later one warns again. The last member leaving does not disband the empire: it stays, frozen, for
+ * anyone to join.
  */
 public final class LeaveInteractions {
 
     public static final int LEAVE_TALC = 5;
     public static final int LEAVE_LOCK_TICKS = 60;
-    public static final int LEAVE_CONFIRM_TICKS = 200;
+    /** Bright, 2026-10-24: the warning lapses 30 s (600 ticks) after it was given. */
+    public static final int LEAVE_CONFIRM_TICKS = 600 - LEAVE_LOCK_TICKS;
 
     /** When each player was last warned, in game time. Server-side and transient: a restart forgets it. */
     private static final Map<UUID, Long> PENDING_LEAVE = new HashMap<>();
@@ -75,6 +79,9 @@ public final class LeaveInteractions {
             stack.shrink(LEAVE_TALC);
         }
         data.removeMember(owner, id);
+        if (player instanceof ServerPlayer serverPlayer) {
+            ClaimMapNetwork.push(serverPlayer);
+        }
         serverLevel.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.8F, 0.8F);
         player.displayClientMessage(Component.translatable("message.empire.leave.left", empireName(owner)), true);
         EmpireSavedData.messageMembers(owner, serverLevel.getServer(),

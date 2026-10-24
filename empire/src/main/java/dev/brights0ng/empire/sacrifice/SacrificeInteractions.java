@@ -1,4 +1,4 @@
-// Written by Gemini; god sacrifices (founding meat, adoption, paying demands, the demand readout), the client's offering check, members, joining and satiety offerings by Claude.
+// Written by Gemini; god sacrifices (founding meat, adoption, paying demands, the demand readout), the client's offering check, members, joining, satiety offerings, the main bonfire check and protection pushes by Claude.
 package dev.brights0ng.empire.sacrifice;
 
 import java.util.List;
@@ -14,6 +14,7 @@ import dev.brights0ng.empire.god.GodDefinition;
 import dev.brights0ng.empire.god.GodOfferings;
 import dev.brights0ng.empire.god.Gods;
 import dev.brights0ng.empire.god.Offerings;
+import dev.brights0ng.empire.map.ClaimMapNetwork;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.DawnClock;
 import dev.brights0ng.empire.rules.DemandLine;
@@ -24,6 +25,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -133,8 +135,7 @@ public final class SacrificeInteractions {
             return ItemInteractionResult.FAIL;
         }
 
-        if (!pos.equals(owner.mainBonfire())) {
-            player.displayClientMessage(Component.translatable("message.empire.sacrifice.not_main"), true);
+        if (!atMainBonfire(data, owner, pos, serverLevel, player)) {
             return ItemInteractionResult.FAIL;
         }
 
@@ -205,6 +206,7 @@ public final class SacrificeInteractions {
         Demands.rollNext(record, god);
         record.feedGod();
         data.setDirty();
+        ClaimMapNetwork.pushNear(serverLevel.getServer(), chunk);
 
         celebrate(serverLevel, pos);
         sendSuccess(serverLevel, record, player);
@@ -240,8 +242,7 @@ public final class SacrificeInteractions {
             player.displayClientMessage(Component.translatable("message.empire.join.already_member"), true);
             return ItemInteractionResult.FAIL;
         }
-        if (!pos.equals(owner.mainBonfire())) {
-            player.displayClientMessage(Component.translatable("message.empire.sacrifice.not_main"), true);
+        if (!atMainBonfire(data, owner, pos, serverLevel, player)) {
             return ItemInteractionResult.FAIL;
         }
         if (owner.god() == null || god == null) {
@@ -268,6 +269,9 @@ public final class SacrificeInteractions {
         data.addMember(owner, player.getUUID());
         owner.feedGod();
         data.setDirty();
+        if (player instanceof ServerPlayer serverPlayer) {
+            ClaimMapNetwork.push(serverPlayer);
+        }
 
         celebrate(serverLevel, pos);
         player.displayClientMessage(Component.translatable("message.empire.join.joined", Component.translatable("message.empire.name", god.displayName())), true);
@@ -277,6 +281,29 @@ public final class SacrificeInteractions {
     /** Whether this stack, held by a player who is not a member of {@code owner}, is an offering to join it. */
     public static boolean isJoinOffering(ItemStack stack, EmpireRecord owner) {
         return !stack.isEmpty() && isJoinMeat(stack, owner, Gods.get(owner.god()));
+    }
+
+    /**
+     * Whether {@code pos} is the empire's main bonfire. An empire with none first makes one of its bonfires the main one
+     * if it can ({@link EmpireSavedData#tryAssignMain}). Otherwise the player is told where the main bonfire is, or, with
+     * none, how many of the 9 chunks around this bonfire are staked (all 9 make it the main one).
+     */
+    public static boolean atMainBonfire(EmpireSavedData data, EmpireRecord owner, BlockPos pos, ServerLevel level, Player player) {
+        if (owner.mainBonfire() == null) {
+            data.tryAssignMain(owner, level.getServer());
+        }
+        BlockPos main = owner.mainBonfire();
+        if (pos.equals(main)) {
+            return true;
+        }
+        if (main != null) {
+            player.displayClientMessage(Component.translatable("message.empire.main_bonfire.elsewhere",
+                    main.getX(), main.getY(), main.getZ()), true);
+        } else {
+            player.displayClientMessage(Component.translatable("message.empire.main_bonfire.none",
+                    EmpireSavedData.stakedAround(owner, pos)), true);
+        }
+        return false;
     }
 
     /**
