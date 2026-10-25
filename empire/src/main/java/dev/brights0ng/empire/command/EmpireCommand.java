@@ -1,7 +1,8 @@
-// Written by Gemini; members, the god's hunger and the civilian debug commands edited by Claude.
+// Written by Gemini; members, the god's hunger, the civilian debug commands and the civilian roster edited by Claude.
 package dev.brights0ng.empire.command;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.UUID;
 
 import com.mojang.brigadier.CommandDispatcher;
@@ -11,14 +12,19 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 
 import dev.brights0ng.empire.Empire;
+import dev.brights0ng.empire.civilian.CivilianRoster;
+import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
+import dev.brights0ng.empire.data.TravellerSlot;
 import dev.brights0ng.empire.god.GodHunger;
+import dev.brights0ng.empire.rules.ArrivalRule;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.ClaimGraph;
 import dev.brights0ng.empire.rules.DawnClock;
 import dev.brights0ng.empire.rules.GodSatiety;
 import dev.brights0ng.empire.rules.StakeResult;
+import dev.brights0ng.empire.rules.TravellerWants;
 import dev.brights0ng.empire.rules.UnstakeResult;
 import dev.brights0ng.empire.tier.TierChecks;
 import net.minecraft.commands.CommandBuildContext;
@@ -28,6 +34,7 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ChunkPos;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -48,6 +55,11 @@ public final class EmpireCommand {
                         .then(Commands.argument("player", StringArgumentType.word())
                                 .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(ctx.getSource().getOnlinePlayerNames(), builder))
                                 .executes(ctx -> info(ctx.getSource(), StringArgumentType.getString(ctx, "player")))))
+                .then(Commands.literal("civilians")
+                        .executes(ctx -> civilians(ctx.getSource(), null))
+                        .then(Commands.argument("player", StringArgumentType.word())
+                                .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(ctx.getSource().getOnlinePlayerNames(), builder))
+                                .executes(ctx -> civilians(ctx.getSource(), StringArgumentType.getString(ctx, "player")))))
                 .then(Commands.literal("here")
                         .executes(ctx -> here(ctx.getSource())))
                 .then(Commands.literal("debug")
@@ -117,7 +129,8 @@ public final class EmpireCommand {
         return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerArg).getBytes(StandardCharsets.UTF_8));
     }
 
-    private static int info(CommandSourceStack source, String playerArg) {
+    /** The empire of {@code playerArg} (the source's own when null) for {@code info} and {@code civilians}, or null. */
+    private static EmpireRecord targetEmpire(CommandSourceStack source, String playerArg) {
         UUID targetId;
         String displayName;
         if (playerArg == null) {
@@ -126,19 +139,26 @@ public final class EmpireCommand {
                 displayName = player.getScoreboardName();
             } else {
                 source.sendFailure(Component.literal("Player argument required when run from console"));
-                return 0;
+                return null;
             }
         } else {
             targetId = resolvePlayerUuid(source, playerArg);
             displayName = playerArg;
         }
 
-        EmpireSavedData data = EmpireSavedData.of(source.getServer());
-        EmpireRecord record = data.getEmpireOf(targetId);
+        EmpireRecord record = EmpireSavedData.of(source.getServer()).getEmpireOf(targetId);
         if (record == null) {
             source.sendFailure(Component.translatable("message.empire.info.no_empire", displayName));
+        }
+        return record;
+    }
+
+    private static int info(CommandSourceStack source, String playerArg) {
+        EmpireRecord record = targetEmpire(source, playerArg);
+        if (record == null) {
             return 0;
         }
+        EmpireSavedData data = EmpireSavedData.of(source.getServer());
 
         long day = DawnClock.dayOf(source.getLevel().getDayTime());
         source.sendSuccess(() -> Component.literal("Empire ID: " + record.id()), false);
@@ -149,7 +169,31 @@ public final class EmpireCommand {
         source.sendSuccess(() -> Component.literal("Main bonfire: " + (record.mainBonfire() != null ? record.mainBonfire().toShortString() : "None")), false);
         source.sendSuccess(() -> Component.literal("Founding chunk: [" + ChunkKeys.getX(record.state().foundingChunk()) + ", " + ChunkKeys.getZ(record.state().foundingChunk()) + "]"), false);
         source.sendSuccess(() -> godLine(source, record), false);
+        source.sendSuccess(() -> Component.literal("Civilians: " + data.citizenCount(record.id()) + "/" + ArrivalRule.PIONEER_LIMIT), false);
         return 1;
+    }
+
+    /** Each citizen's name and last position, and the waiting traveller (if any) with what it wants. */
+    private static int civilians(CommandSourceStack source, String playerArg) {
+        EmpireRecord record = targetEmpire(source, playerArg);
+        if (record == null) {
+            return 0;
+        }
+        EmpireSavedData data = EmpireSavedData.of(source.getServer());
+        List<CivilianRecord> records = data.civiliansOf(record.id());
+        source.sendSuccess(() -> Component.literal("Civilians: " + records.size() + "/" + ArrivalRule.PIONEER_LIMIT), false);
+        for (CivilianRecord civilian : records) {
+            source.sendSuccess(() -> Component.literal(civilian.name() + " at " + civilian.lastPos().toShortString()), false);
+        }
+        TravellerSlot slot = data.traveller(record.id());
+        if (slot != null) {
+            TravellerWants.Want want = TravellerWants.WANTS.get(slot.want());
+            Entity body = source.getServer().overworld().getEntity(slot.body());
+            String name = body != null ? body.getName().getString() : "A traveller";
+            source.sendSuccess(() -> Component.literal(name + " is waiting at the bonfire and wants " + want.count() + " ")
+                    .append(CivilianRoster.item(want).getDescription()), false);
+        }
+        return records.size();
     }
 
     /** "God: &lt;name&gt;, fed N days ago; abandons in M days", or "God: none". */
