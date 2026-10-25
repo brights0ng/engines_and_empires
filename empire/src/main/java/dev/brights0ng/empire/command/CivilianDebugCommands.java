@@ -3,6 +3,7 @@ package dev.brights0ng.empire.command;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import javax.annotation.Nullable;
 
@@ -13,6 +14,8 @@ import com.mojang.brigadier.context.CommandContext;
 
 import dev.brights0ng.empire.civilian.CivilianEntity;
 import dev.brights0ng.empire.civilian.CivilianSpawning;
+import dev.brights0ng.empire.data.CivilianRecord;
+import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianLines;
 import net.minecraft.commands.CommandSourceStack;
@@ -177,8 +180,16 @@ public final class CivilianDebugCommands {
         String name = civilian.getName().getString();
         String code = civilian.appearance().code();
         String home = civilian.home() != null ? civilian.home().toShortString() : "none";
-        String empire = civilian.empire() != null ? civilian.empire().toString() : "none";
-        source.sendSuccess(() -> Component.literal(name + ": look " + code + ", home " + home + ", empire " + empire), false);
+        UUID empireId = civilian.travellerEmpire();
+        if (civilian.civilianId() != null) {
+            CivilianRecord record = EmpireSavedData.of(source.getServer()).civilian(civilian.civilianId());
+            empireId = record != null ? record.empire() : null;
+        }
+        String empire = empireId != null ? empireId.toString() : "none";
+        String id = civilian.civilianId() != null ? civilian.civilianId().toString() : "none";
+        String status = civilian.status().name();
+        source.sendSuccess(() -> Component.literal(name + ": " + status + ", look " + code + ", home " + home
+                + ", civilian id " + id + ", empire " + empire), false);
         return 1;
     }
 

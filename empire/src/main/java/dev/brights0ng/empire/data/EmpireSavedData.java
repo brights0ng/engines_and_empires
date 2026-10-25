@@ -13,6 +13,7 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import dev.brights0ng.empire.civilian.CivilianRoster;
 import dev.brights0ng.empire.map.ClaimMapNetwork;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.ClaimGraph;
@@ -190,10 +191,11 @@ public final class EmpireSavedData extends SavedData {
                 removed.add(civilians.remove(civilianId));
             }
             civiliansByEmpire.remove(empireId);
-            travellers.remove(empireId);
+            TravellerSlot traveller = travellers.remove(empireId);
             rebuildDivineIndex();
             setDirty();
             messageMembers(record, server, Component.translatable("message.empire.disbanded"));
+            CivilianRoster.onDisband(server, removed, traveller);
             ClaimMapNetwork.pushNear(server, coreChunk(record));
         }
     }
@@ -238,6 +240,7 @@ public final class EmpireSavedData extends SavedData {
             return false;
         }
         record.setMainBonfire(best.immutable());
+        onMainBonfireChanged(record, server);
         rebuildDivineIndex();
         notifyMainBonfireChange(record, server, best);
         ClaimMapNetwork.pushNear(server, ChunkKeys.pack(best.getX() >> 4, best.getZ() >> 4));
@@ -264,12 +267,18 @@ public final class EmpireSavedData extends SavedData {
                 }
 
                 record.setMainBonfire(bestCandidate);
+                onMainBonfireChanged(record, server);
                 rebuildDivineIndex();
                 notifyMainBonfireChange(record, server, bestCandidate);
                 ClaimMapNetwork.pushNear(server, ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4));
             }
         }
         setDirty();
+    }
+
+    /** Every change of an empire's main bonfire comes here: its citizens and traveller follow the home. */
+    private void onMainBonfireChanged(EmpireRecord record, @Nullable MinecraftServer server) {
+        CivilianRoster.refreshHomes(server, record);
     }
 
     /** A bonfire can be the main one only if the empire has staked all 9 chunks of the 3x3 centred on its chunk. */
