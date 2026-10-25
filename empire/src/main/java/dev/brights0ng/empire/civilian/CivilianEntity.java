@@ -2,6 +2,7 @@
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.random.RandomGenerator;
@@ -482,11 +483,16 @@ public class CivilianEntity extends PathfinderMob {
 
     /** Sends a line (a lang key) to the players tracking this civilian. */
     public void sayKey(String key) {
+        sayKey(key, new String[0]);
+    }
+
+    /** Sends a line (a lang key and its arguments, as text) to the players tracking this civilian. */
+    public void sayKey(String key, String... args) {
         if (level().isClientSide) {
             return;
         }
         lastLineTick = tickCount;
-        PacketDistributor.sendToPlayersTrackingEntity(this, new CivilianSpeechPayload(getId(), key));
+        PacketDistributor.sendToPlayersTrackingEntity(this, new CivilianSpeechPayload(getId(), key, List.of(args)));
     }
 
     @Override
