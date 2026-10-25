@@ -41,8 +41,8 @@ public final class CivilianBubbleRenderer {
     private static final double ANCHOR_ABOVE_HEAD = 0.85;
     private static final float SCALE = 0.025F;
     // Vanilla puts a name tag's background 0.01 behind its text in this local space.
-    private static final float Z_BACKGROUND = 0.01F;
-    private static final float Z_BAR = 0.005F;
+    private static final float Z_BACKGROUND = -1.0F;
+    private static final float Z_BAR = -0.5F;
     private static final float Z_TEXT = 0.0F;
     /** Font draws any alpha below 4 as opaque. */
     private static final int MIN_TEXT_ALPHA = 4;
