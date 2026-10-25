@@ -120,5 +120,18 @@
   "civilian.empire.talk.3.1": "Traded a sack of oats for them.",
   "civilian.empire.talk.3.2": "Robbed.",
   "civilian.empire.talk.4.0": "Weather's turning.",
-  "civilian.empire.talk.4.1": "My knee said so this morning."
+  "civilian.empire.talk.4.1": "My knee said so this morning.",
+  "message.empire.civilian.died": "%s has died.",
+  "message.empire.civilian.joined": "%s has joined your empire.",
+  "civilian.empire.traveller.want.bread": "I'd settle here for %s bread.",
+  "civilian.empire.traveller.want.baked_potato": "Got %s baked potatoes? Then I'm staying.",
+  "civilian.empire.traveller.want.cooked_porkchop": "%s cooked pork and you've got yourself a pair of hands.",
+  "civilian.empire.traveller.want.cooked_mutton": "Feed me %s cooked mutton and I'll stay.",
+  "civilian.empire.traveller.want.sweet_berries": "%s sweet berries. Call it a down payment.",
+  "civilian.empire.traveller.want.cooked_cod": "Bring me %s cooked cod and I'll put down roots.",
+  "civilian.empire.traveller.not_enough": "That's not all of it. I said %s.",
+  "civilian.empire.traveller.not_member": "I'll wait for the folk who keep this fire.",
+  "civilian.empire.traveller.accepted": "Right then. Where do I sleep?",
+  "civilian.empire.traveller.full": "Looks like you've hands enough. I'll move on.",
+  "civilian.empire.traveller.leaving": "No room for me, then. Fair enough."
 }
