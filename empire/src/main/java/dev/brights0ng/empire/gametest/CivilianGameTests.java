@@ -26,8 +26,8 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * Civilians: what a spawn rolls and keeps, the dialogue click and the debug spawn command. In their own batch so no
- * other test founds an empire over them while they run (a claimed chunk would give them its bonfire as home).
+ * Civilians: what a spawn rolls and keeps, the dialogue click and the debug spawn command. In their own batch, shared
+ * with {@link CivilianRosterGameTests}, so no other test's empire or citizens are about while they run.
  */
 @GameTestHolder(Empire.MODID)
 @PrefixGameTestTemplate(false)

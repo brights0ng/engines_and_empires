@@ -3,26 +3,41 @@ package dev.brights0ng.empire.command;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import javax.annotation.Nullable;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 
 import dev.brights0ng.empire.civilian.CivilianEntity;
+import dev.brights0ng.empire.civilian.CivilianRoster;
 import dev.brights0ng.empire.civilian.CivilianSpawning;
+import dev.brights0ng.empire.civilian.TravellerArrivals;
+import dev.brights0ng.empire.data.CivilianRecord;
+import dev.brights0ng.empire.data.EmpireRecord;
+import dev.brights0ng.empire.data.EmpireSavedData;
+import dev.brights0ng.empire.data.TravellerSlot;
+import dev.brights0ng.empire.rules.ArrivalRule;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianLines;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
-/** {@code /empire debug civilian ...}: spawn, clear, inspect and prod civilians. Attached under the debug literal. */
+/**
+ * {@code /empire debug civilian ...}: spawn, clear, inspect and prod civilians, force a traveller, recruit one and dump an
+ * empire's roster. Attached under the debug literal.
+ */
 public final class CivilianDebugCommands {
 
     private static final int MAX_SPAWN = 32;
@@ -57,7 +72,45 @@ public final class CivilianDebugCommands {
                         .then(Commands.argument("code", StringArgumentType.word())
                                 .executes(ctx -> look(ctx.getSource(), code(ctx)))))
                 .then(Commands.literal("info")
-                        .executes(ctx -> info(ctx.getSource())));
+                        .executes(ctx -> info(ctx.getSource())))
+                .then(Commands.literal("traveller")
+                        .then(playerArgument()
+                                .executes(ctx -> traveller(ctx.getSource(), player(ctx)))))
+                .then(Commands.literal("recruit")
+                        .then(playerArgument()
+                                .executes(ctx -> recruit(ctx.getSource(), player(ctx)))))
+                .then(Commands.literal("roster")
+                        .executes(ctx -> roster(ctx.getSource(), null))
+                        .then(playerArgument()
+                                .executes(ctx -> roster(ctx.getSource(), player(ctx)))));
+    }
+
+    private static RequiredArgumentBuilder<CommandSourceStack, String> playerArgument() {
+        return Commands.argument("player", StringArgumentType.word())
+                .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(ctx.getSource().getOnlinePlayerNames(), builder));
+    }
+
+    private static String player(CommandContext<CommandSourceStack> ctx) {
+        return StringArgumentType.getString(ctx, "player");
+    }
+
+    /** The empire of {@code playerArg} (the source's own when null), or null after a failure message. */
+    @Nullable
+    private static EmpireRecord empireOf(CommandSourceStack source, @Nullable String playerArg) {
+        UUID playerId;
+        if (playerArg != null) {
+            playerId = EmpireCommand.resolvePlayerUuid(source, playerArg);
+        } else if (source.getEntity() instanceof ServerPlayer player) {
+            playerId = player.getUUID();
+        } else {
+            source.sendFailure(Component.literal("Player argument required when run from console"));
+            return null;
+        }
+        EmpireRecord record = EmpireSavedData.of(source.getServer()).getEmpireOf(playerId);
+        if (record == null) {
+            source.sendFailure(Component.literal("No empire for " + (playerArg != null ? playerArg : source.getTextName())));
+        }
+        return record;
     }
 
     private static String code(CommandContext<CommandSourceStack> ctx) {
@@ -104,7 +157,19 @@ public final class CivilianDebugCommands {
         Vec3 pos = source.getPosition();
         List<CivilianEntity> civilians = source.getLevel().getEntitiesOfClass(CivilianEntity.class,
                 new AABB(pos, pos).inflate(radius), c -> c.position().distanceToSqr(pos) <= (double) radius * radius);
-        civilians.forEach(CivilianEntity::discard);
+        // Their records and slots go too, so cleared citizens are not given new bodies.
+        EmpireSavedData data = EmpireSavedData.of(source.getServer());
+        for (CivilianEntity civilian : civilians) {
+            if (civilian.status() == CivilianEntity.Status.CITIZEN && civilian.civilianId() != null) {
+                CivilianRecord record = data.civilian(civilian.civilianId());
+                if (record != null && record.body().equals(civilian.getUUID())) {
+                    data.removeCivilian(record.id());
+                }
+            } else if (civilian.status() == CivilianEntity.Status.TRAVELLER) {
+                CivilianRoster.clearTravellerSlot(data, civilian);
+            }
+            civilian.discard();
+        }
         int n = civilians.size();
         source.sendSuccess(() -> Component.literal("Cleared " + n + " civilian" + (n == 1 ? "" : "s")), true);
         return n;
@@ -177,9 +242,83 @@ public final class CivilianDebugCommands {
         String name = civilian.getName().getString();
         String code = civilian.appearance().code();
         String home = civilian.home() != null ? civilian.home().toShortString() : "none";
-        String empire = civilian.empire() != null ? civilian.empire().toString() : "none";
-        source.sendSuccess(() -> Component.literal(name + ": look " + code + ", home " + home + ", empire " + empire), false);
+        UUID empireId = civilian.travellerEmpire();
+        if (civilian.civilianId() != null) {
+            CivilianRecord record = EmpireSavedData.of(source.getServer()).civilian(civilian.civilianId());
+            empireId = record != null ? record.empire() : null;
+        }
+        String empire = empireId != null ? empireId.toString() : "none";
+        String id = civilian.civilianId() != null ? civilian.civilianId().toString() : "none";
+        String status = civilian.status().name();
+        source.sendSuccess(() -> Component.literal(name + ": " + status + ", look " + code + ", home " + home
+                + ", civilian id " + id + ", empire " + empire), false);
         return 1;
+    }
+
+    /** Forces an arrival for the player's empire now: skips the day timer only. */
+    private static int traveller(CommandSourceStack source, String playerArg) {
+        EmpireRecord record = empireOf(source, playerArg);
+        if (record == null) {
+            return 0;
+        }
+        TravellerArrivals.Forced forced = TravellerArrivals.force(record, source.getServer().overworld());
+        if (forced.failure() != null) {
+            source.sendFailure(Component.literal("No traveller: " + forced.failure()));
+            return 0;
+        }
+        String name = forced.traveller().getName().getString();
+        BlockPos spot = forced.spot();
+        source.sendSuccess(() -> Component.literal("Traveller " + name + " arrives at " + spot.toShortString()), true);
+        return 1;
+    }
+
+    /** The nearest civilian becomes a citizen of the player's empire: no food and no cap, but a warning past the cap. */
+    private static int recruit(CommandSourceStack source, String playerArg) {
+        EmpireRecord record = empireOf(source, playerArg);
+        if (record == null) {
+            return 0;
+        }
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        if (!(civilian.level() instanceof ServerLevel level) || level != source.getServer().overworld()) {
+            source.sendFailure(Component.literal("Civilians can only join an empire in the Overworld"));
+            return 0;
+        }
+        CivilianRoster.recruit(civilian, record, level);
+        int citizens = EmpireSavedData.of(level).citizenCount(record.id());
+        String name = civilian.getName().getString();
+        source.sendSuccess(() -> Component.literal(name + " joined the empire of " + playerArg
+                + " (" + citizens + "/" + ArrivalRule.PIONEER_LIMIT + ")"), true);
+        if (citizens > ArrivalRule.PIONEER_LIMIT) {
+            source.sendSuccess(() -> Component.literal("Warning: over the cap of " + ArrivalRule.PIONEER_LIMIT + " citizens"), false);
+        }
+        return 1;
+    }
+
+    /** Every record of the empire: name, the id's first 8 characters, whether the body is loaded, last position. */
+    private static int roster(CommandSourceStack source, @Nullable String playerArg) {
+        EmpireRecord record = empireOf(source, playerArg);
+        if (record == null) {
+            return 0;
+        }
+        EmpireSavedData data = EmpireSavedData.of(source.getServer());
+        ServerLevel overworld = source.getServer().overworld();
+        List<CivilianRecord> records = data.civiliansOf(record.id());
+        source.sendSuccess(() -> Component.literal(records.size() + " record" + (records.size() == 1 ? "" : "s")), false);
+        for (CivilianRecord civilian : records) {
+            boolean loaded = overworld.getEntity(civilian.body()) != null;
+            source.sendSuccess(() -> Component.literal(civilian.name() + " [" + civilian.id().toString().substring(0, 8)
+                    + "] body " + (loaded ? "loaded" : "not loaded") + ", last at " + civilian.lastPos().toShortString()), false);
+        }
+        TravellerSlot slot = data.traveller(record.id());
+        if (slot != null) {
+            boolean loaded = overworld.getEntity(slot.body()) != null;
+            source.sendSuccess(() -> Component.literal("Traveller waiting: body " + (loaded ? "loaded" : "not loaded")
+                    + ", want " + slot.want() + ", leaves at " + slot.leaveAt()), false);
+        }
+        return records.size();
     }
 
     private CivilianDebugCommands() {

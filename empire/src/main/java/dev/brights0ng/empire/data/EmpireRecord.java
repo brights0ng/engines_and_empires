@@ -1,4 +1,4 @@
-// Written by Gemini; god, sacrifice count, current demand, members, the god's hunger and the kept core chunk added by Claude.
+// Written by Gemini; god, sacrifice count, current demand, members, the god's hunger, the kept core chunk and the next traveller time added by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.ArrayList;
@@ -47,6 +47,8 @@ public final class EmpireRecord {
      * the core chunk, so the divine area stays on land whose 3x3 the empire could not unstake while it was the core.
      */
     private long coreChunk;
+    /** The earliest game time the next traveller may arrive ({@code rules.ArrivalRule}); 0 lets the first come at once. */
+    private long nextTravellerTime;
 
     public EmpireRecord(UUID id, Collection<UUID> members, EmpireState state, @Nullable BlockPos mainBonfire, long foundedGameTime) {
         this.id = id;
@@ -119,6 +121,14 @@ public final class EmpireRecord {
 
     private static long chunkOf(BlockPos pos) {
         return ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4);
+    }
+
+    public long nextTravellerTime() {
+        return nextTravellerTime;
+    }
+
+    public void setNextTravellerTime(long nextTravellerTime) {
+        this.nextTravellerTime = nextTravellerTime;
     }
 
     public long foundedGameTime() {
@@ -210,6 +220,7 @@ public final class EmpireRecord {
         tag.put("demand", demandTag);
         tag.putLong("hunger_ticks", hungerTicks);
         tag.putLong("core_chunk", coreChunk());
+        tag.putLong("next_traveller", nextTravellerTime);
         return tag;
     }
 
@@ -251,6 +262,7 @@ public final class EmpireRecord {
         record.god = tag.contains("god", Tag.TAG_STRING) ? ResourceLocation.tryParse(tag.getString("god")) : null;
         record.sacrificeCount = tag.getInt("sacrifice_count");
         record.hungerTicks = Math.max(0, tag.getLong("hunger_ticks"));
+        record.nextTravellerTime = tag.getLong("next_traveller");
         if (tag.contains("core_chunk", Tag.TAG_LONG)) {
             record.coreChunk = tag.getLong("core_chunk");
         }

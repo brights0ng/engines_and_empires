@@ -1,15 +1,19 @@
-// Written by Gemini; members, the main bonfire's 3x3 rule, the public core chunk, the divine index, main bonfire assignment and protection pushes by Claude.
+// Written by Gemini; members, the main bonfire's 3x3 rule, the public core chunk, the divine index, main bonfire assignment, protection pushes and the civilian roster by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import dev.brights0ng.empire.civilian.CivilianRoster;
 import dev.brights0ng.empire.map.ClaimMapNetwork;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.ClaimGraph;
@@ -40,6 +44,12 @@ public final class EmpireSavedData extends SavedData {
     /** Each empire's divine area (the 3x3 around its core chunk), chunk to empire. Not saved: rebuilt from the records. */
     private final Long2ObjectMap<UUID> divineIndex = new Long2ObjectOpenHashMap<>();
     private final BonfireRegistry bonfires = new BonfireRegistry();
+    /** Every empire's citizens, by civilian id: the master copies (their entities are only bodies). */
+    private final Map<UUID, CivilianRecord> civilians = new HashMap<>();
+    /** Empire to its civilians' ids. Not saved: rebuilt from the records. */
+    private final Map<UUID, Set<UUID>> civiliansByEmpire = new HashMap<>();
+    /** The traveller waiting at each empire's bonfire, if any. */
+    private final Map<UUID, TravellerSlot> travellers = new HashMap<>();
 
     public static EmpireSavedData of(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(
@@ -176,9 +186,16 @@ public final class EmpireSavedData extends SavedData {
             for (long chunk : record.state().staked()) {
                 chunkIndex.remove(chunk);
             }
+            List<CivilianRecord> removed = new ArrayList<>();
+            for (UUID civilianId : civiliansByEmpire.getOrDefault(empireId, Set.of())) {
+                removed.add(civilians.remove(civilianId));
+            }
+            civiliansByEmpire.remove(empireId);
+            TravellerSlot traveller = travellers.remove(empireId);
             rebuildDivineIndex();
             setDirty();
             messageMembers(record, server, Component.translatable("message.empire.disbanded"));
+            CivilianRoster.onDisband(server, removed, traveller);
             ClaimMapNetwork.pushNear(server, coreChunk(record));
         }
     }
@@ -223,6 +240,7 @@ public final class EmpireSavedData extends SavedData {
             return false;
         }
         record.setMainBonfire(best.immutable());
+        onMainBonfireChanged(record, server);
         rebuildDivineIndex();
         notifyMainBonfireChange(record, server, best);
         ClaimMapNetwork.pushNear(server, ChunkKeys.pack(best.getX() >> 4, best.getZ() >> 4));
@@ -249,12 +267,18 @@ public final class EmpireSavedData extends SavedData {
                 }
 
                 record.setMainBonfire(bestCandidate);
+                onMainBonfireChanged(record, server);
                 rebuildDivineIndex();
                 notifyMainBonfireChange(record, server, bestCandidate);
                 ClaimMapNetwork.pushNear(server, ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4));
             }
         }
         setDirty();
+    }
+
+    /** Every change of an empire's main bonfire comes here: its citizens and traveller follow the home. */
+    private void onMainBonfireChanged(EmpireRecord record, @Nullable MinecraftServer server) {
+        CivilianRoster.refreshHomes(server, record);
     }
 
     /** A bonfire can be the main one only if the empire has staked all 9 chunks of the 3x3 centred on its chunk. */
@@ -294,6 +318,69 @@ public final class EmpireSavedData extends SavedData {
                 player.sendSystemMessage(message);
             }
         }
+    }
+
+    /** Adds (or replaces) a citizen's record. */
+    public void addCivilian(CivilianRecord record) {
+        removeCivilian(record.id());
+        civilians.put(record.id(), record);
+        civiliansByEmpire.computeIfAbsent(record.empire(), k -> new HashSet<>()).add(record.id());
+        setDirty();
+    }
+
+    /** Deletes a citizen's record (death, or its empire's end); returns it, or null if there was none. */
+    @Nullable
+    public CivilianRecord removeCivilian(UUID civilianId) {
+        CivilianRecord record = civilians.remove(civilianId);
+        if (record != null) {
+            Set<UUID> ids = civiliansByEmpire.get(record.empire());
+            if (ids != null) {
+                ids.remove(civilianId);
+                if (ids.isEmpty()) {
+                    civiliansByEmpire.remove(record.empire());
+                }
+            }
+            setDirty();
+        }
+        return record;
+    }
+
+    @Nullable
+    public CivilianRecord civilian(UUID civilianId) {
+        return civilians.get(civilianId);
+    }
+
+    /** The empire's citizens' records. */
+    public List<CivilianRecord> civiliansOf(UUID empireId) {
+        List<CivilianRecord> records = new ArrayList<>();
+        for (UUID id : civiliansByEmpire.getOrDefault(empireId, Set.of())) {
+            records.add(civilians.get(id));
+        }
+        return Collections.unmodifiableList(records);
+    }
+
+    public Collection<CivilianRecord> allCivilians() {
+        return Collections.unmodifiableCollection(civilians.values());
+    }
+
+    public int citizenCount(UUID empireId) {
+        return civiliansByEmpire.getOrDefault(empireId, Set.of()).size();
+    }
+
+    /** The traveller waiting at the empire's bonfire, or null. */
+    @Nullable
+    public TravellerSlot traveller(UUID empireId) {
+        return travellers.get(empireId);
+    }
+
+    /** Sets or (with null) clears the empire's waiting traveller. */
+    public void setTraveller(UUID empireId, @Nullable TravellerSlot slot) {
+        if (slot != null) {
+            travellers.put(empireId, slot);
+        } else {
+            travellers.remove(empireId);
+        }
+        setDirty();
     }
 
     @Nullable
@@ -345,12 +432,25 @@ public final class EmpireSavedData extends SavedData {
         if (tag.contains("bonfires", Tag.TAG_COMPOUND)) {
             data.bonfires.load(tag.getCompound("bonfires"));
         }
+        // Version 2 files have neither list: they load with no civilians and no travellers.
+        ListTag civiliansTag = tag.getList("civilians", Tag.TAG_COMPOUND);
+        for (int i = 0; i < civiliansTag.size(); i++) {
+            CivilianRecord civilian = CivilianRecord.load(civiliansTag.getCompound(i));
+            data.civilians.put(civilian.id(), civilian);
+            data.civiliansByEmpire.computeIfAbsent(civilian.empire(), k -> new HashSet<>()).add(civilian.id());
+        }
+        ListTag travellersTag = tag.getList("travellers", Tag.TAG_COMPOUND);
+        for (int i = 0; i < travellersTag.size(); i++) {
+            CompoundTag slotTag = travellersTag.getCompound(i);
+            data.travellers.put(slotTag.getUUID("empire"),
+                    new TravellerSlot(slotTag.getUUID("body"), slotTag.getInt("want"), slotTag.getLong("leave_at")));
+        }
         return data;
     }
 
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
-        tag.putInt("version", 2);
+        tag.putInt("version", 3);
         ListTag empiresTag = new ListTag();
         for (EmpireRecord record : empires.values()) {
             empiresTag.add(record.save());
@@ -359,6 +459,21 @@ public final class EmpireSavedData extends SavedData {
         CompoundTag bonfiresTag = new CompoundTag();
         bonfires.save(bonfiresTag);
         tag.put("bonfires", bonfiresTag);
+        ListTag civiliansTag = new ListTag();
+        for (CivilianRecord civilian : civilians.values()) {
+            civiliansTag.add(civilian.save());
+        }
+        tag.put("civilians", civiliansTag);
+        ListTag travellersTag = new ListTag();
+        for (Map.Entry<UUID, TravellerSlot> entry : travellers.entrySet()) {
+            CompoundTag slotTag = new CompoundTag();
+            slotTag.putUUID("empire", entry.getKey());
+            slotTag.putUUID("body", entry.getValue().body());
+            slotTag.putInt("want", entry.getValue().want());
+            slotTag.putLong("leave_at", entry.getValue().leaveAt());
+            travellersTag.add(slotTag);
+        }
+        tag.put("travellers", travellersTag);
         return tag;
     }
 }

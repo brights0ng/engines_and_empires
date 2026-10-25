@@ -1,6 +1,8 @@
 // Written by Claude.
 package dev.brights0ng.empire.civilian;
 
+import java.util.List;
+
 import javax.annotation.Nullable;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -17,16 +19,17 @@ public final class CivilianSpeechStore {
     private static final long PRUNE_AGE = 400;
     private static final int PRUNE_SIZE = 256;
 
-    public record Bubble(String key, long startGameTime) {
+    /** {@code args} are the lang key's arguments, already as text. */
+    public record Bubble(String key, List<String> args, long startGameTime) {
     }
 
     private static final Int2ObjectMap<Bubble> BUBBLES = new Int2ObjectOpenHashMap<>();
 
-    public static void put(int entityId, String key, long gameTime) {
+    public static void put(int entityId, String key, List<String> args, long gameTime) {
         if (BUBBLES.size() >= PRUNE_SIZE) {
             BUBBLES.values().removeIf(b -> gameTime - b.startGameTime() > PRUNE_AGE);
         }
-        BUBBLES.put(entityId, new Bubble(key, gameTime));
+        BUBBLES.put(entityId, new Bubble(key, List.copyOf(args), gameTime));
     }
 
     @Nullable

@@ -2,19 +2,20 @@
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.random.RandomGenerator;
 
 import javax.annotation.Nullable;
 
-import dev.brights0ng.empire.data.EmpireRecord;
-import dev.brights0ng.empire.data.EmpireSavedData;
-import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.civilian.CivilianNetwork.CivilianSpeechPayload;
+import dev.brights0ng.empire.data.CivilianRecord;
+import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianLines;
 import dev.brights0ng.empire.rules.CivilianNames;
+import dev.brights0ng.empire.rules.TravellerWants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
@@ -47,6 +48,7 @@ import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
@@ -59,6 +61,10 @@ import net.neoforged.neoforge.network.PacketDistributor;
  *
  * <p>Right-clicking (main hand, any item, never used up) starts a dialogue: the civilian stops, faces the player and
  * greets them, and each later click gets a reply, until the player leaves, goes idle or is gone.
+ *
+ * <p>A civilian is {@link Status#FREE} (its home is where it spawned), a {@link Status#TRAVELLER} waiting at an
+ * empire's bonfire to be given the food it wants, a {@link Status#CITIZEN} (the body of a {@link CivilianRecord}, which
+ * is the master copy; see {@link CivilianRoster}), or {@link Status#LEAVING}: walking off to vanish.
  */
 public class CivilianEntity extends PathfinderMob {
 
@@ -82,6 +88,17 @@ public class CivilianEntity extends PathfinderMob {
     public static final int DIALOGUE_RANGE = 5;
     public static final int DIALOGUE_LEAVE = 200;
     public static final int DIALOGUE_IDLE = 600;
+    /** How far from the bonfire a waiting traveller wanders (provisional). */
+    public static final int TRAVELLER_RADIUS = 8;
+    /** A leaving civilian walks to a point this far from home, away from it (provisional). */
+    public static final int LEAVE_DISTANCE = 48;
+    /** A leaving civilian vanishes after this many ticks even if it is not there yet (provisional). */
+    public static final int LEAVE_TIMEOUT = 1200;
+
+    /** What a civilian is to the empires (saved). */
+    public enum Status {
+        FREE, TRAVELLER, CITIZEN, LEAVING
+    }
 
     private static final double RAIN_CHANCE = 0.5;
     private static final double NIGHT_CHANCE = 0.4;
@@ -91,18 +108,36 @@ public class CivilianEntity extends PathfinderMob {
     private static final int SPEECH_INTERVAL = 20;
     /** Clicks this soon after the civilian's last line get no new line. */
     private static final int CLICK_GAP = 10;
+    /** A waiting traveller says what it wants the first time it comes this close to the bonfire. */
+    private static final double ANNOUNCE_RADIUS = 6.0;
+    /** A leaving civilian vanishes at once when no (non-spectator) player is this close. */
+    private static final double LEAVE_WATCH_RADIUS = 24.0;
+    private static final double LEAVE_ARRIVED = 2.0;
+    private static final double LEAVE_SPEED = 0.6;
 
     private static final EntityDataAccessor<Integer> APPEARANCE =
             SynchedEntityData.defineId(CivilianEntity.class, EntityDataSerializers.INT);
 
     private static final String TAG_APPEARANCE = "Appearance";
     private static final String TAG_HOME = "Home";
-    private static final String TAG_EMPIRE = "Empire";
+    private static final String TAG_STATUS = "Status";
+    private static final String TAG_CIVILIAN_ID = "CivilianId";
+    private static final String TAG_TRAVELLER_EMPIRE = "TravellerEmpire";
+    private static final String TAG_WANT = "Want";
+    private static final String TAG_LEAVE_AT = "LeaveAt";
 
+    /** A free civilian's own home; a citizen's or traveller's comes from {@link CivilianRoster#homeFor}. */
     @Nullable
     private BlockPos home;
+    private Status status = Status.FREE;
+    /** The record this civilian is the body of (citizens only). */
     @Nullable
-    private UUID empire;
+    private UUID civilianId;
+    /** Travellers only: the empire it waits at, which of {@code TravellerWants.WANTS} it wants, and when it gives up. */
+    @Nullable
+    private UUID travellerEmpire;
+    private int want;
+    private long leaveAt;
     /** Set when the look was chosen before spawning (debug commands), so finalizeSpawn keeps it. */
     private boolean appearancePreset;
 
@@ -126,6 +161,13 @@ public class CivilianEntity extends PathfinderMob {
     private UUID dialoguePlayer;
     private int lastClickTick;
     private int awayTicks;
+    // Roster state; transient.
+    /** The chunk this citizen last checked against its record. */
+    private long trackedChunk = Long.MIN_VALUE;
+    private boolean wantAnnounced;
+    private int leaveTicks;
+    @Nullable
+    private Vec3 leaveTarget;
 
     private static final class Conversation {
         final CivilianEntity partner;
@@ -159,7 +201,12 @@ public class CivilianEntity extends PathfinderMob {
         goalSelector.addGoal(1, new CivilianFaceGoal(this));
         goalSelector.addGoal(2, new OpenDoorGoal(this, true));
         goalSelector.addGoal(4, new MoveTowardsRestrictionGoal(this, 0.6));
-        goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.5));
+        goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.5) {
+            @Override
+            public boolean canUse() {
+                return status != Status.LEAVING && super.canUse();
+            }
+        });
         goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 6.0F));
         goalSelector.addGoal(7, new RandomLookAroundGoal(this));
     }
@@ -174,8 +221,17 @@ public class CivilianEntity extends PathfinderMob {
         return CivilianAppearance.unpack(entityData.get(APPEARANCE));
     }
 
+    /** Sets the look; a citizen's is written through to its record. */
     public void setAppearance(CivilianAppearance appearance) {
         entityData.set(APPEARANCE, appearance.pack());
+        if (status == Status.CITIZEN && level() instanceof ServerLevel serverLevel) {
+            EmpireSavedData data = EmpireSavedData.of(serverLevel);
+            CivilianRecord record = ownRecord(data);
+            if (record != null && record.appearance() != appearance.pack()) {
+                record.setAppearance(appearance.pack());
+                data.setDirty();
+            }
+        }
     }
 
     /** Fixes the look before {@link #finalizeSpawn} so it is not rolled. */
@@ -189,9 +245,74 @@ public class CivilianEntity extends PathfinderMob {
         return home;
     }
 
+    public Status status() {
+        return status;
+    }
+
     @Nullable
-    public UUID empire() {
-        return empire;
+    public UUID civilianId() {
+        return civilianId;
+    }
+
+    @Nullable
+    public UUID travellerEmpire() {
+        return travellerEmpire;
+    }
+
+    /** A traveller's want, an index into {@code TravellerWants.WANTS}. */
+    public int want() {
+        return want;
+    }
+
+    public long leaveAt() {
+        return leaveAt;
+    }
+
+    /** Sets the home and keeps the civilian within {@code radius} of it. */
+    void setHome(BlockPos home, int radius) {
+        this.home = home.immutable();
+        restrictTo(this.home, radius);
+    }
+
+    /** Makes this civilian the body of record {@code id}, living at {@code home}. */
+    void becomeCitizen(UUID id, BlockPos home) {
+        status = Status.CITIZEN;
+        civilianId = id;
+        travellerEmpire = null;
+        trackedChunk = Long.MIN_VALUE;
+        setHome(home, HOME_RADIUS);
+    }
+
+    /** Makes this civilian a traveller come to {@code empire}'s bonfire at {@code home}. */
+    void becomeTraveller(UUID empire, int want, long leaveAt, BlockPos home) {
+        status = Status.TRAVELLER;
+        civilianId = null;
+        travellerEmpire = empire;
+        this.want = want;
+        this.leaveAt = leaveAt;
+        wantAnnounced = false;
+        setHome(home, TRAVELLER_RADIUS);
+    }
+
+    /** Walks off, away from home, to vanish; says nothing more. */
+    public void startLeaving() {
+        if (status == Status.LEAVING) {
+            return;
+        }
+        status = Status.LEAVING;
+        clearRestriction();
+        endConversation();
+        dialoguePlayer = null;
+        getNavigation().stop();
+        leaveTicks = 0;
+        leaveTarget = null;
+    }
+
+    /** This citizen's record, if this civilian is still its body. */
+    @Nullable
+    CivilianRecord ownRecord(EmpireSavedData data) {
+        CivilianRecord record = civilianId != null ? data.civilian(civilianId) : null;
+        return record != null && record.body().equals(getUUID()) ? record : null;
     }
 
     @Override
@@ -206,21 +327,8 @@ public class CivilianEntity extends PathfinderMob {
         setCustomName(Component.literal(CivilianNames.pick(random::nextLong)));
         setCustomNameVisible(true);
 
-        ServerLevel serverLevel = level.getLevel();
-        BlockPos pos = blockPosition();
-        home = pos;
-        empire = null;
-        // Claims are Overworld chunks; elsewhere a civilian belongs to no empire.
-        if (serverLevel.dimension() == Level.OVERWORLD) {
-            EmpireRecord record = EmpireSavedData.of(serverLevel).getEmpireByChunk(ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4));
-            if (record != null) {
-                empire = record.id();
-                if (record.mainBonfire() != null) {
-                    home = record.mainBonfire();
-                }
-            }
-        }
-        restrictTo(home, HOME_RADIUS);
+        status = Status.FREE;
+        setHome(blockPosition(), HOME_RADIUS);
         return data;
     }
 
@@ -231,8 +339,14 @@ public class CivilianEntity extends PathfinderMob {
         if (home != null) {
             tag.put(TAG_HOME, NbtUtils.writeBlockPos(home));
         }
-        if (empire != null) {
-            tag.putUUID(TAG_EMPIRE, empire);
+        tag.putString(TAG_STATUS, status.name());
+        if (civilianId != null) {
+            tag.putUUID(TAG_CIVILIAN_ID, civilianId);
+        }
+        if (travellerEmpire != null) {
+            tag.putUUID(TAG_TRAVELLER_EMPIRE, travellerEmpire);
+            tag.putInt(TAG_WANT, want);
+            tag.putLong(TAG_LEAVE_AT, leaveAt);
         }
     }
 
@@ -247,21 +361,118 @@ public class CivilianEntity extends PathfinderMob {
             }
         }
         home = NbtUtils.readBlockPos(tag, TAG_HOME).orElse(null);
-        empire = tag.hasUUID(TAG_EMPIRE) ? tag.getUUID(TAG_EMPIRE) : null;
-        // Vanilla does not save the restriction.
-        if (home != null) {
-            restrictTo(home, HOME_RADIUS);
+        try {
+            status = Status.valueOf(tag.getString(TAG_STATUS));
+        } catch (IllegalArgumentException e) {
+            status = Status.FREE;
+        }
+        civilianId = tag.hasUUID(TAG_CIVILIAN_ID) ? tag.getUUID(TAG_CIVILIAN_ID) : null;
+        travellerEmpire = tag.hasUUID(TAG_TRAVELLER_EMPIRE) ? tag.getUUID(TAG_TRAVELLER_EMPIRE) : null;
+        want = Math.floorMod(tag.getInt(TAG_WANT), TravellerWants.WANTS.size());
+        leaveAt = tag.getLong(TAG_LEAVE_AT);
+        // Vanilla does not save the restriction. A citizen's or traveller's home is set again as it joins the level.
+        if (home != null && status != Status.LEAVING) {
+            restrictTo(home, status == Status.TRAVELLER ? TRAVELLER_RADIUS : HOME_RADIUS);
         }
     }
 
     @Override
     public void aiStep() {
         super.aiStep();
-        if (!level().isClientSide) {
-            tickDialogue();
-            if ((tickCount + getId()) % SPEECH_INTERVAL == 0) {
-                tickSpeech();
+        if (!(level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        if (status == Status.CITIZEN) {
+            trackChunk(serverLevel);
+        }
+        boolean speechTick = (tickCount + getId()) % SPEECH_INTERVAL == 0;
+        if (speechTick && status != Status.LEAVING) {
+            tickRoster(serverLevel);
+        }
+        if (status == Status.LEAVING) {
+            tickLeaving();
+            return;
+        }
+        tickDialogue();
+        if (speechTick) {
+            tickSpeech();
+        }
+    }
+
+    /** Keeps a citizen's record's last position current: written whenever the civilian is in a new chunk. */
+    private void trackChunk(ServerLevel level) {
+        long chunk = chunkPosition().toLong();
+        if (chunk == trackedChunk) {
+            return;
+        }
+        trackedChunk = chunk;
+        EmpireSavedData data = EmpireSavedData.of(level);
+        CivilianRecord record = ownRecord(data);
+        if (record != null && record.lastChunk() != chunk) {
+            record.setLast(blockPosition(), chunk);
+            data.setDirty();
+        }
+    }
+
+    private void tickRoster(ServerLevel level) {
+        EmpireSavedData data = EmpireSavedData.of(level);
+        if (status == Status.CITIZEN) {
+            CivilianRecord record = civilianId != null ? data.civilian(civilianId) : null;
+            if (record == null) {
+                // The record went while this body was loaded (an empire disbanded with no server to tell its bodies).
+                startLeaving();
+            } else if (!record.body().equals(getUUID())) {
+                // A newer body has replaced this one.
+                discard();
             }
+        } else if (status == Status.TRAVELLER) {
+            if (level.getGameTime() >= leaveAt) {
+                if (playerWithin(SPEECH_RADIUS)) {
+                    sayKey("civilian.empire.traveller.leaving");
+                }
+                CivilianRoster.clearTravellerSlot(data, this);
+                startLeaving();
+            } else if (!wantAnnounced && home != null
+                    && distanceToSqr(Vec3.atBottomCenterOf(home)) <= ANNOUNCE_RADIUS * ANNOUNCE_RADIUS
+                    && playerWithin(SPEECH_RADIUS)) {
+                wantAnnounced = true;
+                sayWant();
+            }
+        }
+    }
+
+    /** Walks to the leave point; vanishes once there, after LEAVE_TIMEOUT ticks, or as soon as no player is near. */
+    private void tickLeaving() {
+        leaveTicks++;
+        if (leaveTarget == null) {
+            Vec3 from = home != null ? Vec3.atBottomCenterOf(home) : position();
+            Vec3 away = new Vec3(getX() - from.x, 0.0, getZ() - from.z);
+            if (away.lengthSqr() < 0.25) {
+                double angle = random.nextDouble() * Math.PI * 2.0;
+                away = new Vec3(Math.cos(angle), 0.0, Math.sin(angle));
+            }
+            away = away.normalize().scale(LEAVE_DISTANCE);
+            leaveTarget = new Vec3(from.x + away.x, getY(), from.z + away.z);
+        }
+        double dx = leaveTarget.x - getX();
+        double dz = leaveTarget.z - getZ();
+        if (dx * dx + dz * dz <= LEAVE_ARRIVED * LEAVE_ARRIVED || leaveTicks >= LEAVE_TIMEOUT
+                || !playerWithin(LEAVE_WATCH_RADIUS)) {
+            discard();
+            return;
+        }
+        // The path finder reaches only about FOLLOW_RANGE, so ask again each time a partial path runs out.
+        if (getNavigation().isDone()) {
+            getNavigation().moveTo(leaveTarget.x, leaveTarget.y, leaveTarget.z, LEAVE_SPEED);
+        }
+    }
+
+    @Override
+    public void die(DamageSource damageSource) {
+        boolean wasDead = dead;
+        super.die(damageSource);
+        if (!wasDead && dead && level() instanceof ServerLevel serverLevel) {
+            CivilianRoster.onDeath(this, serverLevel);
         }
     }
 
@@ -288,15 +499,30 @@ public class CivilianEntity extends PathfinderMob {
         return talkTo(player);
     }
 
-    /** A right-click: starts or continues the dialogue with {@code player}. The held item is never used. */
+    /**
+     * A right-click: starts or continues the dialogue with {@code player}. The held item is never used, except by a
+     * traveller given the food it wants ({@link CivilianRoster#travellerClicked}).
+     */
     InteractionResult talkTo(Player player) {
         if (!level().isClientSide) {
+            if (status == Status.LEAVING) {
+                return InteractionResult.CONSUME;
+            }
+            // A traveller answers with its own line (its want, or what it makes of the offer) instead of a greeting or reply.
+            boolean travellerSpoke = false;
+            if (status == Status.TRAVELLER) {
+                CivilianRoster.travellerClicked(this, player);
+                travellerSpoke = true;
+                if (status == Status.LEAVING) {
+                    return InteractionResult.CONSUME;
+                }
+            }
             endConversation();
             boolean started = !player.getUUID().equals(dialoguePlayer);
             dialoguePlayer = player.getUUID();
             lastClickTick = tickCount;
             awayTicks = 0;
-            if (tickCount - lastLineTick >= CLICK_GAP) {
+            if (!travellerSpoke && tickCount - lastLineTick >= CLICK_GAP) {
                 say(started ? CivilianLines.Category.GREETING : CivilianLines.Category.REPLY);
             }
         }
@@ -482,11 +708,21 @@ public class CivilianEntity extends PathfinderMob {
 
     /** Sends a line (a lang key) to the players tracking this civilian. */
     public void sayKey(String key) {
-        if (level().isClientSide) {
+        sayKey(key, new String[0]);
+    }
+
+    /** A traveller's line naming what it wants and how many. */
+    void sayWant() {
+        sayKey(TravellerWants.wantKey(want), String.valueOf(TravellerWants.WANTS.get(want).count()));
+    }
+
+    /** Sends a line (a lang key and its arguments, as text) to the players tracking this civilian. Not while leaving. */
+    public void sayKey(String key, String... args) {
+        if (level().isClientSide || status == Status.LEAVING) {
             return;
         }
         lastLineTick = tickCount;
-        PacketDistributor.sendToPlayersTrackingEntity(this, new CivilianSpeechPayload(getId(), key));
+        PacketDistributor.sendToPlayersTrackingEntity(this, new CivilianSpeechPayload(getId(), key, List.of(args)));
     }
 
     @Override

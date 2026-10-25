@@ -54,7 +54,7 @@ public final class CivilianBubbleRenderer {
 
     static void render(CivilianEntity civilian, CivilianSpeechStore.Bubble bubble, EntityRenderDispatcher dispatcher,
                        Font font, float partialTick, PoseStack poseStack, MultiBufferSource buffers, int light) {
-        Component text = Component.translatable(bubble.key());
+        Component text = Component.translatable(bubble.key(), bubble.args().toArray());
         int duration = duration(text.getString());
         float age = Math.max(0.0F, civilian.level().getGameTime() - bubble.startGameTime() + partialTick);
         if (age >= duration) {
