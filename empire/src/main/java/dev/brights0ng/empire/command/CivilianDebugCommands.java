@@ -13,6 +13,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 
+import dev.brights0ng.empire.civilian.CivilianChunkLoading;
 import dev.brights0ng.empire.civilian.CivilianEntity;
 import dev.brights0ng.empire.civilian.CivilianRoster;
 import dev.brights0ng.empire.civilian.CivilianSpawning;
@@ -297,7 +298,10 @@ public final class CivilianDebugCommands {
         return 1;
     }
 
-    /** Every record of the empire: name, the id's first 8 characters, whether the body is loaded, last position. */
+    /**
+     * Every record of the empire: name, the id's first 8 characters, whether the body is loaded, last position; then
+     * whether its civilians load chunks and how many they hold.
+     */
     private static int roster(CommandSourceStack source, @Nullable String playerArg) {
         EmpireRecord record = empireOf(source, playerArg);
         if (record == null) {
@@ -318,6 +322,10 @@ public final class CivilianDebugCommands {
             source.sendSuccess(() -> Component.literal("Traveller waiting: body " + (loaded ? "loaded" : "not loaded")
                     + ", want " + slot.want() + ", leaves at " + slot.leaveAt()), false);
         }
+        boolean loading = CivilianChunkLoading.mayLoad(source.getServer(), record);
+        int held = CivilianChunkLoading.held(record.id()).size();
+        source.sendSuccess(() -> Component.literal("Chunk loading: " + (loading ? "on" : "off") + ", " + held
+                + " chunk" + (held == 1 ? "" : "s") + " held"), false);
         return records.size();
     }
 

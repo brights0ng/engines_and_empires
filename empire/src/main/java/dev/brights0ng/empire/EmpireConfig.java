@@ -1,6 +1,7 @@
 // Written by Claude.
 package dev.brights0ng.empire;
 
+import dev.brights0ng.empire.rules.LoadPlan;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
@@ -32,6 +33,27 @@ public final class EmpireConfig {
         BUILDER.pop();
     }
 
+    static {
+        BUILDER.comment("Civilians keeping their empire's chunks running.").push("civilians");
+    }
+
+    /** Bright, D8; PROVISIONAL default (P6). */
+    public static final ModConfigSpec.EnumValue<LoadPlan.Mode> CIVILIAN_LOADING = BUILDER
+            .comment("Whether civilians keep the empire chunks around them running with no player near.",
+                    "ALWAYS: yes, while the empire has members and one was online within civilianLoadingInactiveTicks.",
+                    "MEMBER_ONLINE: only while a member of the empire is online. OFF: never.")
+            .defineEnum("civilianLoading", LoadPlan.Mode.ALWAYS);
+
+    /** Bright, D11: 5 days of server time. */
+    public static final ModConfigSpec.LongValue CIVILIAN_LOADING_INACTIVE_TICKS = BUILDER
+            .comment("With civilianLoading ALWAYS: how long, in ticks of server time (time the server is off does not",
+                    "count), an empire's civilians keep loading after its last member was online. 8640000 is 5 days at 20 TPS.")
+            .defineInRange("civilianLoadingInactiveTicks", LoadPlan.INACTIVE_TICKS, 0L, Long.MAX_VALUE);
+
+    static {
+        BUILDER.pop();
+    }
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     /** The setting, or its default before the config has loaded. */
@@ -42,6 +64,16 @@ public final class EmpireConfig {
     /** The setting, or -1 (one year) before the config has loaded. */
     public static long godPatienceTicks() {
         return SPEC.isLoaded() ? GOD_PATIENCE_TICKS.get() : -1L;
+    }
+
+    /** The setting, or ALWAYS before the config has loaded. */
+    public static LoadPlan.Mode civilianLoading() {
+        return SPEC.isLoaded() ? CIVILIAN_LOADING.get() : LoadPlan.Mode.ALWAYS;
+    }
+
+    /** The setting, or 5 days before the config has loaded. */
+    public static long civilianLoadingInactiveTicks() {
+        return SPEC.isLoaded() ? CIVILIAN_LOADING_INACTIVE_TICKS.get() : LoadPlan.INACTIVE_TICKS;
     }
 
     private EmpireConfig() {

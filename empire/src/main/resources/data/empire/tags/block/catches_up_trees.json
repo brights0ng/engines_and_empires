@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    { "id": "#dynamictrees:rooty_soil", "required": false },
+    { "id": "#dynamictrees:saplings", "required": false }
+  ]
+}

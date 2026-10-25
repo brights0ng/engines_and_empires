@@ -1,4 +1,4 @@
-// Written by Gemini; god, sacrifice count, current demand, members, the god's hunger, the kept core chunk and the next traveller time added by Claude.
+// Written by Gemini; god, sacrifice count, current demand, members, the god's hunger, the kept core chunk, the next traveller time and the last member-online time added by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.ArrayList;
@@ -49,6 +49,14 @@ public final class EmpireRecord {
     private long coreChunk;
     /** The earliest game time the next traveller may arrive ({@code rules.ArrivalRule}); 0 lets the first come at once. */
     private long nextTravellerTime;
+    /**
+     * The last game time a member was online ({@code civilian.CivilianChunkLoading}); civilians stop loading chunks some
+     * server time after it (Bright, D11). {@link #UNKNOWN} until first set (records saved before it existed).
+     */
+    private long lastMemberOnline = UNKNOWN;
+
+    /** {@link #lastMemberOnline} not yet known. */
+    public static final long UNKNOWN = -1L;
 
     public EmpireRecord(UUID id, Collection<UUID> members, EmpireState state, @Nullable BlockPos mainBonfire, long foundedGameTime) {
         this.id = id;
@@ -129,6 +137,14 @@ public final class EmpireRecord {
 
     public void setNextTravellerTime(long nextTravellerTime) {
         this.nextTravellerTime = nextTravellerTime;
+    }
+
+    public long lastMemberOnline() {
+        return lastMemberOnline;
+    }
+
+    public void setLastMemberOnline(long gameTime) {
+        this.lastMemberOnline = gameTime;
     }
 
     public long foundedGameTime() {
@@ -221,6 +237,7 @@ public final class EmpireRecord {
         tag.putLong("hunger_ticks", hungerTicks);
         tag.putLong("core_chunk", coreChunk());
         tag.putLong("next_traveller", nextTravellerTime);
+        tag.putLong("last_member_online", lastMemberOnline);
         return tag;
     }
 
@@ -263,6 +280,7 @@ public final class EmpireRecord {
         record.sacrificeCount = tag.getInt("sacrifice_count");
         record.hungerTicks = Math.max(0, tag.getLong("hunger_ticks"));
         record.nextTravellerTime = tag.getLong("next_traveller");
+        record.lastMemberOnline = tag.contains("last_member_online", Tag.TAG_LONG) ? tag.getLong("last_member_online") : UNKNOWN;
         if (tag.contains("core_chunk", Tag.TAG_LONG)) {
             record.coreChunk = tag.getLong("core_chunk");
         }

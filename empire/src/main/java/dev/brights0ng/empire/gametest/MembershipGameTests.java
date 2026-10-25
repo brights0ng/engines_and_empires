@@ -293,7 +293,7 @@ public final class MembershipGameTests {
         data.removeMember(record, second);
 
         CompoundTag saved = data.save(new CompoundTag(), server.registryAccess());
-        helper.assertTrue(saved.getInt("version") == 3, "the save format is version 3");
+        helper.assertTrue(saved.getInt("version") == EmpireSavedData.SAVE_VERSION, "the save format is the current version");
         EmpireSavedData loaded = EmpireSavedData.load(saved, server.registryAccess());
         EmpireRecord loadedRecord = loaded.getEmpire(record.id());
         helper.assertTrue(loadedRecord != null && List.copyOf(loadedRecord.members()).equals(List.of(first, third)),

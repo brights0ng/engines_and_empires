@@ -1,4 +1,4 @@
-// Written by Gemini; gods, config, Simple Spoilage compat, levitite drops, divine protection and the gods' hunger registered by Claude.
+// Written by Gemini; gods, config, Simple Spoilage compat, levitite drops, divine protection, the gods' hunger and civilian chunk loading registered by Claude.
 package dev.brights0ng.empire;
 
 import org.slf4j.Logger;
@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import dev.brights0ng.empire.bonfire.BonfireEvents;
+import dev.brights0ng.empire.civilian.CivilianChunkLoading;
 import dev.brights0ng.empire.compat.frontier.FrontierCompat;
 import dev.brights0ng.empire.compat.simplespoilage.SimpleSpoilageCompat;
 import dev.brights0ng.empire.compat.sparseores.SparseOresCompat;
@@ -51,6 +52,7 @@ public final class Empire {
         NeoForge.EVENT_BUS.addListener(Gods::onAddReloadListeners);
         NeoForge.EVENT_BUS.addListener(LevititeDrops::onBlockDrops);
         modEventBus.addListener(Empire::gatherData);
+        modEventBus.addListener(CivilianChunkLoading::registerTicketControllers);
     }
 
     private static void gatherData(GatherDataEvent event) {

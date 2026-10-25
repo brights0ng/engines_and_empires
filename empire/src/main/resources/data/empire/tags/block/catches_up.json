@@ -1,0 +1,14 @@
+{
+  "replace": false,
+  "values": [
+    "#minecraft:crops",
+    "minecraft:sweet_berry_bush",
+    "minecraft:cocoa",
+    "minecraft:sugar_cane",
+    "minecraft:cactus",
+    "minecraft:bamboo",
+    "minecraft:bamboo_sapling",
+    "minecraft:nether_wart",
+    { "id": "farm_and_charm:tomato_crop_body", "required": false }
+  ]
+}

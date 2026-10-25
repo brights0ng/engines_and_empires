@@ -43,9 +43,11 @@ public final class CivilianRosterGameTests {
     private static final String BATCH = "civilians";
 
     private static EmpireRecord found(GameTestHelper helper, UUID founder) {
-        BlockPos origin = helper.absolutePos(BlockPos.ZERO);
+        // Founded on the main bonfire's chunk, not the test origin's: tests land at random positions, and an origin at
+        // the edge of its chunk puts the bonfire in the next chunk, whose 3x3 the empire would not hold.
+        BlockPos main = mainPos(helper);
         return EmpireSavedData.of(helper.getLevel()).createEmpire(founder,
-                ChunkKeys.pack(origin.getX() >> 4, origin.getZ() >> 4), mainPos(helper), helper.getLevel().getGameTime());
+                ChunkKeys.pack(main.getX() >> 4, main.getZ() >> 4), main, helper.getLevel().getGameTime());
     }
 
     private static BlockPos mainPos(GameTestHelper helper) {

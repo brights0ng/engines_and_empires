@@ -1,4 +1,4 @@
-// Written by Gemini; members, the main bonfire's 3x3 rule, the public core chunk, the divine index, main bonfire assignment, protection pushes and the civilian roster by Claude.
+// Written by Gemini; members, the main bonfire's 3x3 rule, the public core chunk, the divine index, main bonfire assignment, protection pushes, the civilian roster and the growth clock by Claude.
 package dev.brights0ng.empire.data;
 
 import java.util.Collection;
@@ -19,6 +19,7 @@ import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.ClaimGraph;
 import dev.brights0ng.empire.rules.DivineArea;
 import dev.brights0ng.empire.rules.EmpireState;
+import dev.brights0ng.empire.rules.GrowthClock;
 import dev.brights0ng.empire.rules.StakeResult;
 import dev.brights0ng.empire.rules.UnstakeResult;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
@@ -27,6 +28,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.LongArrayTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -37,6 +39,8 @@ import net.minecraft.world.level.saveddata.SavedData;
 public final class EmpireSavedData extends SavedData {
 
     public static final String FILE_NAME = "empire_empires";
+    /** The save format's version (4: the growth clock). */
+    public static final int SAVE_VERSION = 4;
 
     private final Map<UUID, EmpireRecord> empires = new HashMap<>();
     private final Map<UUID, UUID> memberToEmpire = new HashMap<>();
@@ -50,6 +54,8 @@ public final class EmpireSavedData extends SavedData {
     private final Map<UUID, Set<UUID>> civiliansByEmpire = new HashMap<>();
     /** The traveller waiting at each empire's bonfire, if any. */
     private final Map<UUID, TravellerSlot> travellers = new HashMap<>();
+    /** When each staked chunk was last growing, for the catch-up ({@code growth.GrowthCatchUp}). */
+    private final GrowthClock growth = new GrowthClock();
 
     public static EmpireSavedData of(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(
@@ -99,11 +105,14 @@ public final class EmpireSavedData extends SavedData {
         EmpireState state = new EmpireState();
         state.found(centerChunk);
         EmpireRecord record = new EmpireRecord(empireId, List.of(founder), state, mainBonfire != null ? mainBonfire.immutable() : null, gameTime);
+        // The founder was there to found it.
+        record.setLastMemberOnline(gameTime);
 
         empires.put(empireId, record);
         memberToEmpire.put(founder, empireId);
         for (long chunk : state.staked()) {
             chunkIndex.put(chunk, empireId);
+            growth.forget(chunk);
         }
         if (mainBonfire != null) {
             bonfires.add(mainBonfire);
@@ -126,6 +135,8 @@ public final class EmpireSavedData extends SavedData {
         StakeResult result = record.state().stake(chunk, day, tierOk, ownedElsewhere);
         if (result == StakeResult.OK) {
             chunkIndex.put(chunk, record.id());
+            // Staking never pays out growth from before the claim.
+            growth.forget(chunk);
             tryAssignMain(record, server);
             setDirty();
         }
@@ -172,6 +183,7 @@ public final class EmpireSavedData extends SavedData {
         UnstakeResult result = record.state().unstake(chunk, day, coreChunk(record), record.mainBonfire() != null);
         if (result == UnstakeResult.OK) {
             chunkIndex.remove(chunk);
+            growth.forget(chunk);
             setDirty();
         }
         return result;
@@ -185,6 +197,7 @@ public final class EmpireSavedData extends SavedData {
             }
             for (long chunk : record.state().staked()) {
                 chunkIndex.remove(chunk);
+                growth.forget(chunk);
             }
             List<CivilianRecord> removed = new ArrayList<>();
             for (UUID civilianId : civiliansByEmpire.getOrDefault(empireId, Set.of())) {
@@ -420,6 +433,11 @@ public final class EmpireSavedData extends SavedData {
         return bonfires;
     }
 
+    /** When each staked chunk was last growing. Callers that change it call {@link #setDirty}. */
+    public GrowthClock growthClock() {
+        return growth;
+    }
+
     public static EmpireSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         EmpireSavedData data = new EmpireSavedData();
         ListTag empiresTag = tag.getList("empires", Tag.TAG_COMPOUND);
@@ -445,12 +463,21 @@ public final class EmpireSavedData extends SavedData {
             data.travellers.put(slotTag.getUUID("empire"),
                     new TravellerSlot(slotTag.getUUID("body"), slotTag.getInt("want"), slotTag.getLong("leave_at")));
         }
+        // Version 3 files have no growth clock: every chunk starts afresh, with no back pay.
+        CompoundTag growthTag = tag.getCompound("growth");
+        long[] chunks = growthTag.getLongArray("chunks");
+        long[] times = growthTag.getLongArray("times");
+        for (int i = 0; i < Math.min(chunks.length, times.length); i++) {
+            if (data.chunkIndex.containsKey(chunks[i])) {
+                data.growth.set(chunks[i], times[i]);
+            }
+        }
         return data;
     }
 
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
-        tag.putInt("version", 3);
+        tag.putInt("version", SAVE_VERSION);
         ListTag empiresTag = new ListTag();
         for (EmpireRecord record : empires.values()) {
             empiresTag.add(record.save());
@@ -474,6 +501,18 @@ public final class EmpireSavedData extends SavedData {
             travellersTag.add(slotTag);
         }
         tag.put("travellers", travellersTag);
+        long[] chunks = new long[growth.size()];
+        long[] times = new long[growth.size()];
+        int i = 0;
+        for (Map.Entry<Long, Long> entry : growth.entries().entrySet()) {
+            chunks[i] = entry.getKey();
+            times[i] = entry.getValue();
+            i++;
+        }
+        CompoundTag growthTag = new CompoundTag();
+        growthTag.put("chunks", new LongArrayTag(chunks));
+        growthTag.put("times", new LongArrayTag(times));
+        tag.put("growth", growthTag);
         return tag;
     }
 }
