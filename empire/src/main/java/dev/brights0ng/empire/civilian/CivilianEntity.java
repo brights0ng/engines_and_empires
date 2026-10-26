@@ -1,4 +1,4 @@
-// Written by Claude; extended with abilities, inspection and ticking needs by ChatGPT.
+// Written by Claude; extended with abilities, inspection, ticking needs and inventory by ChatGPT.
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashSet;
@@ -31,10 +31,12 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -52,6 +54,7 @@ import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.ServerLevelAccessor;
@@ -66,7 +69,8 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * greeting for a player who comes close, and short scripted conversations with a nearby civilian. Each line goes to the
  * tracking clients ({@link CivilianNetwork}), which draw it as a bubble.
  *
- * <p>Right-clicking (main hand, any item, never used up) starts a dialogue: the civilian stops, faces the player and
+ * <p>Right-clicking starts a dialogue, except for sneak inspection, traveller offers and citizen food hand-over:
+ * the civilian stops, faces the player and
  * greets them, and each later click gets a reply, until the player leaves, goes idle or is gone.
  *
  * <p>A civilian is {@link Status#FREE} (its home is where it spawned), a {@link Status#TRAVELLER} waiting at an
@@ -103,6 +107,8 @@ public class CivilianEntity extends PathfinderMob {
     public static final int LEAVE_TIMEOUT = 1200;
     /** PROVISIONAL: active ticks between writes of a citizen's needs to its master record. */
     public static final int RECORD_SYNC_INTERVAL = 100;
+    /** PROVISIONAL: a hotbar of pockets until the carrying system replaces it (Bright, D9). */
+    public static final int INVENTORY_SIZE = 9;
 
     /** What a civilian is to the empires (saved). */
     public enum Status {
@@ -154,6 +160,7 @@ public class CivilianEntity extends PathfinderMob {
     private CivilianAbilities abilities = new CivilianAbilities(3, 3, 3, 3, 3, 3);
     private boolean abilitiesPreset;
     private CivilianFood food = new CivilianFood();
+    private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE);
 
     // Speech state; transient, rebuilt after a reload. Times are in this civilian's tickCount.
     private final RandomGenerator rng = () -> random.nextLong();
@@ -280,9 +287,16 @@ public class CivilianEntity extends PathfinderMob {
         return food;
     }
 
+    public SimpleContainer inventory() {
+        return inventory;
+    }
+
     /** Applies a master snapshot without writing it back during join. */
     void restoreNeeds(CivilianRecord record) {
         food = CivilianFood.restore(record.food());
+        for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
+            inventory.setItem(slot, record.inventory().get(slot).copy());
+        }
         if (!Float.isNaN(record.health())) {
             setHealth(Math.clamp(record.health(), 1.0F, getMaxHealth()));
         }
@@ -308,9 +322,19 @@ public class CivilianEntity extends PathfinderMob {
         EmpireSavedData data = EmpireSavedData.of(serverLevel);
         CivilianRecord record = ownRecord(data);
         CivilianFood.Saved saved = food.save();
-        if (record != null && (!saved.equals(record.food()) || Float.compare(getHealth(), record.health()) != 0)) {
+        boolean inventoryChanged = false;
+        if (record != null) {
+            for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
+                if (!ItemStack.matches(inventory.getItem(slot), record.inventory().get(slot))) {
+                    inventoryChanged = true;
+                    break;
+                }
+            }
+        }
+        if (record != null && (inventoryChanged || !saved.equals(record.food()) || Float.compare(getHealth(), record.health()) != 0)) {
             record.setFood(saved);
             record.setHealth(getHealth());
+            record.setInventory(inventory.getItems());
             data.setDirty();
         }
     }
@@ -460,6 +484,7 @@ public class CivilianEntity extends PathfinderMob {
         super.addAdditionalSaveData(tag);
         syncNeedsToRecord();
         tag.put(TAG_FOOD, CivilianFoodNbt.save(food.save()));
+        tag.put("Inventory", ContainerHelper.saveAllItems(new CompoundTag(), inventory.getItems(), level().registryAccess()));
         tag.putInt(TAG_APPEARANCE, entityData.get(APPEARANCE));
         tag.putInt(TAG_ABILITIES, abilities.pack());
         if (home != null) {
@@ -480,6 +505,8 @@ public class CivilianEntity extends PathfinderMob {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         food = CivilianFood.restore(CivilianFoodNbt.load(tag.getCompound(TAG_FOOD)));
+        inventory.clearContent();
+        ContainerHelper.loadAllItems(tag.getCompound("Inventory"), inventory.getItems(), level().registryAccess());
         CivilianAbilities loadedAbilities = null;
         if (tag.contains(TAG_ABILITIES, net.minecraft.nbt.Tag.TAG_INT)) {
             try {
@@ -622,6 +649,21 @@ public class CivilianEntity extends PathfinderMob {
         }
     }
 
+    @Override
+    protected void dropCustomDeathLoot(ServerLevel level, DamageSource source, boolean recentlyHit) {
+        // Clear hands before Mob rolls equipment drops: carried items drop exactly once, without a chance roll.
+        for (InteractionHand hand : InteractionHand.values()) {
+            ItemStack carried = getItemInHand(hand);
+            setItemInHand(hand, ItemStack.EMPTY);
+            if (!carried.isEmpty()) spawnAtLocation(carried);
+        }
+        for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
+            ItemStack carried = inventory.removeItemNoUpdate(slot);
+            if (!carried.isEmpty()) spawnAtLocation(carried);
+        }
+        super.dropCustomDeathLoot(level, source, recentlyHit);
+    }
+
     /** Who {@link CivilianFaceGoal} keeps this civilian facing, or null. */
     @Nullable
     Entity faceTarget() {
@@ -646,11 +688,13 @@ public class CivilianEntity extends PathfinderMob {
     }
 
     /**
-     * A right-click: starts or continues the dialogue with {@code player}. The held item is never used, except by a
-     * traveller given the food it wants ({@link CivilianRoster#travellerClicked}).
+     * A right-click: inspects, hands food to a citizen, offers a traveller its want, or starts/continues a dialogue.
      */
     InteractionResult talkTo(Player player) {
         if (!level().isClientSide) {
+            if (player.isSpectator()) {
+                return InteractionResult.PASS;
+            }
             if (player.isSecondaryUseActive() && status != Status.LEAVING) {
                 player.sendSystemMessage(Component.translatable("message.empire.civilian.abilities", getName(),
                         abilities.endurance(), abilities.precision(), abilities.willpower(), abilities.wits(),
@@ -659,6 +703,15 @@ public class CivilianEntity extends PathfinderMob {
             }
             if (status == Status.LEAVING) {
                 return InteractionResult.CONSUME;
+            }
+            ItemStack held = player.getMainHandItem();
+            if (status == Status.CITIZEN && held.getFoodProperties(this) != null) {
+                ItemStack remainder = inventory.addItem(held.copy());
+                int moved = held.getCount() - remainder.getCount();
+                if (!player.getAbilities().instabuild) held.shrink(moved);
+                syncNeedsToRecord();
+                sayKey(moved > 0 ? "civilian.empire.citizen.food_given" : "civilian.empire.citizen.pockets_full");
+                return InteractionResult.SUCCESS;
             }
             // A traveller answers with its own line (its want, or what it makes of the offer) instead of a greeting or reply.
             boolean travellerSpoke = false;

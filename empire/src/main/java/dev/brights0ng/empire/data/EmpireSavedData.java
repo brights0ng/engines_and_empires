@@ -1,4 +1,5 @@
 // Written by Gemini; members, the main bonfire's 3x3 rule, the public core chunk, the divine index, main bonfire assignment, protection pushes, the civilian roster and the growth clock by Claude.
+// Extended with registry-aware civilian inventory persistence by ChatGPT.
 package dev.brights0ng.empire.data;
 
 import java.util.Collection;
@@ -453,7 +454,7 @@ public final class EmpireSavedData extends SavedData {
         // Version 2 files have neither list: they load with no civilians and no travellers.
         ListTag civiliansTag = tag.getList("civilians", Tag.TAG_COMPOUND);
         for (int i = 0; i < civiliansTag.size(); i++) {
-            CivilianRecord civilian = CivilianRecord.load(civiliansTag.getCompound(i));
+            CivilianRecord civilian = CivilianRecord.load(civiliansTag.getCompound(i), registries);
             data.civilians.put(civilian.id(), civilian);
             data.civiliansByEmpire.computeIfAbsent(civilian.empire(), k -> new HashSet<>()).add(civilian.id());
         }
@@ -488,7 +489,7 @@ public final class EmpireSavedData extends SavedData {
         tag.put("bonfires", bonfiresTag);
         ListTag civiliansTag = new ListTag();
         for (CivilianRecord civilian : civilians.values()) {
-            civiliansTag.add(civilian.save());
+            civiliansTag.add(civilian.save(registries));
         }
         tag.put("civilians", civiliansTag);
         ListTag travellersTag = new ListTag();

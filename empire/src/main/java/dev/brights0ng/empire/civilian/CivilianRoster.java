@@ -1,4 +1,4 @@
-// Written by Claude; extended with ability and needs persistence by ChatGPT.
+// Written by Claude; extended with ability, needs and inventory persistence by ChatGPT.
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashMap;
@@ -236,6 +236,7 @@ public final class CivilianRoster {
         record.setAbilities(civilian.abilities().pack());
         record.setFood(civilian.food().save());
         record.setHealth(civilian.getHealth());
+        record.setInventory(civilian.inventory().getItems());
         data.addCivilian(record);
         civilian.becomeCitizen(record.id(), homeFor(empire, level, civilian.getBlockY()));
         EmpireSavedData.messageMembers(empire, level.getServer(), Component.translatable("message.empire.civilian.joined", name));

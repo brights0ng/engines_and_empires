@@ -1,4 +1,4 @@
-// Written by Claude; extended with ability and needs commands by ChatGPT.
+// Written by Claude; extended with ability, needs and inventory commands by ChatGPT.
 package dev.brights0ng.empire.command;
 
 import java.util.ArrayList;
@@ -33,6 +33,8 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -290,6 +292,12 @@ public final class CivilianDebugCommands {
                 "Food %d, saturation %.1f, exhaustion %.2f, health %.1f/%.1f, eaten today %d / yesterday %d, active ticks %d",
                 food.foodLevel(), food.saturation(), food.exhaustion(), civilian.getHealth(), civilian.getMaxHealth(),
                 food.foodEatenToday(), food.foodEatenYesterday(), food.activeTicks())), false);
+        List<String> pockets = new ArrayList<>();
+        for (int slot = 0; slot < civilian.inventory().getContainerSize(); slot++) {
+            ItemStack stack = civilian.inventory().getItem(slot);
+            if (!stack.isEmpty()) pockets.add(stack.getCount() + "× " + BuiltInRegistries.ITEM.getKey(stack.getItem()));
+        }
+        source.sendSuccess(() -> Component.literal("Inventory: " + (pockets.isEmpty() ? "empty" : String.join(", ", pockets))), false);
         return 1;
     }
 

@@ -1,4 +1,6 @@
 {
+  "civilian.empire.citizen.food_given": "Thank you, that'll keep me going.",
+  "civilian.empire.citizen.pockets_full": "I can't carry any more.",
   "message.empire.civilian.abilities": "%s — Endurance %s, Precision %s, Willpower %s, Wits %s, Organization %s, Teamwork %s",
   "civilian.empire.ability.endurance": "Endurance",
   "civilian.empire.ability.precision": "Precision",

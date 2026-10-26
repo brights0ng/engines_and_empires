@@ -25,6 +25,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
@@ -186,7 +187,7 @@ public final class CivilianNeedsGameTests {
             civilian.setHealth(17.5F);
             CompoundTag bodyTag = civilian.saveWithoutId(new CompoundTag());
             helper.assertTrue(record.food().equals(civilian.food().save()) && record.health() == 17.5F, "entity save writes through");
-            CivilianRecord loadedRecord = CivilianRecord.load(record.save());
+            CivilianRecord loadedRecord = CivilianRecord.load(record.save(helper.getLevel().registryAccess()), helper.getLevel().registryAccess());
             helper.assertTrue(loadedRecord.food().equals(record.food()) && loadedRecord.health() == record.health(), "record needs round trip");
             CivilianEntity loaded = EmpireContent.CIVILIAN.get().create(helper.getLevel());
             loaded.load(bodyTag);
@@ -201,10 +202,10 @@ public final class CivilianNeedsGameTests {
             loaded.setFood(1, 0);
             loaded.syncNeedsToRecord();
             helper.assertTrue(record.food().foodLevel() == 6 && !data.isDirty(), "stale body cannot write to the record");
-            CompoundTag legacy = record.save();
+            CompoundTag legacy = record.save(helper.getLevel().registryAccess());
             legacy.remove("food");
             legacy.remove("health");
-            CivilianRecord old = CivilianRecord.load(legacy);
+            CivilianRecord old = CivilianRecord.load(legacy, helper.getLevel().registryAccess());
             helper.assertTrue(old.food().equals(new CivilianFood().save()) && Float.isNaN(old.health()), "missing record needs use defaults and NaN");
             bodyTag.remove("Food");
             loaded.load(bodyTag);
@@ -330,7 +331,7 @@ public final class CivilianNeedsGameTests {
             helper.assertTrue(rolled.pack() == record.abilities(), "recruit copies traveller scores");
             traveller.setAbilities(CivilianAbilities.parse(KNOWN_CODE));
             helper.assertTrue(record.abilities() == traveller.abilities().pack(), "setter writes through");
-            helper.assertTrue(CivilianRecord.load(record.save()).abilities() == record.abilities(), "record NBT round trip");
+            helper.assertTrue(CivilianRecord.load(record.save(helper.getLevel().registryAccess()), helper.getLevel().registryAccess()).abilities() == record.abilities(), "record NBT round trip");
         } finally {
             traveller.discard();
             disband(helper, empire);
@@ -367,16 +368,16 @@ public final class CivilianNeedsGameTests {
     public static void v1RecordGetsStableAbilities(GameTestHelper helper) {
         UUID id = UUID.fromString("01234567-89ab-cdef-0123-456789abcdef");
         CompoundTag tag = new CivilianRecord(id, UUID.randomUUID(), UUID.randomUUID(), "Legacy", 0,
-                BlockPos.ZERO, 0, 0).save();
+                BlockPos.ZERO, 0, 0).save(helper.getLevel().registryAccess());
         tag.putInt("version", 1);
         tag.remove("abilities");
-        CivilianRecord first = CivilianRecord.load(tag);
-        CivilianRecord second = CivilianRecord.load(tag);
+        CivilianRecord first = CivilianRecord.load(tag, helper.getLevel().registryAccess());
+        CivilianRecord second = CivilianRecord.load(tag, helper.getLevel().registryAccess());
         helper.assertTrue(first.abilities() == second.abilities(), "legacy migration is stable");
         int expected = CivilianAbilities.roll(new java.util.Random(id.getMostSignificantBits() ^ id.getLeastSignificantBits())).pack();
         helper.assertTrue(first.abilities() == expected, "legacy migration uses the civilian id seed");
         tag.putInt("abilities", -1);
-        helper.assertTrue(CivilianRecord.load(tag).abilities() == expected, "corrupt scores use the stable default");
+        helper.assertTrue(CivilianRecord.load(tag, helper.getLevel().registryAccess()).abilities() == expected, "corrupt scores use the stable default");
         helper.succeed();
     }
 
@@ -421,6 +422,222 @@ public final class CivilianNeedsGameTests {
             helper.assertTrue(traveller.dialoguePlayer() == null, "name tag inspection starts no dialogue");
         } finally {
             traveller.discard();
+            disband(helper, empire);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void handOverFillsInventory(GameTestHelper helper) {
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+        CivilianEntity civilian = needsBody(helper, 20, 5, 30);
+        try {
+            CivilianRecord record = CivilianRoster.recruit(civilian, empire, helper.getLevel());
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 16));
+            helper.assertTrue(civilian.interact(player, InteractionHand.MAIN_HAND).consumesAction(), "hand-over succeeds for a non-member");
+            helper.assertTrue(civilian.inventory().countItem(Items.BREAD) == 16, "pockets contain 16 bread");
+            helper.assertTrue(player.getMainHandItem().isEmpty(), "survival hand is empty");
+            helper.assertTrue(record.inventory().getFirst().getCount() == 16, "hand-over immediately writes through");
+            helper.assertTrue(civilian.dialoguePlayer() == null, "hand-over starts no dialogue");
+        } finally {
+            civilian.discard();
+            disband(helper, empire);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void freeCivilianTakesNoFood(GameTestHelper helper) {
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        CivilianEntity civilian = needsBody(helper, 20, 5, 30);
+        try {
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 16));
+            civilian.interact(player, InteractionHand.MAIN_HAND);
+            helper.assertTrue(civilian.inventory().isEmpty(), "free civilian takes no food");
+            helper.assertTrue(player.getMainHandItem().getCount() == 16, "held food unchanged");
+        } finally {
+            civilian.discard();
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void handOverStopsWhenFull(GameTestHelper helper) {
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        EmpireRecord empire = found(helper, player);
+        CivilianEntity civilian = needsBody(helper, 20, 5, 30);
+        try {
+            CivilianRoster.recruit(civilian, empire, helper.getLevel());
+            for (int slot = 0; slot < CivilianEntity.INVENTORY_SIZE; slot++) {
+                civilian.inventory().setItem(slot, new ItemStack(Items.COOKED_COD, 64));
+            }
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 16));
+            helper.assertTrue(civilian.interact(player, InteractionHand.MAIN_HAND).consumesAction(), "full pockets handle click");
+            helper.assertTrue(civilian.inventory().countItem(Items.COOKED_COD) == 9 * 64
+                    && civilian.inventory().countItem(Items.BREAD) == 0, "all nine slots unchanged");
+            helper.assertTrue(player.getMainHandItem().getCount() == 16, "full pockets consume no bread");
+            helper.assertTrue(civilian.dialoguePlayer() == null, "full pockets start no dialogue");
+        } finally {
+            civilian.discard();
+            disband(helper, empire);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void sneakTakesNoFood(GameTestHelper helper) {
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        EmpireRecord empire = found(helper, player);
+        CivilianEntity civilian = needsBody(helper, 20, 5, 30);
+        try {
+            CivilianRoster.recruit(civilian, empire, helper.getLevel());
+            player.setShiftKeyDown(true);
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 16));
+            civilian.interact(player, InteractionHand.MAIN_HAND);
+            helper.assertTrue(civilian.inventory().isEmpty(), "sneak inspection takes no bread");
+            helper.assertTrue(player.getMainHandItem().getCount() == 16, "sneak keeps held bread");
+            helper.assertTrue(civilian.dialoguePlayer() == null, "sneak starts no dialogue");
+        } finally {
+            civilian.discard();
+            disband(helper, empire);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void respawnKeepsInventory(GameTestHelper helper) {
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+        CivilianEntity civilian = needsBody(helper, 20, 5, 30);
+        CivilianEntity replacement = null;
+        try {
+            civilian.inventory().setItem(8, new ItemStack(Items.BREAD, 2));
+            CivilianRecord record = CivilianRoster.recruit(civilian, empire, helper.getLevel());
+            civilian.inventory().getItem(8).grow(1);
+            helper.assertTrue(record.inventory().get(8).getCount() == 2, "recruit copied stacks independently");
+            UUID oldBody = civilian.getUUID();
+            civilian.discard();
+            CivilianRoster.runMissingCheck(helper.getLevel());
+            helper.assertTrue(record.body().equals(oldBody), "first check keeps old body");
+            CivilianRoster.runMissingCheck(helper.getLevel());
+            replacement = (CivilianEntity) helper.getLevel().getEntity(record.body());
+            helper.assertTrue(replacement != null && !record.body().equals(oldBody), "second check creates new body");
+            helper.assertTrue(replacement.inventory().getItem(8).is(Items.BREAD)
+                    && replacement.inventory().countItem(Items.BREAD) == 3, "replacement keeps three bread and slot");
+            replacement.inventory().getItem(8).shrink(1);
+            helper.assertTrue(record.inventory().get(8).getCount() == 3, "replacement also has independent stacks");
+        } finally {
+            civilian.discard();
+            if (replacement != null) replacement.discard();
+            disband(helper, empire);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void deathDropsInventory(GameTestHelper helper) {
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+        CivilianEntity civilian = needsBody(helper, 20, 5, 30);
+        java.util.List<ItemEntity> drops = java.util.List.of();
+        try {
+            CivilianRecord record = CivilianRoster.recruit(civilian, empire, helper.getLevel());
+            civilian.inventory().setItem(8, new ItemStack(Items.BREAD, 4));
+            civilian.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.APPLE, 2));
+            civilian.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.CARROT, 3));
+            civilian.hurt(civilian.damageSources().genericKill(), Float.MAX_VALUE);
+            drops = helper.getLevel().getEntitiesOfClass(ItemEntity.class, civilian.getBoundingBox().inflate(3));
+            helper.assertTrue(droppedCount(drops, Items.BREAD) == 4, "four bread dropped within three blocks");
+            helper.assertTrue(droppedCount(drops, Items.APPLE) == 2 && droppedCount(drops, Items.CARROT) == 3,
+                    "both hands drop exactly once without player kill or equipment chance");
+            helper.assertTrue(civilian.inventory().isEmpty() && civilian.getMainHandItem().isEmpty()
+                    && civilian.getOffhandItem().isEmpty(), "carried stacks removed from dead body");
+            helper.assertTrue(EmpireSavedData.of(helper.getLevel()).civilian(record.id()) == null, "death deletes record");
+        } finally {
+            drops.forEach(Entity::discard);
+            civilian.discard();
+            disband(helper, empire);
+        }
+        helper.succeed();
+    }
+
+    private static int droppedCount(java.util.List<ItemEntity> drops, net.minecraft.world.item.Item item) {
+        return drops.stream().map(ItemEntity::getItem).filter(stack -> stack.is(item)).mapToInt(ItemStack::getCount).sum();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void partialAndCreativeHandOver(GameTestHelper helper) {
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        EmpireRecord empire = found(helper, player);
+        CivilianEntity civilian = needsBody(helper, 20, 5, 30);
+        try {
+            CivilianRoster.recruit(civilian, empire, helper.getLevel());
+            for (int slot = 0; slot < 8; slot++) civilian.inventory().setItem(slot, new ItemStack(Items.COOKED_COD, 64));
+            civilian.inventory().setItem(8, new ItemStack(Items.BREAD, 60));
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 16));
+            civilian.interact(player, InteractionHand.MAIN_HAND);
+            helper.assertTrue(civilian.inventory().countItem(Items.BREAD) == 64
+                    && player.getMainHandItem().getCount() == 12, "only four bread fit and are consumed");
+            Player creative = helper.makeMockPlayer(GameType.CREATIVE);
+            // makeMockPlayer overrides isCreative but does not initialize the game mode's abilities.
+            GameType.CREATIVE.updatePlayerAbilities(creative.getAbilities());
+            civilian.inventory().setItem(8, ItemStack.EMPTY);
+            creative.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 16));
+            civilian.interact(creative, InteractionHand.MAIN_HAND);
+            helper.assertTrue(civilian.inventory().countItem(Items.BREAD) == 16
+                    && creative.getMainHandItem().getCount() == 16, "creative gives a copy without consuming");
+            Player spectator = helper.makeMockPlayer(GameType.SPECTATOR);
+            spectator.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 16));
+            civilian.interact(spectator, InteractionHand.MAIN_HAND);
+            helper.assertTrue(civilian.inventory().countItem(Items.BREAD) == 16
+                    && spectator.getMainHandItem().getCount() == 16, "spectator cannot give food");
+        } finally {
+            civilian.discard();
+            disband(helper, empire);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void inventoryPersistenceAndJoin(GameTestHelper helper) {
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+        CivilianEntity civilian = needsBody(helper, 20, 5, 30);
+        CivilianEntity loaded = null;
+        try {
+            civilian.inventory().setItem(8, new ItemStack(Items.BREAD, 3));
+            CivilianRecord record = CivilianRoster.recruit(civilian, empire, helper.getLevel());
+            CompoundTag bodyTag = civilian.saveWithoutId(new CompoundTag());
+            CompoundTag recordTag = record.save(helper.getLevel().registryAccess());
+            CivilianRecord restored = CivilianRecord.load(recordTag, helper.getLevel().registryAccess());
+            helper.assertTrue(restored.inventory().get(8).is(Items.BREAD)
+                    && restored.inventory().get(8).getCount() == 3, "record round trip preserves slot and stack");
+            EmpireSavedData data = EmpireSavedData.of(helper.getLevel());
+            EmpireSavedData restoredData = EmpireSavedData.load(data.save(new CompoundTag(), helper.getLevel().registryAccess()),
+                    helper.getLevel().registryAccess());
+            helper.assertTrue(restoredData.civilian(record.id()).inventory().get(8).getCount() == 3, "saved data passes registries");
+            data.setDirty(false);
+            civilian.syncNeedsToRecord();
+            helper.assertFalse(data.isDirty(), "unchanged inventory does not dirty data");
+            civilian.inventory().getItem(8).grow(1);
+            civilian.syncNeedsToRecord();
+            helper.assertTrue(data.isDirty() && record.inventory().get(8).getCount() == 4, "stack count mutation writes through");
+            civilian.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+            loaded = EmpireContent.CIVILIAN.get().create(helper.getLevel());
+            loaded.load(bodyTag);
+            helper.assertTrue(loaded.inventory().getItem(8).getCount() == 3, "body round trip keeps slots");
+            helper.assertTrue(helper.getLevel().addFreshEntity(loaded), "body rejoins");
+            helper.assertTrue(loaded.inventory().getItem(8).getCount() == 4, "master inventory wins on join");
+            recordTag.remove("inventory");
+            helper.assertTrue(CivilianRecord.load(recordTag, helper.getLevel().registryAccess()).inventory().stream()
+                    .allMatch(ItemStack::isEmpty), "legacy record has empty inventory");
+            // Unjoined body: loading a missing or corrupt inventory must clear any previous contents.
+            CivilianEntity legacyBody = EmpireContent.CIVILIAN.get().create(helper.getLevel());
+            legacyBody.load(bodyTag);
+            bodyTag.putString("Inventory", "corrupt");
+            legacyBody.load(bodyTag);
+            helper.assertTrue(legacyBody.inventory().isEmpty(), "wrong inventory NBT type defaults empty");
+        } finally {
+            civilian.discard();
+            if (loaded != null) loaded.discard();
             disband(helper, empire);
         }
         helper.succeed();

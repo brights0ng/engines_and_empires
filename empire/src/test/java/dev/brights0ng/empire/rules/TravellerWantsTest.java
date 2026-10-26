@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; extended with citizen food hand-over language checks by ChatGPT.
 package dev.brights0ng.empire.rules;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -68,5 +68,7 @@ class TravellerWantsTest {
         for (int i = 0; i < TravellerWants.WANTS.size(); i++) {
             assertTrue(lang.has(TravellerWants.wantKey(i)), TravellerWants.wantKey(i));
         }
+        assertEquals("Thank you, that'll keep me going.", lang.get("civilian.empire.citizen.food_given").getAsString());
+        assertEquals("I can't carry any more.", lang.get("civilian.empire.citizen.pockets_full").getAsString());
     }
 }

@@ -1,14 +1,20 @@
-// Written by Claude; extended with abilities and needs persistence by ChatGPT.
+// Written by Claude; extended with abilities, needs and inventory persistence by ChatGPT.
 package dev.brights0ng.empire.data;
 
-import java.util.UUID;
+import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 
+import dev.brights0ng.empire.civilian.CivilianEntity;
 import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianFood;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * A citizen of an empire, as the empire remembers it: the master copy (Bright, 2026-10-24). The civilian entity is its
@@ -31,6 +37,7 @@ public final class CivilianRecord {
     private CivilianFood.Saved food = new CivilianFood().save();
     /** NaN in older records means to keep the body's health. */
     private float health = Float.NaN;
+    private final NonNullList<ItemStack> inventory = NonNullList.withSize(CivilianEntity.INVENTORY_SIZE, ItemStack.EMPTY);
     private BlockPos lastPos;
     /** {@code ChunkKeys.pack} of the chunk the body was last seen in. */
     private long lastChunk;
@@ -127,7 +134,18 @@ public final class CivilianRecord {
         return joinedGameTime;
     }
 
-    public CompoundTag save() {
+    public NonNullList<ItemStack> inventory() {
+        return inventory;
+    }
+
+    /** Copies stacks so the master snapshot never shares mutable stacks with a body. */
+    public void setInventory(List<ItemStack> items) {
+        for (int slot = 0; slot < inventory.size(); slot++) {
+            inventory.set(slot, slot < items.size() ? items.get(slot).copy() : ItemStack.EMPTY);
+        }
+    }
+
+    public CompoundTag save(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
         tag.putInt("version", VERSION);
         tag.putUUID("id", id);
@@ -138,13 +156,14 @@ public final class CivilianRecord {
         tag.putInt("abilities", abilities);
         tag.put("food", CivilianFoodNbt.save(food));
         tag.putFloat("health", health);
+        tag.put("inventory", ContainerHelper.saveAllItems(new CompoundTag(), inventory, registries));
         tag.putLong("last_pos", lastPos.asLong());
         tag.putLong("last_chunk", lastChunk);
         tag.putLong("joined", joinedGameTime);
         return tag;
     }
 
-    public static CivilianRecord load(CompoundTag tag) {
+    public static CivilianRecord load(CompoundTag tag, HolderLookup.Provider registries) {
         CivilianRecord record = new CivilianRecord(tag.getUUID("id"), tag.getUUID("empire"), tag.getUUID("body"), tag.getString("name"),
                 tag.getInt("appearance"), BlockPos.of(tag.getLong("last_pos")), tag.getLong("last_chunk"),
                 tag.getLong("joined"));
@@ -156,6 +175,7 @@ public final class CivilianRecord {
             }
         }
         record.setFood(CivilianFoodNbt.load(tag.getCompound("food")));
+        ContainerHelper.loadAllItems(tag.getCompound("inventory"), record.inventory, registries);
         if (tag.contains("health", net.minecraft.nbt.Tag.TAG_ANY_NUMERIC)) {
             record.setHealth(tag.getFloat("health"));
         }

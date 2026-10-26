@@ -140,3 +140,46 @@ Read the decompiled NeoForge 21.1.251 / MC 1.21.1 `Player.actuallyHurt`, `Player
 The first game-test run exposed a test fixture calling `Entity.tick` without advancing server-owned `tickCount`; the fixture now uses `ServerLevel.tickNonPassenger` and retains the assertion against early periodic writes. The added water test initially used NoAI, which disables physical travel; enabling AI for that fixture exercises real movement. The final complete targeted run passed. No existing tests were removed or weakened.
 
 All Gradle commands ran sequentially and synchronously in the foreground using the installed Java 21 JDK and existing Gradle cache. These are source, unit and server behavior checks; no client visual verification was performed.
+
+## Task 4: carried inventory and food hand-over (2026-10-26)
+
+Written and implemented by ChatGPT from Bright's task 4.
+
+### Decisions (Bright, 2026-10-26)
+
+- **D9** Civilians carry their own inventory: nine slots, a hotbar, until Encumbered replaces it.
+- **D11** Until the AI exists, any non-spectator player stocks a citizen by right-clicking with main-hand food without sneaking. As much as fits moves into its inventory; survival consumes only the amount moved, creative consumes nothing. Travellers retain their current want-click and FREE civilians take nothing. Food detection uses the entity-aware `stack.getFoodProperties(this)` hook.
+- `CivilianEntity.INVENTORY_SIZE = 9` is **PROVISIONAL**.
+
+### Classes and resources changed
+
+- `civilian.CivilianEntity`: nine-slot `SimpleContainer`, `Inventory` entity NBT through `ContainerHelper` with registry access, food hand-over after sneak inspection, and guaranteed drops of inventory and both hands in the death-loot hook. Hands are cleared before the superclass equipment roll so they cannot drop twice. `restoreNeeds` now restores copied inventory stacks, so existing citizen join and `CivilianSpawning.respawnBody` calls restore the record inventory. `syncNeedsToRecord` compares item counts and components, copies changed stacks and marks saved data dirty; hand-over calls it immediately, including when pockets are full. Periodic/save/removal write-back and stale/dead-body guards also cover inventory.
+- `data.CivilianRecord`: independent nine-slot `NonNullList<ItemStack>` snapshot, copy setter, lowercase `inventory` NBT compound; `save(HolderLookup.Provider)` and `load(CompoundTag, HolderLookup.Provider)`. Missing or wrong-type inventory defaults empty; `ContainerHelper` ignores out-of-range slots and uses tolerant `ItemStack.parse` for invalid stacks. VERSION remains 2.
+- `data.EmpireSavedData`: forwards its registry provider to civilian record save/load. SAVE_VERSION remains 4; its own layout is unchanged.
+- `civilian.CivilianRoster`: recruitment copies the body's inventory into its master record. Traveller want-click code is unchanged.
+- `command.CivilianDebugCommands`: `info` lists every non-empty pocket as `count× item id`, or `Inventory: empty`.
+- `gametest.CivilianNeedsGameTests`: updates record codec callers for registry access; adds the six requested tests and two extra tests for partial/creative/spectator transfer and body/record/saved-data persistence, independent copies, join precedence, dirty tracking and tolerant loads. Death also checks both hands drop exactly once on a non-player kill and the record is removed.
+- `en_us.json`: adds the two requested placeholder citizen replies. Added by ChatGPT; JSON attribution is recorded here using the existing task 1 convention because JSON does not allow comments.
+- `rules.TravellerWantsTest`: checks both citizen language keys and exact placeholder text alongside existing language coverage.
+
+### Deviations
+
+1. **Death gamerule and hooks.** Carried items drop deterministically through `dropCustomDeathLoot`, preserving vanilla's `doMobLoot` gamerule and NeoForge's captured-drop event. The requested guaranteed hands behavior bypasses the equipment chance roll and equipment-drop enchantment checks for hands; armor retains superclass behavior. No inventory drop occurs on discard, unload or missing-body replacement.
+2. **Existing restore point reused.** Inventory is restored inside `restoreNeeds`, already called by citizen join and `respawnBody`; no separate duplicate restore call or edit to `CivilianSpawning` is necessary.
+3. **Mock creative abilities.** MC 1.21.1 `GameTestHelper.makeMockPlayer(CREATIVE)` overrides `isCreative()` but leaves abilities at survival defaults. The extra creative test applies `GameType.CREATIVE.updatePlayerAbilities` before clicking, preserving the real `instabuild` consumption check used by traveller offers and vanilla player interaction.
+4. **Save versions retained.** Both inventory additions are tolerant optional fields within the existing civilian record. Neither CivilianRecord VERSION 2 nor EmpireSavedData SAVE_VERSION 4 needs a bump.
+
+### Open items
+
+- **Encumbered replaces the 9 slots.**
+- Eating from inventory remains for task 5.
+- Client speech and debug text have not been visually verified in-game.
+
+### Verification
+
+- `./gradlew :empire:compileJava --console=plain -q`: passed.
+- `./gradlew :empire:runGameTestServer --console=plain -q`: all **116 required tests passed**, including **37** in batch `civilians` and **24** in `CivilianNeedsGameTests` (eight added here).
+- `./gradlew :empire:test --tests dev.brights0ng.empire.rules.TravellerWantsTest --console=plain -q`: **5 passed**, no failures, errors or skips.
+- `git diff --check`: passed.
+
+Gradle commands ran sequentially and synchronously using the installed Java 21 JDK and NeoForge 21.1.251. The first server run passed all six requested cases but exposed the extra creative fixture's missing abilities initialization; the corrected complete rerun passed. No tests were removed or weakened. Source and server behavior were verified; no client visual check was performed.
