@@ -1,4 +1,4 @@
-// Written by Claude; extended with abilities, inspection, ticking needs and inventory by ChatGPT.
+// Written by Claude; extended with abilities, inspection, ticking needs, inventory and eating by ChatGPT.
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashSet;
@@ -54,6 +54,7 @@ import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.GameRules;
@@ -109,6 +110,8 @@ public class CivilianEntity extends PathfinderMob {
     public static final int RECORD_SYNC_INTERVAL = 100;
     /** PROVISIONAL: a hotbar of pockets until the carrying system replaces it (Bright, D9). */
     public static final int INVENTORY_SIZE = 9;
+    /** PROVISIONAL: active ticks between attempts to eat without wasting nutrition. */
+    public static final int EAT_CHECK_INTERVAL = 20;
 
     /** What a civilian is to the empires (saved). */
     public enum Status {
@@ -161,6 +164,8 @@ public class CivilianEntity extends PathfinderMob {
     private boolean abilitiesPreset;
     private CivilianFood food = new CivilianFood();
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE);
+    /** Only meals moved out of our pockets are returned when use ends; future tools are left alone. */
+    private boolean inventoryMeal;
 
     // Speech state; transient, rebuilt after a reload. Times are in this civilian's tickCount.
     private final RandomGenerator rng = () -> random.nextLong();
@@ -342,6 +347,7 @@ public class CivilianEntity extends PathfinderMob {
     @Override
     public void onRemovedFromLevel() {
         if (getRemovalReason() != RemovalReason.KILLED) {
+            if (inventoryMeal) stopUsingItem();
             syncNeedsToRecord();
         }
         super.onRemovedFromLevel();
@@ -443,6 +449,7 @@ public class CivilianEntity extends PathfinderMob {
         if (status == Status.LEAVING) {
             return;
         }
+        if (inventoryMeal) stopUsingItem();
         status = Status.LEAVING;
         clearRestriction();
         endConversation();
@@ -481,6 +488,8 @@ public class CivilianEntity extends PathfinderMob {
 
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
+        // Use progress is not saved by vanilla. Return the meal before equipment and record snapshots diverge.
+        if (inventoryMeal && !level().isClientSide) stopUsingItem();
         super.addAdditionalSaveData(tag);
         syncNeedsToRecord();
         tag.put(TAG_FOOD, CivilianFoodNbt.save(food.save()));
@@ -564,12 +573,65 @@ public class CivilianEntity extends PathfinderMob {
                     serverLevel.getDifficulty() == Difficulty.PEACEFUL);
             if (result.healAmount() > 0.0F) heal(result.healAmount());
             if (result.starveDamage() > 0.0F) hurt(damageSources().starve(), result.starveDamage());
+            if (tickCount % EAT_CHECK_INTERVAL == 0) tryEatFromInventory();
             if (tickCount % RECORD_SYNC_INTERVAL == 0) syncNeedsToRecord();
         }
         tickDialogue();
         if (speechTick) {
             tickSpeech();
         }
+    }
+
+    private void tryEatFromInventory() {
+        if (isUsingItem() || !getMainHandItem().isEmpty()) return;
+        int missing = 20 - food.foodLevel();
+        for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            FoodProperties properties = stack.getFoodProperties(this);
+            if (!stack.isEmpty() && properties != null && properties.nutrition() <= missing) {
+                setItemInHand(InteractionHand.MAIN_HAND, inventory.removeItem(slot, 1));
+                inventoryMeal = true;
+                startUsingItem(InteractionHand.MAIN_HAND);
+                // NeoForge can cancel the start-use event. The food still belongs in the pockets.
+                if (!isUsingItem()) returnInventoryMeal();
+                return;
+            }
+        }
+    }
+
+    @Override
+    public ItemStack eat(Level level, ItemStack stack, FoodProperties properties) {
+        if (!level.isClientSide) food.eat(properties.nutrition(), properties.saturation());
+        ItemStack result = super.eat(level, stack, properties);
+        // In 1.21.1 this conversion belongs to Player.eat, not LivingEntity or Item.finishUsingItem.
+        if (!level.isClientSide && !hasInfiniteMaterials() && properties.usingConvertsTo().isPresent()) {
+            ItemStack container = properties.usingConvertsTo().get().copy();
+            if (result.isEmpty()) result = container;
+            else storeOrDrop(container);
+        }
+        syncNeedsToRecord();
+        return result;
+    }
+
+    @Override
+    public void stopUsingItem() {
+        super.stopUsingItem();
+        // completeUsingItem installs finishUsingItem's returned stack BEFORE calling this hook.
+        if (!level().isClientSide && inventoryMeal) returnInventoryMeal();
+    }
+
+    private void returnInventoryMeal() {
+        inventoryMeal = false;
+        ItemStack remainder = getMainHandItem();
+        setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        storeOrDrop(remainder);
+        syncNeedsToRecord();
+    }
+
+    private void storeOrDrop(ItemStack stack) {
+        if (stack.isEmpty()) return;
+        ItemStack overflow = inventory.addItem(stack);
+        if (!overflow.isEmpty()) spawnAtLocation(overflow);
     }
 
     /** Keeps a citizen's record's last position current: written whenever the civilian is in a new chunk. */

@@ -1,4 +1,4 @@
-// Written by Claude; extended with ability, needs and inventory commands by ChatGPT.
+// Written by Claude; extended with ability, needs, inventory and eating commands by ChatGPT.
 package dev.brights0ng.empire.command;
 
 import java.util.ArrayList;
@@ -298,6 +298,9 @@ public final class CivilianDebugCommands {
             if (!stack.isEmpty()) pockets.add(stack.getCount() + "× " + BuiltInRegistries.ITEM.getKey(stack.getItem()));
         }
         source.sendSuccess(() -> Component.literal("Inventory: " + (pockets.isEmpty() ? "empty" : String.join(", ", pockets))), false);
+        if (civilian.isUsingItem()) {
+            source.sendSuccess(() -> Component.literal("eating " + BuiltInRegistries.ITEM.getKey(civilian.getUseItem().getItem())), false);
+        }
         return 1;
     }
 

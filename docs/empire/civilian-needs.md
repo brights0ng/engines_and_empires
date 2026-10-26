@@ -2,8 +2,8 @@
 <!-- Written and implemented by ChatGPT; the requested Gemini heading above is retained verbatim, not an authorship claim. -->
 # Empire: Civilian needs
 
-**Date:** 2026-10-26 · **Status:** tasks 1–3 implemented on branch `civilian-needs`; verification for each is below. Client chat presentation is unchecked in-game.
-**Scope:** ability scores, hunger, regeneration, inventory, eating. Tasks 1–3 implement abilities, pure food rules, entity needs and record persistence; later prompts extend the same unreleased record VERSION 2 with inventory and eating.
+**Date:** 2026-10-26 · **Status:** built and waiting for Bright's review on branch `civilian-needs`. Client presentation remains unchecked in-game.
+**Scope:** tasks 1–5 implement ability scores, hunger, regeneration, carried inventory, food hand-over and vanilla item-use eating, with persistent record VERSION 2. The task sections below retain their original implementation and verification history; the overview and open items describe the finished series.
 
 ## Decisions (Bright, 2026-10-26)
 
@@ -12,29 +12,90 @@
 - **D3** Store and display raw scores; gameplay can use `(raw - 3) / 15`, normalized to 0–1.
 - **D4** No gameplay effects yet: roll, save, preserve across bodies and display. Jobs do not exist yet.
 - **D5** Sneak + right-click any non-leaving civilian, including travellers, sends the clicking player its name and six raw scores in chat. No dialogue, speech line or item consumption.
+- **D6–D8** Vanilla food rules plus basal exhaustion; hunger continues without online members, starvation stops at half maximum health on every difficulty, and food-based regeneration obeys `naturalRegeneration`.
+- **D9** Nine carried slots until Encumbered replaces them; eat from these pockets through vanilla item use, including effects, sound, particles and the player's EAT/DRINK held-item pose.
+- **D10** Count nutrition eaten per active civilian day. Eat as soon as nutrition fits the missing food; meal times and storage stocking wait for the scheduler.
+- **D11** Non-spectator players can stock citizens by right-clicking with main-hand food without sneaking. Survival consumes only what fits; creative consumes nothing. Travellers keep their want-click; FREE civilians take nothing.
 
 ## Provisional defaults (one named constant each)
 
 | Constant | Value | Where |
 |---|---|---|
 | `MAX_REROLLS` | 1000 retries after the initial roll; keep the last set at the cap | `rules.CivilianAbilities` |
+| `STARVE_FLOOR_FRACTION` | `0.5F` of maximum health | `rules.CivilianFood` |
+| `DAY_LENGTH` | `24000L` active ticks | `rules.CivilianFood` |
+| `civilianBasalExhaustionPerTick` | `0.0037`; SERVER config range `0.0`–`1.0` | `EmpireConfig`, section `civilianNeeds` |
+| `RECORD_SYNC_INTERVAL` | 100 ticks | `civilian.CivilianEntity` |
+| `INVENTORY_SIZE` | 9 slots | `civilian.CivilianEntity` |
+| `EAT_CHECK_INTERVAL` | 20 ticks | `civilian.CivilianEntity` |
 
-Decided mean bounds are named `REROLL_MIN_MEAN` (8.0) and `REROLL_MAX_MEAN` (13.0). No hunger, regeneration, inventory or eating defaults are introduced yet.
+Decided mean bounds are named `REROLL_MIN_MEAN` (8.0) and `REROLL_MAX_MEAN` (13.0). Existing maximum health remains 30. All table entries are provisional.
 
 ## Classes added or changed
 
 Pure rules (`dev.brights0ng.empire.rules`, no Minecraft imports):
+
 - `CivilianAbilities` (new): immutable six-score record, `Ability` enum with lowercase ids, validation, raw/normalized/mean, capped 3d6 rolling, 24-bit packing and hyphen-separated code parsing.
 - `CivilianAbilitiesTest` (new): packing, validation, normalization, 10,000 seeded rolls, whole-set retry, retry cap and codes.
+- `CivilianFood` and `CivilianFoodTest` (new): vanilla food arithmetic, regeneration/starvation tick results, intake days, saved state and independent copies; 22 unit cases.
+- `TravellerWantsTest`: existing language coverage extended to assert citizen hand-over replies.
 
 Data and civilians:
-- `CivilianRecord`: VERSION 2, packed `abilities`; UUID-seeded stable default for missing or corrupt abilities. Each new field loads independently, so later VERSION 2 additions can default on missing keys.
-- `CivilianEntity`: rolled or preset abilities, entity NBT `Abilities`, getter/setter writing through to its own citizen record, server-side sneak inspection before traveller and dialogue handling.
-- `CivilianRoster`: recruitment copies body scores; join restores the record's master scores.
-- `CivilianSpawning`: replacement bodies preset scores before `finalizeSpawn`.
-- `CivilianDebugCommands`: `info` prints code and mean to one decimal; `abilities <code>` edits the nearest civilian through its setter.
-- `en_us.json`: inspection message and six ability display names (added by ChatGPT).
-- `CivilianNeedsGameTests` (new, batch `civilians`): recruitment and write-through, respawn, stable v1 migration, entity NBT repair and sneak inspection with food/name tags. Setup and cleanup follow Claude's roster tests.
+
+- `CivilianRecord`: VERSION 2 abilities, food snapshot, health and nine copied inventory stacks; tolerant optional fields and UUID-seeded stable ability defaults.
+- `CivilianFoodNbt` (new): shared body/record codec with independent defaults and bounded corrupt values.
+- `EmpireSavedData`: passes registry access for civilian inventory codecs; SAVE_VERSION remains 4.
+- `CivilianEntity`: roll/save/inspect abilities, tick needs and movement/damage exhaustion, persist inventory, accept citizen hand-over, deterministic death drops, eat the first fitting pocket item through vanilla use, restore or drop leftovers/interrupted meals, and write through to the current master record.
+- `CivilianRoster`: recruitment copies body scores, needs and inventory; citizen join restores the master snapshot.
+- `CivilianSpawning`: replacement bodies preset scores before `finalizeSpawn` and restore needs/inventory.
+- `EmpireConfig`: server-side basal exhaustion setting and pre-load default getter.
+- `CivilianDebugCommands`: ability/mean, food/health/intake, pocket contents and `eating <item id>` in `info`; `abilities <code>` and `food <0-20> [saturation]` setters; roster food and health.
+- `client.CivilianRenderer`: resets both shared model arm poses per civilian, assigning the using EAT/DRINK arm vanilla's `ITEM` pose. Existing `HumanoidMobRenderer` supplies `ItemInHandLayer`.
+- `en_us.json`: inspection message, six ability names and two citizen food hand-over placeholders (added by ChatGPT).
+- `CivilianNeedsGameTests` (new, batch `civilians`): 32 tests across the series for abilities, needs, inventory, hand-over, vanilla eating, overflow, interruption and persistence. Setup and cleanup follow Claude's roster tests.
+- `sparse-ores/build.gradle`: its auxiliary data/Create-test source set now consumes the library's existing `requiredRuntimeElements`, fixing the missing mandatory GeckoLib runtime discovered during the full check. No dependency versions or repositories changed.
+
+## Open items after tasks 1–5
+
+- Meal-time stocking and pickup from storage wait for the scheduler.
+- Ability effects wait for jobs.
+- Encumbered replaces the provisional nine-slot pockets.
+- Bright must check the eating arm pose, held-food render, scores chat message and hand-over lines in a client. Compilation and server tests do not verify their appearance.
+- No Peaceful extras: no player-only bonus healing, food refill or saturation refill.
+- No catch-up while unloaded; only active body ticks count.
+
+## Deviations collected from prompts 1–5
+
+The detailed task notes below preserve the original explanations. This is the complete series index, including choices originally recorded as deviations and now-resolved staging notes.
+
+| Task | Deviation / smallest safe interpretation |
+|---|---|
+| 1 | Existing record constructor retained with UUID-seeded default abilities; recruitment replaces them with actual body scores. |
+| 1 | Invalid upper ability bits or wrong NBT types default safely: stable UUID roll for records, fresh roll for bodies. Existing appearance defaults remain unchanged. |
+| 1 | Requested Gemini heading retained verbatim, but actual authorship is ChatGPT; JSON edit attribution lives here because JSON cannot contain comments. |
+| 1 | Sneak tests use the real interaction path with mock-player shift state; no extracted testing branch. Client chat remains unchecked. |
+| 1 | Later needs work was staged for tasks 2–5 and is now complete; ability effects and exhaustion-warning logging remain excluded. |
+| 2 | Vanilla `Player.isHurt` also requires health above zero; dead civilians cannot regenerate. |
+| 2 | Deliberate half-maximum starvation floor replaces vanilla difficulty thresholds and clips final damage, including on Peaceful and with regeneration off. |
+| 2 | Player-only Peaceful healing, food refill and NeoForge saturation refill are excluded. |
+| 2 | `CivilianFood.eat(int, float)` accepts absolute saturation, matching the `FoodProperties` overload rather than vanilla's legacy two-argument modifier overload. |
+| 2 | Pure `restore` copies state verbatim; Minecraft codec validation is separate. |
+| 3 | Water movement statistics live in `ServerPlayer` in 1.21.1; copied its water branches and centimetre rounding. |
+| 3 | Damage delegates to the living-entity pipeline and charges exhaustion only after health loss; preserves mitigation, absorption and hooks. |
+| 3 | Missing fields default independently; corrupt ranges/nonfinite values are bounded in the codec. Legacy unknown health stays `unknown/30` until body write-back. |
+| 3 | Gamerule test uses 200 synchronous `aiStep` calls with `finally` restoration; periodic sync test uses 100 real server ticks. Basal drain still runs all 1100 requested ticks at defaults. |
+| 4 | Death drops retain `doMobLoot` and captured-drop hooks. Hands bypass equipment chance/enchantment checks and clear before superclass drops; armor retains vanilla behavior. Discard/unload/replacement cause no inventory-wide death drop. |
+| 4 | Existing `restoreNeeds` restores inventory for join and replacement; no duplicate `CivilianSpawning` restore added. |
+| 4 | Creative mock player needs explicit `GameType.CREATIVE.updatePlayerAbilities`; real interaction still checks `instabuild`. |
+| 4 | Optional tolerant inventory fields retain CivilianRecord VERSION 2 and EmpireSavedData SAVE_VERSION 4. |
+| 5 | `usingConvertsTo` is implemented by `Player.eat`, not `LivingEntity.eat` or base `Item.finishUsingItem`. Civilian `eat` copies only that conversion after `super.eat`; vanilla completion installs the result before `stopUsingItem` stores/drops it. |
+| 5 | EAT/DRINK have no special third-person pose branch in `PlayerRenderer.getArmPose`; they fall through to `ITEM`. Use that pose on the using arm and reset both arms before each render. No hand-to-mouth animation added. |
+| 5 | Vanilla does not save use progress. Entity serialization cancels an active pocket meal before superclass equipment serialization, then snapshots inventory/record; removal and LEAVING also return it. A later check retries it. |
+| 5 | A cancelled NeoForge start-use event immediately returns the moved meal. Only pocket-owned meals are cleared, preserving an occupied hand's skip rule. |
+| 5 | Added three lifecycle/overflow tests beyond the five requested eating cases; no tests removed, skipped or weakened. The stale project-wide split baseline is distinguished from the actual pre-series baseline in final verification. |
+| 5 | The single full command returned success even though the Sparse Ores + Create launcher failed before running tests: its auxiliary source set omitted the library's mandatory GeckoLib dependency. Fixed only that source set's consumption of existing `requiredRuntimeElements` in separate commit `afeb753`, then reran only `:sparse-ores:runGameTestServerWithCreate` (13/13). Did not invoke the full command a second time. |
+
+## Task 1: ability scores (2026-10-26)
 
 ## Verification (2026-10-26)
 
@@ -183,3 +244,77 @@ Written and implemented by ChatGPT from Bright's task 4.
 - `git diff --check`: passed.
 
 Gradle commands ran sequentially and synchronously using the installed Java 21 JDK and NeoForge 21.1.251. The first server run passed all six requested cases but exposed the extra creative fixture's missing abilities initialization; the corrected complete rerun passed. No tests were removed or weakened. Source and server behavior were verified; no client visual check was performed.
+
+## Task 5: eat from carried inventory (2026-10-26)
+
+Written and implemented by ChatGPT from Bright's D9/D10 continuation. A live, non-leaving civilian checks every `EAT_CHECK_INTERVAL` server ticks when not using an item and its main hand is empty. It takes exactly one item from the first slot whose entity-aware food nutrition fits `20 - foodLevel`, equips it and calls `startUsingItem(MAIN_HAND)`. No scheduler or storage pickup is added.
+
+### Vanilla source check and lifecycle
+
+Inspected the decompiled NeoForge 21.1.251 / MC 1.21.1 source jar: `LivingEntity.startUsingItem`, `updatingUsingItem`, `updateUsingItem`, `completeUsingItem`, `stopUsingItem`, `releaseUsingItem`, `eat` and `triggerItemUseEffects`; `Item.finishUsingItem`; `ItemStack.finishUsingItem`; `Foods.stew`; `Player.eat`; and `PlayerRenderer.getArmPose`.
+
+Vanilla owns the use duration, synchronized item-use flags, sound/particles, finish hooks, effects and stack consumption. Civilian `eat` adds absolute nutrition/saturation and daily intake, delegates to `super.eat`, copies the narrow player-owned `usingConvertsTo` container conversion, and writes needs back. Vanilla then installs the finished stack and calls the overridden `stopUsingItem`: the owned meal's remainder goes to pockets, overflow drops at the feet, the hand clears, and the completed inventory writes back too. Early stop follows that same return path without food intake. A cancelled start-use event also returns its item. Death uses the existing hand/inventory death-loot hook from task 4, preserving its gamerule and captured drops.
+
+LEAVING and non-death removal stop owned meals before write-back. Saving also stops the meal before equipment serialization, since vanilla does not serialize use progress and the master inventory must not omit or duplicate held food on reload. A future interval can retry an interrupted meal. The hand-ownership flag is transient; tools or other occupied main hands are skipped.
+
+The renderer resets both arm poses for each entity and sets the EAT/DRINK using arm to vanilla's fall-through `ITEM` pose, respecting the main arm and used hand. Its inherited `ItemInHandLayer` remains in place. No third-person hand-to-mouth animation is introduced. `info` adds `eating <item id>` during use. All client appearance remains for Bright to verify.
+
+### Targeted verification
+
+- `./gradlew :empire:compileJava --console=plain -q`: passed.
+- `./gradlew :empire:runGameTestServer --console=plain -q`: **124/124** required tests passed, **45** in batch `civilians`, **32** in `CivilianNeedsGameTests`.
+- Five requested tests: `eatsFromInventory` (observes active use before completion), `doesNotWasteFood` (all 100 ticks), `picksFirstFittingSlot`, `bowlComesBack` (also checks immediate record write-back), `noEatingWhileLeaving`.
+- Three additional tests: `interruptedMealsSurviveSaveAndRemoval`, `fullPocketsDropFinishedBowl`, `leavingAndDeathInterruptMeals`.
+
+All commands run sequentially and synchronously in the foreground with Java 21. The initial sandboxed compile could not open the Gradle cache lock; the same command passed with cache access. No client was launched.
+
+## Final series verification (2026-10-26)
+
+Invoked `./gradlew compileJava compileTestJava test runGameTestServer --console=plain` **exactly once**, before the final commit. It returned exit 0 / `BUILD SUCCESSFUL` in 3m 9s. Java compilation, unit tests and ten game-test runs passed, but log inspection caught a pre-test dependency failure in the eleventh run, Sparse Ores + Create. Gradle's successful exit did not establish that server's success. After the narrow build-wiring fix in `afeb753`, the isolated `./gradlew :sparse-ores:runGameTestServerWithCreate --console=plain -q` returned exit 0 and **13/13 passed**. The final matrix below uses that corrected run; the full command was not repeated. All Gradle invocations were sequential and synchronous.
+
+### Totals before and after prompts 1–5
+
+The pre-series point is `bf42b7c`, the parent of task 1. Its source contains **1450 unit `@Test` methods** and **364 game tests**; the existing aggregate log from 2026-10-25 also records 364/364 passing. Pre-series counts below are reconstructed from that source and existing evidence, not a newly executed baseline. `docs/PROJECT.md`'s historical split baseline (1066 unit / 227 aggregate game tests) predates this branch's civilian work and is not the starting point for these five prompts.
+
+| Suite / server | Before series | After series | Added |
+|---|---:|---:|---:|
+| Unit tests, all modules | 1450 (2 existing benchmark skips) | 1481 (same 2 skips) | 31 |
+| Empire unit tests | 116 | 147 | 31 |
+| Aggregate game tests | 364/364 | 396/396 | 32 |
+| Coreless combined game tests | 314/314 | 346/346 | 32 |
+| Empire standalone game tests | 92/92 | 124/124 | 32 |
+| Empire `civilians` batch | 13 | 45 | 32 |
+| Frontier standalone | 17/17 | 17/17 | 0 |
+| Meteodyne standalone | 98/98 | 98/98 | 0 |
+| Paradyne Lib standalone | 3/3 | 3/3 | 0 |
+| Sable Fixes standalone | 2/2 | 2/2 | 0 |
+| Seismic standalone | 20/20 | 20/20 | 0 |
+| Spoilage standalone | 34/34 | 34/34 | 0 |
+| Sparse Ores standalone | 13/13 | 13/13 | 0 |
+| Sparse Ores + Create | 13/13 | 13/13 (isolated corrected run) | 0 |
+
+The XML unit reports total **1479 passed, 2 skipped, 0 failures, 0 errors**. Across the eleven game-test configurations, final passing executions total **1066**, versus the pre-series **970**; the 32 new Empire tests each run in Empire, aggregate and coreless (96 additional executions). There are **396 distinct aggregate game tests**, not 1066 distinct cases.
+
+| Prompt | New unit tests | New game tests |
+|---|---:|---:|
+| 1: abilities | 9 | 5 |
+| 2: pure food | 22 | 0 |
+| 3: needs ticking | 0 | 11 |
+| 4: inventory / hand-over | 0 | 8 |
+| 5: eating | 0 | 8 |
+| Total | 31 | 32 |
+
+Source diff against `bf42b7c` adds the two unit suites and the needs game-test class. The only changed existing unit test gains two language assertions; no existing game-test class changes. No tests were removed, newly skipped or weakened. `git diff --check` passed.
+
+Verification logs (local, ignored build artifacts): `build/civilian-needs-task5-gametest.log`, `build/civilian-needs-full-check.log`, `build/civilian-needs-create-recheck.log`; unit XML under each module's `build/test-results/test/`.
+
+### Commits on `civilian-needs` for this series
+
+- `f392e50` — Empire: roll and save civilian ability scores.
+- `f936243` — Empire: civilian food rules after vanilla FoodData.
+- `ef468f5` — Empire: civilian hunger, regeneration and the starvation floor.
+- `2d1d439` — Empire: civilian inventory and food hand-over.
+- `afeb753` — Build: include required library runtime in Sparse Ores auxiliary runs.
+- Final task 5 commit: **Empire: civilians eat from their inventory** (contains this document).
+
+Bright still needs to verify **eating pose, held-food render, scores chat message and food hand-over lines in a client**. No client boot, visual quality or animation quality is claimed by the source and server checks.

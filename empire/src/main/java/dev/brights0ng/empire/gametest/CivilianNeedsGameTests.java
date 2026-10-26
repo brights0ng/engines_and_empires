@@ -68,6 +68,191 @@ public final class CivilianNeedsGameTests {
         return civilian;
     }
 
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH, timeoutTicks = 65)
+    public static void eatsFromInventory(GameTestHelper helper) {
+        CivilianEntity civilian = needsBody(helper, 10, 0, 30);
+        civilian.inventory().setItem(0, new ItemStack(Items.BREAD));
+        boolean[] sawUse = {false};
+        helper.onEachTick(() -> sawUse[0] |= civilian.isUsingItem());
+        helper.runAtTickTime(60, () -> {
+            try {
+                helper.assertTrue(sawUse[0], "vanilla item use was active before completion");
+                helper.assertTrue(civilian.food().foodLevel() == 15 && civilian.food().foodEatenToday() == 5,
+                        "one bread adds five nutrition and daily intake within sixty ticks");
+                helper.assertTrue(civilian.inventory().isEmpty() && civilian.getMainHandItem().isEmpty()
+                        && !civilian.isUsingItem(), "bread consumed and hand cleared");
+            } finally {
+                civilian.discard();
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH, timeoutTicks = 105)
+    public static void doesNotWasteFood(GameTestHelper helper) {
+        CivilianEntity civilian = needsBody(helper, 17, 0, 30);
+        civilian.inventory().setItem(0, new ItemStack(Items.COOKED_PORKCHOP));
+        helper.onEachTick(() -> helper.assertFalse(civilian.isUsingItem(), "eight nutrition never fits three missing"));
+        helper.runAtTickTime(100, () -> {
+            try {
+                helper.assertTrue(civilian.food().foodLevel() == 17 && civilian.food().foodEatenToday() == 0,
+                        "no food or intake change over one hundred ticks");
+                helper.assertTrue(civilian.inventory().countItem(Items.COOKED_PORKCHOP) == 1, "porkchop stays in pockets");
+            } finally {
+                civilian.discard();
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH, timeoutTicks = 65)
+    public static void picksFirstFittingSlot(GameTestHelper helper) {
+        CivilianEntity civilian = needsBody(helper, 14, 0, 30);
+        civilian.inventory().setItem(0, new ItemStack(Items.COOKED_PORKCHOP));
+        civilian.inventory().setItem(1, new ItemStack(Items.BREAD));
+        helper.runAtTickTime(60, () -> {
+            try {
+                helper.assertTrue(civilian.food().foodLevel() == 19 && civilian.food().foodEatenToday() == 5,
+                        "bread fits six missing nutrition");
+                helper.assertTrue(civilian.inventory().getItem(0).is(Items.COOKED_PORKCHOP)
+                        && civilian.inventory().getItem(1).isEmpty() && civilian.getMainHandItem().isEmpty(),
+                        "skip oversized slot zero, eat slot one, clear hand");
+            } finally {
+                civilian.discard();
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH, timeoutTicks = 65)
+    public static void bowlComesBack(GameTestHelper helper) {
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+        CivilianEntity civilian = needsBody(helper, 10, 0, 30);
+        civilian.inventory().setItem(0, new ItemStack(Items.MUSHROOM_STEW));
+        CivilianRecord record = CivilianRoster.recruit(civilian, empire, helper.getLevel());
+        helper.runAtTickTime(60, () -> {
+            try {
+                helper.assertTrue(civilian.food().foodLevel() == 16 && civilian.food().foodEatenToday() == 6,
+                        "stew feeds the civilian");
+                helper.assertTrue(civilian.inventory().countItem(Items.BOWL) == 1 && civilian.getMainHandItem().isEmpty(),
+                        "usingConvertsTo bowl returned once, hand cleared");
+                helper.assertTrue(record.food().foodEatenToday() == 6 && record.inventory().get(0).is(Items.BOWL),
+                        "completed food and bowl write through before periodic sync");
+            } finally {
+                civilian.discard();
+                disband(helper, empire);
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH, timeoutTicks = 105)
+    public static void noEatingWhileLeaving(GameTestHelper helper) {
+        CivilianEntity civilian = needsBody(helper, 10, 0, 30);
+        civilian.inventory().setItem(0, new ItemStack(Items.BREAD));
+        civilian.startLeaving();
+        helper.onEachTick(() -> helper.assertFalse(civilian.isUsingItem(), "leaving civilian never starts eating"));
+        helper.runAtTickTime(100, () -> {
+            try {
+                helper.assertTrue(civilian.inventory().countItem(Items.BREAD) == 1 && civilian.food().foodEatenToday() == 0,
+                        "leaving preserves the uneaten bread");
+            } finally {
+                civilian.discard();
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void interruptedMealsSurviveSaveAndRemoval(GameTestHelper helper) {
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+        CivilianEntity civilian = needsBody(helper, 10, 0, 30);
+        CivilianEntity restored = EmpireContent.CIVILIAN.get().create(helper.getLevel());
+        try {
+            civilian.inventory().setItem(0, new ItemStack(Items.BREAD, 2));
+            CivilianRecord record = CivilianRoster.recruit(civilian, empire, helper.getLevel());
+            for (int i = 0; i < 20; i++) helper.getLevel().tickNonPassenger(civilian);
+            helper.assertTrue(civilian.isUsingItem() && civilian.getMainHandItem().getCount() == 1
+                    && civilian.inventory().countItem(Items.BREAD) == 1, "only one item moved to vanilla use");
+            civilian.stopUsingItem();
+            helper.assertTrue(civilian.inventory().countItem(Items.BREAD) == 2 && civilian.getMainHandItem().isEmpty(),
+                    "early stop restores the unfinished item");
+            for (int i = 0; i < 20; i++) helper.getLevel().tickNonPassenger(civilian);
+            helper.assertTrue(civilian.isUsingItem(), "next interval retries interrupted meal");
+            CompoundTag tag = new CompoundTag();
+            civilian.addAdditionalSaveData(tag);
+            restored.readAdditionalSaveData(tag);
+            helper.assertTrue(restored.inventory().countItem(Items.BREAD) == 2 && restored.getMainHandItem().isEmpty(),
+                    "save cancels transient use before both inventory and equipment serialization");
+            for (int i = 0; i < 20; i++) helper.getLevel().tickNonPassenger(civilian);
+            helper.assertTrue(civilian.isUsingItem(), "meal starts again after save");
+            civilian.discard();
+            helper.assertTrue(civilian.getMainHandItem().isEmpty() && civilian.inventory().countItem(Items.BREAD) == 2
+                    && record.inventory().stream().mapToInt(ItemStack::getCount).sum() == 2,
+                    "removal returns food before master record write-back");
+            helper.assertTrue(civilian.food().foodEatenToday() == 0, "interruptions never count as meals");
+        } finally {
+            civilian.discard();
+            if (restored != null) restored.discard();
+            disband(helper, empire);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH, timeoutTicks = 65)
+    public static void fullPocketsDropFinishedBowl(GameTestHelper helper) {
+        CivilianEntity civilian = needsBody(helper, 10, 0, 30);
+        civilian.inventory().setItem(0, new ItemStack(Items.MUSHROOM_STEW));
+        helper.runAtTickTime(25, () -> {
+            helper.assertTrue(civilian.isUsingItem(), "stew is being eaten");
+            for (int slot = 0; slot < CivilianEntity.INVENTORY_SIZE; slot++) {
+                civilian.inventory().setItem(slot, new ItemStack(Items.COBBLESTONE, 64));
+            }
+        });
+        helper.runAtTickTime(60, () -> {
+            java.util.List<ItemEntity> drops = helper.getLevel().getEntitiesOfClass(ItemEntity.class, civilian.getBoundingBox().inflate(3));
+            try {
+                helper.assertTrue(droppedCount(drops, Items.BOWL) == 1, "full pockets drop exactly one bowl at the civilian");
+                helper.assertTrue(civilian.getMainHandItem().isEmpty() && civilian.food().foodEatenToday() == 6,
+                        "meal completes with empty hand");
+            } finally {
+                drops.forEach(Entity::discard);
+                civilian.discard();
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void leavingAndDeathInterruptMeals(GameTestHelper helper) {
+        CivilianEntity leaving = needsBody(helper, 10, 0, 30);
+        CivilianEntity dying = needsBody(helper, 10, 0, 30);
+        java.util.List<ItemEntity> drops = java.util.List.of();
+        try {
+            leaving.inventory().setItem(0, new ItemStack(Items.BREAD));
+            dying.inventory().setItem(0, new ItemStack(Items.MUSHROOM_STEW));
+            for (int i = 0; i < 20; i++) {
+                helper.getLevel().tickNonPassenger(leaving);
+                helper.getLevel().tickNonPassenger(dying);
+            }
+            helper.assertTrue(leaving.isUsingItem() && dying.isUsingItem(), "both meals started");
+            leaving.startLeaving();
+            helper.assertTrue(!leaving.isUsingItem() && leaving.getMainHandItem().isEmpty()
+                    && leaving.inventory().countItem(Items.BREAD) == 1, "leaving interrupts and restores food immediately");
+            dying.hurt(dying.damageSources().genericKill(), Float.MAX_VALUE);
+            drops = helper.getLevel().getEntitiesOfClass(ItemEntity.class, dying.getBoundingBox().inflate(3));
+            helper.assertTrue(droppedCount(drops, Items.MUSHROOM_STEW) == 1 && droppedCount(drops, Items.BOWL) == 0,
+                    "death drops the unfinished stew exactly once, without a bowl");
+            helper.assertTrue(dying.getMainHandItem().isEmpty() && dying.inventory().isEmpty()
+                    && dying.food().foodEatenToday() == 0, "death never consumes the meal");
+        } finally {
+            drops.forEach(Entity::discard);
+            leaving.discard();
+            dying.discard();
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = GameTestStructures.EMPTY, batch = BATCH, timeoutTicks = 380)
     public static void starvationStopsAtHalfHealth(GameTestHelper helper) {
         CivilianEntity civilian = needsBody(helper, 0, 0, 16.5F);
