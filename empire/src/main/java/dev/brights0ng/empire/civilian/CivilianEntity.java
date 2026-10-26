@@ -1,4 +1,4 @@
-// Written by Claude; extended with abilities, inspection, ticking needs, inventory and eating by ChatGPT.
+// Written by Claude; extended with abilities, inspection, ticking needs, inventory, eating and client eating sync by ChatGPT.
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashSet;
@@ -597,6 +597,21 @@ public class CivilianEntity extends PathfinderMob {
                 return;
             }
         }
+    }
+
+    // LivingEntity detects equipment before aiStep starts eating, so the use flag reaches the client before the hand item.
+    // Wait for that item instead of letting vanilla cancel client use with an empty stack (also when tracking mid-meal).
+    @Override
+    protected void updatingUsingItem() {
+        if (level().isClientSide && isUsingItem() && useItem.isEmpty()) {
+            ItemStack held = getItemInHand(getUsedItemHand());
+            if (held.isEmpty()) {
+                return;
+            }
+            useItem = held;
+            useItemRemaining = held.getUseDuration(this);
+        }
+        super.updatingUsingItem();
     }
 
     @Override

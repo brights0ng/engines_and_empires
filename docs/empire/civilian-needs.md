@@ -60,11 +60,11 @@ Data and civilians:
 - Meal-time stocking and pickup from storage wait for the scheduler.
 - Ability effects wait for jobs.
 - Encumbered replaces the provisional nine-slot pockets.
-- Bright must check the eating arm pose, held-food render, scores chat message and hand-over lines in a client. Compilation and server tests do not verify their appearance.
+- Bright must check the eating arm pose, eating particles, held-food render, scores chat message and hand-over lines in a client. Compilation and server tests do not verify their appearance.
 - No Peaceful extras: no player-only bonus healing, food refill or saturation refill.
 - No catch-up while unloaded; only active body ticks count.
 
-## Deviations collected from prompts 1–5
+## Deviations collected from prompts 1–5 and the eating-particles follow-up
 
 The detailed task notes below preserve the original explanations. This is the complete series index, including choices originally recorded as deviations and now-resolved staging notes.
 
@@ -94,6 +94,7 @@ The detailed task notes below preserve the original explanations. This is the co
 | 5 | A cancelled NeoForge start-use event immediately returns the moved meal. Only pocket-owned meals are cleared, preserving an occupied hand's skip rule. |
 | 5 | Added three lifecycle/overflow tests beyond the five requested eating cases; no tests removed, skipped or weakened. The stale project-wide split baseline is distinguished from the actual pre-series baseline in final verification. |
 | 5 | The single full command returned success even though the Sparse Ores + Create launcher failed before running tests: its auxiliary source set omitted the library's mandatory GeckoLib dependency. Fixed only that source set's consumption of existing `requiredRuntimeElements` in separate commit `afeb753`, then reran only `:sparse-ores:runGameTestServerWithCreate` (13/13). Did not invoke the full command a second time. |
+| Eating particles | `LivingEntity.tick` detects equipment changes before `aiStep` equips food and starts use, so the eating flag reaches the client before the hand item. Pairing also sends entity data before equipment, affecting players who start tracking mid-meal. The client-only `CivilianEntity.updatingUsingItem` branch waits for the hand item, then restores `useItem` and its duration before delegating to vanilla; server meal behavior is unchanged. In the decompiled NeoForge 21.1.251 / MC 1.21.1 Mojmap source, both fields are already `protected`, but `updatingUsingItem()` is `private`. Empire's new standard `META-INF/accesstransformer.cfg` widens only that method to `protected` so the requested override can run; no field access transformer or reflection is needed. |
 
 ## Task 1: ability scores (2026-10-26)
 
@@ -317,4 +318,12 @@ Verification logs (local, ignored build artifacts): `build/civilian-needs-task5-
 - `afeb753` — Build: include required library runtime in Sparse Ores auxiliary runs.
 - Final task 5 commit: **Empire: civilians eat from their inventory** (contains this document).
 
-Bright still needs to verify **eating pose, held-food render, scores chat message and food hand-over lines in a client**. No client boot, visual quality or animation quality is claimed by the source and server checks.
+Bright still needs to verify **eating pose, eating particles, held-food render, scores chat message and food hand-over lines in a client**. No client boot, visual quality or animation quality is claimed by the source and server checks.
+
+## Eating-particles follow-up verification (2026-10-26)
+
+- `./gradlew :empire:compileJava --console=plain -q`: passed with the method access transformer above.
+- `./gradlew :empire:runGameTestServer --console=plain -q`: **124/124** required tests passed, including **45** in batch `civilians` and all **32** in `CivilianNeedsGameTests`. No tests changed.
+- `git diff --check`: passed.
+
+Both Gradle commands ran sequentially and synchronously in the foreground using Java 21 and NeoForge 21.1.251 / MC 1.21.1. The sandbox initially denied the Gradle wrapper cache lock; compilation passed with cache access. The game-test log is `build/civilian-eating-particles-gametest.log` (local, ignored). No client was launched; eating particles, including when tracking a civilian mid-meal, remain for Bright's in-game visual check.
