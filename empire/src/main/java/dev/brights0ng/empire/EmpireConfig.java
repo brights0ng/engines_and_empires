@@ -1,4 +1,5 @@
 // Written by Claude.
+// Civilian needs settings added by ChatGPT.
 package dev.brights0ng.empire;
 
 import dev.brights0ng.empire.rules.LoadPlan;
@@ -54,6 +55,19 @@ public final class EmpireConfig {
         BUILDER.pop();
     }
 
+    static {
+        BUILDER.comment("Civilian food and hunger.").push("civilianNeeds");
+    }
+
+    /** PROVISIONAL (Bright): about two bread's worth of food per active day. */
+    public static final ModConfigSpec.DoubleValue CIVILIAN_BASAL_EXHAUSTION_PER_TICK = BUILDER
+            .comment("Exhaustion a civilian gains every tick on top of what it does. Every 4.0 exhaustion uses 1 saturation, or 1 food once saturation is empty. 0.0037 is about two bread's worth (10 food) a day.")
+            .defineInRange("civilianBasalExhaustionPerTick", 0.0037, 0.0, 1.0);
+
+    static {
+        BUILDER.pop();
+    }
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     /** The setting, or its default before the config has loaded. */
@@ -74,6 +88,11 @@ public final class EmpireConfig {
     /** The setting, or 5 days before the config has loaded. */
     public static long civilianLoadingInactiveTicks() {
         return SPEC.isLoaded() ? CIVILIAN_LOADING_INACTIVE_TICKS.get() : LoadPlan.INACTIVE_TICKS;
+    }
+
+    /** The setting, or the default before the config has loaded. */
+    public static double civilianBasalExhaustionPerTick() {
+        return SPEC.isLoaded() ? CIVILIAN_BASAL_EXHAUSTION_PER_TICK.get() : 0.0037;
     }
 
     private EmpireConfig() {
