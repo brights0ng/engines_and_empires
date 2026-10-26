@@ -1,10 +1,11 @@
-// Written by Claude; extended with abilities by ChatGPT.
+// Written by Claude; extended with abilities and needs persistence by ChatGPT.
 package dev.brights0ng.empire.data;
 
 import java.util.UUID;
 import java.util.Random;
 
 import dev.brights0ng.empire.rules.CivilianAbilities;
+import dev.brights0ng.empire.rules.CivilianFood;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -27,6 +28,9 @@ public final class CivilianRecord {
     /** {@code CivilianAppearance.pack()}. */
     private int appearance;
     private int abilities;
+    private CivilianFood.Saved food = new CivilianFood().save();
+    /** NaN in older records means to keep the body's health. */
+    private float health = Float.NaN;
     private BlockPos lastPos;
     /** {@code ChunkKeys.pack} of the chunk the body was last seen in. */
     private long lastChunk;
@@ -90,6 +94,22 @@ public final class CivilianRecord {
         return CivilianAbilities.roll(new Random(id.getMostSignificantBits() ^ id.getLeastSignificantBits())).pack();
     }
 
+    public CivilianFood.Saved food() {
+        return food;
+    }
+
+    public void setFood(CivilianFood.Saved food) {
+        this.food = java.util.Objects.requireNonNull(food);
+    }
+
+    public float health() {
+        return health;
+    }
+
+    public void setHealth(float health) {
+        this.health = Float.isFinite(health) ? health : Float.NaN;
+    }
+
     public BlockPos lastPos() {
         return lastPos;
     }
@@ -116,6 +136,8 @@ public final class CivilianRecord {
         tag.putString("name", name);
         tag.putInt("appearance", appearance);
         tag.putInt("abilities", abilities);
+        tag.put("food", CivilianFoodNbt.save(food));
+        tag.putFloat("health", health);
         tag.putLong("last_pos", lastPos.asLong());
         tag.putLong("last_chunk", lastChunk);
         tag.putLong("joined", joinedGameTime);
@@ -132,6 +154,10 @@ public final class CivilianRecord {
             } catch (IllegalArgumentException ignored) {
                 // Keep the same stable default as an older record if the saved bits are corrupt.
             }
+        }
+        record.setFood(CivilianFoodNbt.load(tag.getCompound("food")));
+        if (tag.contains("health", net.minecraft.nbt.Tag.TAG_ANY_NUMERIC)) {
+            record.setHealth(tag.getFloat("health"));
         }
         return record;
     }

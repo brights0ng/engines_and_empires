@@ -1,4 +1,4 @@
-// Written by Claude; extended with ability commands by ChatGPT.
+// Written by Claude; extended with ability and needs commands by ChatGPT.
 package dev.brights0ng.empire.command;
 
 import java.util.ArrayList;
@@ -9,6 +9,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
@@ -26,6 +27,7 @@ import dev.brights0ng.empire.data.TravellerSlot;
 import dev.brights0ng.empire.rules.ArrivalRule;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianAbilities;
+import dev.brights0ng.empire.rules.CivilianFood;
 import dev.brights0ng.empire.rules.CivilianLines;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -76,6 +78,12 @@ public final class CivilianDebugCommands {
                                 .executes(ctx -> look(ctx.getSource(), code(ctx)))))
                 .then(Commands.literal("info")
                         .executes(ctx -> info(ctx.getSource())))
+                .then(Commands.literal("food")
+                        .then(Commands.argument("level", IntegerArgumentType.integer(0, 20))
+                                .executes(ctx -> food(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "level"), 0.0F))
+                                .then(Commands.argument("saturation", FloatArgumentType.floatArg())
+                                        .executes(ctx -> food(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "level"),
+                                                FloatArgumentType.getFloat(ctx, "saturation"))))))
                 .then(Commands.literal("abilities")
                         .then(Commands.argument("code", StringArgumentType.word())
                                 .executes(ctx -> abilities(ctx.getSource(), code(ctx)))))
@@ -277,6 +285,20 @@ public final class CivilianDebugCommands {
                 + ", civilian id " + id + ", empire " + empire), false);
         source.sendSuccess(() -> Component.literal("Abilities " + civilian.abilities().code() + ", mean "
                 + String.format(Locale.ROOT, "%.1f", civilian.abilities().mean())), false);
+        CivilianFood food = civilian.food();
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "Food %d, saturation %.1f, exhaustion %.2f, health %.1f/%.1f, eaten today %d / yesterday %d, active ticks %d",
+                food.foodLevel(), food.saturation(), food.exhaustion(), civilian.getHealth(), civilian.getMaxHealth(),
+                food.foodEatenToday(), food.foodEatenYesterday(), food.activeTicks())), false);
+        return 1;
+    }
+
+    private static int food(CommandSourceStack source, int level, float saturation) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) return 0;
+        civilian.setFood(level, saturation);
+        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " food " + civilian.food().foodLevel()
+                + String.format(Locale.ROOT, ", saturation %.1f", civilian.food().saturation())), true);
         return 1;
     }
 
@@ -338,7 +360,10 @@ public final class CivilianDebugCommands {
         for (CivilianRecord civilian : records) {
             boolean loaded = overworld.getEntity(civilian.body()) != null;
             source.sendSuccess(() -> Component.literal(civilian.name() + " [" + civilian.id().toString().substring(0, 8)
-                    + "] body " + (loaded ? "loaded" : "not loaded") + ", last at " + civilian.lastPos().toShortString()), false);
+                    + "] body " + (loaded ? "loaded" : "not loaded") + ", last at " + civilian.lastPos().toShortString()
+                    + ", food " + civilian.food().foodLevel() + ", hp "
+                    + (Float.isNaN(civilian.health()) ? "unknown" : String.format(Locale.ROOT, "%.1f", civilian.health()))
+                    + "/30"), false);
         }
         TravellerSlot slot = data.traveller(record.id());
         if (slot != null) {

@@ -1,4 +1,4 @@
-// Written by Claude; extended with preset replacement abilities by ChatGPT.
+// Written by Claude; extended with replacement abilities and needs by ChatGPT.
 package dev.brights0ng.empire.civilian;
 
 import java.util.function.Consumer;
@@ -78,6 +78,7 @@ public final class CivilianSpawning {
         return spawn(level, pos, look, CivilianAbilities.unpack(record.abilities()), civilian -> {
             civilian.setCustomName(Component.literal(record.name()));
             civilian.becomeCitizen(record.id(), home);
+            civilian.restoreNeeds(record);
             record.setBody(civilian.getUUID());
             data.setDirty();
         });

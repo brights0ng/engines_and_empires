@@ -2,8 +2,8 @@
 <!-- Written and implemented by ChatGPT; the requested Gemini heading above is retained verbatim, not an authorship claim. -->
 # Empire: Civilian needs
 
-**Date:** 2026-10-26 · **Status:** task 1 implemented and verified on branch `civilian-needs`. Client chat presentation is unchecked in-game.
-**Scope:** ability scores, hunger, regeneration, inventory, eating. This task implements ability scores only; later prompts extend the same unreleased record VERSION 2.
+**Date:** 2026-10-26 · **Status:** tasks 1–3 implemented on branch `civilian-needs`; verification for each is below. Client chat presentation is unchecked in-game.
+**Scope:** ability scores, hunger, regeneration, inventory, eating. Tasks 1–3 implement abilities, pure food rules, entity needs and record persistence; later prompts extend the same unreleased record VERSION 2 with inventory and eating.
 
 ## Decisions (Bright, 2026-10-26)
 
@@ -98,3 +98,45 @@ Read the decompiled MC 1.21.1 sources in `build/moddev/artifacts/neoforge-21.1.2
 - `git diff --check`: passed.
 
 Both targeted Gradle commands ran synchronously and sequentially using the installed Java 21 JDK and NeoForge 21.1.251. Source and unit verification only; no in-game or visual verification applies to this pure-logic task.
+
+## Task 3: body hunger, regeneration and persistent needs (2026-10-26)
+
+Written and implemented by ChatGPT from Bright's task 3. Maximum health remains 30. Every live, non-leaving body's server `aiStep` counts an active tick, adds configured basal exhaustion, runs `CivilianFood.tick` with the natural-regeneration gamerule and Peaceful flag, then applies healing or starvation through the normal entity methods. Free civilians and travellers run the same needs as citizens.
+
+### Classes added or changed
+
+- `civilian.CivilianEntity`: mutable food state, `Food` entity NBT, damage/jump/water exhaustion, needs ticking, and one `syncNeedsToRecord()` write-back point for citizens through `ownRecord`. It compares the complete saved food snapshot and health before marking saved data dirty. Called every `RECORD_SYNC_INTERVAL` (**100 ticks, PROVISIONAL**), on entity save, on removal from the level, and by debug food edits. Death and stale bodies cannot write back. `restoreNeeds` applies record food and clamps known health to `[1, getMaxHealth()]`; NaN preserves the body's health.
+- `data.CivilianRecord`: still VERSION 2; immutable `CivilianFood.Saved` snapshot and float health. Missing food defaults to a new food state; missing or nonfinite health is NaN. Existing constructors and older saves remain supported.
+- `data.CivilianFoodNbt` (new): one codec shared by body and record. Stores all seven saved values in a compound (`food_level`, `saturation`, `exhaustion`, `tick_timer`, `eaten_today`, `eaten_yesterday`, `active_ticks`). Record keys are `food` and `health`; the entity uses `Food` and vanilla's existing health persistence.
+- `civilian.CivilianRoster`: recruitment snapshots body food and health; current citizen bodies receive record needs on join.
+- `civilian.CivilianSpawning`: replacement bodies receive record needs before joining the level. A missing body returns with its previous food and health.
+- `command.CivilianDebugCommands`: `info` adds food, saturation (one decimal), exhaustion (two decimals), current/max health, nutrition eaten today/yesterday and active ticks. Roster lines show record food and health out of 30. `food <0-20> [saturation]` edits the nearest civilian, defaults saturation to zero, clamps it to `[0, food]`, and writes through; timers, exhaustion and intake history are retained.
+- `gametest.CivilianNeedsGameTests`: 11 additional tests in batch `civilians`: starvation floor and another 200 ticks alive, slow/fast regeneration, disabled regeneration, 1100 ticks of default basal drain, replacement needs, tolerant body/record persistence and dirty-state checks, 100-tick write-back, damage/jump/leaving exhaustion, water movement, and join restoration/health bounds/unload write-back.
+
+### Vanilla source check
+
+Read the decompiled NeoForge 21.1.251 / MC 1.21.1 `Player.actuallyHurt`, `Player.jumpFromGround`, `LivingEntity.actuallyHurt`, and `ServerPlayer.travel/checkMovementStatistics` in `build/moddev/artifacts/neoforge-21.1.251-sources.jar`. Confirmed damage adds `DamageSource.getFoodExhaustion()` only when damage reaches health after mitigation and absorption; ordinary jumping adds `0.05F` (sprint jumping is `0.2F`, excluded here). Water movement adds `0.01F` per metre, after rounding displacement to centimetres: all three axes while swimming/submerged, horizontal axes while wading; passengers are excluded. Civilian `travel` measures its own before/after position, so teleports between ticks are not counted as movement. Sprinting, attacking and block-breaking exhaustion remain excluded.
+
+### Deviations
+
+1. **Movement source location.** This version puts `checkMovementStatistics` in `ServerPlayer`, rather than `Player`. Copied its water branches and rounding from that source.
+2. **Damage implementation.** `actuallyHurt` delegates to the existing living-entity damage pipeline and adds source exhaustion when health decreased. This preserves NeoForge mitigation, absorption and damage hooks without duplicating the pipeline. Fully absorbed or rejected hits add no exhaustion, as in the inspected player implementation.
+3. **Tolerant persistence.** Missing fields default independently; corrupt food/saturation/exhaustion/timer values are bounded to legal ranges, nonfinite floats use defaults, and intake/active-tick counters cannot load negative. This validation stays in the Minecraft codec; pure `CivilianFood.restore` retains its task 2 verbatim contract. Legacy roster health displays `unknown/30` until a body writes back, rather than inventing a healed value.
+4. **Shared gamerule and test isolation.** The gamerule-off test runs 200 actual body `aiStep` calls synchronously and restores the previous value in `finally`, so other tests in the same batch cannot observe a disabled global rule. The sync test runs 100 `ServerLevel.tickNonPassenger` calls synchronously, including the real server-owned `tickCount`, and asserts that no early periodic write occurs. Other timed needs tests run normally on the game-test server; basal drain uses the full requested 1100 ticks at default config, with no direct exhaustion shortcut.
+
+### Open items
+
+- Hunger only runs while the body is loaded and ticking; no catch-up for unloaded time.
+- Inventory and eating remain for tasks 4–5. The centralized needs write-back is ready for inventory to join it.
+- Player-facing debug text and other client presentation have not been visually checked in-game.
+
+### Verification (2026-10-26)
+
+- `./gradlew :empire:compileJava --console=plain -q`: passed.
+- `./gradlew :empire:test --tests "dev.brights0ng.empire.rules.*" --console=plain -q`: 137 passed across 21 suites, 0 failures, 0 errors, 0 skipped.
+- `./gradlew :empire:runGameTestServer --console=plain -q`: all 108 required tests passed; 29 in batch `civilians`, including 16 needs tests (11 added by task 3).
+- `git diff --check`: passed.
+
+The first game-test run exposed a test fixture calling `Entity.tick` without advancing server-owned `tickCount`; the fixture now uses `ServerLevel.tickNonPassenger` and retains the assertion against early periodic writes. The added water test initially used NoAI, which disables physical travel; enabling AI for that fixture exercises real movement. The final complete targeted run passed. No existing tests were removed or weakened.
+
+All Gradle commands ran sequentially and synchronously in the foreground using the installed Java 21 JDK and existing Gradle cache. These are source, unit and server behavior checks; no client visual verification was performed.

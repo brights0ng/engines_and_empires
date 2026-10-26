@@ -1,4 +1,4 @@
-// Written by Claude; extended with abilities and inspection by ChatGPT.
+// Written by Claude; extended with abilities, inspection and ticking needs by ChatGPT.
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashSet;
@@ -9,11 +9,14 @@ import java.util.random.RandomGenerator;
 
 import javax.annotation.Nullable;
 
+import dev.brights0ng.empire.EmpireConfig;
 import dev.brights0ng.empire.civilian.CivilianNetwork.CivilianSpeechPayload;
 import dev.brights0ng.empire.data.CivilianRecord;
+import dev.brights0ng.empire.data.CivilianFoodNbt;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianAbilities;
+import dev.brights0ng.empire.rules.CivilianFood;
 import dev.brights0ng.empire.rules.CivilianLines;
 import dev.brights0ng.empire.rules.CivilianNames;
 import dev.brights0ng.empire.rules.TravellerWants;
@@ -27,6 +30,8 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -48,6 +53,7 @@ import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -95,6 +101,8 @@ public class CivilianEntity extends PathfinderMob {
     public static final int LEAVE_DISTANCE = 48;
     /** A leaving civilian vanishes after this many ticks even if it is not there yet (provisional). */
     public static final int LEAVE_TIMEOUT = 1200;
+    /** PROVISIONAL: active ticks between writes of a citizen's needs to its master record. */
+    public static final int RECORD_SYNC_INTERVAL = 100;
 
     /** What a civilian is to the empires (saved). */
     public enum Status {
@@ -121,6 +129,7 @@ public class CivilianEntity extends PathfinderMob {
 
     private static final String TAG_APPEARANCE = "Appearance";
     private static final String TAG_ABILITIES = "Abilities";
+    private static final String TAG_FOOD = "Food";
     private static final String TAG_HOME = "Home";
     private static final String TAG_STATUS = "Status";
     private static final String TAG_CIVILIAN_ID = "CivilianId";
@@ -144,6 +153,7 @@ public class CivilianEntity extends PathfinderMob {
     private boolean appearancePreset;
     private CivilianAbilities abilities = new CivilianAbilities(3, 3, 3, 3, 3, 3);
     private boolean abilitiesPreset;
+    private CivilianFood food = new CivilianFood();
 
     // Speech state; transient, rebuilt after a reload. Times are in this civilian's tickCount.
     private final RandomGenerator rng = () -> random.nextLong();
@@ -266,6 +276,90 @@ public class CivilianEntity extends PathfinderMob {
         abilitiesPreset = true;
     }
 
+    public CivilianFood food() {
+        return food;
+    }
+
+    /** Applies a master snapshot without writing it back during join. */
+    void restoreNeeds(CivilianRecord record) {
+        food = CivilianFood.restore(record.food());
+        if (!Float.isNaN(record.health())) {
+            setHealth(Math.clamp(record.health(), 1.0F, getMaxHealth()));
+        }
+    }
+
+    /** Debug edit: preserve timers and intake history, and immediately write through for citizens. */
+    public void setFood(int level, float saturation) {
+        CivilianFood.Saved saved = food.save();
+        int clamped = Math.clamp(level, 0, 20);
+        food = CivilianFood.restore(new CivilianFood.Saved(clamped,
+                Math.clamp(Float.isFinite(saturation) ? saturation : 0.0F, 0.0F, (float) clamped),
+                saved.exhaustion(), saved.tickTimer(), saved.foodEatenToday(), saved.foodEatenYesterday(), saved.activeTicks()));
+        syncNeedsToRecord();
+    }
+
+    /** Single write-back point for current and future body-owned needs, guarded against stale or dead bodies. */
+    public void syncNeedsToRecord() {
+        // Removed bodies can still have live needs to flush during unload/discard.
+        if (status != Status.CITIZEN || dead || getHealth() <= 0.0F || getRemovalReason() == RemovalReason.KILLED
+                || !(level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        EmpireSavedData data = EmpireSavedData.of(serverLevel);
+        CivilianRecord record = ownRecord(data);
+        CivilianFood.Saved saved = food.save();
+        if (record != null && (!saved.equals(record.food()) || Float.compare(getHealth(), record.health()) != 0)) {
+            record.setFood(saved);
+            record.setHealth(getHealth());
+            data.setDirty();
+        }
+    }
+
+    @Override
+    public void onRemovedFromLevel() {
+        if (getRemovalReason() != RemovalReason.KILLED) {
+            syncNeedsToRecord();
+        }
+        super.onRemovedFromLevel();
+    }
+
+    @Override
+    protected void actuallyHurt(DamageSource source, float amount) {
+        float before = getHealth();
+        super.actuallyHurt(source, amount);
+        // Player charges only damage reaching health, after armor, magic and absorption.
+        if (!level().isClientSide && status != Status.LEAVING && getHealth() < before) {
+            food.addExhaustion(source.getFoodExhaustion());
+        }
+    }
+
+    @Override
+    public void jumpFromGround() {
+        super.jumpFromGround();
+        if (!level().isClientSide && status != Status.LEAVING) {
+            food.addExhaustion(0.05F);
+        }
+    }
+
+    @Override
+    public void travel(Vec3 movement) {
+        Vec3 before = position();
+        super.travel(movement);
+        if (!level().isClientSide && status != Status.LEAVING && !isPassenger()) {
+            double dx = getX() - before.x;
+            double dy = getY() - before.y;
+            double dz = getZ() - before.z;
+            // ServerPlayer rounds to centimetres; wading excludes vertical movement.
+            boolean submerged = isSwimming() || isEyeInFluid(FluidTags.WATER);
+            if (submerged || isInWater()) {
+                int centimetres = Math.round((float) Math.sqrt(dx * dx + dz * dz + (submerged ? dy * dy : 0.0)) * 100.0F);
+                if (centimetres > 0) {
+                    food.addExhaustion(0.01F * centimetres * 0.01F);
+                }
+            }
+        }
+    }
+
     @Nullable
     public BlockPos home() {
         return home;
@@ -364,6 +458,8 @@ public class CivilianEntity extends PathfinderMob {
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
+        syncNeedsToRecord();
+        tag.put(TAG_FOOD, CivilianFoodNbt.save(food.save()));
         tag.putInt(TAG_APPEARANCE, entityData.get(APPEARANCE));
         tag.putInt(TAG_ABILITIES, abilities.pack());
         if (home != null) {
@@ -383,6 +479,7 @@ public class CivilianEntity extends PathfinderMob {
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
+        food = CivilianFood.restore(CivilianFoodNbt.load(tag.getCompound(TAG_FOOD)));
         CivilianAbilities loadedAbilities = null;
         if (tag.contains(TAG_ABILITIES, net.minecraft.nbt.Tag.TAG_INT)) {
             try {
@@ -431,6 +528,16 @@ public class CivilianEntity extends PathfinderMob {
         if (status == Status.LEAVING) {
             tickLeaving();
             return;
+        }
+        if (isAlive() && !isRemoved()) {
+            food.countActiveTick();
+            food.addExhaustion((float) EmpireConfig.civilianBasalExhaustionPerTick());
+            CivilianFood.TickResult result = food.tick(getHealth(), getMaxHealth(),
+                    serverLevel.getGameRules().getBoolean(GameRules.RULE_NATURAL_REGENERATION),
+                    serverLevel.getDifficulty() == Difficulty.PEACEFUL);
+            if (result.healAmount() > 0.0F) heal(result.healAmount());
+            if (result.starveDamage() > 0.0F) hurt(damageSources().starve(), result.starveDamage());
+            if (tickCount % RECORD_SYNC_INTERVAL == 0) syncNeedsToRecord();
         }
         tickDialogue();
         if (speechTick) {

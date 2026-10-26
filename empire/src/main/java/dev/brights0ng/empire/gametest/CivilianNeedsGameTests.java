@@ -5,15 +5,18 @@ import java.util.UUID;
 
 import dev.brights0ng.empire.Empire;
 import dev.brights0ng.empire.EmpireContent;
+import dev.brights0ng.empire.EmpireConfig;
 import dev.brights0ng.empire.civilian.CivilianEntity;
 import dev.brights0ng.empire.civilian.CivilianRoster;
 import dev.brights0ng.empire.civilian.CivilianSpawning;
 import dev.brights0ng.empire.civilian.TravellerArrivals;
 import dev.brights0ng.empire.data.CivilianRecord;
+import dev.brights0ng.empire.data.CivilianFoodNbt;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.CivilianAbilities;
+import dev.brights0ng.empire.rules.CivilianFood;
 import dev.brights0ng.empire.rules.TravellerWants;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
@@ -25,6 +28,9 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -49,6 +55,269 @@ public final class CivilianNeedsGameTests {
         EmpireSavedData data = EmpireSavedData.of(helper.getLevel());
         data.disbandEmpire(empire.id(), null);
         data.onBonfireRemoved(mainPos(helper), null);
+    }
+
+    /** Keep needs tests independent of navigation, falling and nearby fixtures. */
+    private static CivilianEntity needsBody(GameTestHelper helper, int food, float saturation, float health) {
+        CivilianEntity civilian = CivilianSpawning.spawn(helper.getLevel(), Vec3.atBottomCenterOf(mainPos(helper)), null);
+        civilian.setNoAi(true);
+        civilian.setNoGravity(true);
+        civilian.setFood(food, saturation);
+        civilian.setHealth(health);
+        return civilian;
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH, timeoutTicks = 380)
+    public static void starvationStopsAtHalfHealth(GameTestHelper helper) {
+        CivilianEntity civilian = needsBody(helper, 0, 0, 16.5F);
+        helper.runAtTickTime(165, () -> {
+            helper.assertTrue(civilian.getMaxHealth() == 30.0F, "maximum health stays 30");
+            helper.assertTrue(civilian.getHealth() == 15.0F, "starvation clips the last half point to exactly 15");
+        });
+        helper.runAtTickTime(365, () -> {
+            try {
+                helper.assertTrue(civilian.getHealth() == 15.0F && civilian.isAlive(), "alive at 15 after another 200 ticks");
+            } finally {
+                civilian.discard();
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH, timeoutTicks = 90)
+    public static void slowRegenHeals(GameTestHelper helper) {
+        CivilianEntity civilian = needsBody(helper, 18, 0, 20);
+        helper.runAtTickTime(85, () -> {
+            try {
+                helper.assertTrue(civilian.getHealth() == 21.0F, "slow regeneration heals one HP within 85 ticks");
+            } finally {
+                civilian.discard();
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH, timeoutTicks = 20)
+    public static void fastRegenHeals(GameTestHelper helper) {
+        CivilianEntity civilian = needsBody(helper, 20, 5, 20);
+        helper.runAtTickTime(12, () -> {
+            try {
+                helper.assertTrue(civilian.getHealth() > 20.0F, "saturated regeneration heals within 12 ticks");
+                helper.assertTrue(civilian.food().saturation() < 5.0F, "healing spends saturation through exhaustion");
+            } finally {
+                civilian.discard();
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void naturalRegenerationOff(GameTestHelper helper) {
+        CivilianEntity civilian = needsBody(helper, 20, 5, 20);
+        GameRules.BooleanValue rule = helper.getLevel().getGameRules().getRule(GameRules.RULE_NATURAL_REGENERATION);
+        boolean previous = rule.get();
+        try {
+            rule.set(false, helper.getLevel().getServer());
+            // The gamerule is global: run body ticks synchronously so concurrent tests cannot observe it disabled.
+            for (int i = 0; i < 200; i++) civilian.aiStep();
+            helper.assertTrue(civilian.getHealth() == 20.0F, "no healing with natural regeneration off for 200 body ticks");
+            helper.assertTrue(civilian.food().activeTicks() == 200, "all 200 needs ticks ran");
+        } finally {
+            rule.set(previous, helper.getLevel().getServer());
+            civilian.discard();
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH, timeoutTicks = 1120)
+    public static void basalDrainLowersFood(GameTestHelper helper) {
+        CivilianEntity civilian = needsBody(helper, 20, 0, 30);
+        helper.assertTrue(EmpireConfig.civilianBasalExhaustionPerTick() == 0.0037, "default basal exhaustion is configured");
+        helper.runAtTickTime(1100, () -> {
+            try {
+                helper.assertTrue(civilian.food().foodLevel() == 19, "1100 ticks of basal drain lower food to 19");
+                helper.assertTrue(civilian.food().activeTicks() >= 1099, "body really ticked for the interval");
+            } finally {
+                civilian.discard();
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void respawnKeepsFoodAndHealth(GameTestHelper helper) {
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+        CivilianEntity civilian = needsBody(helper, 7, 0, 18);
+        CivilianEntity replacement = null;
+        try {
+            CivilianRecord record = CivilianRoster.recruit(civilian, empire, helper.getLevel());
+            helper.assertTrue(record.food().equals(civilian.food().save()) && record.health() == 18, "recruit copies needs");
+            // Alter after recruitment to prove removal flushes the most recent state too.
+            civilian.food().addExhaustion(1.25F);
+            civilian.food().eat(0, 1.0F);
+            UUID oldBody = civilian.getUUID();
+            civilian.discard();
+            helper.assertTrue(record.food().equals(civilian.food().save()), "discard writes the last needs snapshot");
+            CivilianRoster.runMissingCheck(helper.getLevel());
+            helper.assertTrue(record.body().equals(oldBody), "first missing check keeps the old body");
+            CivilianRoster.runMissingCheck(helper.getLevel());
+            helper.assertFalse(record.body().equals(oldBody), "second missing check replaces the body");
+            replacement = (CivilianEntity) helper.getLevel().getEntity(record.body());
+            helper.assertTrue(replacement != null, "replacement exists");
+            helper.assertTrue(replacement.food().save().equals(record.food()), "replacement keeps the complete food snapshot");
+            helper.assertTrue(replacement.food().foodLevel() == 7 && replacement.getHealth() == 18, "replacement is not healed or fed");
+        } finally {
+            civilian.discard();
+            if (replacement != null) replacement.discard();
+            disband(helper, empire);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void needsPersistenceAndTolerantLoads(GameTestHelper helper) {
+        CivilianEntity civilian = needsBody(helper, 7, 2, 18);
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+        try {
+            CivilianRecord record = CivilianRoster.recruit(civilian, empire, helper.getLevel());
+            civilian.food().addExhaustion(2.5F);
+            civilian.food().eat(1, 0);
+            civilian.food().countActiveTick();
+            civilian.setHealth(17.5F);
+            CompoundTag bodyTag = civilian.saveWithoutId(new CompoundTag());
+            helper.assertTrue(record.food().equals(civilian.food().save()) && record.health() == 17.5F, "entity save writes through");
+            CivilianRecord loadedRecord = CivilianRecord.load(record.save());
+            helper.assertTrue(loadedRecord.food().equals(record.food()) && loadedRecord.health() == record.health(), "record needs round trip");
+            CivilianEntity loaded = EmpireContent.CIVILIAN.get().create(helper.getLevel());
+            loaded.load(bodyTag);
+            helper.assertTrue(loaded.food().save().equals(civilian.food().save()), "body food round trip");
+            civilian.setFood(6, 20);
+            helper.assertTrue(record.food().foodLevel() == 6 && record.food().saturation() == 6, "debug edit clamps and writes through");
+            EmpireSavedData data = EmpireSavedData.of(helper.getLevel());
+            data.setDirty(false);
+            civilian.syncNeedsToRecord();
+            helper.assertFalse(data.isDirty(), "unchanged needs do not dirty saved data");
+            loaded.setUUID(UUID.randomUUID());
+            loaded.setFood(1, 0);
+            loaded.syncNeedsToRecord();
+            helper.assertTrue(record.food().foodLevel() == 6 && !data.isDirty(), "stale body cannot write to the record");
+            CompoundTag legacy = record.save();
+            legacy.remove("food");
+            legacy.remove("health");
+            CivilianRecord old = CivilianRecord.load(legacy);
+            helper.assertTrue(old.food().equals(new CivilianFood().save()) && Float.isNaN(old.health()), "missing record needs use defaults and NaN");
+            bodyTag.remove("Food");
+            loaded.load(bodyTag);
+            helper.assertTrue(loaded.food().save().equals(new CivilianFood().save()), "missing body food defaults");
+            CompoundTag corrupt = new CompoundTag();
+            corrupt.putInt("food_level", 99);
+            corrupt.putFloat("saturation", Float.NaN);
+            corrupt.putFloat("exhaustion", -3);
+            helper.assertTrue(CivilianFoodNbt.load(corrupt).foodLevel() == 20
+                    && CivilianFoodNbt.load(corrupt).saturation() == 5
+                    && CivilianFoodNbt.load(corrupt).exhaustion() == 0, "corrupt food fields repair independently");
+        } finally {
+            civilian.discard();
+            disband(helper, empire);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void needsSyncEveryHundredTicks(GameTestHelper helper) {
+        CivilianEntity civilian = needsBody(helper, 7, 0, 18);
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+        CivilianRecord record = CivilianRoster.recruit(civilian, empire, helper.getLevel());
+        try {
+            for (int tick = 1; tick <= 100; tick++) {
+                helper.getLevel().tickNonPassenger(civilian);
+                if (tick < 100) helper.assertTrue(record.food().activeTicks() == 0, "no early periodic write");
+            }
+            helper.assertTrue(record.food().activeTicks() == 100, "100-tick snapshot written to record");
+            helper.assertTrue(record.health() == 18.0F, "record keeps health");
+        } finally {
+            civilian.discard();
+            disband(helper, empire);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void damageJumpAndLeavingExhaustion(GameTestHelper helper) {
+        CivilianEntity civilian = needsBody(helper, 7, 0, 30);
+        try {
+            civilian.jumpFromGround();
+            helper.assertTrue(Math.abs(civilian.food().exhaustion() - 0.05F) < 0.00001F, "ordinary jump adds 0.05 exhaustion");
+            civilian.setDeltaMovement(Vec3.ZERO);
+            float before = civilian.food().exhaustion();
+            civilian.hurt(civilian.damageSources().generic(), 2.0F);
+            helper.assertTrue(civilian.getHealth() == 28.0F, "damage reaches health");
+            helper.assertTrue(Math.abs(civilian.food().exhaustion() - before
+                    - civilian.damageSources().generic().getFoodExhaustion()) < 0.00001F, "damage adds source exhaustion");
+            civilian.startLeaving();
+            CivilianFood.Saved frozen = civilian.food().save();
+            civilian.jumpFromGround();
+            civilian.aiStep();
+            helper.assertTrue(civilian.food().save().equals(frozen), "leaving body has no active hunger or exhaustion");
+        } finally {
+            civilian.discard();
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void waterMovementAddsVanillaExhaustion(GameTestHelper helper) {
+        helper.setBlock(new BlockPos(1, 1, 1), Blocks.WATER);
+        helper.setBlock(new BlockPos(1, 2, 1), Blocks.WATER);
+        CivilianEntity civilian = needsBody(helper, 7, 0, 30);
+        try {
+            civilian.setNoAi(false); // Mob travel is disabled with NoAI; this test needs real movement.
+            civilian.setDeltaMovement(new Vec3(0.2, 0.1, 0.1));
+            Vec3 before = civilian.position();
+            helper.getLevel().tickNonPassenger(civilian);
+            Vec3 delta = civilian.position().subtract(before);
+            helper.assertTrue(civilian.isEyeInFluid(net.minecraft.tags.FluidTags.WATER), "body is submerged");
+            int centimetres = Math.round((float) delta.length() * 100.0F);
+            helper.assertTrue(centimetres > 0, "body moved in water");
+            float expected = (float) EmpireConfig.civilianBasalExhaustionPerTick() + 0.01F * centimetres * 0.01F;
+            helper.assertTrue(Math.abs(civilian.food().exhaustion() - expected) < 0.00001F, "water uses rounded three-axis metres");
+        } finally {
+            civilian.discard();
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
+    public static void joinRestoresNeedsAndClampsHealth(GameTestHelper helper) {
+        CivilianEntity civilian = needsBody(helper, 7, 1, 18);
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+        CivilianEntity loaded = null;
+        try {
+            CivilianRecord record = CivilianRoster.recruit(civilian, empire, helper.getLevel());
+            CompoundTag saved = civilian.saveWithoutId(new CompoundTag());
+            civilian.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+            for (float health : new float[]{Float.NaN, -4.0F, 50.0F}) {
+                record.setHealth(health);
+                loaded = EmpireContent.CIVILIAN.get().create(helper.getLevel());
+                loaded.load(saved);
+                // The incoming body's stale food and health must yield to the record on join.
+                loaded.food().eat(10, 5);
+                loaded.setHealth(12.0F);
+                helper.assertTrue(helper.getLevel().addFreshEntity(loaded), "current body rejoins");
+                helper.assertTrue(loaded.food().save().equals(record.food()), "record food wins on join");
+                float expected = Float.isNaN(health) ? 12.0F : Math.clamp(health, 1.0F, 30.0F);
+                helper.assertTrue(loaded.getHealth() == expected, "join keeps NaN health or clamps to [1, max]");
+                loaded.food().addExhaustion(0.5F);
+                loaded.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+                helper.assertTrue(record.food().equals(loaded.food().save()), "unload flushes needs");
+                helper.assertTrue(record.health() == expected, "unload flushes health");
+            }
+        } finally {
+            civilian.discard();
+            if (loaded != null) loaded.discard();
+            disband(helper, empire);
+        }
+        helper.succeed();
     }
 
     @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)

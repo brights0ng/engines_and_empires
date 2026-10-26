@@ -1,4 +1,4 @@
-// Written by Claude; extended with ability persistence by ChatGPT.
+// Written by Claude; extended with ability and needs persistence by ChatGPT.
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashMap;
@@ -84,6 +84,7 @@ public final class CivilianRoster {
                 }
                 civilian.setCustomName(Component.literal(record.name()));
                 civilian.setAbilities(CivilianAbilities.unpack(record.abilities()));
+                civilian.restoreNeeds(record);
                 try {
                     civilian.setAppearance(CivilianAppearance.unpack(record.appearance()));
                 } catch (IllegalArgumentException ignored) {
@@ -233,6 +234,8 @@ public final class CivilianRoster {
         CivilianRecord record = new CivilianRecord(UUID.randomUUID(), empire.id(), civilian.getUUID(), name,
                 civilian.appearance().pack(), civilian.blockPosition(), civilian.chunkPosition().toLong(), level.getGameTime());
         record.setAbilities(civilian.abilities().pack());
+        record.setFood(civilian.food().save());
+        record.setHealth(civilian.getHealth());
         data.addCivilian(record);
         civilian.becomeCitizen(record.id(), homeFor(empire, level, civilian.getBlockY()));
         EmpireSavedData.messageMembers(empire, level.getServer(), Component.translatable("message.empire.civilian.joined", name));
