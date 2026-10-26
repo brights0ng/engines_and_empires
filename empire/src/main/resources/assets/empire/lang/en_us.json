@@ -1,4 +1,11 @@
 {
+  "message.empire.civilian.abilities": "%s — Endurance %s, Precision %s, Willpower %s, Wits %s, Organization %s, Teamwork %s",
+  "civilian.empire.ability.endurance": "Endurance",
+  "civilian.empire.ability.precision": "Precision",
+  "civilian.empire.ability.willpower": "Willpower",
+  "civilian.empire.ability.wits": "Wits",
+  "civilian.empire.ability.organization": "Organization",
+  "civilian.empire.ability.teamwork": "Teamwork",
   "itemGroup.empire.empire": "Empire",
   "block.empire.bonfire": "Empire Bonfire",
   "block.empire.bonfire_part": "Empire Bonfire Structure",

@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; extended with preset replacement abilities by ChatGPT.
 package dev.brights0ng.empire.civilian;
 
 import java.util.function.Consumer;
@@ -10,6 +10,7 @@ import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.CivilianAppearance;
+import dev.brights0ng.empire.rules.CivilianAbilities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -35,12 +36,20 @@ public final class CivilianSpawning {
      */
     public static CivilianEntity spawn(ServerLevel level, Vec3 pos, @Nullable CivilianAppearance appearance,
                                        Consumer<CivilianEntity> beforeAdd) {
+        return spawn(level, pos, appearance, null, beforeAdd);
+    }
+
+    private static CivilianEntity spawn(ServerLevel level, Vec3 pos, @Nullable CivilianAppearance appearance,
+                                        @Nullable CivilianAbilities abilities, Consumer<CivilianEntity> beforeAdd) {
         CivilianEntity civilian = EmpireContent.CIVILIAN.get().create(level);
         if (civilian == null) {
             throw new IllegalStateException("could not create a civilian");
         }
         if (appearance != null) {
             civilian.presetAppearance(appearance);
+        }
+        if (abilities != null) {
+            civilian.presetAbilities(abilities);
         }
         civilian.moveTo(pos.x, pos.y, pos.z, level.random.nextFloat() * 360.0F, 0.0F);
         civilian.finalizeSpawn(level, level.getCurrentDifficultyAt(BlockPos.containing(pos)), MobSpawnType.COMMAND, null);
@@ -66,7 +75,7 @@ public final class CivilianSpawning {
         } catch (IllegalArgumentException e) {
             look = null;
         }
-        return spawn(level, pos, look, civilian -> {
+        return spawn(level, pos, look, CivilianAbilities.unpack(record.abilities()), civilian -> {
             civilian.setCustomName(Component.literal(record.name()));
             civilian.becomeCitizen(record.id(), home);
             record.setBody(civilian.getUUID());

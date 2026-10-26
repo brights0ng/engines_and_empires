@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; extended with abilities and inspection by ChatGPT.
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashSet;
@@ -13,6 +13,7 @@ import dev.brights0ng.empire.civilian.CivilianNetwork.CivilianSpeechPayload;
 import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.CivilianAppearance;
+import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianLines;
 import dev.brights0ng.empire.rules.CivilianNames;
 import dev.brights0ng.empire.rules.TravellerWants;
@@ -119,6 +120,7 @@ public class CivilianEntity extends PathfinderMob {
             SynchedEntityData.defineId(CivilianEntity.class, EntityDataSerializers.INT);
 
     private static final String TAG_APPEARANCE = "Appearance";
+    private static final String TAG_ABILITIES = "Abilities";
     private static final String TAG_HOME = "Home";
     private static final String TAG_STATUS = "Status";
     private static final String TAG_CIVILIAN_ID = "CivilianId";
@@ -140,6 +142,8 @@ public class CivilianEntity extends PathfinderMob {
     private long leaveAt;
     /** Set when the look was chosen before spawning (debug commands), so finalizeSpawn keeps it. */
     private boolean appearancePreset;
+    private CivilianAbilities abilities = new CivilianAbilities(3, 3, 3, 3, 3, 3);
+    private boolean abilitiesPreset;
 
     // Speech state; transient, rebuilt after a reload. Times are in this civilian's tickCount.
     private final RandomGenerator rng = () -> random.nextLong();
@@ -240,6 +244,28 @@ public class CivilianEntity extends PathfinderMob {
         appearancePreset = true;
     }
 
+    public CivilianAbilities abilities() {
+        return abilities;
+    }
+
+    /** Sets scores and writes through to this citizen's master record. */
+    public void setAbilities(CivilianAbilities abilities) {
+        this.abilities = java.util.Objects.requireNonNull(abilities);
+        if (status == Status.CITIZEN && level() instanceof ServerLevel serverLevel) {
+            EmpireSavedData data = EmpireSavedData.of(serverLevel);
+            CivilianRecord record = ownRecord(data);
+            if (record != null && record.abilities() != abilities.pack()) {
+                record.setAbilities(abilities.pack());
+                data.setDirty();
+            }
+        }
+    }
+
+    void presetAbilities(CivilianAbilities abilities) {
+        setAbilities(abilities);
+        abilitiesPreset = true;
+    }
+
     @Nullable
     public BlockPos home() {
         return home;
@@ -324,6 +350,9 @@ public class CivilianEntity extends PathfinderMob {
         if (!appearancePreset) {
             setAppearance(CivilianAppearance.random(random::nextLong));
         }
+        if (!abilitiesPreset) {
+            setAbilities(CivilianAbilities.roll(random::nextLong));
+        }
         setCustomName(Component.literal(CivilianNames.pick(random::nextLong)));
         setCustomNameVisible(true);
 
@@ -336,6 +365,7 @@ public class CivilianEntity extends PathfinderMob {
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         tag.putInt(TAG_APPEARANCE, entityData.get(APPEARANCE));
+        tag.putInt(TAG_ABILITIES, abilities.pack());
         if (home != null) {
             tag.put(TAG_HOME, NbtUtils.writeBlockPos(home));
         }
@@ -353,6 +383,15 @@ public class CivilianEntity extends PathfinderMob {
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
+        CivilianAbilities loadedAbilities = null;
+        if (tag.contains(TAG_ABILITIES, net.minecraft.nbt.Tag.TAG_INT)) {
+            try {
+                loadedAbilities = CivilianAbilities.unpack(tag.getInt(TAG_ABILITIES));
+            } catch (IllegalArgumentException ignored) {
+                // Missing or corrupt scores get a fresh roll; a citizen's master copy wins on join.
+            }
+        }
+        abilities = loadedAbilities != null ? loadedAbilities : CivilianAbilities.roll(random::nextLong);
         if (tag.contains(TAG_APPEARANCE)) {
             try {
                 setAppearance(CivilianAppearance.unpack(tag.getInt(TAG_APPEARANCE)));
@@ -505,6 +544,12 @@ public class CivilianEntity extends PathfinderMob {
      */
     InteractionResult talkTo(Player player) {
         if (!level().isClientSide) {
+            if (player.isSecondaryUseActive() && status != Status.LEAVING) {
+                player.sendSystemMessage(Component.translatable("message.empire.civilian.abilities", getName(),
+                        abilities.endurance(), abilities.precision(), abilities.willpower(), abilities.wits(),
+                        abilities.organization(), abilities.teamwork()));
+                return InteractionResult.SUCCESS;
+            }
             if (status == Status.LEAVING) {
                 return InteractionResult.CONSUME;
             }

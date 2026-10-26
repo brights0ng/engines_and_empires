@@ -1,8 +1,9 @@
-// Written by Claude.
+// Written by Claude; extended with ability commands by ChatGPT.
 package dev.brights0ng.empire.command;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -24,6 +25,7 @@ import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.TravellerSlot;
 import dev.brights0ng.empire.rules.ArrivalRule;
 import dev.brights0ng.empire.rules.CivilianAppearance;
+import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianLines;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -74,6 +76,9 @@ public final class CivilianDebugCommands {
                                 .executes(ctx -> look(ctx.getSource(), code(ctx)))))
                 .then(Commands.literal("info")
                         .executes(ctx -> info(ctx.getSource())))
+                .then(Commands.literal("abilities")
+                        .then(Commands.argument("code", StringArgumentType.word())
+                                .executes(ctx -> abilities(ctx.getSource(), code(ctx)))))
                 .then(Commands.literal("traveller")
                         .then(playerArgument()
                                 .executes(ctx -> traveller(ctx.getSource(), player(ctx)))))
@@ -235,6 +240,23 @@ public final class CivilianDebugCommands {
         return 1;
     }
 
+    private static int abilities(CommandSourceStack source, String code) {
+        CivilianAbilities abilities;
+        try {
+            abilities = CivilianAbilities.parse(code);
+        } catch (IllegalArgumentException e) {
+            source.sendFailure(Component.literal("Ability codes are six scores 3-18 separated by hyphens: " + code));
+            return 0;
+        }
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        civilian.setAbilities(abilities);
+        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " abilities " + abilities.code()), true);
+        return 1;
+    }
+
     private static int info(CommandSourceStack source) {
         CivilianEntity civilian = nearest(source);
         if (civilian == null) {
@@ -253,6 +275,8 @@ public final class CivilianDebugCommands {
         String status = civilian.status().name();
         source.sendSuccess(() -> Component.literal(name + ": " + status + ", look " + code + ", home " + home
                 + ", civilian id " + id + ", empire " + empire), false);
+        source.sendSuccess(() -> Component.literal("Abilities " + civilian.abilities().code() + ", mean "
+                + String.format(Locale.ROOT, "%.1f", civilian.abilities().mean())), false);
         return 1;
     }
 

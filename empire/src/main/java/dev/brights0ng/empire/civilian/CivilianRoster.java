@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; extended with ability persistence by ChatGPT.
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashMap;
@@ -16,6 +16,7 @@ import dev.brights0ng.empire.data.TravellerSlot;
 import dev.brights0ng.empire.rules.ArrivalRule;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.CivilianAppearance;
+import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.TravellerWants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -82,6 +83,7 @@ public final class CivilianRoster {
                     return;
                 }
                 civilian.setCustomName(Component.literal(record.name()));
+                civilian.setAbilities(CivilianAbilities.unpack(record.abilities()));
                 try {
                     civilian.setAppearance(CivilianAppearance.unpack(record.appearance()));
                 } catch (IllegalArgumentException ignored) {
@@ -230,6 +232,7 @@ public final class CivilianRoster {
         String name = civilian.getCustomName() != null ? civilian.getCustomName().getString() : civilian.getName().getString();
         CivilianRecord record = new CivilianRecord(UUID.randomUUID(), empire.id(), civilian.getUUID(), name,
                 civilian.appearance().pack(), civilian.blockPosition(), civilian.chunkPosition().toLong(), level.getGameTime());
+        record.setAbilities(civilian.abilities().pack());
         data.addCivilian(record);
         civilian.becomeCitizen(record.id(), homeFor(empire, level, civilian.getBlockY()));
         EmpireSavedData.messageMembers(empire, level.getServer(), Component.translatable("message.empire.civilian.joined", name));
