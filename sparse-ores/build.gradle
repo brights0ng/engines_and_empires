@@ -1,4 +1,4 @@
-// Edited by Gemini.
+// Edited by Gemini; corrected auxiliary-run required runtime dependencies by ChatGPT.
 plugins {
     id 'eae.mod-conventions'
 }
@@ -19,6 +19,9 @@ sourceSets {
 }
 
 dependencies {
+    // This auxiliary source set also loads the library's mandatory outside runtime dependencies.
+    datagenRuntimeOnly(project(path: ':paradyne-lib', configuration: 'requiredRuntimeElements'))
+
     // JUnit comes from the convention plugin. The chip tests read the recipes the mod builds as JSON (Minecraft ships
     // this same Gson), as the core's refining tests do.
     testImplementation 'com.google.code.gson:gson:2.10.1'
