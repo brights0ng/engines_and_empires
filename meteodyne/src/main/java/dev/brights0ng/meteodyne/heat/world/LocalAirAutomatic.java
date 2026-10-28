@@ -6,6 +6,7 @@
 // Updated by ChatGPT: bounded rejected-cut expansion and retained explicit coverage failure feedback.
 // Updated by Claude: reported per-owner restart, failure, topology and weather churn counters.
 // Updated by Claude: reported per-owner edit classification counts.
+// Updated by Claude: reported per-owner capture re-reads and requeued coverage columns.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -43,7 +44,8 @@ final class LocalAirAutomatic {
     }
     record Decision(LocalAirPlanner.Tile key,String state,String reason) { }
     record Row(long id,Bounds bounds,boolean retained,String preparation,String run,String reason,long frameTick,long restarts,int airNodes,int faces,String role,int drivenSources,long drivenReads,boolean persistentThermal,int restoredCells,int estimatedCells,int equilibriumIterations,LocalAirStartup.Report startup,long thermalReads,long thermalReused,String progress,
-               Map<String,Long> restartCauses,Map<String,Long> failureCauses,long topologyStages,long weatherRevisions,long gridRebuilds,long shortSteps,Map<String,Long> editOutcomes) { }
+               Map<String,Long> restartCauses,Map<String,Long> failureCauses,long topologyStages,long weatherRevisions,long gridRebuilds,long shortSteps,Map<String,Long> editOutcomes,
+               long rereadCells,long requeuedColumns) { }
     record Transfer(long generation,long tick,int donors,int targets,double oldEnergy,double newEnergy,double incomingEnergy,double outgoingEnergy,double error) { }
     private static final class Transaction {
         final List<Domain> donors,targets;
@@ -297,7 +299,8 @@ final class LocalAirAutomatic {
             var geometry=d.preparation.published();
             String role=retiring.contains(d)?"RETIRING":transaction!=null && transaction.targets.contains(d)?"TARGET":d.wanted?"COMMITTED":"RETAINED";
             rows.add(new Row(d.id,d.bounds,domains.contains(d) && !d.wanted,d.preparation.status().name(),run==null?"UNAVAILABLE":run.name(),d.preparation.runReason(),frame==null?-1:frame.throughTick,d.preparation.restarts(),geometry==null?-1:geometry.flow().nodes(),geometry==null?-1:geometry.flow().faces(),role,d.preparation.drivenSourceCells(),d.preparation.drivenReadCells(),frame!=null && frame.persistentThermal,frame==null?0:frame.restoredCells,frame==null?0:frame.estimatedCells,d.preparation.estimationQuality()==null?0:d.preparation.estimationQuality().iterations(),d.preparation.startup(),d.preparation.thermalReadCells(),d.preparation.thermalReusedCells(),d.preparation.description(),
-                    d.preparation.restartCauses(),d.preparation.failureCauses(),d.preparation.topologyStages(),d.preparation.weatherRevisions(),frame==null?0:frame.gridRebuilds,frame==null?0:frame.shortSteps,d.preparation.editOutcomes()));
+                    d.preparation.restartCauses(),d.preparation.failureCauses(),d.preparation.topologyStages(),d.preparation.weatherRevisions(),frame==null?0:frame.gridRebuilds,frame==null?0:frame.shortSteps,d.preparation.editOutcomes(),
+                    d.preparation.rereadCells(),d.preparation.requeuedColumns()));
         }
         return List.copyOf(rows);
     }

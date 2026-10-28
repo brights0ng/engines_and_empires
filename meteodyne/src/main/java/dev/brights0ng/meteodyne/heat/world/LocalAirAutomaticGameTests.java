@@ -3,6 +3,7 @@
 // Written by ChatGPT.
 // Updated by ChatGPT: verified automatic view movement, source selection and saved-state reentry.
 // Updated by ChatGPT: verified real partial-cut rejection, bounded expansion and viewer recovery.
+// Updated by Claude: verified redstone pulses during a fresh automatic owner's capture never restart it.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -74,6 +75,52 @@ public final class LocalAirAutomaticGameTests {
             messages.clear();helper.assertTrue(LocalAirView.enable(viewer,40),"Explicit manual source remains selectable");
             helper.assertTrue(execute(dispatcher,"meteodyne heat air status",viewer.createCommandSourceStack().withPermission(2).withSource(output))==1,"Manual status remains selectable alongside automatic runtime");
             helper.assertTrue(messages.stream().anyMatch(s->s.startsWith("Forcing:")) && messages.stream().noneMatch(s->s.startsWith("Automatic trial:")),"An explicit manual view selects manual status even without a manual request: "+messages);
+        }).thenSucceed();
+    }
+    @GameTest(template=GameTestStructures.EMPTY,batch="local_air_capture_edits",timeoutTicks=1000)
+    public static void redstonePulsesDuringAutomaticCaptureNeverRestartTheOwner(GameTestHelper helper) {
+        var level=helper.getLevel();var world=HeatWorld.of(level);world.setPaused(false);world.clearLocalAirGeometry();world.stopLocalAirPlan();
+        var at=helper.absolutePos(new BlockPos(2560,2,2560));
+        var low=new BlockPos(Math.floorDiv(at.getX(),16)*16,level.getMaxBuildHeight()-16,Math.floorDiv(at.getZ(),16)*16);
+        world.setTestArea(new int[]{low.getX(),low.getY(),low.getZ(),low.getX()+15,low.getY()+15,low.getZ()+15});
+        var chunk=new net.minecraft.world.level.ChunkPos(low.getX()>>4,low.getZ()>>4);boolean forced=!level.getForcedChunks().contains(chunk.toLong());
+        if(forced) level.setChunkForced(chunk.x,chunk.z,true);
+        var viewer=LocalAirDiagnosticsGameTests.viewer(helper);var restore=new LinkedHashMap<BlockPos,BlockState>();
+        var data=level.getChunkAt(low);var saved=data.getData(HeatContent.CHUNK_DATA).serializeNBT(level.registryAccess());
+        Runnable cleanup=()->{LocalAirView.disable(viewer);viewer.discard();world.stopLocalAirPlan();world.clearLocalAirGeometry();world.setTestArea(null);restore.forEach((p,s)->level.setBlock(p,s,2));data.getData(HeatContent.CHUNK_DATA).deserializeNBT(level.registryAccess(),saved);data.setUnsaved(true);if(forced) level.setChunkForced(chunk.x,chunk.z,false);};
+        helper.testInfo.addListener(new GameTestListener() {
+            public void testStructureLoaded(GameTestInfo info) { }
+            public void testPassed(GameTestInfo info,GameTestRunner runner) { cleanup.run(); }
+            public void testFailed(GameTestInfo info,GameTestRunner runner) { cleanup.run(); }
+            public void testAddedForRerun(GameTestInfo oldInfo,GameTestInfo newInfo,GameTestRunner runner) { cleanup.run(); }
+        });
+        for(int x=0;x<16;x++) for(int y=0;y<16;y++) for(int z=0;z<16;z++) {
+            var p=low.offset(x,y,z);restore.put(p,level.getBlockState(p));
+            boolean room=x>=4 && x<=11 && y>=7 && y<=9 && z>=4 && z<=11;
+            level.setBlock(p,(room?Blocks.AIR:Blocks.STONE).defaultBlockState(),2);
+        }
+        var fire=low.offset(8,7,8);var wire=low.offset(6,7,6);
+        level.setBlock(fire,Blocks.CAMPFIRE.defaultBlockState().setValue(BlockStateProperties.LIT,true),2);
+        level.setBlock(wire,Blocks.REDSTONE_WIRE.defaultBlockState(),2);
+        // Flag 2 changes only the wire's power: the cell's shape, material and heat stay the same.
+        Runnable pulse=()->level.setBlock(wire,level.getBlockState(wire).setValue(BlockStateProperties.POWER,level.getBlockState(wire).getValue(BlockStateProperties.POWER)==0?15:0),2);
+        viewer.setPos(fire.getX()+.5,fire.getY()+.6,fire.getZ()+.5);LocalAirView.enable(viewer,40,LocalAirView.Mode.AUTOMATIC);
+        world.planLocalAir(new LocalAirPlanner.Settings(0,1,8,8));world.startAutomaticAir(new LocalAirAutomatic.Settings(2,16384,0,4));
+        var owner=world.automaticAir().committedDomains().getFirst();pulse.run();
+        long[] pulses={1};
+        helper.onEachTick(()->{
+            LockSupport.parkNanos(50_000_000L);
+            if(level.getGameTime()%2==0) { pulse.run();pulses[0]++; }
+        });
+        helper.startSequence().thenWaitUntil(()->{
+            var auto=world.automaticAir();
+            helper.assertTrue(auto.committedDomains().size()==1 && auto.committedDomains().getFirst()==owner,"The requested owner is kept: "+auto.rows()+" "+auto.decisions());
+            helper.assertTrue(owner.preparation.restarts()==0,"Pulses never restart the owner: "+owner.preparation.restartCauses()+" "+owner.preparation.editOutcomes());
+            helper.assertTrue(owner.preparation.field()!=null,"The owner publishes while the wire pulses: "+owner.preparation.description()+" "+owner.preparation.editOutcomes());
+        }).thenExecute(()->{
+            var outcomes=owner.preparation.editOutcomes();
+            helper.assertTrue(!outcomes.containsKey("GEOMETRY") && outcomes.getOrDefault("IGNORED",0L)>=2,"Pulses are classified without invalidation: "+outcomes+" after "+pulses[0]+" pulses");
+            helper.assertTrue(owner.preparation.topologyStages()==0,"No topology stage for a state-only edit");
         }).thenSucceed();
     }
     private static LocalAirViewNetwork.Payload verifyView(GameTestHelper helper,HeatWorld world,net.minecraft.server.level.ServerPlayer viewer,BlockPos fire) {

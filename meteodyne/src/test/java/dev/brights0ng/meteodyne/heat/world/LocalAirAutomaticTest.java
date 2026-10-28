@@ -3,6 +3,7 @@
 // Updated by ChatGPT: tested paired view frames, chunk loss and saved-warmth presentation.
 // Updated by ChatGPT: verified rejected-cut recovery and retained donor behavior under limits.
 // Updated by Claude: tested restart-cause and weather grid-rebuild counters.
+// Updated by Claude: tested continuous no-op and real edits while a fresh owner captures.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -14,10 +15,11 @@ class LocalAirAutomaticTest {
     private static final LocalAirAutomatic.Settings SETTINGS=new LocalAirAutomatic.Settings(4,32768,0,4);
     private static final LocalAirRun.Weather WEATHER=new LocalAirRun.Weather(20,0,0);
     private static class Factory implements LocalAirAutomatic.Factory {
-        int created,reads;boolean openBottom,corruptTarget,loaded=true;
+        int created,reads;boolean openBottom,corruptTarget,loaded=true,ownReads;
+        final Map<Long,Cell> overrides=new HashMap<>();
         public LocalAirRun.Weather weather(Bounds b) { return WEATHER; }
         public LocalAirAutomatic.Capture capture(Bounds b) {
-            created++;var epoch=new LocalAirDependencies(b);long id=created;
+            created++;var epoch=new LocalAirDependencies(b);long id=created;long[] last={0};
             var world=new LocalAirCoverage.World() {
                 public long contextId() { return id; }
                 public long geometryRevision() { return epoch.get(); }
@@ -26,7 +28,8 @@ class LocalAirAutomaticTest {
                 public int maxBuildY() { return 32; }
                 public Cell sample(int x,int y,int z) {
                     if(!loaded) throw new Unavailable(LocalAirGeometryCapture.Status.MISSING_GEOMETRY,"Chunk unavailable");
-                    reads++;epoch.read(x,y,z);
+                    reads++;epoch.read(x,y,z);last[0]=blockKey(x,y,z);
+                    var override=overrides.get(last[0]);if(override!=null) return override;
                     if(corruptTarget && b.x()==32 && x==39 && y==6 && z==7) return LocalAirPreparationTest.SOLID;
                     boolean inside=Math.floorMod(x,16)>5 && Math.floorMod(x,16)<10 && y>5 && y<10 && Math.floorMod(z,16)>5 && Math.floorMod(z,16)<10;
                     if(openBottom && y==0) return LocalAirPreparationTest.AIR;
@@ -34,7 +37,7 @@ class LocalAirAutomaticTest {
                     var air=LocalAirPreparationTest.AIR;
                     return Math.floorMod(x,16)==7 && y==6 && Math.floorMod(z,16)==7?new Cell(air.shape(),1,1,1,1,new Heat(12,65,Double.NaN,false)):air;
                 }
-                public Footprint lastReads() { return null; }
+                public Footprint lastReads() { return ownReads?new Footprint(new long[]{last[0]}):null; }
             };
             return new LocalAirAutomatic.Capture(world,epoch);
         }
@@ -80,6 +83,39 @@ class LocalAirAutomaticTest {
                 }
             },epoch);
         }
+    }
+    /** One tick per round with HeatWorld's hook order: the block write, classification, then the tick's
+     * capture slice. Only GEOMETRY bumps the dependency revision. Returns the outcomes seen while capturing. */
+    private static Map<String,Long> editEachTick(LocalAirAutomatic auto,Factory f,java.util.function.LongPredicate flip,int x,int y,int z) {
+        var d=auto.committedDomains().getFirst();var captureOutcomes=new TreeMap<String,Long>();long key=blockKey(x,y,z);
+        for(long tick=0;tick<400 && d.preparation.field()==null;tick++) {
+            boolean capturing=d.preparation.status()==LocalAirPreparation.Status.CAPTURING;
+            if(capturing && flip.test(tick) && f.overrides.remove(key)==null) f.overrides.put(key,LocalAirPreparationTest.SOLID);
+            var outcome=d.preparation.classifyEdit(x,y,z,tick,1);
+            if(outcome==LocalAirPreparation.EditOutcome.GEOMETRY) d.capture.dependencies().blockRevision(x,y,z,tick,"before","after");
+            if(capturing) captureOutcomes.merge(outcome.name(),1L,Long::sum);
+            auto.observe(tick,1);
+            assertTrue(d.preparation.advance(256,Long.MAX_VALUE)<=256);
+            var work=d.preparation.takeWork();if(work!=null) d.preparation.complete(work.run());
+        }
+        assertSame(d,auto.committedDomains().getFirst());assertNotNull(d.preparation.field(),auto.rows().toString());
+        return captureOutcomes;
+    }
+    @Test void continuousNoopEditsDuringCapturePublish() {
+        var f=new Factory();f.ownReads=true;var auto=new LocalAirAutomatic(SETTINGS,f);var r=registry();request(r,"p",8);auto.reconcile(plan(r),0,32);
+        var outcomes=editEachTick(auto,f,tick->false,8,7,8);
+        assertTrue(outcomes.getOrDefault("IGNORED",0L)>=10,"Edits landed throughout the capture: "+outcomes);
+        var row=auto.rows().getFirst();var d=auto.committedDomains().getFirst();
+        assertEquals(0,row.restarts(),row.restartCauses().toString());assertEquals(0,row.rereadCells());
+        assertFalse(d.preparation.editOutcomes().containsKey("GEOMETRY"),d.preparation.editOutcomes().toString());auto.close();
+    }
+    @Test void continuousRealEditsDuringCapturePublish() {
+        var f=new Factory();f.ownReads=true;var auto=new LocalAirAutomatic(SETTINGS,f);var r=registry();request(r,"p",8);auto.reconcile(plan(r),0,32);
+        var outcomes=editEachTick(auto,f,tick->tick%5==0,8,7,8);
+        assertTrue(outcomes.getOrDefault("RECAPTURE",0L)>=1,"A captured cell flipped before capture completed: "+outcomes);
+        var row=auto.rows().getFirst();
+        assertEquals(0,row.restarts(),row.restartCauses().toString());assertTrue(row.rereadCells()>0);
+        assertEquals(0,row.topologyStages());auto.close();
     }
     @Test void rejectedInitialOwnerExpandsAndPublishesInsteadOfWaitingForAnImpossibleSeed() {
         var f=new RecoveryFactory();var auto=new LocalAirAutomatic(SETTINGS,f);var r=registry();request(r,"p",8);

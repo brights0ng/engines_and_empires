@@ -1,4 +1,5 @@
 // Written by Claude.
+// Updated by Claude: tested the settled-owner gate after a topology edit and during its capture.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -15,24 +16,34 @@ class LocalAirEditClassifierTest {
         final Map<Long,Cell> overrides=new HashMap<>();
         public LocalAirRun.Weather weather(Bounds b) { return WEATHER; }
         public LocalAirAutomatic.Capture capture(Bounds b) {
-            var epoch=new LocalAirDependencies(b);long[] last={0};
-            var world=new LocalAirCoverage.World() {
-                public long contextId() { return 1; }
-                public long geometryRevision() { return epoch.get(); }
-                public long materialRevision() { return 1; }
-                public int minBuildY() { return 0; }
-                public int maxBuildY() { return 32; }
-                public Cell sample(int x,int y,int z) {
-                    epoch.read(x,y,z);last[0]=blockKey(x,y,z);
-                    var override=overrides.get(last[0]);if(override!=null) return override;
-                    boolean inside=Math.floorMod(x,16)>5 && Math.floorMod(x,16)<10 && y>5 && y<10 && Math.floorMod(z,16)>5 && Math.floorMod(z,16)<10;
-                    if(!inside) return LocalAirPreparationTest.SOLID;
-                    var air=LocalAirPreparationTest.AIR;
-                    return Math.floorMod(x,16)==7 && y==6 && Math.floorMod(z,16)==7?new Cell(air.shape(),1,1,1,1,SOURCE):air;
-                }
-                public Footprint lastReads() { return new Footprint(new long[]{last[0]}); }
+            var epoch=new LocalAirDependencies(b);
+            return new LocalAirAutomatic.Capture(new World(epoch::get,epoch,overrides),epoch);
+        }
+    }
+    /** Frozen copies keep their revision and a copy of the overrides, so history stages read the edit-time world. */
+    private static final class World implements LocalAirCoverage.World {
+        final java.util.function.LongSupplier revision;final LocalAirDependencies epoch;final Map<Long,Cell> overrides;long last;
+        World(java.util.function.LongSupplier revision,LocalAirDependencies epoch,Map<Long,Cell> overrides) { this.revision=revision;this.epoch=epoch;this.overrides=overrides; }
+        public long contextId() { return 1; }
+        public long geometryRevision() { return revision.getAsLong(); }
+        public long materialRevision() { return 1; }
+        public int minBuildY() { return 0; }
+        public int maxBuildY() { return 32; }
+        public Cell sample(int x,int y,int z) {
+            if(epoch!=null) epoch.read(x,y,z);last=blockKey(x,y,z);
+            var override=overrides.get(last);if(override!=null) return override;
+            boolean inside=Math.floorMod(x,16)>5 && Math.floorMod(x,16)<10 && y>5 && y<10 && Math.floorMod(z,16)>5 && Math.floorMod(z,16)<10;
+            if(!inside) return LocalAirPreparationTest.SOLID;
+            var air=LocalAirPreparationTest.AIR;
+            return Math.floorMod(x,16)==7 && y==6 && Math.floorMod(z,16)==7?new Cell(air.shape(),1,1,1,1,SOURCE):air;
+        }
+        public Footprint lastReads() { return new Footprint(new long[]{last}); }
+        public LocalAirCoverage.History freeze() {
+            long frozen=revision.getAsLong();var copy=new World(()->frozen,null,new HashMap<>(overrides));
+            return new LocalAirCoverage.History() {
+                public LocalAirCoverage.World world() { return copy; }
+                public void close() { }
             };
-            return new LocalAirAutomatic.Capture(world,epoch);
         }
     }
     private static LocalAirPlanner.Plan plan() {
@@ -54,6 +65,19 @@ class LocalAirEditClassifierTest {
         var outcome=d.preparation.classifyEdit(x,y,z,tick,1);
         if(outcome==LocalAirPreparation.EditOutcome.GEOMETRY) d.capture.dependencies().blockRevision(x,y,z,tick,"before","after");
         return outcome;
+    }
+    /** HeatWorld's full hook: GEOMETRY bumps the revision and then hands the edit to changeGeometry. */
+    private static LocalAirPreparation.EditOutcome hook(LocalAirAutomatic.Domain d,int x,int y,int z,long tick) {
+        var outcome=d.preparation.classifyEdit(x,y,z,tick,1);
+        if(outcome==LocalAirPreparation.EditOutcome.GEOMETRY)
+            d.preparation.changeGeometry(x,y,z,d.capture.dependencies().blockRevision(x,y,z,tick,"before","after"),tick,1);
+        return outcome;
+    }
+    /** One accepted AIR->SOLID topology edit at (8,7,8) on a published owner. */
+    private static LocalAirAutomatic.Domain edited(LocalAirAutomatic auto,Factory f) {
+        var d=published(auto);f.overrides.put(blockKey(8,7,8),LocalAirPreparationTest.SOLID);
+        assertEquals(LocalAirPreparation.EditOutcome.GEOMETRY,hook(d,8,7,8,10));
+        assertEquals(1,d.preparation.topologyStages());assertNull(d.preparation.field());return d;
     }
     private static LocalAirAutomatic.Domain published(LocalAirAutomatic auto) {
         auto.reconcile(plan(),0,32);drain(auto,0,80);drain(auto,10,80);
@@ -107,5 +131,27 @@ class LocalAirEditClassifierTest {
         assertTrue(snapshot.context(blockKey(2,0,0)) && snapshot.context(blockKey(4,0,0)) && snapshot.context(blockKey(3,1,0)),
                 "A cell without read evidence makes its six face neighbours context");
         assertFalse(snapshot.context(blockKey(3,0,0)));
+    }
+    @Test void settledOwnerAfterATopologyEditIgnoresNoOpEdits() {
+        var f=new Factory();var auto=new LocalAirAutomatic(SETTINGS,f);var d=edited(auto,f);long tick=10;
+        for(int i=0;i<200 && d.preparation.field()==null;i++) drain(auto,++tick,2);
+        for(int i=0;i<5;i++) drain(auto,++tick,2);
+        assertNotNull(d.preparation.field(),d.preparation.description());assertEquals(1,d.preparation.topologyStages());
+        assertEquals(LocalAirPreparation.EditOutcome.IGNORED,hook(d,8,8,8,tick));
+        for(int i=0;i<40;i++) { hook(d,8,8,8,++tick);drain(auto,tick,2); }
+        assertEquals(1,d.preparation.topologyStages());assertEquals(0,d.preparation.restarts(),d.preparation.restartCauses().toString());
+        assertEquals(Map.of("GEOMETRY",1L,"IGNORED",41L),d.preparation.editOutcomes());assertNotNull(d.preparation.field());auto.close();
+    }
+    @Test void secondStageStillCapturingKeepsTheHistoricalPath() {
+        var f=new Factory();var auto=new LocalAirAutomatic(SETTINGS,f);var d=edited(auto,f);long tick=10;
+        assertNotEquals(LocalAirPreparation.EditOutcome.IGNORED,d.preparation.classifyEdit(8,8,8,tick,1),"Two stages: not settled");
+        for(int i=0;i<400 && d.preparation.status()!=LocalAirPreparation.Status.CAPTURING;i++) {
+            // A zero allowance still promotes the new stage, but its baseline-reused capture cannot finish.
+            auto.observe(++tick,1);d.preparation.advance(0,Long.MAX_VALUE);
+            var work=d.preparation.takeWork();if(work!=null) d.preparation.complete(work.run());
+        }
+        assertEquals(LocalAirPreparation.Status.CAPTURING,d.preparation.status(),"The promoted stage is capturing");
+        assertEquals(LocalAirPreparation.EditOutcome.GEOMETRY,d.preparation.classifyEdit(8,8,8,tick,1),"An incoming seed keeps the historical path");
+        auto.close();
     }
 }
