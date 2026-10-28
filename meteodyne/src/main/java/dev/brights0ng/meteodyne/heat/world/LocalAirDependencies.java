@@ -2,6 +2,7 @@
 // Updated by ChatGPT: bounded invalidation-cause telemetry without world references.
 // Updated by ChatGPT: imported bounded coverage proof footprints without world reads.
 // Updated by Claude: exposed the most recent invalidation cause for restart attribution.
+// Updated by Claude: counted every revision bump by its call site.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.HashMap;
@@ -24,18 +25,23 @@ final class LocalAirDependencies {
     record Diagnostics(long revision,java.util.Map<String,Long> counts,java.util.List<Event> recent) { }
     private final java.util.ArrayDeque<Event> recent=new java.util.ArrayDeque<>();
     private final java.util.Map<String,Long> counts=new java.util.TreeMap<>();
-    private long invalidate(long tick,String cause,int x,int y,int z,String scope,String before,String after) {
+    /** Call sites that bump this owner's revision; OTHER:<method> marks the untagged legacy overloads. */
+    static final String APPLY_AUTOMATIC="APPLY_AUTOMATIC",MANUAL="MANUAL",OFF_THREAD="OFF_THREAD",BEFORE_EDIT="BEFORE_EDIT",
+            CHUNK="CHUNK",HISTORY_OVERFLOW="HISTORY_OVERFLOW";
+    private final java.util.TreeMap<String,Long> sites=new java.util.TreeMap<>();
+    private long invalidate(String site,long tick,String cause,int x,int y,int z,String scope,String before,String after) {
         long previous=revision++;
-        counts.merge(cause,1L,Long::sum);
+        counts.merge(cause,1L,Long::sum);sites.merge(site,1L,Long::sum);
         if(recent.size()==8) recent.removeFirst();
         recent.addLast(new Event(revision,tick,cause,x,y,z,scope,before,after));return previous;
     }
     synchronized String lastCause() { return recent.isEmpty()?"NONE":recent.peekLast().cause(); }
     synchronized Diagnostics diagnostics() { return new Diagnostics(revision,java.util.Map.copyOf(counts),java.util.List.copyOf(recent)); }
-    synchronized long blockRevision(int x,int y,int z,long tick,String before,String after) {
-        return invalidate(tick,"BLOCK",x,y,z,scope(x,y,z),before,after);
+    synchronized java.util.Map<String,Long> revisionSites() { return java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(sites)); }
+    synchronized long blockRevision(int x,int y,int z,long tick,String before,String after,String site) {
+        return invalidate(site,tick,"BLOCK",x,y,z,scope(x,y,z),before,after);
     }
-    synchronized void historyLost(int x,int y,int z,long tick) { invalidate(tick,"HISTORY_LOST",x,y,z,"historical overlay","unknown","unknown"); }
+    synchronized void historyLost(int x,int y,int z,long tick) { invalidate(HISTORY_OVERFLOW,tick,"HISTORY_LOST",x,y,z,"historical overlay","unknown","unknown"); }
     private String scope(int x,int y,int z) {
         if(global) return "dependency budget fallback";
         if(bounds.contains(x,y,z)) return "domain";
@@ -46,7 +52,7 @@ final class LocalAirDependencies {
     LocalAirDependencies(LocalAirGeometryCapture.Bounds bounds) { this.bounds=bounds; }
     private static long key(int x,int z) { return ((long)x<<32) | (z&0xffffffffL); }
     synchronized long get() { return revision; }
-    synchronized long getAndIncrement() { return invalidate(-1,"EXPLICIT",0,0,0,"explicit invalidation","unknown","unknown"); }
+    synchronized long getAndIncrement() { return invalidate("OTHER:getAndIncrement",-1,"EXPLICIT",0,0,0,"explicit invalidation","unknown","unknown"); }
     /** Register before touching the world, even when the lookup will fail. */
     synchronized void read(int x,int y,int z) {
         if(global) return;
@@ -73,15 +79,16 @@ final class LocalAirDependencies {
             if(x==b.highX() || global) break;
         }
     }
-    synchronized void blockChanged(int x,int y,int z) { blockChanged(x,y,z,-1,"unknown","unknown"); }
-    synchronized void blockChanged(int x,int y,int z,long tick,String before,String after) {
-        if(historyReads || affectsBlock(x,y,z)) blockRevision(x,y,z,tick,before,after);
+    synchronized void blockChanged(int x,int y,int z) { blockChanged(x,y,z,-1,"unknown","unknown","OTHER:blockChanged"); }
+    synchronized void blockChanged(int x,int y,int z,long tick,String before,String after) { blockChanged(x,y,z,tick,before,after,"OTHER:blockChanged"); }
+    synchronized void blockChanged(int x,int y,int z,long tick,String before,String after,String site) {
+        if(historyReads || affectsBlock(x,y,z)) blockRevision(x,y,z,tick,before,after,site);
     }
     synchronized void chunkChanged(int x,int z) {
         chunkChanged(x,z,-1,"CHUNK");
     }
     synchronized void chunkChanged(int x,int z,long tick,String cause) {
         if(historyReads || global || chunks.contains(key(x,z)) || bounds.chunk(x,z))
-            invalidate(tick,cause,x,0,z,"chunk coordinates","unknown","unknown");
+            invalidate(CHUNK,tick,cause,x,0,z,"chunk coordinates","unknown","unknown");
     }
 }

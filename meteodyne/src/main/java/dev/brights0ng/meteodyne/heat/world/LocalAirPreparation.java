@@ -12,6 +12,9 @@
 // Updated by Claude: classified block edits as ignored, source-only or geometry before any owner invalidation.
 // Updated by Claude: re-read only affected cells or sky columns for edits during a fresh capture or coverage check.
 // Updated by Claude: named the fresh-stage guard that limits planning edits to the snapshot rules.
+// Updated by Claude: reported the call sites that bumped this owner's dependency revision.
+// Updated by Claude: treated context edits as GEOMETRY only when the read inputs changed.
+// Updated by Claude: kept heat-only edits between capture and run start as the run's starting source heat.
 package dev.brights0ng.meteodyne.heat.world;
 
 import dev.brights0ng.paradynelib.heat.air.ThermalGeometry;
@@ -101,7 +104,9 @@ final class LocalAirPreparation {
         final java.util.ArrayList<SourceEdit> sources=new java.util.ArrayList<>();
         final java.util.HashSet<Long> edits=new java.util.HashSet<>(),sourceDirty=new java.util.HashSet<>();
         final java.util.HashSet<Integer> replacedSolid=new java.util.HashSet<>(),replacedFluid=new java.util.HashSet<>();
-        final java.util.HashMap<Integer,Heat> sourceHeat=new java.util.HashMap<>(); // Accepted source edits since capture; null values are removals.
+        // Accepted source edits since capture; null values are removals. Entries made before startTick is set
+        // become source events at the start tick (begin), so the run starts with the latest heat.
+        final java.util.HashMap<Integer,Heat> sourceHeat=new java.util.HashMap<>();
         LocalAirGeometryCapture capture;
         Snapshot snapshot;
         LocalAirCoverage coverage;
@@ -148,6 +153,7 @@ final class LocalAirPreparation {
     private long restarts;
     private String lastRestart="Initial request";
     private java.util.function.Supplier<String> invalidationCause=()->"UNKNOWN";
+    private java.util.function.Supplier<java.util.Map<String,Long>> revisionSites=java.util.Map::of;
     private final java.util.TreeMap<String,Long> restartCauses=new java.util.TreeMap<>(),failureCauses=new java.util.TreeMap<>(),editOutcomes=new java.util.TreeMap<>();
     private long topologyStages;
     private long captureReadCells,captureReusedCells,rereadCells,requeuedColumns;
@@ -229,6 +235,9 @@ final class LocalAirPreparation {
         failed=true;failure=reason;failureCauses.merge(category,1L,Long::sum);for(var stage:stages) stage.close();
     }
     void invalidationCause(java.util.function.Supplier<String> cause) { owner();invalidationCause=java.util.Objects.requireNonNull(cause); }
+    /** The owner's dependency revision bumps by call site; the dependencies own the thread-safe counts. */
+    void revisionSites(java.util.function.Supplier<java.util.Map<String,Long>> sites) { owner();revisionSites=java.util.Objects.requireNonNull(sites); }
+    java.util.Map<String,Long> revisionSites() { owner();return java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(revisionSites.get())); }
     LocalAirReuse reuseEvidence() {
         owner();if(!readyForLayout()) return null;
         var stage=head();var snapshot=stage.snapshot;
@@ -260,6 +269,16 @@ final class LocalAirPreparation {
         return "Preparing geometry: "+stage.status;
     }
     private void time(long tick,double scale) { clock.observe(tick,scale);now=tick;scaleNow=scale; }
+    /** Starts a stage's chronology. Heat-only edits recorded before it override the snapshot's source heat
+     * at the start tick, through the same run.changeSource path as live edits. */
+    private void begin(Stage stage,long tick,double scale) {
+        if(stage.startTick<0) {
+            var pending=new java.util.ArrayList<SourceEdit>();
+            for(var cell:new java.util.TreeSet<>(stage.sourceHeat.keySet())) pending.add(new SourceEdit(tick,cell,stage.sourceHeat.get(cell),scale));
+            stage.sources.addAll(stage.appliedSources,pending);
+        }
+        stage.startTick=tick;stage.startScale=scale;
+    }
     /** Transfer seeds only from an exactly sealed interval, never from an edit-tick-old frame early. */
     private void promote() {
         if(failed || closed) return;
@@ -315,6 +334,11 @@ final class LocalAirPreparation {
                 }
                 if(stage.coverage.status()==LocalAirCoverage.Status.ADMITTED) {
                     stage.certificate=stage.coverage.certificate();
+                    // Heat-only edits recorded without a certificate: a source cell the proofs read cannot replay later.
+                    for(var cell:stage.sourceHeat.keySet()) if(stage.startTick<0 && !stage.certificate.unaffectedBy(sourceKey(cell))) {
+                        restartCauses.merge("SOURCE_CONTEXT",1L,Long::sum);
+                        lastRestart="Observed after tick "+now+": pending source edit read by coverage proofs";restarts++;restart();return used;
+                    }
                     stage.bake=stage.handoff.begin(stage.snapshot,stage.certificate);stage.status=Status.BAKE_QUEUED;
                     if(stage.history!=null) stage.history.close();
                     stage.coverage=null; // The immutable certificate now owns the completed proofs.
@@ -399,7 +423,7 @@ final class LocalAirPreparation {
         promote();if(failed) return null;var stage=head();
         if(stage.status==Status.PREPARED && stage.incoming==null && thermalInitial!=null && thermalInitial.needsRefinement() && forcingReady()) {
             if(stage.estimation==null) {
-                if(!awaitingLayoutSeed && stage.startTick<0) {stage.startTick=now;stage.startScale=scaleNow;stage.initialDriven=drivenSnapshot();}
+                if(!awaitingLayoutSeed && stage.startTick<0) {begin(stage,now,scaleNow);stage.initialDriven=drivenSnapshot();}
                 stage.estimation=new Estimation(stage.handoff.published(),thermalInitial,weatherAt(stage.startTick<0?now:stage.startTick).weather());
             }
             stage.reason="Preparing natural thermal equilibrium";outstanding=new Work(stage,stage.snapshot,null,null,stage.estimation);
@@ -477,7 +501,7 @@ final class LocalAirPreparation {
             if(thermalProvider!=null && stage.incoming==null && (thermalInitial==null || thermalInitial.needsRefinement())) return;
             if(awaitingLayoutSeed) return;
             if(stage.history!=null && stage.incoming==null) return;
-            if(stage.startTick<0) { stage.startTick=tick;stage.startScale=scaleAt(tick); }
+            if(stage.startTick<0) begin(stage,tick,scaleAt(tick));
             if(stage.initialDriven==null) stage.initialDriven=drivenSnapshot();
             // Map topology under its sealed seed's boundary first. A weather edge at the same tick
             // must then project in the same order whether preparation completed early or late.
@@ -543,7 +567,7 @@ final class LocalAirPreparation {
     void awaitLayoutSeed() { owner();if(now>=0) throw new IllegalStateException("Seed policy must be set before observing a new owner");awaitingLayoutSeed=true; }
     boolean holdLayout(long tick,double scale) {
         refresh();if(closed || failed || !forcingReady() || thermalProvider!=null && (thermalInitial==null || thermalInitial.needsRefinement()) || stages.size()!=1 || head().status!=Status.PREPARED) return false;
-        layoutBarrier=tick;time(tick,scale);head().startTick=head().run==null?tick:head().startTick;
+        layoutBarrier=tick;time(tick,scale);if(head().run==null) begin(head(),tick,scale);
         if(head().run==null) head().initialDriven=drivenSnapshot();
         observe(tick,scale);return !failed;
     }
@@ -622,9 +646,14 @@ final class LocalAirPreparation {
                 boolean accepted=stage.run.changeSource(tick,cell,sampled.heat(),scale);
                 if(accepted) { stage.sourceDirty.add(blockKey(x,y,z));stage.sourceHeat.put(cell,sampled.heat()); }return accepted;
             }
-            if(stage.estimation!=null && stage.startTick>=0) {
+            // Estimating, or started without a run yet: a chronological event after the start tick.
+            if(stage.startTick>=0 && (stage.estimation!=null || stages.size()==1 && stage.history==null && stage.run==null)) {
                 time(tick,scale);if(++historyEvents>MAX_HISTORY_EVENTS) {fail("Initialization source history exceeds admission limit");return true;}
                 stage.sources.add(new SourceEdit(tick,cell,sampled.heat(),scale));stage.sourceDirty.add(blockKey(x,y,z));stage.sourceHeat.put(cell,sampled.heat());return true;
+            }
+            if(stages.size()==1 && stage.history==null && stage.incoming==null && stage.run==null && stage.startTick<0 && stage.snapshot!=null) {
+                // Between capture and the stage's start: begin() turns the latest heat into a source event.
+                time(tick,scale);stage.sourceDirty.add(blockKey(x,y,z));stage.sourceHeat.put(cell,sampled.heat());return true;
             }
             if(stage.history==null) return false;
             time(tick,scale);
@@ -633,10 +662,17 @@ final class LocalAirPreparation {
         } catch(RuntimeException error) { return false; }
     }
     /** Called after a server-thread block write and before any dependency revision. Only GEOMETRY
-     * needs the caller to invalidate; SOURCE has already been applied through changeSource, and
+     * needs the caller to invalidate; SOURCE has already been applied (or, before the run starts,
+     * recorded as its starting heat) through changeSource, and
      * RECAPTURE has queued re-reads of the affected cells or sky columns of a fresh domain. */
-    EditOutcome classifyEdit(int x,int y,int z,long tick,double scale) {
-        var outcome=classify(x,y,z,tick,scale);editOutcomes.merge(outcome.name(),1L,Long::sum);return outcome;
+    EditOutcome classifyEdit(int x,int y,int z,long tick,double scale,
+                             net.minecraft.world.level.block.state.BlockState before,net.minecraft.world.level.block.state.BlockState after) {
+        // Null checks first: unit fixtures pass null states without loading the Minecraft-backed source.
+        return classifyEdit(x,y,z,tick,scale,before!=null && after!=null && LocalAirWorldSource.readInputsSame(before,after));
+    }
+    /** readInputsSame: a cell that reads this position (context) sees the same shape and fluid after the edit. */
+    EditOutcome classifyEdit(int x,int y,int z,long tick,double scale,boolean readInputsSame) {
+        var outcome=classify(x,y,z,tick,scale,readInputsSame);editOutcomes.merge(outcome.name(),1L,Long::sum);return outcome;
     }
     /** One stage that is neither replaying a topology history nor waiting on an incoming seed. */
     private boolean fresh() {
@@ -646,7 +682,7 @@ final class LocalAirPreparation {
     private boolean settled() {
         return stages.size()==1 && head().incoming==null && head().snapshot!=null && head().certificate!=null;
     }
-    private EditOutcome classify(int x,int y,int z,long tick,double scale) {
+    private EditOutcome classify(int x,int y,int z,long tick,double scale,boolean readInputsSame) {
         refresh();if(closed || failed) return EditOutcome.GEOMETRY;
         long key=blockKey(x,y,z);
         if(fresh()) {
@@ -659,11 +695,11 @@ final class LocalAirPreparation {
             }
             if(stage.status==Status.COVERAGE && (stage.coverage.status()==LocalAirCoverage.Status.CHECKING
                     || stage.coverage.status()==LocalAirCoverage.Status.ADMITTED)) {
-                int cell=bounds.index(x-bounds.x(),y-bounds.y(),z-bounds.z());boolean context=stage.snapshot.context(key);
+                int cell=bounds.index(x-bounds.x(),y-bounds.y(),z-bounds.z());boolean context=stage.snapshot.context(key) && !readInputsSame;
                 if(cell>=0 || context) {
                     Cell sampled;
                     try { sampled=world.sample(x,y,z); } catch(RuntimeException error) { return EditOutcome.GEOMETRY; }
-                    return !context && stage.snapshot.sameCell(cell,sampled)?EditOutcome.IGNORED:EditOutcome.GEOMETRY;
+                    return context?EditOutcome.GEOMETRY:ownCell(stage,cell,sampled,x,y,z,tick,scale);
                 }
                 long before=stage.coverage.requeuedColumns();boolean requeued=stage.coverage.edited(x,y,z);
                 requeuedColumns+=stage.coverage.requeuedColumns()-before;
@@ -674,30 +710,31 @@ final class LocalAirPreparation {
         // Only a fresh stage between capture and coverage (planning) keeps the snapshot rules below;
         // a history stage that is planning has no certificate and takes historicalSource.
         boolean planning=fresh() && head().snapshot!=null && (head().status==Status.PLAN_QUEUED || head().status==Status.PLANNING);
-        if(!settled() && !planning) return historicalSource(x,y,z,tick,scale);
+        if(!settled() && !planning) return historicalSource(x,y,z,tick,scale,readInputsSame);
         Cell sampled;
         try { sampled=world.sample(x,y,z); } catch(RuntimeException error) { return EditOutcome.GEOMETRY; }
         var stage=head();var snapshot=stage.snapshot;
         int cell=bounds.index(x-bounds.x(),y-bounds.y(),z-bounds.z());
-        if(snapshot.context(key)) return EditOutcome.GEOMETRY;
+        if(snapshot.context(key) && !readInputsSame) return EditOutcome.GEOMETRY;
         if(cell<0) return stage.certificate!=null && stage.certificate.unaffectedBy(key)?EditOutcome.IGNORED:EditOutcome.GEOMETRY;
-        if(!stage.sourceHeat.containsKey(cell)) {
-            if(snapshot.sameCell(cell,sampled)) return EditOutcome.IGNORED;
-            if(snapshot.heatOnlyDiffers(cell,sampled)) return changeSource(x,y,z,tick,scale)?EditOutcome.SOURCE:EditOutcome.GEOMETRY;
-            return EditOutcome.GEOMETRY;
-        }
-        // The snapshot predates accepted source edits; compare heat with what the run now holds.
+        return ownCell(stage,cell,sampled,x,y,z,tick,scale);
+    }
+    /** An edit at a captured cell of a fresh or settled stage: only a heat change keeps the source path. */
+    private EditOutcome ownCell(Stage stage,int cell,Cell sampled,int x,int y,int z,long tick,double scale) {
+        var snapshot=stage.snapshot;
         if(!snapshot.sameCell(cell,sampled) && !snapshot.heatOnlyDiffers(cell,sampled)) return EditOutcome.GEOMETRY;
-        if(java.util.Objects.equals(stage.sourceHeat.get(cell),sampled.heat())) return EditOutcome.IGNORED;
+        // The snapshot predates accepted or pending source edits; compare heat with the latest of them.
+        var known=stage.sourceHeat.containsKey(cell)?stage.sourceHeat.get(cell):snapshot.heat(cell);
+        if(java.util.Objects.equals(known,sampled.heat())) return EditOutcome.IGNORED;
         return changeSource(x,y,z,tick,scale)?EditOutcome.SOURCE:EditOutcome.GEOMETRY;
     }
     /** Heat-only edits against the latest stage: its snapshot, or the frozen history world while it captures. */
-    private EditOutcome historicalSource(int x,int y,int z,long tick,double scale) {
+    private EditOutcome historicalSource(int x,int y,int z,long tick,double scale,boolean readInputsSame) {
         var stage=latest();long key=blockKey(x,y,z);
         int cell=bounds.index(x-bounds.x(),y-bounds.y(),z-bounds.z());
         if(cell<0 || stage.snapshot==null && stage.history==null) return EditOutcome.GEOMETRY;
         boolean evidence=false;
-        for(var candidate:stages) if(candidate.snapshot!=null) { evidence=true;if(candidate.snapshot.context(key)) return EditOutcome.GEOMETRY; }
+        for(var candidate:stages) if(candidate.snapshot!=null) { evidence=true;if(candidate.snapshot.context(key) && !readInputsSame) return EditOutcome.GEOMETRY; }
         if(!evidence) return EditOutcome.GEOMETRY;
         Cell sampled,before;
         try { sampled=world.sample(x,y,z);before=stage.snapshot==null?stage.world.sample(x,y,z):null; }
