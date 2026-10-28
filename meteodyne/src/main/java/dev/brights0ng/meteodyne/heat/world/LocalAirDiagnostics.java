@@ -1,4 +1,5 @@
 // Written by ChatGPT.
+// Updated by Claude: reported weather grid rebuilds and short steps.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.Locale;
@@ -26,8 +27,8 @@ final class LocalAirDiagnostics {
     static String field(LocalAirRun.Frame frame,long now) {
         if(frame==null) return "No published coupled field.";
         var q=frame.quality;
-        return String.format(Locale.ROOT,"Frame tick %d; age/backlog %d ticks; %d steps; %d air nodes, %d faces; max divergence %.3g; pressure residual %.3g; thermal residual %.3g C; step energy error %.3g; total energy balance error %.3g; %d pressure iterations, %d thermal sweeps.",
+        return String.format(Locale.ROOT,"Frame tick %d; age/backlog %d ticks; %d steps; %d air nodes, %d faces; max divergence %.3g; pressure residual %.3g; thermal residual %.3g C; step energy error %.3g; total energy balance error %.3g; %d pressure iterations, %d thermal sweeps, grid rebuilds %d, short steps %d.",
                 frame.throughTick,age(frame,now),frame.acceptedSteps,frame.flow.nodes(),frame.flow.faces(),q.maxDivergence(),q.maxPressureResidual(),
-                q.maxThermalResidual(),q.maxStepEnergyError(),q.energyBalanceError(),q.pressureIterations(),q.thermalSweeps());
+                q.maxThermalResidual(),q.maxStepEnergyError(),q.energyBalanceError(),q.pressureIterations(),q.thermalSweeps(),frame.gridRebuilds,frame.shortSteps);
     }
 }

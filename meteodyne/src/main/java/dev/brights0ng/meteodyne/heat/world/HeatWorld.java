@@ -4,6 +4,7 @@
 // Instrumented by ChatGPT: opt-in thermal baseline capture without changing simulation scheduling.
 // Updated by ChatGPT: expose immutable consumer queries with explicit freshness and availability.
 // Updated by ChatGPT: classified invalidation, cached shelter reuse and snapshot revision telemetry.
+// Updated by Claude: reported manual local-air restart, failure, topology and weather churn counters.
 // Updated by ChatGPT: coalesced local geometry edits and budgeted snapshot preparation across ticks.
 // Updated by ChatGPT: integrated thermal response time separately from elapsed game time.
 // Updated by ChatGPT: opt-in local-air geometry preparation on shared capture and worker budgets.
@@ -222,6 +223,7 @@ public final class HeatWorld {
         var source=new LocalAirWorldSource(level,epoch::get,epoch,localAirSky);
         localAirSource=source;
         localAirPreparation=new LocalAirPreparation(source,bounds,cellLimit,coverageLimit,settings);
+        localAirPreparation.invalidationCause(epoch::lastCause);
         localAirAdvanceNanos=0;localAirAdvanceUnits=0;
     }
     void clearLocalAirGeometry() {
@@ -276,6 +278,12 @@ public final class HeatWorld {
         report.put("thermalReadCells",localAirPreparation==null?0:localAirPreparation.thermalReadCells());
         report.put("thermalReusedCells",localAirPreparation==null?0:localAirPreparation.thermalReusedCells());
         report.put("lastRestart",localAirPreparation==null?"No request":localAirPreparation.lastRestart());
+        report.put("restartCauses",localAirPreparation==null?Map.of():localAirPreparation.restartCauses());
+        report.put("failureCauses",localAirPreparation==null?Map.of():localAirPreparation.failureCauses());
+        report.put("topologyStages",localAirPreparation==null?0:localAirPreparation.topologyStages());
+        report.put("weatherRevisions",localAirPreparation==null?0:localAirPreparation.weatherRevisions());
+        var counted=localAirField();
+        report.put("gridRebuilds",counted==null?0:counted.gridRebuilds);report.put("shortSteps",counted==null?0:counted.shortSteps);
         var dependencies=LOCAL_AIR_EPOCHS.get(level);
         report.put("invalidations",dependencies==null?null:dependencies.diagnostics());
         report.put("captureReadCells",localAirPreparation==null?0:localAirPreparation.captureReadCells());

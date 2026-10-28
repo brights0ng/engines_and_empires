@@ -8,6 +8,7 @@
 // Updated by ChatGPT: paired consumer readings and render frames under one revision guard.
 // Updated by ChatGPT: exposed coverage failure evidence and human-readable preparation progress.
 // Updated by ChatGPT: reported bulk-certified sky cells separately from scalar geometry samples.
+// Updated by Claude: counted restart, failure, topology and weather churn by cause.
 package dev.brights0ng.meteodyne.heat.world;
 
 import dev.brights0ng.paradynelib.heat.air.ThermalGeometry;
@@ -141,6 +142,9 @@ final class LocalAirPreparation {
     private long generation,context,geometry,material,now=-1;
     private long restarts;
     private String lastRestart="Initial request";
+    private java.util.function.Supplier<String> invalidationCause=()->"UNKNOWN";
+    private final java.util.TreeMap<String,Long> restartCauses=new java.util.TreeMap<>(),failureCauses=new java.util.TreeMap<>();
+    private long topologyStages;
     private long captureReadCells,captureReusedCells;
     private long coverageReadCells,coverageReusedCells,coverageBulkCells;
     private int minY,maxY,historyEvents;
@@ -205,10 +209,21 @@ final class LocalAirPreparation {
             if(geometry!=nextGeometry) causes.add("geometry "+geometry+" -> "+nextGeometry);
             if(material!=nextMaterial) causes.add("materials "+material+" -> "+nextMaterial);
             if(minY!=nextMin || maxY!=nextMax) causes.add("build height "+minY+".."+maxY+" -> "+nextMin+".."+nextMax);
+            if(context!=nextContext) restartCauses.merge("CONTEXT",1L,Long::sum);
+            if(material!=nextMaterial) restartCauses.merge("MATERIALS",1L,Long::sum);
+            if(minY!=nextMin || maxY!=nextMax) restartCauses.merge("BUILD_HEIGHT",1L,Long::sum);
+            if(geometry!=nextGeometry) restartCauses.merge("GEOMETRY:"+invalidationCause.get(),1L,Long::sum);
             lastRestart="Observed after tick "+now+": "+String.join(", ",causes);restarts++;restart();
         }
     }
-    private void fail(String reason) { failed=true;failure=reason;for(var stage:stages) stage.close(); }
+    private void fail(String reason) {
+        int colon=reason.indexOf(':');var category=(colon<0?reason:reason.substring(0,colon)).trim();
+        fail(reason,category.length()>48?category.substring(0,48):category);
+    }
+    private void fail(String reason,String category) {
+        failed=true;failure=reason;failureCauses.merge(category,1L,Long::sum);for(var stage:stages) stage.close();
+    }
+    void invalidationCause(java.util.function.Supplier<String> cause) { owner();invalidationCause=java.util.Objects.requireNonNull(cause); }
     LocalAirReuse reuseEvidence() {
         owner();if(!readyForLayout()) return null;
         var stage=head();var snapshot=stage.snapshot;
@@ -246,7 +261,7 @@ final class LocalAirPreparation {
         while(stages.size()>1) {
             var old=head();if(old.run==null) return;
             if(old.run.status()==LocalAirRun.Status.FAILED || old.run.status()==LocalAirRun.Status.LAG_LIMIT) {
-                fail("Geometry transfer cannot retain chronological history: "+old.run.reason());return;
+                fail("Geometry transfer cannot retain chronological history: "+old.run.reason(),old.run.failureCategory());return;
             }
             var seed=old.run.sealedSeed();if(seed==null) return;
             stages.removeFirst();head().incoming=seed;head().incomingCoverage=old.certificate;old.close();
@@ -469,7 +484,7 @@ final class LocalAirPreparation {
         }
         if(stage.sealed) return;
         if(stage.run.status()==LocalAirRun.Status.FAILED || stage.run.status()==LocalAirRun.Status.LAG_LIMIT) {
-            fail("Coupled simulation "+stage.run.status()+": "+stage.run.reason());return;
+            fail("Coupled simulation "+stage.run.status()+": "+stage.run.reason(),stage.run.failureCategory());return;
         }
         while(true) {
             var source=stage.appliedSources<stage.sources.size()?stage.sources.get(stage.appliedSources):null;
@@ -657,7 +672,7 @@ final class LocalAirPreparation {
                 if(failed) { history.close();return true; }
             }
         }
-        stages.addLast(next);return true;
+        stages.addLast(next);topologyStages++;return true;
     }
     String runReason() {
         owner();if(failed) return failure;if(closed) return "";
@@ -692,6 +707,10 @@ final class LocalAirPreparation {
     long attempts() { owner();return generation; }
     long restarts() { owner();return restarts; }
     String lastRestart() { owner();return lastRestart; }
+    java.util.Map<String,Long> restartCauses() { owner();return java.util.Map.copyOf(restartCauses); }
+    java.util.Map<String,Long> failureCauses() { owner();return java.util.Map.copyOf(failureCauses); }
+    long topologyStages() { owner();return topologyStages; }
+    long weatherRevisions() { owner();return weatherRevision; }
     long captureReadCells() { owner();return captureReadCells; }
     long captureReusedCells() { owner();return captureReusedCells; }
     long coverageReadCells() { owner();return coverageReadCells; }

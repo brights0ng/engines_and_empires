@@ -2,6 +2,7 @@
 // Written by ChatGPT.
 // Updated by ChatGPT: tested paired view frames, chunk loss and saved-warmth presentation.
 // Updated by ChatGPT: verified rejected-cut recovery and retained donor behavior under limits.
+// Updated by Claude: tested restart-cause and weather grid-rebuild counters.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -258,6 +259,24 @@ class LocalAirAutomaticTest {
         var missing=new LocalAirPlanner(new LocalAirPlanner.Settings(0,1,64,64)).update(r.snapshot(),0,32,(x,z)->false);
         auto.reconcile(missing,0,32);assertEquals("MISSING_CHUNKS",auto.decisions().getFirst().state());
         assertFalse(auto.domains().getFirst().wanted);auto.close();
+    }
+    @Test void explicitInvalidationCountsGeometryRestartCause() {
+        var f=new Factory();var auto=new LocalAirAutomatic(SETTINGS,f);var r=registry();request(r,"p",8);auto.reconcile(plan(r),0,32);
+        var d=auto.domains().getFirst();d.capture.dependencies().getAndIncrement();d.preparation.status();
+        assertEquals(1L,d.preparation.restartCauses().get("GEOMETRY:EXPLICIT"));
+        assertEquals(d.preparation.restartCauses(),auto.rows().getFirst().restartCauses());auto.close();
+    }
+    @Test void windSignChangeCountsOneGridRebuild() {
+        var f=new Factory() {
+            boolean windy;
+            @Override public LocalAirRun.Weather weather(Bounds b) { return windy?new LocalAirRun.Weather(20,2,0):WEATHER; }
+        };
+        var auto=new LocalAirAutomatic(SETTINGS,f);var r=registry();request(r,"p",8);auto.reconcile(plan(r),0,32);drain(auto,0);
+        var prep=auto.domains().getFirst().preparation;assertNotNull(prep.field(),auto.rows().toString());
+        f.windy=true;
+        for(long tick=1;tick<=40;tick++) drain(auto,tick);
+        assertNotNull(prep.field(),auto.rows().toString());
+        assertEquals(1,prep.field().gridRebuilds);assertEquals(1,prep.weatherRevisions());auto.close();
     }
     @Test void realCoverageRejectionDoesNotPublishAndStoppingDiscardsInFlightCompletion() {
         var f=new Factory();f.openBottom=true;var auto=new LocalAirAutomatic(SETTINGS,f);var r=registry();request(r,"p",8);auto.reconcile(plan(r),0,32);drain(auto,0);

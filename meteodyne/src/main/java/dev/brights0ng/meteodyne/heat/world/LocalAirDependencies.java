@@ -1,6 +1,7 @@
 // Written by ChatGPT.
 // Updated by ChatGPT: bounded invalidation-cause telemetry without world references.
 // Updated by ChatGPT: imported bounded coverage proof footprints without world reads.
+// Updated by Claude: exposed the most recent invalidation cause for restart attribution.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.HashMap;
@@ -29,6 +30,7 @@ final class LocalAirDependencies {
         if(recent.size()==8) recent.removeFirst();
         recent.addLast(new Event(revision,tick,cause,x,y,z,scope,before,after));return previous;
     }
+    synchronized String lastCause() { return recent.isEmpty()?"NONE":recent.peekLast().cause(); }
     synchronized Diagnostics diagnostics() { return new Diagnostics(revision,java.util.Map.copyOf(counts),java.util.List.copyOf(recent)); }
     synchronized long blockRevision(int x,int y,int z,long tick,String before,String after) {
         return invalidate(tick,"BLOCK",x,y,z,scope(x,y,z),before,after);

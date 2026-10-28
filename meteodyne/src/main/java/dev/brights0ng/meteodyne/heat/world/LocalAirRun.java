@@ -1,6 +1,7 @@
 // Updated by ChatGPT: retained unaffected thermal state across material replacement handoffs.
 // Updated by ChatGPT: initialized fresh natural coverage from a qualified thermal estimate.
 // Updated by ChatGPT: restored thermal initialization before fresh projection and layout incoming-energy mapping.
+// Updated by Claude: categorized run failures and counted weather grid rebuilds and short steps.
 // Written by ChatGPT.
 package dev.brights0ng.meteodyne.heat.world;
 
@@ -48,6 +49,14 @@ final class LocalAirRun {
             return new LayoutSeed(seeds,donors);
         }
     }
+    /** Stable failure key for counters; the detailed rejection text stays in reason(). */
+    static String category(CoupledAirGrid.Step s) {
+        return "STEP_"+s.status()
+                +(s.flow()!=null?"_FLOW_"+s.flow().status():"")
+                +(s.flow()!=null && s.flow().pressure()!=null?"_PRESSURE_"+s.flow().pressure().status():"")
+                +(s.status()==CoupledAirGrid.Status.FIRST_THERMAL_FAILED?"_"+s.first().status()
+                        :s.status()==CoupledAirGrid.Status.SECOND_THERMAL_FAILED?"_"+s.second().status():"");
+    }
     record Quality(double maxDivergence,double maxPressureResidual,double maxThermalResidual,
                    double maxStepEnergyError,long pressureIterations,long thermalSweeps,double energyBalanceError) { }
     static final class Frame {
@@ -55,6 +64,7 @@ final class LocalAirRun {
         final Weather weather;
         final double energy,thermalSeconds,sourceEnergy,exteriorEnergy,initialEnergy,geometryEnergy;
         final long transfers;
+        final long gridRebuilds,shortSteps;
         final boolean persistentThermal;
         final int restoredCells,estimatedCells;
         final AirThermalInitializer.Quality naturalInitialization;
@@ -73,6 +83,7 @@ final class LocalAirRun {
             weatherRevision=state.weatherRevision;weather=state.weather;
             thermalSeconds=state.thermal;sourceEnergy=state.source;exteriorEnergy=state.exterior;
             initialEnergy=state.initialEnergy;geometryEnergy=state.geometryEnergy;transfers=state.transfers;
+            gridRebuilds=state.gridRebuilds;shortSteps=state.shortSteps;
             quality=new Quality(state.divergence,state.pressureResidual,state.thermalResidual,state.stepEnergyError,
                     state.pressureIterations,state.thermalSweeps,energy-state.initialEnergy-sourceEnergy-exteriorEnergy-geometryEnergy);
             naturalInitialization=state.naturalInitialization;
@@ -104,6 +115,7 @@ final class LocalAirRun {
         int restoredCells,estimatedCells;
         AirThermalInitializer.Quality naturalInitialization;
         long transfers;
+        long gridRebuilds,shortSteps;
         long pressureIterations,thermalSweeps;
         void pressure(PressureProjector.Quality pressure) {
             divergence=Math.max(divergence,pressure.maxDivergence());pressureResidual=Math.max(pressureResidual,pressure.finalResidual());
@@ -151,7 +163,7 @@ final class LocalAirRun {
                 var old=seed.frame;naturalInitialization=old.naturalInitialization;persistentThermal=old.persistentThermal || snapshot.placedSources();restoredCells=old.restoredCells;estimatedCells=old.estimatedCells;steps=old.acceptedSteps;thermal=old.thermalSeconds;source=old.sourceEnergy;exterior=old.exteriorEnergy;
                 layoutRetainedEnergy=old.layoutRetainedEnergy;layoutIncomingEnergy=old.layoutIncomingEnergy;
                 sourceRevision=old.sourceRevision;initialEnergy=old.initialEnergy;geometryEnergy=old.geometryEnergy+mapped.incomingEnergy-mapped.outgoingEnergy;
-                transfers=old.transfers+1;divergence=old.quality.maxDivergence();pressureResidual=old.quality.maxPressureResidual();
+                transfers=old.transfers+1;gridRebuilds=old.gridRebuilds;shortSteps=old.shortSteps;divergence=old.quality.maxDivergence();pressureResidual=old.quality.maxPressureResidual();
                 thermalResidual=old.quality.maxThermalResidual();stepEnergyError=old.quality.maxStepEnergyError();
                 pressureIterations=old.quality.pressureIterations();thermalSweeps=old.quality.thermalSweeps();
             }
@@ -180,7 +192,7 @@ final class LocalAirRun {
                         FlowSettings.DEFAULT,ThermalTransport.Settings.defaults());
                 var projection=GeometryTransfer.map(prepared.thermal(),prepared.thermal(),temperature,flux,next.ambient).initialize(replacement);
                 if(!projection.ready()) throw new IllegalStateException("Weather projection rejected: "+projection.status());
-                grid=replacement;pressure(projection.pressure());
+                grid=replacement;gridRebuilds++;pressure(projection.pressure());
             }
             weather=next;weatherRevision=change.revision;
             Arrays.fill(background,next.ambient);Arrays.fill(exteriorCelsius,next.ambient);rebuildSources(prepared);
@@ -231,9 +243,10 @@ final class LocalAirRun {
                             end=Math.min(end,weatherChanges.get(weather).tick);
                         }
                         var step=next.grid.step((end-next.tick)/20.0,segment.scale(),next.background,next.exteriorCelsius);
-                        if(!step.ready()) return new Result(this,next,null,"Coupled step rejected: "+step.status()
+                        if(!step.ready()) return new Result(this,next,null,category(step),"Coupled step rejected: "+step.status()
                                 +"; interval="+next.tick+".."+end+"; thermal first="+step.first()+"; thermal second="+step.second()
                                 +(step.flow()==null?"":"; flow="+step.flow().status()+"; pressure="+step.flow().pressure()));
+                        if(end-next.tick<PHYSICAL_TICKS) next.shortSteps++;
                         next.tick=end;next.steps++;used++;next.thermal+=step.thermalSeconds();
                         next.source+=step.sourceEnergy();next.exterior+=step.exteriorEnergy();
                         next.pressure(step.flow().pressure());
@@ -245,8 +258,8 @@ final class LocalAirRun {
                     }
                     if(used==settings.maxStepsPerJob) break;
                 }
-                return new Result(this,next,new Frame(next,prepared,snapshot),null);
-            } catch(RuntimeException error) { return new Result(this,null,null,error.toString()); }
+                return new Result(this,next,new Frame(next,prepared,snapshot),"",null);
+            } catch(RuntimeException error) { return new Result(this,null,null,"EXCEPTION_"+error.getClass().getSimpleName(),error.toString()); }
         }
         boolean initialization() { return state==null; }
     }
@@ -254,8 +267,10 @@ final class LocalAirRun {
         private final Work work;
         private final State state;
         private final Frame frame;
-        private final String failure;
-        private Result(Work work,State state,Frame frame,String failure) { this.work=work;this.state=state;this.frame=frame;this.failure=failure; }
+        private final String failure,failureCategory;
+        private Result(Work work,State state,Frame frame,String failureCategory,String failure) {
+            this.work=work;this.state=state;this.frame=frame;this.failureCategory=failureCategory;this.failure=failure;
+        }
         boolean failed() { return failure!=null; }
     }
     private final Thread owner=Thread.currentThread();
@@ -273,6 +288,7 @@ final class LocalAirRun {
     private Frame published;
     private Status status=Status.INITIALIZING;
     private String reason="";
+    private String failureCategory="";
     private Seed seed;
     private LayoutSeed layoutSeed;
     private final Weather initialWeather;
@@ -329,7 +345,7 @@ final class LocalAirRun {
         owner();if(status==Status.CLOSED || status==Status.FAILED || status==Status.LAG_LIMIT) return;
         if(sealed && tick!=observedTick) throw new IllegalStateException("Geometry barrier cannot advance past its edit tick");
         clock.observe(tick,scale);observedTick=tick;
-        if(tick-acceptedTick>MAX_LAG_TICKS) { status=Status.LAG_LIMIT;published=null;reason="Diagnostic backlog exceeds retained clock history; restart required"; }
+        if(tick-acceptedTick>MAX_LAG_TICKS) { status=Status.LAG_LIMIT;failureCategory="LAG_LIMIT";published=null;reason="Diagnostic backlog exceeds retained clock history; restart required"; }
     }
     boolean seal(long tick,double scale) {
         owner();if(sealed || tick<observedTick || status!=Status.READY && status!=Status.INITIALIZING) return false;
@@ -357,7 +373,7 @@ final class LocalAirRun {
         owner();if(result.work!=outstanding) return;
         outstanding=null;
         if(status==Status.CLOSED || status==Status.LAG_LIMIT) return;
-        if(result.failure!=null) { status=Status.FAILED;published=null;reason=result.failure;return; }
+        if(result.failure!=null) { status=Status.FAILED;failureCategory=result.failureCategory;published=null;reason=result.failure;return; }
         state=result.state;seed=null;layoutSeed=null;acceptedTick=result.frame.throughTick;published=result.frame;status=Status.READY;
         changes.removeIf(change->change.revision<=result.frame.sourceRevision);
         weatherChanges.removeIf(change->change.revision<=result.frame.weatherRevision);
@@ -365,6 +381,7 @@ final class LocalAirRun {
     }
     Frame published() { owner();return published!=null && published.sourceRevision==sourceRevision && published.weatherRevision==weatherRevision?published:null; }
     Status status() { owner();return status; }
+    String failureCategory() { owner();return failureCategory; }
     String reason() {
         owner();if(!reason.isEmpty()) return reason;
         if(!weatherChanges.isEmpty()) return "Awaiting chronological weather refresh";
