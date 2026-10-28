@@ -40,3 +40,48 @@ No step was rejected in any fork, warmup included, so no rejection status appear
 - Wall time grows roughly linearly with cells from 16k to 32k (heated: about 1.3 us per cell at 16k, 1.5 us at 32k); pressure is the largest share under wind on the 32k scene.
 - Timings are from one desktop machine and are not thresholds.
 - Report `timeUtc` values read 2026-10-28; the directory uses the local date of the run.
+
+## Addendum: small pockets and long plume
+
+Two cases the Phase 0 runs above did not cover. Same machine, JDK and settings profile; three forks each.
+
+### Protocol
+
+- **tiny-pockets** (`tiny-pockets-fork-<n>.json`): multiroom16 geometry where every full solid with a face neighbour of fixture kind `AIR` (room interior) is replaced by a notched shape. The shape is full except one 1/16 subvoxel at local (0,0,0), so each one adds an air node of volume 1/4096 whose only openings are 1/256 patches on its -x, -y and -z faces. The variants and step counts are the same as above. Rows also report `minNodeVolume` and `smallNodes`, the count of nodes with volume below 1/64.
+- **hot-still-long** (`open16-fork-<n>.json`, `multiroom16-long-fork-<n>.json`): no wind, 300 W at the source node capped at 400 C, dt 0.5 s, 10 warmup steps and 1200 measured steps (600 s). Every 20 measured steps the run records max |faceFlux/faceArea| and the source-node temperature in `speedSeries`; a sample is taken whether or not that step was accepted (a rejected step keeps the previous state). This variant runs only when `-PcoupledAirScalingScene` names `open16` or `multiroom16`. open16 runs it alone (its only variant). multiroom16 runs it after the three standard variants, so `multiroom16-long-fork-<n>.json` repeats the multiroom16 rows from the table above.
+- `minNodeVolume` and `smallNodes` are now written on every scaling row.
+
+### Results
+
+The medians are taken as in the table above. For hot-still-long, wall, pressure and thermal figures are means over the 1200 measured steps.
+
+| Scene | Variant | Cells | Air nodes | Faces | Accepted / rejected | Wall ms mean / p95 | Pressure ms | Thermal ms | Pressure iter mean / max | Thermal sweeps mean / max | Max speed m/s | Max divergence | Rebuild ms | minNodeVolume | smallNodes |
+|---|---|--:|--:|--:|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| tiny-pockets | wind-only | 4096 | 3793 | 11107 | 40 / 0 | 7.77 / 15.38 | 1.97 | 0.90 | 32.5 / 33 | 5.7 / 8 | 10.554 | 9.51e-08 | 33.61 | 1/4096 | 250 |
+| tiny-pockets | heated | 4096 | 3793 | 11107 | 40 / 0 | 5.09 / 5.66 | 1.77 | 2.17 | 32.5 / 33 | 43.3 / 44 | 10.554 | 9.57e-08 | 12.48 | 1/4096 | 250 |
+| tiny-pockets | hot-still | 4096 | 3793 | 11107 | 40 / 0 | 5.00 / 6.68 | 1.41 | 3.17 | 26.8 / 28 | 50.9 / 52 | 2.327 | 9.69e-08 | 4.20 | 1/4096 | 250 |
+| open16 | hot-still-long | 4096 | 3900 | 12244 | 1200 / 0 | 3.25 / 4.05 | 0.90 | 1.84 | 15.5 / 18 | 35.9 / 54 | 2.538 | 1.66e-09 | 32.47 | 1 | 0 |
+| multiroom16 (long run) | wind-only | 4096 | 3543 | 10878 | 40 / 0 | 7.88 / 17.65 | 1.64 | 2.16 | 26.2 / 27 | 15.5 / 18 | 10.554 | 8.65e-08 | 33.34 | 1 | 0 |
+| multiroom16 (long run) | heated | 4096 | 3543 | 10878 | 40 / 0 | 4.59 / 5.29 | 1.38 | 2.22 | 26.2 / 27 | 43.3 / 44 | 10.566 | 9.01e-08 | 12.54 | 1 | 0 |
+| multiroom16 (long run) | hot-still | 4096 | 3543 | 10878 | 40 / 0 | 4.98 / 6.76 | 1.41 | 3.12 | 24.6 / 25 | 49.4 / 50 | 2.329 | 1.85e-09 | 4.00 | 1 | 0 |
+| multiroom16 (long run) | hot-still-long | 4096 | 3543 | 10878 | 1200 / 0 | 3.76 / 4.32 | 1.37 | 1.98 | 24.2 / 25 | 40.9 / 50 | 2.329 | 2.82e-09 | 3.73 | 1 | 0 |
+
+No step was rejected in any fork, warmup included, so `rejectedByStatus` is empty and `firstRejectedStep` is -1 in every row. Every initialization and rebuild ended READY/READY. Maximum step energy error stayed below 2e-8. Geometry fingerprints, node counts, `minNodeVolume` and `smallNodes` match across the forks of each scene.
+
+Pressure iterations on rebuild: tiny-pockets 0 for all three variants; multiroom16 6 (wind-only), 5 (heated) and 0 (both still-air variants).
+
+### Long-run samples
+
+The three forks gave identical values to the printed precision.
+
+| Scene | Max speed m/s at 60 s / 300 s / 600 s | Source-node temperature C at 60 s / 300 s / 600 s | Highest sampled speed | First rejected step |
+|---|--:|--:|--:|--:|
+| open16 | 2.504 / 2.512 / 2.515 | 76.51 / 76.55 / 76.55 | 2.532 at 30 s | none |
+| multiroom16 | 2.275 / 2.289 / 2.286 | 133.74 / 145.64 / 146.47 | 2.302 at 170 s | none |
+
+Times count measured physical seconds and exclude the 5 s of warmup.
+
+### Notes
+
+- open16 runs hot-still-long first in its JVM, so its owner construction and rebuild (32.47 ms) include JIT warmup; the multiroom16 long run comes fourth in its JVM.
+- The multiroom16 rows above are reruns that match the earlier baseline in node, face and iteration counts and in max speed.

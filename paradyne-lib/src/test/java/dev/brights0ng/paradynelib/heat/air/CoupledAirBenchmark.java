@@ -1,5 +1,5 @@
 // Written by ChatGPT; extended by ChatGPT with thermal/flow controls, phase counters, and long-run calibration;
-// scaling mode and shared scene geometry helper added by Claude.
+// scaling mode, shared scene geometry helper, tiny-pockets scene and hot-still-long variant added by Claude.
 // House layout adapted from AirGridTest (original fixture authorship unmarked).
 package dev.brights0ng.paradynelib.heat.air;
 
@@ -91,7 +91,7 @@ public final class CoupledAirBenchmark {
         for (var scene : List.of(new ThermalBenchmark.Scene("multiroom32", 32, 32, 32, 4),
                 new ThermalBenchmark.Scene("stress48", 48, 48, 48, 4),
                 new ThermalBenchmark.Scene("partial-block-house", 24, 16, 24, 3))) {
-            var g = sceneGeometry(scene); var f = g.flow;
+            var g = sceneGeometry(scene, false); var f = g.flow;
             double[] bg = new double[f.nodes()], ext = new double[f.faces()]; Arrays.fill(bg, 20); Arrays.fill(ext, 20);
             for (double[] setting : new double[][]{{.25, 1}, {.5, 1}, {1, 1}, {1, .5}, {1, 2}}) {
                 double dt = setting[0], scale = setting[1];
@@ -146,40 +146,80 @@ public final class CoupledAirBenchmark {
         return rows;
     }
 
-    /** ThermalBenchmark fixture as an open-exterior flow domain; partial solids are a 16x2x16 bottom slab. */
-    private static ThermalGeometry sceneGeometry(ThermalBenchmark.Scene scene) {
+    /** ThermalBenchmark fixture as an open-exterior flow domain; partial solids are a 16x2x16 bottom slab.
+     * When notched, every full solid face-touching interior (AIR) cells is full except one 1/16 subvoxel at local (0,0,0).
+     */
+    private static ThermalGeometry sceneGeometry(ThermalBenchmark.Scene scene, boolean notched) {
         var fixture = ThermalBenchmark.fixture(scene);
         var builder = new FlowGeometry.Builder(scene.nx(), scene.ny(), scene.nz()).openExterior(true);
         var partial = new FlowShape.Builder().solidBox(0, 0, 0, 16, 2, 16).build();
+        var notch = new FlowShape.Builder().solidBox(1, 0, 0, 16, 16, 16).solidBox(0, 1, 0, 1, 16, 16).solidBox(0, 0, 1, 1, 1, 16).build();
         for (int z = 0; z < scene.nz(); z++) for (int y = 0; y < scene.ny(); y++) for (int x = 0; x < scene.nx(); x++) {
             int i = fixture.index(x, y, z);
-            if (fixture.kinds()[i] == AirGrid.SOLID) { builder.cell(x, y, z, fixture.open()[i] != 0 ? partial : FlowShape.FULL); }
+            if (fixture.kinds()[i] != AirGrid.SOLID) { continue; }
+            var shape = fixture.open()[i] != 0 ? partial : notched && touchesInterior(fixture, x, y, z) ? notch : FlowShape.FULL;
+            builder.cell(x, y, z, shape);
         }
         var f = builder.build(); double[] k = new double[scene.cells()], c = new double[k.length]; Arrays.fill(k, 1); Arrays.fill(c, 1);
         return new ThermalGeometry(f, k, c, ThermalGeometry.Coefficients.legacyMaterials());
     }
 
-    private record Variant(String name, double windX, double windZ, double sourcePower, double sourceLimitC) { }
+    private static boolean touchesInterior(ThermalBenchmark.Fixture fixture, int x, int y, int z) {
+        var s = fixture.scene();
+        int[][] offsets = {{-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}};
+        for (int[] o : offsets) {
+            int px = x + o[0], py = y + o[1], pz = z + o[2];
+            if (px < 0 || py < 0 || pz < 0 || px >= s.nx() || py >= s.ny() || pz >= s.nz()) { continue; }
+            if (fixture.kinds()[fixture.index(px, py, pz)] == AirGrid.AIR) { return true; }
+        }
+        return false;
+    }
+
+    private static double maxSpeed(CoupledAirGrid grid, FlowGeometry f) {
+        double max = 0;
+        for (int e = 0; e < f.faces(); e++) {
+            if (f.faceArea(e) > 0) { max = Math.max(max, Math.abs(grid.faceFlux(e) / f.faceArea(e))); }
+        }
+        return max;
+    }
+
+    /** seriesEvery &gt; 0 records max speed and source temperature every that many measured steps. */
+    private record Variant(String name, double windX, double windZ, double sourcePower, double sourceLimitC, int measured, int seriesEvery) { }
 
     /** Phase 0 baseline: cost and acceptance against domain size with DEFAULT settings.
      * Rejected steps keep the previous state, so stepping continues after them.
+     * tiny-pockets is multiroom16 with notched room-facing solids. open16 runs only hot-still-long, and only when named;
+     * multiroom16 adds hot-still-long only when named.
      */
     private static List<Object> scaling(ThermalTransport.Mode mode, boolean cacheSamplingOrigins, FlowGrid.Kernel kernel, String sceneFilter) {
         var rows = new ArrayList<Object>();
-        int warmup = 10, measured = 40; double dt = .5, scale = 1;
-        var variants = List.of(new Variant("wind-only", 6, 2, 0, Double.NaN),
-                new Variant("heated", 6, 2, AirParams.DEFAULT.gridPower(1, .5), 65),
-                new Variant("hot-still", 0, 0, 300, 400));
-        for (var scene : List.of(new ThermalBenchmark.Scene("multiroom16", 16, 16, 16, 4),
+        int warmup = 10; double dt = .5, scale = 1;
+        var variants = List.of(new Variant("wind-only", 6, 2, 0, Double.NaN, 40, 0),
+                new Variant("heated", 6, 2, AirParams.DEFAULT.gridPower(1, .5), 65, 40, 0),
+                new Variant("hot-still", 0, 0, 300, 400, 40, 0));
+        var hotStillLong = new Variant("hot-still-long", 0, 0, 300, 400, 1200, 20);
+        var multiroom16 = new ThermalBenchmark.Scene("multiroom16", 16, 16, 16, 4);
+        for (var scene : List.of(multiroom16,
                 new ThermalBenchmark.Scene("multiroom32x16", 32, 16, 32, 4),
                 new ThermalBenchmark.Scene("multiroom32", 32, 32, 32, 4),
-                new ThermalBenchmark.Scene("partial-block-house", 24, 16, 24, 3))) {
-            if (!sceneFilter.equals("all") && !sceneFilter.equals(scene.name())) { continue; }
-            var g = sceneGeometry(scene); var f = g.flow;
+                new ThermalBenchmark.Scene("partial-block-house", 24, 16, 24, 3),
+                new ThermalBenchmark.Scene("tiny-pockets", 16, 16, 16, 4),
+                new ThermalBenchmark.Scene("open16", 16, 16, 16, 0))) {
+            boolean named = sceneFilter.equals(scene.name()), longOnly = scene.name().equals("open16");
+            if (!named && (longOnly || !sceneFilter.equals("all"))) { continue; }
+            boolean pockets = scene.name().equals("tiny-pockets");
+            var g = pockets ? sceneGeometry(multiroom16, true) : sceneGeometry(scene, false); var f = g.flow;
             double[] bg = new double[f.nodes()], ext = new double[f.faces()]; Arrays.fill(bg, 20); Arrays.fill(ext, 20);
             int source = f.nodeAt(scene.nx() / 2.0 + .5, 3.5, scene.nz() / 2.0 + .5);
             if (source < 0) { throw new IllegalStateException("Fixture source must be represented air"); }
-            for (var variant : variants) {
+            double minNodeVolume = Double.POSITIVE_INFINITY; int smallNodes = 0;
+            for (int i = 0; i < f.nodes(); i++) {
+                minNodeVolume = Math.min(minNodeVolume, f.airVolume(i)); if (f.airVolume(i) < 1.0 / 64) { smallNodes++; }
+            }
+            var sceneVariants = new ArrayList<Variant>(longOnly ? List.of() : variants);
+            if (named && (longOnly || scene == multiroom16)) { sceneVariants.add(hotStillLong); }
+            for (var variant : sceneVariants) {
+                int measured = variant.measured();
                 long setup = System.nanoTime();
                 var grid = new CoupledAirGrid(g, FlowBoundary.wind(f, variant.windX(), 0, variant.windZ()), FlowSettings.DEFAULT,
                         ThermalTransport.Settings.defaults(), mode, cacheSamplingOrigins, kernel);
@@ -191,7 +231,7 @@ public final class CoupledAirBenchmark {
                 var pressure = new ThermalTiming.Samples(); var transport = new ThermalTiming.Samples();
                 var iterations = new ThermalTiming.Samples(); var sweeps = new ThermalTiming.Samples();
                 Map<String, Integer> rejected = new LinkedHashMap<>(); int accepted = 0, warmupRejected = 0, firstRejected = -1;
-                double maxSpeed = 0, divergence = 0, error = 0;
+                double maxSpeed = 0, divergence = 0, error = 0; var speedSeries = new ArrayList<Object>();
                 for (int s = 0; s < warmup + measured; s++) {
                     long begin = System.nanoTime();
                     var step = grid.step(dt, scale, bg, ext);
@@ -200,6 +240,13 @@ public final class CoupledAirBenchmark {
                     if (s < warmup) { if (!step.ready()) { warmupRejected++; } continue; }
                     var flow = step.flow();
                     wall.add(elapsed);
+                    int measuredStep = s - warmup + 1;
+                    if (variant.seriesEvery() > 0 && measuredStep % variant.seriesEvery() == 0) {
+                        var sample = new LinkedHashMap<String, Object>(); sample.put("measuredStep", measuredStep);
+                        sample.put("measuredPhysicalSeconds", measuredStep * dt); sample.put("ready", step.ready());
+                        sample.put("maxSpeed", maxSpeed(grid, f)); sample.put("sourceTemperatureC", grid.temperature(source));
+                        speedSeries.add(sample);
+                    }
                     if (step.first() != null) {
                         thermal.add(step.first().nanos() + (step.second() != null ? step.second().nanos() : 0));
                         sweeps.add(step.first().sweeps() + (step.second() != null ? step.second().sweeps() : 0));
@@ -214,9 +261,7 @@ public final class CoupledAirBenchmark {
                         rejected.merge(key, 1, Integer::sum); continue;
                     }
                     accepted++;
-                    for (int e = 0; e < f.faces(); e++) {
-                        if (f.faceArea(e) > 0) { maxSpeed = Math.max(maxSpeed, Math.abs(grid.faceFlux(e) / f.faceArea(e))); }
-                    }
+                    maxSpeed = Math.max(maxSpeed, maxSpeed(grid, f));
                     divergence = Math.max(divergence, flow.pressure().maxDivergence());
                     error = Math.max(error, Math.abs(step.energyError()));
                 }
@@ -235,6 +280,8 @@ public final class CoupledAirBenchmark {
                 } catch (IllegalArgumentException e) { rebuildStatus = "REJECTED: " + e.getMessage(); }
                 var row = new LinkedHashMap<String, Object>(); row.put("scene", scene.name()); row.put("cells", scene.cells());
                 row.put("airNodes", f.nodes()); row.put("states", g.states()); row.put("faces", f.faces()); row.put("variant", variant.name());
+                if (pockets) { row.put("baseScene", multiroom16.name()); }
+                row.put("minNodeVolume", minNodeVolume); row.put("smallNodes", smallNodes);
                 row.put("sourcePower", variant.sourcePower()); if (variant.sourcePower() > 0) { row.put("sourceLimitC", variant.sourceLimitC()); }
                 row.put("physicalStep", dt); row.put("responseScale", scale); row.put("warmupSteps", warmup); row.put("measuredSteps", measured);
                 row.put("initialization", initialized.status() + (initialized.pressure() != null ? "/" + initialized.pressure().status() : ""));
@@ -247,6 +294,7 @@ public final class CoupledAirBenchmark {
                 row.put("ownerConstructionAndInitializationMs", setupNanos / 1e6);
                 row.put("rebuildMs", rebuildMs); row.put("rebuildPressureIterations", rebuildIterations); row.put("rebuildStatus", rebuildStatus);
                 row.put("geometryFingerprint", Arrays.hashCode(f.area) * 31L + Arrays.hashCode(f.nodeCell));
+                if (variant.seriesEvery() > 0) { row.put("speedSeriesEvery", variant.seriesEvery()); row.put("speedSeries", speedSeries); }
                 rows.add(row); System.out.println(scene.name() + " " + variant.name() + " accepted=" + accepted + " rejected=" + rejected
                         + " ms=" + wall.summary(1e6).mean() + " rebuildMs=" + rebuildMs);
             }

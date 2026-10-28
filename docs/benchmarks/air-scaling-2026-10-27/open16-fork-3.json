@@ -1,0 +1,536 @@
+{
+  "writtenBy": "ChatGPT; scaling mode by Claude",
+  "schema": "coupled-air-v2",
+  "mode": "scaling",
+  "thermalTraversal": "COMPACT_CACHED",
+  "cachedSamplingOrigins": true,
+  "flowKernel": "CACHED_TRACE",
+  "timeUtc": "2026-10-28T03:13:52.008936200Z",
+  "java": "21.0.12.1+1-LTS",
+  "cpu": "AMD64 Family 25 Model 97 Stepping 2, AuthenticAMD",
+  "processors": 6,
+  "heapBytes": 1073741824,
+  "vmArguments": [
+    "-XX:+UseG1GC",
+    "-Xms512m",
+    "-Xmx1g",
+    "-Dfile.encoding\u003dUTF-8",
+    "-Duser.country\u003dUS",
+    "-Duser.language\u003den",
+    "-Duser.variant"
+  ],
+  "flowSettings": "FlowSettings[pressureIterations\u003d512, relativeResidual\u003d1.0E-8, absoluteResidual\u003d1.0E-10, divergenceTolerance\u003d1.0E-7, maxStep\u003d1.0, damping\u003d0.05, buoyancyScale\u003d1.0, maxSpeed\u003d100.0, maxTemperatureC\u003d3000.0]",
+  "thermalSettings": "Settings[maxSweeps\u003d512, temperatureTolerance\u003d1.0E-9, energyTolerance\u003d1.0E-8, maxDivergence\u003d1.0E-7]",
+  "sequence": "half thermal -\u003e velocity transport/buoyancy/pressure -\u003e half thermal; atomic commit",
+  "scalingScene": "open16",
+  "settingsProfile": "DEFAULT",
+  "results": [
+    {
+      "scene": "open16",
+      "cells": 4096,
+      "airNodes": 3900,
+      "states": 4096,
+      "faces": 12244,
+      "variant": "hot-still-long",
+      "minNodeVolume": 1.0,
+      "smallNodes": 0,
+      "sourcePower": 300.0,
+      "sourceLimitC": 400.0,
+      "physicalStep": 0.5,
+      "responseScale": 1.0,
+      "warmupSteps": 10,
+      "measuredSteps": 1200,
+      "initialization": "READY/READY",
+      "accepted": 1200,
+      "rejectedByStatus": {},
+      "warmupRejected": 0,
+      "firstRejectedStep": -1,
+      "wallMs": {
+        "count": 1200,
+        "mean": 3.1714050000000027,
+        "p50": 3.0463,
+        "p95": 4.0521,
+        "p99": 5.0348,
+        "max": 5.7614,
+        "total": 3805.6860000000033
+      },
+      "thermalMs": {
+        "count": 1200,
+        "mean": 1.7961897500000001,
+        "p50": 1.6691,
+        "p95": 2.5002,
+        "p99": 3.1693,
+        "max": 3.9244,
+        "total": 2155.4277
+      },
+      "pressureMs": {
+        "count": 1200,
+        "mean": 0.8871053333333343,
+        "p50": 0.8429,
+        "p95": 1.1045,
+        "p99": 1.1997,
+        "max": 1.8257,
+        "total": 1064.526400000001
+      },
+      "transportMs": {
+        "count": 1200,
+        "mean": 0.4526915833333326,
+        "p50": 0.4322,
+        "p95": 0.5515,
+        "p99": 0.6715,
+        "max": 0.9749,
+        "total": 543.2298999999991
+      },
+      "pressureIterations": {
+        "count": 1200,
+        "mean": 15.458333333333334,
+        "p50": 15.0,
+        "p95": 17.0,
+        "p99": 18.0,
+        "max": 18.0,
+        "total": 18550.0
+      },
+      "thermalSweeps": {
+        "count": 1200,
+        "mean": 35.850833333333334,
+        "p50": 34.0,
+        "p95": 50.0,
+        "p99": 54.0,
+        "max": 54.0,
+        "total": 43021.0
+      },
+      "maxSpeed": 2.537544100018363,
+      "maxDivergence": 1.6567307803416753E-9,
+      "maxEnergyError": 1.9746551060961792E-8,
+      "ownerConstructionAndInitializationMs": 25.25,
+      "rebuildMs": 32.4665,
+      "rebuildPressureIterations": 0,
+      "rebuildStatus": "READY/READY",
+      "geometryFingerprint": -12249124286,
+      "speedSeriesEvery": 20,
+      "speedSeries": [
+        {
+          "measuredStep": 20,
+          "measuredPhysicalSeconds": 10.0,
+          "ready": true,
+          "maxSpeed": 2.398161939744883,
+          "sourceTemperatureC": 76.79290716623818
+        },
+        {
+          "measuredStep": 40,
+          "measuredPhysicalSeconds": 20.0,
+          "ready": true,
+          "maxSpeed": 2.5158368584641835,
+          "sourceTemperatureC": 76.50901892712926
+        },
+        {
+          "measuredStep": 60,
+          "measuredPhysicalSeconds": 30.0,
+          "ready": true,
+          "maxSpeed": 2.531706494050701,
+          "sourceTemperatureC": 76.3890192031586
+        },
+        {
+          "measuredStep": 80,
+          "measuredPhysicalSeconds": 40.0,
+          "ready": true,
+          "maxSpeed": 2.5094299946234204,
+          "sourceTemperatureC": 76.45414331781699
+        },
+        {
+          "measuredStep": 100,
+          "measuredPhysicalSeconds": 50.0,
+          "ready": true,
+          "maxSpeed": 2.501800286240851,
+          "sourceTemperatureC": 76.50544420999519
+        },
+        {
+          "measuredStep": 120,
+          "measuredPhysicalSeconds": 60.0,
+          "ready": true,
+          "maxSpeed": 2.5041004687036357,
+          "sourceTemperatureC": 76.50513641579599
+        },
+        {
+          "measuredStep": 140,
+          "measuredPhysicalSeconds": 70.0,
+          "ready": true,
+          "maxSpeed": 2.5109190528910936,
+          "sourceTemperatureC": 76.51084391087632
+        },
+        {
+          "measuredStep": 160,
+          "measuredPhysicalSeconds": 80.0,
+          "ready": true,
+          "maxSpeed": 2.50979522603142,
+          "sourceTemperatureC": 76.52332715629194
+        },
+        {
+          "measuredStep": 180,
+          "measuredPhysicalSeconds": 90.0,
+          "ready": true,
+          "maxSpeed": 2.5114591420777455,
+          "sourceTemperatureC": 76.52238628853253
+        },
+        {
+          "measuredStep": 200,
+          "measuredPhysicalSeconds": 100.0,
+          "ready": true,
+          "maxSpeed": 2.510593444177614,
+          "sourceTemperatureC": 76.53804448374751
+        },
+        {
+          "measuredStep": 220,
+          "measuredPhysicalSeconds": 110.0,
+          "ready": true,
+          "maxSpeed": 2.5142032226717004,
+          "sourceTemperatureC": 76.53349669332071
+        },
+        {
+          "measuredStep": 240,
+          "measuredPhysicalSeconds": 120.0,
+          "ready": true,
+          "maxSpeed": 2.511334619390225,
+          "sourceTemperatureC": 76.53226175002852
+        },
+        {
+          "measuredStep": 260,
+          "measuredPhysicalSeconds": 130.0,
+          "ready": true,
+          "maxSpeed": 2.5128882309602303,
+          "sourceTemperatureC": 76.54121365926757
+        },
+        {
+          "measuredStep": 280,
+          "measuredPhysicalSeconds": 140.0,
+          "ready": true,
+          "maxSpeed": 2.5115410451288542,
+          "sourceTemperatureC": 76.53586617493633
+        },
+        {
+          "measuredStep": 300,
+          "measuredPhysicalSeconds": 150.0,
+          "ready": true,
+          "maxSpeed": 2.5119986422963407,
+          "sourceTemperatureC": 76.55134261539843
+        },
+        {
+          "measuredStep": 320,
+          "measuredPhysicalSeconds": 160.0,
+          "ready": true,
+          "maxSpeed": 2.5099706909105093,
+          "sourceTemperatureC": 76.53889417916675
+        },
+        {
+          "measuredStep": 340,
+          "measuredPhysicalSeconds": 170.0,
+          "ready": true,
+          "maxSpeed": 2.512029203121351,
+          "sourceTemperatureC": 76.54970347031701
+        },
+        {
+          "measuredStep": 360,
+          "measuredPhysicalSeconds": 180.0,
+          "ready": true,
+          "maxSpeed": 2.51532828762357,
+          "sourceTemperatureC": 76.54209291131357
+        },
+        {
+          "measuredStep": 380,
+          "measuredPhysicalSeconds": 190.0,
+          "ready": true,
+          "maxSpeed": 2.5122003818657825,
+          "sourceTemperatureC": 76.5391398926403
+        },
+        {
+          "measuredStep": 400,
+          "measuredPhysicalSeconds": 200.0,
+          "ready": true,
+          "maxSpeed": 2.512602490292894,
+          "sourceTemperatureC": 76.55000072764047
+        },
+        {
+          "measuredStep": 420,
+          "measuredPhysicalSeconds": 210.0,
+          "ready": true,
+          "maxSpeed": 2.5102204835160484,
+          "sourceTemperatureC": 76.54110845678598
+        },
+        {
+          "measuredStep": 440,
+          "measuredPhysicalSeconds": 220.0,
+          "ready": true,
+          "maxSpeed": 2.5121676256663474,
+          "sourceTemperatureC": 76.53953105588407
+        },
+        {
+          "measuredStep": 460,
+          "measuredPhysicalSeconds": 230.0,
+          "ready": true,
+          "maxSpeed": 2.5148270310814715,
+          "sourceTemperatureC": 76.54504247001493
+        },
+        {
+          "measuredStep": 480,
+          "measuredPhysicalSeconds": 240.0,
+          "ready": true,
+          "maxSpeed": 2.512091354174716,
+          "sourceTemperatureC": 76.5406449316834
+        },
+        {
+          "measuredStep": 500,
+          "measuredPhysicalSeconds": 250.0,
+          "ready": true,
+          "maxSpeed": 2.5122521346859936,
+          "sourceTemperatureC": 76.55787841592743
+        },
+        {
+          "measuredStep": 520,
+          "measuredPhysicalSeconds": 260.0,
+          "ready": true,
+          "maxSpeed": 2.513388289493007,
+          "sourceTemperatureC": 76.54254665333093
+        },
+        {
+          "measuredStep": 540,
+          "measuredPhysicalSeconds": 270.0,
+          "ready": true,
+          "maxSpeed": 2.5121807145198845,
+          "sourceTemperatureC": 76.54036500303457
+        },
+        {
+          "measuredStep": 560,
+          "measuredPhysicalSeconds": 280.0,
+          "ready": true,
+          "maxSpeed": 2.512649406799765,
+          "sourceTemperatureC": 76.5510385020648
+        },
+        {
+          "measuredStep": 580,
+          "measuredPhysicalSeconds": 290.0,
+          "ready": true,
+          "maxSpeed": 2.5114088882480647,
+          "sourceTemperatureC": 76.54132864721113
+        },
+        {
+          "measuredStep": 600,
+          "measuredPhysicalSeconds": 300.0,
+          "ready": true,
+          "maxSpeed": 2.5123621494854538,
+          "sourceTemperatureC": 76.55202579963795
+        },
+        {
+          "measuredStep": 620,
+          "measuredPhysicalSeconds": 310.0,
+          "ready": true,
+          "maxSpeed": 2.5147367433611056,
+          "sourceTemperatureC": 76.54550387063124
+        },
+        {
+          "measuredStep": 640,
+          "measuredPhysicalSeconds": 320.0,
+          "ready": true,
+          "maxSpeed": 2.5123198229483887,
+          "sourceTemperatureC": 76.54075201133944
+        },
+        {
+          "measuredStep": 660,
+          "measuredPhysicalSeconds": 330.0,
+          "ready": true,
+          "maxSpeed": 2.5123671191940584,
+          "sourceTemperatureC": 76.55533196062174
+        },
+        {
+          "measuredStep": 680,
+          "measuredPhysicalSeconds": 340.0,
+          "ready": true,
+          "maxSpeed": 2.5134648384362626,
+          "sourceTemperatureC": 76.54276061900696
+        },
+        {
+          "measuredStep": 700,
+          "measuredPhysicalSeconds": 350.0,
+          "ready": true,
+          "maxSpeed": 2.5122208494978837,
+          "sourceTemperatureC": 76.54036898870218
+        },
+        {
+          "measuredStep": 720,
+          "measuredPhysicalSeconds": 360.0,
+          "ready": true,
+          "maxSpeed": 2.5136049396965845,
+          "sourceTemperatureC": 76.54784241241778
+        },
+        {
+          "measuredStep": 740,
+          "measuredPhysicalSeconds": 370.0,
+          "ready": true,
+          "maxSpeed": 2.511365348723622,
+          "sourceTemperatureC": 76.54142353328604
+        },
+        {
+          "measuredStep": 760,
+          "measuredPhysicalSeconds": 380.0,
+          "ready": true,
+          "maxSpeed": 2.5123560738596176,
+          "sourceTemperatureC": 76.55213453162555
+        },
+        {
+          "measuredStep": 780,
+          "measuredPhysicalSeconds": 390.0,
+          "ready": true,
+          "maxSpeed": 2.515377316234073,
+          "sourceTemperatureC": 76.54394669335758
+        },
+        {
+          "measuredStep": 800,
+          "measuredPhysicalSeconds": 400.0,
+          "ready": true,
+          "maxSpeed": 2.512244676262646,
+          "sourceTemperatureC": 76.54078783873838
+        },
+        {
+          "measuredStep": 820,
+          "measuredPhysicalSeconds": 410.0,
+          "ready": true,
+          "maxSpeed": 2.5124131506382397,
+          "sourceTemperatureC": 76.55550157386428
+        },
+        {
+          "measuredStep": 840,
+          "measuredPhysicalSeconds": 420.0,
+          "ready": true,
+          "maxSpeed": 2.5103887496107626,
+          "sourceTemperatureC": 76.5420141373245
+        },
+        {
+          "measuredStep": 860,
+          "measuredPhysicalSeconds": 430.0,
+          "ready": true,
+          "maxSpeed": 2.5122439652656174,
+          "sourceTemperatureC": 76.54038901060645
+        },
+        {
+          "measuredStep": 880,
+          "measuredPhysicalSeconds": 440.0,
+          "ready": true,
+          "maxSpeed": 2.5134484892892304,
+          "sourceTemperatureC": 76.5478998281598
+        },
+        {
+          "measuredStep": 900,
+          "measuredPhysicalSeconds": 450.0,
+          "ready": true,
+          "maxSpeed": 2.5119922496916725,
+          "sourceTemperatureC": 76.54108133787169
+        },
+        {
+          "measuredStep": 920,
+          "measuredPhysicalSeconds": 460.0,
+          "ready": true,
+          "maxSpeed": 2.512360947293496,
+          "sourceTemperatureC": 76.55808084139834
+        },
+        {
+          "measuredStep": 940,
+          "measuredPhysicalSeconds": 470.0,
+          "ready": true,
+          "maxSpeed": 2.5153195638569046,
+          "sourceTemperatureC": 76.54395680696734
+        },
+        {
+          "measuredStep": 960,
+          "measuredPhysicalSeconds": 480.0,
+          "ready": true,
+          "maxSpeed": 2.5123242943608766,
+          "sourceTemperatureC": 76.54059934948187
+        },
+        {
+          "measuredStep": 980,
+          "measuredPhysicalSeconds": 490.0,
+          "ready": true,
+          "maxSpeed": 2.51270862965005,
+          "sourceTemperatureC": 76.55113630652876
+        },
+        {
+          "measuredStep": 1000,
+          "measuredPhysicalSeconds": 500.0,
+          "ready": true,
+          "maxSpeed": 2.5101851735474097,
+          "sourceTemperatureC": 76.5419887707899
+        },
+        {
+          "measuredStep": 1020,
+          "measuredPhysicalSeconds": 510.0,
+          "ready": true,
+          "maxSpeed": 2.5122837354682503,
+          "sourceTemperatureC": 76.54024090323814
+        },
+        {
+          "measuredStep": 1040,
+          "measuredPhysicalSeconds": 520.0,
+          "ready": true,
+          "maxSpeed": 2.514869422341919,
+          "sourceTemperatureC": 76.54558876436671
+        },
+        {
+          "measuredStep": 1060,
+          "measuredPhysicalSeconds": 530.0,
+          "ready": true,
+          "maxSpeed": 2.512118864681128,
+          "sourceTemperatureC": 76.54107545625055
+        },
+        {
+          "measuredStep": 1080,
+          "measuredPhysicalSeconds": 540.0,
+          "ready": true,
+          "maxSpeed": 2.5122708218198277,
+          "sourceTemperatureC": 76.55821716167215
+        },
+        {
+          "measuredStep": 1100,
+          "measuredPhysicalSeconds": 550.0,
+          "ready": true,
+          "maxSpeed": 2.5134071268049616,
+          "sourceTemperatureC": 76.54281336957784
+        },
+        {
+          "measuredStep": 1120,
+          "measuredPhysicalSeconds": 560.0,
+          "ready": true,
+          "maxSpeed": 2.5121937231274707,
+          "sourceTemperatureC": 76.54057651468865
+        },
+        {
+          "measuredStep": 1140,
+          "measuredPhysicalSeconds": 570.0,
+          "ready": true,
+          "maxSpeed": 2.5126598606048125,
+          "sourceTemperatureC": 76.55120532389827
+        },
+        {
+          "measuredStep": 1160,
+          "measuredPhysicalSeconds": 580.0,
+          "ready": true,
+          "maxSpeed": 2.511415998307907,
+          "sourceTemperatureC": 76.54146161029716
+        },
+        {
+          "measuredStep": 1180,
+          "measuredPhysicalSeconds": 590.0,
+          "ready": true,
+          "maxSpeed": 2.512367621649801,
+          "sourceTemperatureC": 76.55213151112045
+        },
+        {
+          "measuredStep": 1200,
+          "measuredPhysicalSeconds": 600.0,
+          "ready": true,
+          "maxSpeed": 2.5147388659065095,
+          "sourceTemperatureC": 76.54558837868315
+        }
+      ]
+    }
+  ],
+  "complete": true
+}
