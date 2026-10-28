@@ -27,13 +27,9 @@ public final class ThermalSources {
             }
             return result.toArray(ThermalTransport.Source[]::new);
         }
-        int x = cell % g.nx, y = (cell / g.nx) % g.ny, z = cell / (g.nx * g.ny);
         int faces = 0;
         for (int axis = 0; axis < 3; axis++) for (int side = 0; side < 2; side++) {
-            int coordinate = axis == 0 ? x : axis == 1 ? y : z;
-            int size = axis == 0 ? g.nx : axis == 1 ? g.ny : g.nz;
-            if ((side == 0 && coordinate == 0) || (side == 1 && coordinate + 1 == size)) { continue; }
-            int neighbor = cell + (side == 0 ? -1 : 1) * (axis == 0 ? 1 : axis == 1 ? g.nx : g.nx * g.ny);
+            int neighbor=g.neighbor(cell,axis,side);if(neighbor<0) continue;
             FlowShape adjacent = g.shapes[neighbor];
             double[] area = new double[adjacent.components()]; double total = 0;
             for (int v = 0; v < 16; v++) for (int u = 0; u < 16; u++) {

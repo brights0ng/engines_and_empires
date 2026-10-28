@@ -111,11 +111,8 @@ public final class ThermalGeometry {
                     link(links, flow.starts[c] + k, material[c], shape.solidArea[k] / (coefficients.film() + half[c]));
                 }
             }
-            int x = c % flow.nx, y = (c / flow.nx) % flow.ny, z = c / (flow.nx * flow.ny);
             for (int axis = 0; axis < 3; axis++) {
-                if ((axis == 0 && x + 1 == flow.nx) || (axis == 1 && y + 1 == flow.ny)
-                        || (axis == 2 && z + 1 == flow.nz)) { continue; }
-                int next = c + (axis == 0 ? 1 : axis == 1 ? flow.nx : flow.nx * flow.ny);
+                int next=flow.neighbor(c,axis,1);if(next<0) continue;
                 if (material[c] < 0 && material[next] < 0) { continue; }
                 FlowShape other = flow.shapes[next];
                 if (shape.labels == null && other.labels == null) {
@@ -171,10 +168,8 @@ public final class ThermalGeometry {
                     link(links,material[c],fluid[c],(contact/256.0)/(solidHalf[c]+fluidHalf[c]));
                 }
             }
-            int x=c%flow.nx,y=(c/flow.nx)%flow.ny,z=c/(flow.nx*flow.ny);
             for(int axis=0;axis<3;axis++) {
-                if((axis==0 && x+1==flow.nx) || (axis==1 && y+1==flow.ny) || (axis==2 && z+1==flow.nz)) { continue; }
-                int next=c+(axis==0?1:axis==1?flow.nx:flow.nx*flow.ny);
+                int next=flow.neighbor(c,axis,1);if(next<0) continue;
                 if(fluid[c]<0 && fluid[next]<0) { continue; }
                 var other=flow.shapes[next];
                 double[] toOtherAir=new double[other.components()],toThisAir=new double[shape.components()];

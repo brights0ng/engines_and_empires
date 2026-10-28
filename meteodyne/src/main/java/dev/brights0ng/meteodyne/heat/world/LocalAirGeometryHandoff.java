@@ -11,8 +11,9 @@ final class LocalAirGeometryHandoff {
     static final class Job {
         private final Snapshot snapshot;
         private final LocalAirCoverage.Certificate certificate;
-        private Job(Snapshot snapshot,LocalAirCoverage.Certificate certificate) { this.snapshot=snapshot;this.certificate=certificate; }
-        Completion bake(ThermalGeometry.Coefficients coefficients) { return new Completion(this,certificate.bake(snapshot,coefficients)); }
+        private final int tileEdge;
+        private Job(Snapshot snapshot,LocalAirCoverage.Certificate certificate,int tileEdge) { this.snapshot=snapshot;this.certificate=certificate;this.tileEdge=tileEdge; }
+        Completion bake(ThermalGeometry.Coefficients coefficients) { return new Completion(this,tileEdge==0?certificate.bake(snapshot,coefficients):snapshot.bakeTiledAdmitted(coefficients,certificate,tileEdge)); }
     }
     static final class Completion {
         private final Job job;
@@ -21,9 +22,14 @@ final class LocalAirGeometryHandoff {
     }
     private final Thread owner=Thread.currentThread();
     private final LocalAirCoverage.World world;
+    private final int tileEdge;
     private Job active,publishedJob;
     private Prepared published;
-    LocalAirGeometryHandoff(LocalAirCoverage.World world) { this.world=java.util.Objects.requireNonNull(world); }
+    LocalAirGeometryHandoff(LocalAirCoverage.World world) { this(world,0); }
+    LocalAirGeometryHandoff(LocalAirCoverage.World world,int tileEdge) {
+        if(tileEdge!=0 && tileEdge!=16) throw new IllegalArgumentException("Unsupported tile edge");
+        this.world=java.util.Objects.requireNonNull(world);this.tileEdge=tileEdge;
+    }
     private void checkOwner() { if(Thread.currentThread()!=owner) throw new IllegalStateException("Handoff requires owner thread"); }
     private boolean current(Job job) { return job.certificate.current(world); }
     Job begin(Snapshot snapshot,LocalAirCoverage.Certificate certificate) {
@@ -31,7 +37,7 @@ final class LocalAirGeometryHandoff {
         if(!certificate.current(world)) throw new IllegalStateException("Stale coverage certificate");
         // Validate identity before dispatch, without baking geometry on the owner thread.
         if(!LocalAirCoverage.matches(certificate,snapshot)) throw new IllegalArgumentException("Certificate belongs to another snapshot");
-        active=new Job(snapshot,certificate);return active;
+        active=new Job(snapshot,certificate,tileEdge);return active;
     }
     boolean complete(Completion result) {
         checkOwner();

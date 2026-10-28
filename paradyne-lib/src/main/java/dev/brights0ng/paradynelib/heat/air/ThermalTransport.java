@@ -1,4 +1,6 @@
+// Updated by ChatGPT: reused the thermal operator for private stationary initialization.
 // Written by ChatGPT; extended by ChatGPT with thermostat sources, coupled restoration, compact traversal, and cached reciprocals.
+// Fixed by ChatGPT: include stationary fluid storage in wind-directed sweep orders.
 package dev.brights0ng.paradynelib.heat.air;
 
 import java.util.Arrays;
@@ -43,6 +45,7 @@ public final class ThermalTransport {
     private final Mode mode;
     private final ThermalStencil stencil;
     private final int[] start, column, face, exteriorFaces, directedOrder;
+    private final int[] spatialOrder;
     private int directedKey = -1;
     private final double[] base, weight, diagonal, rhs, flux, balance, power, limit, mixingReference;
     private double[] temperature, candidate;
@@ -84,6 +87,7 @@ public final class ThermalTransport {
         power = new double[n]; limit = new double[n]; Arrays.fill(limit, Double.NaN);
         mixingReference = new double[g.airStates()];
         directedOrder = mode == Mode.COMPACT_DIRECTED || mode == Mode.COMPACT_CACHED ? new int[n] : null;
+        spatialOrder=directedOrder!=null && !f.layout.dense()?new int[f.cells()]:null;
         inverseDiagonal = mode == Mode.COMPACT_CACHED ? new double[n] : null;
     }
     private void edge(int[] cursor, int row, int col, int flowFace, double conductance) {
@@ -275,6 +279,36 @@ public final class ThermalTransport {
         return new Step(Status.NOT_CONVERGED, settings.maxSweeps(), residual, before, after, exterior, error, System.nanoTime() - begin, requested, sourceEnergy,
                 checks, sweepNanos, qualityNanos);
     }
+    /** Initialization-only stationary relaxation; partial estimates are private to the initializer.
+     * Uses the same stencil, thermostat and divergence checks, with no transient capacity term.
+     * Does not represent elapsed time or produce a gameplay energy ledger.
+     */
+    double relaxStationary(double[] field,double[] exteriorCelsius,int sweeps) {
+        if(field.length!=flux.length || exteriorCelsius.length!=flux.length || sweeps<1) throw new IllegalArgumentException("Invalid stationary field");
+        var f=g.flow;Arrays.fill(balance,0);
+        for(int e=0;e<flux.length;e++) {
+            flux[e]=field[e];
+            if(!Double.isFinite(flux[e]) || f.exterior(e) && !supported(exteriorCelsius[e])) throw new IllegalArgumentException("Invalid stationary boundary");
+            if(f.low[e]>=0) balance[f.low[e]]+=flux[e];if(f.high[e]>=0) balance[f.high[e]]-=flux[e];
+        }
+        for(int i=0;i<balance.length;i++) if(Math.abs(balance[i])/f.volume[i]>settings.maxDivergence()) throw new IllegalStateException("Unbalanced stationary flow");
+        if(stencil==null) throw new IllegalStateException("Stationary initialization requires the shared compact stencil");
+        stencil.assemble(g,Double.POSITIVE_INFINITY,temperature,flux,diagonal,rhs,weight,candidate);
+        for(int e:exteriorFaces) { int i=f.low[e]>=0?f.low[e]:f.high[e];double out=f.low[e]>=0?flux[e]:-flux[e];if(out>0) diagonal[i]+=out;else rhs[i]-=out*exteriorCelsius[e]; }
+        for(int sweep=0;sweep<sweeps;sweep++) for(int k=0;k<candidate.length;k++) {
+            int i=(sweep&1)==0?k:candidate.length-1-k;if(diagonal[i]==0) continue;
+            double value=rhs[i];for(int p=start[i];p<start[i+1];p++) value+=weight[p]*candidate[column[p]];
+            candidate[i]=(value+deliveredPower(i,value))/diagonal[i];
+            if(!supported(candidate[i])) throw new IllegalStateException("Invalid stationary temperature");
+        }
+        double residual=0;
+        for(int i=0;i<candidate.length;i++) {
+            if(diagonal[i]==0) {if(power[i]!=0) throw new IllegalStateException("Source has no thermal equilibrium");continue;}
+            double local=rhs[i];for(int p=start[i];p<start[i+1];p++) local+=weight[p]*candidate[column[p]];
+            residual=Math.max(residual,Math.abs((local+deliveredPower(i,local))/diagonal[i]-candidate[i]));
+        }
+        double[] swap=temperature;temperature=candidate;candidate=swap;return residual;
+    }
     private double deliveredPower(int state, double withoutSourceRhs) {
         double q = power[state];
         if (q == 0 || Double.isNaN(limit[state])) { return q; }
@@ -299,16 +333,37 @@ public final class ThermalTransport {
         int key = (dx && x < 0 ? 1 : 0) | (dy && y < 0 ? 2 : 0) | (dz && z < 0 ? 4 : 0);
         if (key == directedKey) { return true; }
         int count = 0;
-        for (int iz = 0; iz < f.nz; iz++) for (int iy = 0; iy < f.ny; iy++) for (int ix = 0; ix < f.nx; ix++) {
+        if(spatialOrder!=null) {
+            for(int i=0;i<spatialOrder.length;i++) spatialOrder[i]=i;
+            sortCells(0,spatialOrder.length-1,key);
+            for(int cell:spatialOrder) count=appendCell(cell,count);
+        } else for (int iz = 0; iz < f.nz; iz++) for (int iy = 0; iy < f.ny; iy++) for (int ix = 0; ix < f.nx; ix++) {
             int px = (key & 1) == 0 ? ix : f.nx - 1 - ix;
             int py = (key & 2) == 0 ? iy : f.ny - 1 - iy;
             int pz = (key & 4) == 0 ? iz : f.nz - 1 - iz;
             int cell = f.index(px, py, pz);
-            for (int node = f.starts[cell]; node < f.starts[cell + 1]; node++) { directedOrder[count++] = node; }
-            if (g.material[cell] >= 0) { directedOrder[count++] = g.material[cell]; }
+            count=appendCell(cell,count);
         }
         if (count != directedOrder.length) { throw new IllegalStateException("Incomplete thermal sweep order"); }
         directedKey = key; return true;
+    }
+    private int appendCell(int cell,int count) {
+        var f=g.flow;for(int node=f.starts[cell];node<f.starts[cell+1];node++) directedOrder[count++]=node;
+        if(g.material[cell]>=0) directedOrder[count++]=g.material[cell];int fluid=g.fluidState(cell);if(fluid>=0) directedOrder[count++]=fluid;return count;
+    }
+    private int compareCells(int a,int b,int key) {
+        var f=g.flow;int c=Integer.compare(f.cellZ(a),f.cellZ(b));if(c!=0) return (key&4)==0?c:-c;
+        c=Integer.compare(f.cellY(a),f.cellY(b));if(c!=0) return (key&2)==0?c:-c;
+        c=Integer.compare(f.cellX(a),f.cellX(b));return (key&1)==0?c:-c;
+    }
+    private void sortCells(int low,int high,int key) {
+        int i=low,j=high,pivot=spatialOrder[(low+high)>>>1];
+        while(i<=j) {
+            while(compareCells(spatialOrder[i],pivot,key)<0) i++;
+            while(compareCells(spatialOrder[j],pivot,key)>0) j--;
+            if(i<=j) { int t=spatialOrder[i];spatialOrder[i++]=spatialOrder[j];spatialOrder[j--]=t; }
+        }
+        if(low<j) sortCells(low,j,key);if(i<high) sortCells(i,high,key);
     }
     private Step rejected(Status status, long begin) {
         double energy = energy();

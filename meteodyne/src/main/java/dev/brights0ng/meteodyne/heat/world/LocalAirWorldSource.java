@@ -1,4 +1,7 @@
+// Updated by ChatGPT: captured static natural-source classification.
 // Written by ChatGPT.
+// Updated by ChatGPT: world identity and imported read dependencies for live layout reuse.
+// Updated by ChatGPT: exposed world-shared sky indexing and strictly empty section classification.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.IdentityHashMap;
@@ -20,6 +23,8 @@ final class LocalAirWorldSource implements LocalAirCoverage.World {
     private final ServerLevel level;
     private final LongSupplier physicalRevision;
     private final LocalAirDependencies dependencies;
+    private LocalAirSkyCache skyCache;
+    private final java.util.function.Function<BlockState,java.util.List<HeatPowerData.Variant>> drivenVariants;
     private final java.util.ArrayList<LocalAirWorldSource> histories=new java.util.ArrayList<>();
     private java.util.HashMap<Long,BlockState> overlay;
     private boolean released,invalid;
@@ -29,15 +34,23 @@ final class LocalAirWorldSource implements LocalAirCoverage.World {
         this(level,physicalRevision,null);
     }
     LocalAirWorldSource(ServerLevel level,LongSupplier physicalRevision,LocalAirDependencies dependencies) {
-        this(level,physicalRevision,dependencies,NEXT_CONTEXT.incrementAndGet());
+        this(level,physicalRevision,dependencies,HeatTables::driven);
     }
-    private LocalAirWorldSource(ServerLevel level,LongSupplier physicalRevision,LocalAirDependencies dependencies,long contextId) {
+    LocalAirWorldSource(ServerLevel level,LongSupplier physicalRevision,LocalAirDependencies dependencies,LocalAirSkyCache skyCache) {
+        this(level,physicalRevision,dependencies);this.skyCache=java.util.Objects.requireNonNull(skyCache);
+    }
+    /** Adapter seam for isolated driver integration fixtures without mutating the global heat table. */
+    LocalAirWorldSource(ServerLevel level,LongSupplier physicalRevision,LocalAirDependencies dependencies,java.util.function.Function<BlockState,java.util.List<HeatPowerData.Variant>> drivenVariants) {
+        this(level,physicalRevision,dependencies,NEXT_CONTEXT.incrementAndGet(),drivenVariants);
+    }
+    private LocalAirWorldSource(ServerLevel level,LongSupplier physicalRevision,LocalAirDependencies dependencies,long contextId,java.util.function.Function<BlockState,java.util.List<HeatPowerData.Variant>> drivenVariants) {
         this.level=level;this.physicalRevision=physicalRevision;this.dependencies=dependencies;this.contextId=contextId;
+        this.drivenVariants=java.util.Objects.requireNonNull(drivenVariants);
     }
     @Override public long geometryRevision() { return invalid?Long.MIN_VALUE:physicalRevision.getAsLong(); }
     @Override public LocalAirCoverage.History freeze() {
         long revision=geometryRevision();
-        var past=new LocalAirWorldSource(level,()->revision,dependencies,contextId);
+        var past=new LocalAirWorldSource(level,()->revision,dependencies,contextId,drivenVariants);
         past.overlay=new java.util.HashMap<>();histories.add(past);
         if(dependencies!=null) dependencies.historyReads(true);
         return new LocalAirCoverage.History() {
@@ -62,11 +75,40 @@ final class LocalAirWorldSource implements LocalAirCoverage.World {
     }
     boolean hasHistory() { return !histories.isEmpty(); }
     @Override public long contextId() { return contextId; }
+    @Override public boolean sameWorld(LocalAirGeometryCapture.Source other) {
+        return other instanceof LocalAirWorldSource source && level==source.level && overlay==null && source.overlay==null
+                && !released && !invalid && !source.released && !source.invalid;
+    }
+    @Override public void retainRead(int x,int y,int z) { if(dependencies!=null) dependencies.read(x,y,z); }
+    @Override public void retainReads(LocalAirGeometryCapture.ReadBounds bounds) { if(dependencies!=null) dependencies.readBounds(bounds); }
     @Override public int minBuildY() { return level.getMinBuildHeight(); }
     @Override public int maxBuildY() { return level.getMaxBuildHeight(); }
+    @Override public LocalAirSkyCache skyCache() { return overlay==null && !released && !invalid?skyCache:null; }
+    @Override public boolean emptySkySection(int chunkX,int sectionY,int chunkZ) {
+        if(!level.getServer().isSameThread()) throw new IllegalStateException("Sky sections require server thread");
+        if(overlay!=null || released || invalid) return false;
+        var chunk=level.getChunkSource().getChunkNow(chunkX,chunkZ);
+        if(chunk==null) throw new LocalAirGeometryCapture.Unavailable(LocalAirGeometryCapture.Status.MISSING_GEOMETRY,"Sky section chunk not loaded");
+        int index=level.getSectionIndexFromSectionY(sectionY);
+        if(index<0 || index>=chunk.getSectionsCount()) throw new LocalAirGeometryCapture.Unavailable(LocalAirGeometryCapture.Status.MISSING_GEOMETRY,"Sky section outside build height");
+        var section=chunk.getSection(index);
+        // isAir()/heightmaps alone are insufficient: modded air, fluids and special occupancy use scalar capture.
+        return section.hasOnlyAir() && !section.getStates().maybeHas(state->
+                !(state.is(net.minecraft.world.level.block.Blocks.AIR) || state.is(net.minecraft.world.level.block.Blocks.CAVE_AIR) || state.is(net.minecraft.world.level.block.Blocks.VOID_AIR))
+                || !state.getFluidState().isEmpty() || state.getBlock().hasDynamicShape()
+                || !state.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE,BlockPos.ZERO).isEmpty());
+    }
     @Override public long materialRevision() { return HeatTables.revision(); }
     @Override public LocalAirGeometryCapture.Footprint lastReads() {
         return new LocalAirGeometryCapture.Footprint(java.util.Arrays.copyOf(view.positions,view.reads));
+    }
+    @Override public LocalAirGeometryCapture.Heat drivenHeat(int x,int y,int z) {
+        if(!level.getServer().isSameThread()) throw new IllegalStateException("Driven power requires server thread");
+        if(released || invalid || overlay!=null) throw unsupported("Historical geometry cannot sample live block entities");
+        var chunk=level.getChunkSource().getChunkNow(x>>4,z>>4);
+        if(chunk==null) throw new LocalAirGeometryCapture.Unavailable(LocalAirGeometryCapture.Status.MISSING_GEOMETRY,"Driven source chunk not loaded");
+        var pos=new BlockPos(x,y,z);var state=chunk.getBlockState(pos);
+        return LocalAirSourcePower.driven(state,drivenVariants.apply(state),v->HeatDrivers.share(level,pos,state,v));
     }
     @Override public LocalAirGeometryCapture.Cell sample(int x,int y,int z) {
         if(!level.getServer().isSameThread()) { throw new IllegalStateException("World capture requires server thread"); }
@@ -100,12 +142,12 @@ final class LocalAirWorldSource implements LocalAirCoverage.World {
         }
         InsulationData material=HeatTables.insulation(state.getBlock());
         InsulationData liquid=fluid.isEmpty()?InsulationData.STONE:HeatTables.insulation(fluid.createLegacyBlock().getBlock());
-        if(!HeatTables.driven(state).isEmpty()) throw unsupported("Driven source capture requires a separate source-update contract");
+        boolean driven=!drivenVariants.apply(state).isEmpty();
         var variant=HeatTables.power(state);
-        var heat=variant==null || !variant.inAir()?null:new LocalAirGeometryCapture.Heat(
+        var heat=driven || variant==null || !variant.inAir()?null:new LocalAirGeometryCapture.Heat(
                 dev.brights0ng.paradynelib.heat.air.AirParams.DEFAULT.gridPower(variant.power(),variant.radiant()),
                 HeatTables.absoluteLimit(state,variant),variant.maxOffset(),variant.perFace());
-        return new LocalAirGeometryCapture.Cell(shape,material.conductance(),material.capacity(),liquid.conductance(),liquid.capacity(),heat);
+        return new LocalAirGeometryCapture.Cell(shape,material.conductance(),material.capacity(),liquid.conductance(),liquid.capacity(),heat,driven,!driven && variant!=null && variant.natural());
     }
     private static int sampleIndex(double coordinate) { return Math.max(0,Math.min(16,(int)Math.ceil(coordinate*16-.5))); }
     private static LocalAirGeometryCapture.Unavailable unsupported(String reason) {

@@ -13,6 +13,7 @@ final class LocalAirDiagnostics {
         long age=age(frame,now);var b=frame.bounds;
         double lx=x-b.x(),ly=y-b.y(),lz=z-b.z();
         if(lx<0 || ly<0 || lz<0 || lx>=b.nx() || ly>=b.ny() || lz>=b.nz()) return unavailable(Availability.OUTSIDE_DOMAIN,frame.throughTick,age);
+        if(b.index((int)lx,(int)ly,(int)lz)<0) return unavailable(Availability.OUTSIDE_DOMAIN,frame.throughTick,age);
         int node=frame.flow.nodeAt(lx,ly,lz);
         if(node<0) return unavailable(Availability.OCCUPIED,frame.throughTick,age);
         return new Sample(Availability.AIR,frame.throughTick,age,frame.temperature(node),frame.velocity(node,0),frame.velocity(node,1),frame.velocity(node,2));

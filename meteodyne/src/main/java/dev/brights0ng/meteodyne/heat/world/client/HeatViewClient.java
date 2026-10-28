@@ -1,3 +1,4 @@
+// Updated by ChatGPT: share the existing drawing helpers with the coupled diagnostic view.
 package dev.brights0ng.meteodyne.heat.world.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -137,7 +138,7 @@ public final class HeatViewClient {
     }
 
     /** The colour of an offset, 0xRRGGBB. */
-    static int colour(float offset) {
+    public static int colour(float offset) {
         if (offset >= 0) {
             float[][] stops = {{0, 255, 250, 220}, {5, 255, 225, 0}, {15, 255, 140, 0}, {30, 225, 30, 30}, {45, 200, 0, 200}};
             return ramp(stops, offset);
@@ -166,7 +167,7 @@ public final class HeatViewClient {
         return (Math.round(s[1]) << 16) | (Math.round(s[2]) << 8) | Math.round(s[3]);
     }
 
-    private static void cube(VertexConsumer q, PoseStack.Pose pose, float x, float y, float z, int r, int g, int b) {
+    public static void cube(VertexConsumer q, PoseStack.Pose pose, float x, float y, float z, int r, int g, int b) {
         float x0 = x - HALF, x1 = x + HALF, y0 = y - HALF, y1 = y + HALF, z0 = z - HALF, z1 = z + HALF;
         quad(q, pose, x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, r, g, b);
         quad(q, pose, x0, y0, z1, x0, y1, z1, x1, y1, z1, x1, y0, z1, r, g, b);
@@ -185,7 +186,7 @@ public final class HeatViewClient {
         q.addVertex(pose, dx, dy, dz).setColor(r, g, b, 255);
     }
 
-    private static void line(VertexConsumer lines, PoseStack.Pose pose,
+    public static void line(VertexConsumer lines, PoseStack.Pose pose,
                              float x0, float y0, float z0, float x1, float y1, float z1) {
         float dx = x1 - x0;
         float dy = y1 - y0;

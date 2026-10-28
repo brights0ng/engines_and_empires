@@ -1,4 +1,6 @@
 // Written by ChatGPT.
+// Updated by ChatGPT: check actionable boundary-cut rejection locations.
+// Updated by ChatGPT: tested early interleaved rejection with exact obstruction and cut evidence.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.HashMap;
@@ -62,6 +64,25 @@ class LocalAirCoverageTest {
             assertEquals(LocalAirCoverage.Status.INSUFFICIENT_COVERAGE,c.status());assertThrows(IllegalStateException.class,c::certificate);
         }
     }
+    @Test void tallWorldChecksEveryNearbyColumnBeforeSpendingTimeOnDistantSky() {
+        var w=new World();w.max=384;
+        var obstruction=new Pos(3,1,2);w.cells.put(obstruction,SOLID);
+        var c=coverage(w,snapshot(w,B));
+        assertTrue(c.advance(21,Long.MAX_VALUE)<=21);
+        assertEquals(LocalAirCoverage.Status.INSUFFICIENT_COVERAGE,c.status(),c.progress());
+        assertTrue(c.reason().contains("at block (3, 1, 2)"),c.reason());
+        var failure=c.failure();assertNotNull(failure);assertEquals(3,failure.x());assertEquals(1,failure.y());assertEquals(2,failure.z());
+        assertEquals("maxX",LocalAirCoverage.face(failure.cut()));assertEquals(2,failure.cut().x());
+        assertTrue(c.sampledCells()<=21,"Low obstruction is found within one pass, independent of ceiling height");
+        assertThrows(IllegalStateException.class,c::certificate);
+    }
+    @Test void coverageProgressTracksTheSameCompleteEvidenceRequirementAcrossSlices() {
+        var w=new World();var c=coverage(w,snapshot(w,B));
+        assertTrue(c.progress().contains("0 / 104 cells"));c.advance(13,Long.MAX_VALUE);
+        assertTrue(c.progress().contains("13 / 104 cells"));assertNull(c.failure());
+        c.advance(1000,Long.MAX_VALUE);assertTrue(c.progress().contains("104 / 104 cells"));assertTrue(c.progress().contains("21 / 21 columns"));
+        assertNotNull(c.certificate());
+    }
     @Test void partialAndBottomAirCutsRejectBeforeAnyCoverageReads() {
         for(Cell bottom:new Cell[]{AIR,SLAB}) {
             var w=new World();w.cells.put(new Pos(1,0,1),bottom);var s=snapshot(w,B);int before=w.reads;var c=coverage(w,s);
@@ -69,6 +90,18 @@ class LocalAirCoverageTest {
         }
         var w=new World();w.cells.put(new Pos(0,1,1),SLAB);var c=coverage(w,snapshot(w,B));
         assertEquals(LocalAirCoverage.Status.INSUFFICIENT_COVERAGE,c.status());
+        assertTrue(c.reason().contains("at block (0, 1, 1), face(s) minX"));
+    }
+    @Test void boundaryMessagesUseWorldCoordinatesAndIdentifyAllCornerFaces() {
+        var w=new World();w.min=-10;
+        var b=new Bounds(-8,-3,7,3,3,3);
+        for(int z=7;z<10;z++) for(int x=-8;x<-5;x++) w.cells.put(new Pos(x,-3,z),SOLID);
+        w.cells.put(new Pos(-8,-1,9),SLAB);
+        var c=coverage(w,snapshot(w,b));
+        assertEquals(LocalAirCoverage.Status.INSUFFICIENT_COVERAGE,c.status());
+        assertTrue(c.reason().contains("at block (-8, -1, 9), face(s) minX/maxY/maxZ"),c.reason());
+        w.cells.put(new Pos(-7,-3,8),AIR);c=coverage(w,snapshot(w,b));
+        assertTrue(c.reason().contains("bottom coverage cut at block (-7, -3, 8), face(s) minY"),c.reason());
     }
     @Test void missingOrUnsupportedColumnNeverGetsCertificate() {
         for(Status unavailable:new Status[]{Status.MISSING_GEOMETRY,Status.UNSUPPORTED_GEOMETRY}) {

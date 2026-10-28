@@ -1,4 +1,5 @@
 // Written by ChatGPT.
+// Updated by ChatGPT: verify consumer age limits, invalidation, lifecycle and failure states.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.concurrent.Executors;
@@ -12,13 +13,14 @@ class LocalAirDiagnosticsTest {
     private static final class World implements LocalAirCoverage.World {
         final Bounds bounds=new Bounds(-5,10,-8,4,4,4);
         long revision=1;
-        boolean boundarySource;
+        boolean boundarySource,missing;
         public long contextId() { return 31; }
         public long geometryRevision() { return revision; }
         public long materialRevision() { return 1; }
         public int minBuildY() { return 0; }
         public int maxBuildY() { return 32; }
         public Cell sample(int x,int y,int z) {
+            if(missing) throw new Unavailable(Status.MISSING_GEOMETRY,"Unloaded fixture cell");
             x-=bounds.x();y-=bounds.y();z-=bounds.z();
             boolean wall=x==0 || y==0 || z==0 || x==3 || y==3 || z==3;
             if(x==(boundarySource?0:1) && y==1 && z==1) {
@@ -83,5 +85,68 @@ class LocalAirDiagnosticsTest {
         var w=new World();w.boundarySource=true;var p=prepared(w);
         assertEquals(LocalAirRun.Status.FAILED,p.runStatus());assertNull(p.field());assertEquals(1,p.metrics().get(LocalAirMetrics.Stage.INITIALIZE).failed());
         assertEquals(LocalAirDiagnostics.Availability.NO_FIELD,LocalAirDiagnostics.sample(p.field(),100,0,0,0).availability());
+    }
+    @Test void consumerAgeLimitIsInclusiveAndStaleValuesRequireExplicitAccess() {
+        var p=prepared(new World());
+        var current=p.query(119,-3.5,11.5,-6.5,19);
+        assertEquals(LocalAirReading.Status.CURRENT,current.status());assertTrue(current.currentSample().isPresent());
+        var stale=p.query(120,-3.5,11.5,-6.5,19);
+        assertEquals(LocalAirReading.Status.STALE,stale.status());assertEquals(LocalAirReading.Reason.AGE_LIMIT,stale.reason());
+        assertTrue(stale.currentSample().isEmpty());assertEquals(20,stale.sample().orElseThrow().ageTicks());
+        assertEquals(100,stale.sample().orElseThrow().throughTick());
+        assertEquals(20,stale.sample().orElseThrow().temperature());
+        assertEquals(LocalAirReading.Status.CURRENT,p.query(100,-3.5,11.5,-6.5,0).status());
+        assertEquals(LocalAirReading.Reason.OCCUPIED,p.query(100,-4.5,10.5,-7.5,0).reason());
+        assertEquals(LocalAirReading.Reason.OUTSIDE_DOMAIN,p.query(100,-1,11.5,-6.5,0).reason());
+    }
+    @Test void consumerQueryWithholdsSourceWeatherAndGeometryRevisionsUntilCompatible() {
+        var w=new World();var p=prepared(w);
+        p.observe(110,1);
+        assertTrue(p.changeSource(-4,11,-7,110,1));
+        var pending=p.query(110,-3.5,11.5,-6.5,Long.MAX_VALUE);
+        assertEquals(LocalAirReading.Status.PENDING,pending.status());assertTrue(pending.sample().isEmpty());
+        p.complete(p.takeWork().run());assertEquals(LocalAirReading.Status.CURRENT,p.query(110,-3.5,11.5,-6.5,0).status());
+        assertTrue(p.changeWeather(110,new LocalAirRun.Weather(21,0,0),1));
+        assertEquals(LocalAirReading.Status.PENDING,p.query(110,-3.5,11.5,-6.5,Long.MAX_VALUE).status());
+        p.observe(110,1);p.complete(p.takeWork().run());
+        assertEquals(LocalAirReading.Status.CURRENT,p.query(110,-3.5,11.5,-6.5,0).status());
+        p.observe(120,1);var work=p.takeWork();var result=work.run();w.revision++;
+        assertEquals(LocalAirReading.Reason.PREPARING,p.query(120,-3.5,11.5,-6.5,Long.MAX_VALUE).reason());
+        p.complete(result);
+        assertTrue(p.query(120,-3.5,11.5,-6.5,Long.MAX_VALUE).sample().isEmpty());
+    }
+    @Test void consumerQueryReportsLifecycleFailuresWithoutFakeReadings() {
+        var w=new World();var p=new LocalAirPreparation(w,w.bounds,64,0,new LocalAirRun.Settings(20,0,0,2));
+        assertEquals(LocalAirReading.Reason.PREPARING,p.query(100,-3.5,11.5,-6.5,10).reason());
+        p.close();assertEquals(LocalAirReading.Reason.CLOSED,p.query(100,-3.5,11.5,-6.5,10).reason());
+        var geometry=new LocalAirPreparation(w,w.bounds,64,0);
+        assertEquals(LocalAirReading.Reason.GEOMETRY_ONLY,geometry.query(100,-3.5,11.5,-6.5,10).reason());
+        w.boundarySource=true;var failed=prepared(w);
+        var reading=failed.query(100,-3.5,11.5,-6.5,10);
+        assertEquals(LocalAirReading.Status.UNAVAILABLE,reading.status());assertEquals(LocalAirReading.Reason.FAILED,reading.reason());assertTrue(reading.sample().isEmpty());
+    }
+    @Test void consumerQueryValidatesArgumentsAndOwnerThread() throws Exception {
+        var p=prepared(new World());
+        assertThrows(IllegalArgumentException.class,()->p.query(100,0,0,0,-1));
+        assertThrows(IllegalArgumentException.class,()->p.query(100,Double.NaN,0,0,10));
+        assertThrows(IllegalArgumentException.class,()->p.query(99,-3.5,11.5,-6.5,10));
+        try(var pool=Executors.newSingleThreadExecutor()) {
+            var error=assertThrows(java.util.concurrent.ExecutionException.class,()->pool.submit(()->p.query(100,-3.5,11.5,-6.5,10)).get());
+            assertInstanceOf(IllegalStateException.class,error.getCause());
+        }
+    }
+    @Test void consumerQueryDistinguishesWorkerBacklogFromRejectedAndTerminalRuns() {
+        var p=prepared(new World());p.observe(120,1);var work=p.takeWork();
+        assertEquals(LocalAirReading.Status.STALE,p.query(120,-3.5,11.5,-6.5,10).status());
+        p.complete(work.run());assertEquals(LocalAirReading.Status.CURRENT,p.query(120,-3.5,11.5,-6.5,0).status());
+        p.observe(120+LocalAirRun.MAX_LAG_TICKS+1,1);
+        var lag=p.query(120+LocalAirRun.MAX_LAG_TICKS+1,-3.5,11.5,-6.5,Long.MAX_VALUE);
+        assertEquals(LocalAirReading.Reason.LAG_LIMIT,lag.reason());assertTrue(lag.sample().isEmpty());
+        var w=new World();w.missing=true;
+        var rejected=new LocalAirPreparation(w,w.bounds,64,0,new LocalAirRun.Settings(20,0,0,2));
+        rejected.advance(64,Long.MAX_VALUE);
+        assertEquals(LocalAirReading.Reason.REJECTED,rejected.query(100,-3.5,11.5,-6.5,10).reason());
+        var failed=prepared(new World());failed.weatherUnavailable("test provider failure");
+        assertEquals(LocalAirReading.Reason.FAILED,failed.query(100,-3.5,11.5,-6.5,10).reason());
     }
 }

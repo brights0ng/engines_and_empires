@@ -6,6 +6,47 @@ import static org.junit.jupiter.api.Assertions.*;
 import static dev.brights0ng.meteodyne.heat.world.LocalAirGeometryCapture.*;
 
 class LocalAirWeatherTest {
+    @Test void flatWorldSizedDomainSurvivesReportedLiveWeatherTransition() {
+        var b=new Bounds(0,0,0,17,13,17);
+        var air=new Cell(new Shape(new int[0],new int[0]),1,1,1,1);
+        var wall=new Cell(new Shape(new int[]{0,0,0,16,16,16},new int[0]),1,1,1,1);
+        var fluid=new Cell(new Shape(new int[0],new int[]{0,0,0,16,16,16}),1,1,1,1);
+        var w=new LocalAirCoverage.World() {
+            public long contextId() { return 199; } public long geometryRevision() { return 1; }
+            public long materialRevision() { return 1; } public int minBuildY() { return 0; } public int maxBuildY() { return 384; }
+            public Cell sample(int x,int y,int z) { return y<5?wall:x==8 && y==5 && z==8?fluid:air; }
+        };
+        var p=new LocalAirPreparation(w,b,b.cells(),1_000_000,new LocalAirRun.Settings(6.392698488582459,1.2362479591637847,0.7565504058767429,2));
+        for(int i=0;i<10000 && p.field()==null;i++) {
+            p.advance(256,Long.MAX_VALUE);p.observe(1000,1);var job=p.takeWork();if(job!=null) p.complete(job.run());
+        }
+        assertNotNull(p.field(),p.runReason());
+        assertTrue(p.changeWeather(1010,weather(6.116927925014408,1.2263099270915638,0.8598720167212551),1));
+        drive(p,1020,1);
+        assertNotNull(p.field());
+        for(long tick=1023;tick<1220;tick+=10) {
+            assertTrue(p.changeWeather(tick,weather(6.116927925014408-(tick-1020)*0.001,1.2263099270915638,0.8598720167212551),1));
+            drive(p,tick,1);
+        }
+    }
+    @Test void aFailedSolverReasonIsNotReplacedByAWeatherHistoryError() {
+        var w=new LocalAirHistoryTest.World() {
+            @Override public Cell sample(int x,int y,int z) {
+                var c=super.sample(x,y,z);
+                return x==0 && y==1 && z==1?new Cell(c.shape(),1,1,1,1,new Heat(10,60,40,false)):c;
+            }
+        };
+        var p=new LocalAirPreparation(w,B,B.cells(),0,new LocalAirRun.Settings(20,0,0,2));
+        for(int i=0;i<100 && p.runStatus()!=LocalAirRun.Status.FAILED;i++) {
+            p.advance(256,Long.MAX_VALUE);p.observe(110,1);var job=p.takeWork();if(job!=null) p.complete(job.run());
+        }
+        assertEquals(LocalAirRun.Status.FAILED,p.runStatus());
+        String original=p.runReason();assertFalse(original.isEmpty());
+        p.changeWeather(120,weather(20,0,0),1);p.observe(120,1);
+        assertEquals(LocalAirPreparation.Status.FAILED,p.status());
+        assertTrue(p.runReason().contains(original),p.runReason());
+        assertFalse(p.runReason().contains("Chronological weather history rejected"));
+    }
     private static final Bounds B=new Bounds(0,0,0,5,5,5);
     private static LocalAirRun.Weather weather(double t,double x,double z) { return new LocalAirRun.Weather(t,x,z); }
     private static void drive(LocalAirPreparation p,long tick,double scale) {

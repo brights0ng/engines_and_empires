@@ -1,3 +1,4 @@
+// Updated by ChatGPT: exposed represented-cell air-state ranges for independent thermal storage.
 // Written by ChatGPT; extended by ChatGPT with reusable crossing reciprocals and exact lattice scaling.
 package dev.brights0ng.paradynelib.heat.air;
 
@@ -10,35 +11,41 @@ import java.util.Objects;
 public final class FlowGeometry {
     public final int nx, ny, nz;
     public final long revision;
+    public final CellLayout layout;
+    private final int[] neighbors;
     final FlowShape[] shapes;
     final int[] starts, nodeCell, low, high, axis, incidentStart, incident, component;
     final double[] volume, cx, cy, cz, area, distance, fx, fy, fz, solidArea, fluidArea;
     final int components;
 
     private FlowGeometry(Builder b) {
-        nx=b.nx;ny=b.ny;nz=b.nz;revision=b.revision;shapes=b.shapes.clone();
+        nx=b.nx;ny=b.ny;nz=b.nz;layout=b.layout;revision=b.revision;shapes=b.shapes.clone();
+        neighbors=layout.dense()?null:new int[Math.multiplyExact(shapes.length,6)];
+        if(neighbors!=null) for(int c=0;c<shapes.length;c++) for(int a=0;a<3;a++) for(int side=0;side<2;side++) neighbors[c*6+a*2+side]=layout.neighbor(c,a,side);
         starts=new int[shapes.length+1];
-        for(int c=0;c<shapes.length;c++) { starts[c+1]=Math.addExact(starts[c],shapes[c].components()); }
+        for(int c=0;c<shapes.length;c++) {
+            starts[c+1]=Math.addExact(starts[c],shapes[c].components());
+            if(starts[c+1]>b.nodeLimit) throw new IllegalArgumentException("Flow node admission limit exceeded");
+        }
         int n=starts[shapes.length];
         nodeCell=new int[n];volume=new double[n];cx=new double[n];cy=new double[n];cz=new double[n];
         solidArea=new double[n];fluidArea=new double[n];
-        for(int z=0;z<nz;z++) for(int y=0;y<ny;y++) for(int x=0;x<nx;x++) {
-            int c=index(x,y,z);FlowShape s=shapes[c];
+        for(int c=0;c<shapes.length;c++) {
+            int x=cellX(c),y=cellY(c),z=cellZ(c);FlowShape s=shapes[c];
             for(int k=0;k<s.components();k++) {
                 int i=starts[c]+k;nodeCell[i]=c;volume[i]=s.volume[k];
                 cx[i]=x+s.cx[k];cy[i]=y+s.cy[k];cz[i]=z+s.cz[k];
                 solidArea[i]=s.solidArea[k];fluidArea[i]=s.fluidArea[k];
             }
         }
-        Faces faces=new Faces(Math.max(16,n*3));
+        Faces faces=new Faces((int)Math.min(b.faceLimit,Math.max(16L,(long)n*3)),b.faceLimit);
         int[] pa=new int[256],pb=new int[256],count=new int[256],first=new int[256];
-        for(int z=0;z<nz;z++) for(int y=0;y<ny;y++) for(int x=0;x<nx;x++) {
-            int cell=index(x,y,z);
+        for(int cell=0;cell<shapes.length;cell++) {
+            int x=cellX(cell),y=cellY(cell),z=cellZ(cell);
             for(int a=0;a<3;a++) {
-                int coordinate=a==0?x:a==1?y:z, limit=a==0?nx:a==1?ny:nz;
-                if(coordinate==0 && b.openExterior) { boundary(faces,cell,a,0,x,y,z,pa,pb,count,first); }
-                if(coordinate+1<limit) {
-                    int next=cell+(a==0?1:a==1?nx:nx*ny);
+                if(neighbor(cell,a,0)<0 && b.openExterior) { boundary(faces,cell,a,0,x,y,z,pa,pb,count,first); }
+                int next=neighbor(cell,a,1);
+                if(next>=0) {
                     interfaceFaces(faces,cell,next,a,x,y,z,pa,pb,count,first);
                 } else if(b.openExterior) { boundary(faces,cell,a,1,x,y,z,pa,pb,count,first); }
             }
@@ -116,7 +123,15 @@ public final class FlowGeometry {
         out.add(l,h,a,opening,hc-lc,px,py,pz);
     }
 
-    public int index(int x,int y,int z) { return (z*ny+y)*nx+x; }
+    public int index(int x,int y,int z) { return layout.index(x,y,z); }
+    public int cells() { return shapes.length; }
+    /** Half-open range of independent air pockets belonging to this represented cell. */
+    public int firstNode(int cell) { return starts[cell]; }
+    public int endNode(int cell) { return starts[cell+1]; }
+    public int cellX(int cell) { return layout.x(cell); }
+    public int cellY(int cell) { return layout.y(cell); }
+    public int cellZ(int cell) { return layout.z(cell); }
+    public int neighbor(int cell,int axis,int side) { return neighbors==null?layout.neighbor(cell,axis,side):neighbors[cell*6+axis*2+side]; }
     public int nodes() { return volume.length; }
     public int faces() { return low.length; }
     public int components() { return components; }
@@ -134,6 +149,7 @@ public final class FlowGeometry {
     public int nodeAt(double x,double y,double z) {
         if(!(x>=0 && y>=0 && z>=0 && x<nx && y<ny && z<nz)) { return -1; }
         int ix=(int)x,iy=(int)y,iz=(int)z,c=index(ix,iy,iz);
+        if(c<0) return -1;
         int label=shapes[c].label((int)((x-ix)*16),(int)((y-iy)*16),(int)((z-iz)*16));
         return label<0?-1:starts[c]+label;
     }
@@ -193,27 +209,36 @@ public final class FlowGeometry {
     }
 
     public static final class Builder {
-        final int nx,ny,nz;final FlowShape[] shapes;long revision;boolean openExterior;
+        final int nx,ny,nz;final CellLayout layout;final FlowShape[] shapes;long revision;boolean openExterior;
+        int nodeLimit=Integer.MAX_VALUE,faceLimit=Integer.MAX_VALUE;
         public Builder(int nx,int ny,int nz) {
-            if(nx<1 || ny<1 || nz<1) { throw new IllegalArgumentException("Positive flow dimensions required"); }
-            this.nx=nx;this.ny=ny;this.nz=nz;shapes=new FlowShape[Math.multiplyExact(Math.multiplyExact(nx,ny),nz)];Arrays.fill(shapes,FlowShape.EMPTY);
+            this(CellLayout.dense(nx,ny,nz));
+        }
+        public Builder(CellLayout layout) {
+            this.layout=Objects.requireNonNull(layout);nx=layout.nx;ny=layout.ny;nz=layout.nz;shapes=new FlowShape[layout.cells()];Arrays.fill(shapes,FlowShape.EMPTY);
         }
         public Builder cell(int x,int y,int z,FlowShape shape) {
-            if(x<0 || y<0 || z<0 || x>=nx || y>=ny || z>=nz) { throw new IndexOutOfBoundsException(); }
-            shapes[(z*ny+y)*nx+x]=Objects.requireNonNull(shape);return this;
+            int cell=layout.index(x,y,z);if(cell<0) throw new IndexOutOfBoundsException();
+            shapes[cell]=Objects.requireNonNull(shape);return this;
         }
         public Builder openExterior(boolean open) { openExterior=open;return this; }
+        /** Optional exact allocation guards, checked before node arrays or excess face growth. */
+        public Builder admissionLimits(int nodes,int faces) {
+            if(nodes<0 || faces<0) throw new IllegalArgumentException("Nonnegative flow admission limits required");
+            nodeLimit=nodes;faceLimit=faces;return this;
+        }
         public Builder revision(long value) { revision=value;return this; }
         public FlowGeometry build() { return new FlowGeometry(this); }
     }
 
     private static final class Faces {
-        int size;int[] low,high,axis;double[] area,distance,x,y,z;
-        Faces(int capacity) { low=new int[capacity];high=new int[capacity];axis=new int[capacity];area=new double[capacity];distance=new double[capacity];x=new double[capacity];y=new double[capacity];z=new double[capacity]; }
+        int size;final int limit;int[] low,high,axis;double[] area,distance,x,y,z;
+        Faces(int capacity,int limit) { this.limit=limit;capacity=Math.max(1,capacity);low=new int[capacity];high=new int[capacity];axis=new int[capacity];area=new double[capacity];distance=new double[capacity];x=new double[capacity];y=new double[capacity];z=new double[capacity]; }
         void add(int l,int h,int a,double opening,double d,double px,double py,double pz) {
             if(!(d>0)) { throw new IllegalArgumentException("Positive face distance required"); }
+            if(size>=limit) throw new IllegalArgumentException("Flow face admission limit exceeded");
             if(size==low.length) {
-                int n=Math.multiplyExact(size,2);low=Arrays.copyOf(low,n);high=Arrays.copyOf(high,n);axis=Arrays.copyOf(axis,n);
+                int n=(int)Math.min(limit,(long)size*2);low=Arrays.copyOf(low,n);high=Arrays.copyOf(high,n);axis=Arrays.copyOf(axis,n);
                 area=Arrays.copyOf(area,n);distance=Arrays.copyOf(distance,n);x=Arrays.copyOf(x,n);y=Arrays.copyOf(y,n);z=Arrays.copyOf(z,n);
             }
             low[size]=l;high[size]=h;axis[size]=a;area[size]=opening;distance[size]=d;x[size]=px;y[size]=py;z[size]=pz;size++;

@@ -1,4 +1,5 @@
 // Written by ChatGPT.
+// Updated by ChatGPT: explicitly opted-in held local-air trial readings.
 package dev.brights0ng.meteodyne.instrument;
 
 import java.util.List;
@@ -48,6 +49,11 @@ public final class ThermometerItem extends Item {
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slot, boolean selected) {
         if (!(level instanceof ServerLevel server) || !(entity instanceof Player player)
                 || (slot >= 9 && stack != player.getOffhandItem())) {
+            return;
+        }
+        if (player instanceof net.minecraft.server.level.ServerPlayer viewer
+                && dev.brights0ng.meteodyne.heat.world.LocalAirView.active(viewer)) {
+            dev.brights0ng.meteodyne.heat.world.LocalAirView.updateThermometer(stack,viewer);
             return;
         }
         InstrumentReading previous = stack.get(InstrumentContent.READING.get());

@@ -1,4 +1,6 @@
 // Written by ChatGPT.
+// Updated by ChatGPT: bounded invalidation-cause telemetry without world references.
+// Updated by ChatGPT: imported bounded coverage proof footprints without world reads.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.HashMap;
@@ -17,12 +19,32 @@ final class LocalAirDependencies {
     private long revision;
     private boolean global;
     private boolean historyReads;
+    record Event(long revision,long tick,String cause,int x,int y,int z,String scope,String before,String after) { }
+    record Diagnostics(long revision,java.util.Map<String,Long> counts,java.util.List<Event> recent) { }
+    private final java.util.ArrayDeque<Event> recent=new java.util.ArrayDeque<>();
+    private final java.util.Map<String,Long> counts=new java.util.TreeMap<>();
+    private long invalidate(long tick,String cause,int x,int y,int z,String scope,String before,String after) {
+        long previous=revision++;
+        counts.merge(cause,1L,Long::sum);
+        if(recent.size()==8) recent.removeFirst();
+        recent.addLast(new Event(revision,tick,cause,x,y,z,scope,before,after));return previous;
+    }
+    synchronized Diagnostics diagnostics() { return new Diagnostics(revision,java.util.Map.copyOf(counts),java.util.List.copyOf(recent)); }
+    synchronized long blockRevision(int x,int y,int z,long tick,String before,String after) {
+        return invalidate(tick,"BLOCK",x,y,z,scope(x,y,z),before,after);
+    }
+    synchronized void historyLost(int x,int y,int z,long tick) { invalidate(tick,"HISTORY_LOST",x,y,z,"historical overlay","unknown","unknown"); }
+    private String scope(int x,int y,int z) {
+        if(global) return "dependency budget fallback";
+        if(bounds.contains(x,y,z)) return "domain";
+        return affectsBlock(x,y,z)?"shape/sky read interval":"historical read guard";
+    }
     synchronized void historyReads(boolean active) { historyReads=active; }
 
     LocalAirDependencies(LocalAirGeometryCapture.Bounds bounds) { this.bounds=bounds; }
     private static long key(int x,int z) { return ((long)x<<32) | (z&0xffffffffL); }
     synchronized long get() { return revision; }
-    synchronized long getAndIncrement() { return revision++; }
+    synchronized long getAndIncrement() { return invalidate(-1,"EXPLICIT",0,0,0,"explicit invalidation","unknown","unknown"); }
     /** Register before touching the world, even when the lookup will fail. */
     synchronized void read(int x,int y,int z) {
         if(global) return;
@@ -36,14 +58,28 @@ final class LocalAirDependencies {
         chunks.add(key(x>>4,z>>4));
     }
     synchronized boolean affectsBlock(int x,int y,int z) {
-        if(global || (x>=bounds.x() && (long)x< (long)bounds.x()+bounds.nx()
-                && y>=bounds.y() && (long)y<(long)bounds.y()+bounds.ny()
-                && z>=bounds.z() && (long)z<(long)bounds.z()+bounds.nz())) return true;
+        if(global || bounds.contains(x,y,z)) return true;
         var range=columns.get(key(x,z));return range!=null && y>=range.low && y<=range.high;
     }
-    synchronized void blockChanged(int x,int y,int z) { if(historyReads || affectsBlock(x,y,z)) revision++; }
+    /** Import a conservative proof footprint without reading chunks or expanding every vertical position. */
+    synchronized void readBounds(LocalAirGeometryCapture.ReadBounds b) {
+        if(global) return;
+        long width=(long)b.highX()-b.lowX()+1,depth=(long)b.highZ()-b.lowZ()+1;
+        if(width>MAX_COLUMNS || depth>MAX_COLUMNS || width*depth>MAX_COLUMNS) {global=true;columns.clear();chunks.clear();return;}
+        for(int x=b.lowX();;x++) {
+            for(int z=b.lowZ();;z++) {read(x,b.lowY(),z);read(x,b.highY(),z);if(z==b.highZ() || global) break;}
+            if(x==b.highX() || global) break;
+        }
+    }
+    synchronized void blockChanged(int x,int y,int z) { blockChanged(x,y,z,-1,"unknown","unknown"); }
+    synchronized void blockChanged(int x,int y,int z,long tick,String before,String after) {
+        if(historyReads || affectsBlock(x,y,z)) blockRevision(x,y,z,tick,before,after);
+    }
     synchronized void chunkChanged(int x,int z) {
-        if(historyReads || global || chunks.contains(key(x,z)) || (x>=(bounds.x()>>4) && x<=(((long)bounds.x()+bounds.nx()-1)>>4)
-                && z>=(bounds.z()>>4) && z<=(((long)bounds.z()+bounds.nz()-1)>>4))) revision++;
+        chunkChanged(x,z,-1,"CHUNK");
+    }
+    synchronized void chunkChanged(int x,int z,long tick,String cause) {
+        if(historyReads || global || chunks.contains(key(x,z)) || bounds.chunk(x,z))
+            invalidate(tick,cause,x,0,z,"chunk coordinates","unknown","unknown");
     }
 }

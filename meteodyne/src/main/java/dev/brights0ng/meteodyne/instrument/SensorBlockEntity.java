@@ -1,4 +1,5 @@
 // Written by ChatGPT.
+// Updated by ChatGPT: register loaded sensor demand without changing its reading path.
 package dev.brights0ng.meteodyne.instrument;
 
 import net.minecraft.core.BlockPos;
@@ -33,6 +34,11 @@ public abstract class SensorBlockEntity extends BlockEntity implements MenuProvi
     }
 
     public abstract boolean wind();
+    @Override public void onLoad() {
+        super.onLoad();
+        if(level instanceof ServerLevel server)
+            dev.brights0ng.meteodyne.heat.world.HeatWorld.sensorDemandLoaded(server,worldPosition,getBlockState());
+    }
     public SensorRange defaultRange() { return wind() ? new SensorRange(0, 30) : DEFAULT_RANGE; }
     public int minimum() { return wind() ? 0 : MIN_TENTHS; }
     public int maximum() { return wind() ? 1000 : MAX_TENTHS; }

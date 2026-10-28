@@ -39,6 +39,24 @@ Start with [`PROJECT.md`](PROJECT.md) for shared project rules, mod family archi
   - [`local-air-weather-results.md`](airflow/local-air-weather-results.md) - Opt-in live climate/wind snapshots and chronological retained-state weather updates.
   - [`local-air-weather-scene-results.md`](airflow/local-air-weather-scene-results.md) - Paced open-building weather trial, repaired recipe baseline, and measured coverage/publication latency.
   - [`local-air-coverage-reuse-results.md`](airflow/local-air-coverage-reuse-results.md) - Guarded sky-column proof reuse and reduced paced open-building door latency.
+  - [`local-air-query-contract.md`](airflow/local-air-query-contract.md) - Experimental consumer API, caller-selected freshness, and explicit pending/unavailable reasons.
+  - [`local-air-view-trial.md`](airflow/local-air-view-trial.md) - Operator-only flow/temperature visualization and opted-in held thermometer trial.
+  - [`local-air-live-comparison-results.md`](airflow/local-air-live-comparison-results.md) - First player-captured legacy baseline versus added coupled simulation cost.
+  - [`local-air-demand-registry-results.md`](airflow/local-air-demand-registry-results.md) - Automatic player/source/instrument demand tracking, shared sample cells, lifecycle retention, and planner input.
+  - [`local-air-planner-results.md`](airflow/local-air-planner-results.md) - Continuous tile allocation proposals, shared connected groups, missing-chunk deferral, and bounded planning/admission limits.
+  - [`local-air-tile-interface-results.md`](airflow/local-air-tile-interface-results.md) - Joined rectangular tile geometry, single pressure/thermal ownership, and seam comparisons against a dense domain.
+  - [`local-air-automatic-runtime-results.md`](airflow/local-air-automatic-runtime-results.md) - Opt-in planner-driven live owners, shared capture/worker budgets, coverage admission, guarded queries, and retained-layout deferral.
+  - [`local-air-layout-transfer-results.md`](airflow/local-air-layout-transfer-results.md) - Common-tick rectangular resize/merge/split, atomic ownership, retained temperatures, volume-energy accounting, and cancellation tests.
+  - [`local-air-sparse-results.md`](airflow/local-air-sparse-results.md) - Compact irregular tile domains, conservative hole boundaries, retained dense/sparse transfers, and live L-shaped integration coverage.
+  - [`local-air-driven-source-results.md`](airflow/local-air-driven-source-results.md) - Budgeted live block-entity power, independent heat/cold terms, chronological retained updates, and driver integration checks.
+  - [`local-air-thermal-persistence-results.md`](airflow/local-air-thermal-persistence-results.md) - Automatic thermal initialization, versioned per-phase chunk state, outgoing coverage restoration, and the measured natural-arrival approximation gate.
+  - [`local-air-initialization-refinement-results.md`](airflow/local-air-initialization-refinement-results.md) - Refined natural arrivals, shared numerical operators, bounded preparation jobs, retained-state protection and independent accuracy controls.
+  - [`local-air-block-edit-results.md`](airflow/local-air-block-edit-results.md) - Retained static block/shape/fluid handoffs, explicit phase ownership, chronological material replacements and coverage guards.
+  - [`local-air-startup-results.md`](airflow/local-air-startup-results.md) - Startup phase and wait timing, prepaid worker continuations, guarded geometry/sky/thermal reuse and paced measurements.
+  - [`local-air-automatic-view-results.md`](airflow/local-air-automatic-view-results.md) - Automatic-domain viewer/thermometer source selection, owner and freshness metadata, stable lattices and retained-warmth lifecycle checks.
+  - [`local-air-view-publication-results.md`](airflow/local-air-view-publication-results.md) - Viewer updates between aligned weather refreshes, independently paced full packets and immediate invalidation metadata.
+  - [`local-air-coverage-recovery-results.md`](airflow/local-air-coverage-recovery-results.md) - Earlier obstruction detection, explicit coverage progress, bounded automatic expansion and correct trial status routing.
+  - [`local-air-sky-index-results.md`](airflow/local-air-sky-index-results.md) - Shared column suffix/obstruction caching, exact empty-section shortcuts, guarded invalidation and measured cold/warm evidence work.
 - **[`benchmarks/`](benchmarks/)** — Archived multi-fork JSON benchmark baselines and summaries referenced by [`airflow/`](airflow/).
 - **[`verification/`](verification/)** — Testing checklists and known operational issues:
   - [`local-verification.md`](verification/local-verification.md) — Manual in-game verification checklist for client rendering, shaders, GUIs, and standalone mod runs.

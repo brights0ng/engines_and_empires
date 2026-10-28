@@ -1,10 +1,33 @@
 // Written by ChatGPT.
+// Updated by ChatGPT: qualify fluid-bearing wind-directed sweeps against reference transport.
 package dev.brights0ng.paradynelib.heat.air;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ThermalFluidTest {
+    @Test void directedWindSweepsIncludeFluidStatesInEveryOctantAndMatchReference() {
+        var mixed=new FlowShape.Builder().solidBox(0,0,0,16,4,16).fluidBox(0,0,0,16,8,16).build();
+        var f=new FlowGeometry.Builder(5,3,3).openExterior(true)
+                .cell(2,1,1,mixed).cell(1,1,1,FlowShape.WATER).build();
+        var g=geometry(f);int mixedCell=f.index(2,1,1),wetCell=f.index(1,1,1);
+        for(int octant=0;octant<8;octant++) {
+            double x=(octant&1)==0?1:-1,y=(octant&2)==0?.3:-.3,z=(octant&4)==0?.5:-.5;
+            var flow=new FlowGrid(f,FlowBoundary.wind(f,x,y,z),FlowGridTest.accurate());
+            flow.seedUniform(x,y,z);FlowGridTest.ready(flow.projectInitial());
+            double[] reference=null;
+            for(var mode:ThermalTransport.Mode.values()) {
+                var t=new ThermalTransport(g,ThermalTransport.Settings.defaults(),mode);ThermalTransportTest.fill(t,g,20);
+                t.setTemperature(g.fluidState(mixedCell),70);t.setTemperature(g.fluidState(wetCell),60);
+                t.setTemperature(g.materialState(mixedCell),5);
+                var step=t.step(.25,flow,ThermalTransportTest.filled(f.faces(),20));
+                ThermalTransportTest.ready(step);
+                if(reference==null) { reference=new double[g.states()];for(int i=0;i<reference.length;i++) reference[i]=t.temperature(i); }
+                else for(int i=0;i<reference.length;i++) assertEquals(reference[i],t.temperature(i),2e-8,"octant="+octant+", mode="+mode+", state="+i);
+                assertTrue(t.temperature(g.fluidState(mixedCell))<70,"Fluid warmth participates in the solve");
+            }
+        }
+    }
     private static final ThermalGeometry.Coefficients C=new ThermalGeometry.Coefficients(0,.2,1,3.5);
     private static double[] filled(FlowGeometry f,double v) { return ThermalTransportTest.filled(f.shapes.length,v); }
     private static ThermalGeometry geometry(FlowGeometry f) {

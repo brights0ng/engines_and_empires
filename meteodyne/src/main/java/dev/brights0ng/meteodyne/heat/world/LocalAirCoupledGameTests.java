@@ -1,4 +1,5 @@
 // Written by ChatGPT.
+// Updated by ChatGPT: exercise an opted-in held thermometer against the real coupled field.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.LinkedHashMap;
@@ -56,6 +57,27 @@ public final class LocalAirCoupledGameTests {
                     int node=geometry.flow().nodeAt(2.5,1.5,2.5);
                     helper.assertTrue(node>=0 && field.temperature(node)>20 && field.sourceEnergy>0,"Captured campfire warms represented air");
                     helper.assertTrue(field.exteriorEnergy==0,"Closed room has no invented weather heat flux");
+                    var fullView=LocalAirView.samples(field,level.getGameTime(),40,1);
+                    int airCenters=0;var bounds=field.bounds;
+                    for(int z=0;z<bounds.nz();z++) for(int y=0;y<bounds.ny();y++) for(int x=0;x<bounds.nx();x++)
+                        if(field.flow.nodeAt(x+.5,y+.5,z+.5)>=0) airCenters++;
+                    helper.assertTrue(fullView.size()==airCenters && airCenters>0,"View includes every air cell center across the domain");
+                    helper.assertTrue(LocalAirView.samples(field,field.throughTick+41,40,1).isEmpty(),"Stale fields do not produce current markers");
+                    var viewer=LocalAirDiagnosticsGameTests.viewer(helper);
+
+                    viewer.setPos(low.getX()+2.5,low.getY()+1.6,low.getZ()+2.5);
+                    try {
+
+                        var stack=new net.minecraft.world.item.ItemStack(dev.brights0ng.meteodyne.instrument.InstrumentContent.THERMOMETER.get());
+                        viewer.getInventory().setItem(0,stack);
+                        helper.assertTrue(LocalAirView.enable(viewer,40),"Operator can opt into the thermometer trial");
+                        var expected=LocalAirView.reading(viewer).currentSample().orElseThrow();
+                        stack.getItem().inventoryTick(stack,level,viewer,0,true);
+                        var measured=stack.get(dev.brights0ng.meteodyne.instrument.InstrumentContent.READING.get());
+                        helper.assertTrue(measured!=null && measured.value()==(float)expected.temperature() && measured.time()==expected.throughTick(),"Held thermometer uses coupled temperature and simulation timestamp");
+                        LocalAirView.disable(viewer);
+                        helper.assertTrue(!LocalAirView.active(viewer) && !stack.has(dev.brights0ng.meteodyne.instrument.InstrumentContent.READING.get()),"Leaving trial clears experimental item readings");
+                    } finally { LocalAirView.disable(viewer);viewer.discard(); }
                     var distant=low.offset(0,20,0);restore.put(distant,level.getBlockState(distant));
                     level.setBlock(distant,(level.getBlockState(distant).is(Blocks.STONE)?Blocks.AIR:Blocks.STONE).defaultBlockState(),2);
                     helper.assertTrue(world.localAirGeometry()==geometry && world.localAirField()==field,

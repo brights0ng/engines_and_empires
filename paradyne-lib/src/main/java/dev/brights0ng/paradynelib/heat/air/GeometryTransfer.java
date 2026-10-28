@@ -1,4 +1,4 @@
-// Written by ChatGPT.
+// Written by ChatGPT; updated by ChatGPT: explicit material ownership across block replacements.
 package dev.brights0ng.paradynelib.heat.air;
 
 import java.util.Arrays;
@@ -34,15 +34,25 @@ public final class GeometryTransfer {
         if(oldState<0 || newState<0 || capacity==0) return;
         energy[newState]+=capacity*oldTemperature[oldState];oldKept[oldState]+=capacity;newKept[newState]+=capacity;
     }
-    /** Caller must prove material identity is retained (e.g. a door OPEN toggle), not a block replacement.
-     * Bounds/origin must be identical; resizing and material replacement require their own ownership policy.
+    /** Retained-material control (e.g. a door OPEN toggle). Caller must establish material ownership;
+     * use the mask overload for replacements. Bounds/origin must be identical.
      */
     public static Mapping map(ThermalGeometry old,ThermalGeometry next,double[] oldTemperature,double[] oldFlux,double ambient) {
+        return map(old,next,oldTemperature,oldFlux,ambient,null,null);
+    }
+    /** False ownership entries remove the old phase and introduce its replacement at ambient.
+     * Null masks retain all material ownership, as in the retained-material overload.
+     * Air always transfers only through geometric overlap. No material heat transfers into air.
+     */
+    public static Mapping map(ThermalGeometry old,ThermalGeometry next,double[] oldTemperature,double[] oldFlux,double ambient,
+                              boolean[] retainedSolid,boolean[] retainedFluid) {
         var a=old.flow;var b=next.flow;
-        if(old.unrepresentedFluidCells()>0 || next.unrepresentedFluidCells()>0 || a.nx!=b.nx || a.ny!=b.ny || a.nz!=b.nz || oldTemperature.length!=old.states() || oldFlux.length!=a.faces()
+        if(old.unrepresentedFluidCells()>0 || next.unrepresentedFluidCells()>0 || !a.layout.equals(b.layout) || oldTemperature.length!=old.states() || oldFlux.length!=a.faces()
                 || !Double.isFinite(ambient) || ambient<=-273.15) throw new IllegalArgumentException("Invalid fixed-bounds transfer");
         for(double t:oldTemperature) if(!Double.isFinite(t)) throw new IllegalArgumentException("Nonfinite old temperature");
         for(double f:oldFlux) if(!Double.isFinite(f)) throw new IllegalArgumentException("Nonfinite old flux");
+        if(retainedSolid!=null && retainedSolid.length!=a.cells() || retainedFluid!=null && retainedFluid.length!=a.cells())
+            throw new IllegalArgumentException("Material ownership mask does not match fixed bounds");
         double[] energy=new double[next.states()],oldKept=new double[old.states()],newKept=new double[next.states()];
         for(int cell=0;cell<a.shapes.length;cell++) {
             var left=a.shapes[cell];var right=b.shapes[cell];
@@ -55,9 +65,9 @@ public final class GeometryTransfer {
                 }
             }
             int l=old.materialState(cell),r=next.materialState(cell);
-            if(l>=0 && r>=0) accumulate(l,r,Math.min(old.capacity(l),next.capacity(r)),oldTemperature,energy,oldKept,newKept);
+            if(l>=0 && r>=0 && (retainedSolid==null || retainedSolid[cell])) accumulate(l,r,Math.min(old.capacity(l),next.capacity(r)),oldTemperature,energy,oldKept,newKept);
             l=old.fluidState(cell);r=next.fluidState(cell);
-            if(l>=0 && r>=0) accumulate(l,r,Math.min(old.capacity(l),next.capacity(r)),oldTemperature,energy,oldKept,newKept);
+            if(l>=0 && r>=0 && (retainedFluid==null || retainedFluid[cell])) accumulate(l,r,Math.min(old.capacity(l),next.capacity(r)),oldTemperature,energy,oldKept,newKept);
         }
         double incoming=0,outgoing=0;
         for(int i=0;i<next.states();i++) {

@@ -1,5 +1,6 @@
 // Written by ChatGPT.
 // Extended by ChatGPT: separate local-air stage wall/CPU/queue timings and field-quality snapshots.
+// Updated by ChatGPT: measured numerical slice counts and maximum slice wall time.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.nio.file.Files;
@@ -94,7 +95,9 @@ final class HeatBenchmark {
         String prefix="local_air_"+timing.stage().name().toLowerCase(Locale.ROOT);
         session.add(prefix+"_wall_ms",timing.wallNanos());session.add(prefix+"_queue_ms",timing.queueNanos());
         if(timing.cpuNanos()>=0) session.add(prefix+"_cpu_ms",timing.cpuNanos());
-        session.snapshotWork.merge(prefix+"_jobs",1L,Long::sum);
+          session.snapshotWork.merge(prefix+"_jobs",1L,Long::sum);
+          session.snapshotWork.merge(prefix+"_slices",(long)timing.slices(),Long::sum);
+          session.add(prefix+"_max_slice_wall_ms",timing.maxSliceNanos());
         if(failed) session.snapshotWork.merge(prefix+"_failed_jobs",1L,Long::sum);
     }
     Path lastReport() { return lastReport; }

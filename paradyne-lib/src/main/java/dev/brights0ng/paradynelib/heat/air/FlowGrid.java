@@ -58,7 +58,7 @@ public final class FlowGrid {
         originZ=cacheSamplingOrigins?new int[g.nodes()]:null;
         for(int i=0;cacheSamplingOrigins && i<g.nodes();i++) {
             int cell=g.nodeCell[i];
-            originX[i]=cell%g.nx;originY[i]=(cell/g.nx)%g.ny;originZ[i]=cell/(g.nx*g.ny);
+                originX[i]=g.cellX(cell);originY[i]=g.cellY(cell);originZ[i]=g.cellZ(cell);
         }
         for(int i=0;i<g.nodes();i++) for(int j=g.incidentStart[i];j<g.incidentStart[i+1];j++) {
             int f=g.incident[j];sideArea[i*6+g.axis[f]*2+(g.low[f]==i?1:0)]+=g.area[f];
@@ -196,7 +196,7 @@ public final class FlowGrid {
     }
     private double sample(int node,int axis,double x,double y,double z) {
         if(originX==null) {
-            int cell=g.nodeCell[node];int ix=cell%g.nx,iy=(cell/g.nx)%g.ny,iz=cell/(g.nx*g.ny);
+            int cell=g.nodeCell[node];int ix=g.cellX(cell),iy=g.cellY(cell),iz=g.cellZ(cell);
             double fraction=axis==0?x-ix:axis==1?y-iy:z-iz;
             fraction=Math.max(0,Math.min(1,fraction));
             int offset=node*6+axis*2;

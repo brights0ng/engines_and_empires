@@ -6,6 +6,20 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GeometryTransferTest {
+    @Test void replacementOwnershipIsIndependentForSolidAndFluidAndBooksEveryRemovedJoule() {
+        var mixed=new FlowShape.Builder().solidBox(0,0,0,16,8,16).fluidBox(0,0,0,16,12,16).build();
+        var g=thermal(new FlowGeometry.Builder(2,1,1).cell(0,0,0,mixed).build());
+        var t=temperatures(g);t[g.materialState(0)]=70;t[g.fluidState(0)]=45;
+        for(boolean replaceSolid:new boolean[]{false,true}) for(boolean replaceFluid:new boolean[]{false,true}) {
+            var m=GeometryTransfer.map(g,g,t,new double[g.flow.faces()],20,new boolean[]{!replaceSolid,true},new boolean[]{!replaceFluid,true});
+            assertEquals(replaceSolid?20:70,m.temperature(g.materialState(0)));
+            assertEquals(replaceFluid?20:45,m.temperature(g.fluidState(0)));
+            for(int i=0;i<g.flow.nodes();i++) assertEquals(t[i],m.temperature(i),1e-12);
+            assertEquals(energy(g,t)+m.incomingEnergy-m.outgoingEnergy,mappedEnergy(g,m),1e-9);
+            assertEquals((replaceSolid?g.capacity(g.materialState(0))*70:0)+(replaceFluid?g.capacity(g.fluidState(0))*45:0),m.outgoingEnergy,1e-12);
+        }
+        assertThrows(IllegalArgumentException.class,()->GeometryTransfer.map(g,g,t,new double[g.flow.faces()],20,new boolean[1],null));
+    }
     private static ThermalGeometry thermal(FlowGeometry flow) {
         double[] values=new double[flow.nx*flow.ny*flow.nz];Arrays.fill(values,1);
         return new ThermalGeometry(flow,values,values,values,values,ThermalGeometry.Coefficients.legacyMaterials());
