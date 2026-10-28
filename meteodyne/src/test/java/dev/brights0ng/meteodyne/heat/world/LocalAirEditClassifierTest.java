@@ -3,6 +3,7 @@
 // Updated by Claude: tested that a history stage which is planning keeps the historical path.
 // Updated by Claude: tested that context edits invalidate only when the read inputs change.
 // Updated by Claude: tested heat-only edits between capture and run start take the source path.
+// Updated by Claude: tested geometry edits between capture and run start re-read instead of restarting.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -178,6 +179,72 @@ class LocalAirEditClassifierTest {
         var f=new Factory();var auto=new LocalAirAutomatic(SETTINGS,f);
         var d=until(auto,p->p.status()==LocalAirPreparation.Status.PREPARED && p.runStatus()==null);
         toggleOffBeforeRun(auto,f,d);auto.close();
+    }
+    /** Steps an existing owner at tick 0, completing each job it takes, until stop holds. */
+    private static void step(LocalAirAutomatic auto,LocalAirPreparation p,java.util.function.Predicate<LocalAirPreparation> stop) {
+        for(int i=0;i<400 && !stop.test(p);i++) {
+            auto.observe(0,1);p.advance(256,Long.MAX_VALUE);if(stop.test(p)) return;
+            var work=p.takeWork();if(work!=null) p.complete(work.run());
+        }
+        assertTrue(stop.test(p),"Owner never reached the requested stage: "+p.description());
+    }
+    private static void assertSolid(LocalAirPreparation p,int x,int y,int z) {
+        var flow=p.published().flow();assertEquals(1.0,flow.solidVolume(flow.index(x,y,z)),"("+x+","+y+","+z+") holds the edit's solid");
+    }
+    @Test void geometryEditsAfterCaptureRecaptureWithoutRestart() {
+        var f=new Factory();var auto=new LocalAirAutomatic(SETTINGS,f);
+        var d=until(auto,p->p.status()==LocalAirPreparation.Status.PLAN_QUEUED);var p=d.preparation;
+        f.overrides.put(blockKey(8,7,8),LocalAirPreparationTest.SOLID);
+        assertEquals(LocalAirPreparation.EditOutcome.RECAPTURE,edit(d,8,7,8,0),"After capture, before planning");
+        assertEquals(LocalAirPreparation.Status.CAPTURING,p.status(),"Only the affected cell is queued");
+        step(auto,p,q->q.status()==LocalAirPreparation.Status.PLAN_QUEUED);
+        var work=p.takeWork();assertEquals(LocalAirPreparation.Status.PLANNING,p.status());
+        f.overrides.put(blockKey(8,8,8),LocalAirPreparationTest.SOLID);
+        assertEquals(LocalAirPreparation.EditOutcome.RECAPTURE,edit(d,8,8,8,0),"During planning");p.complete(work.run());
+        step(auto,p,q->q.status()==LocalAirPreparation.Status.COVERAGE);
+        f.overrides.put(blockKey(7,8,8),LocalAirPreparationTest.SOLID);
+        assertEquals(LocalAirPreparation.EditOutcome.RECAPTURE,edit(d,7,8,8,0),"During coverage");
+        assertEquals(LocalAirPreparation.Status.CAPTURING,p.status());
+        for(long tick=1;tick<=60;tick++) drain(auto,tick,2);
+        assertNotNull(p.field(),p.description());
+        assertSolid(p,8,7,8);assertSolid(p,8,8,8);assertSolid(p,7,8,8);
+        assertEquals(0,p.restarts(),p.restartCauses().toString());assertTrue(p.restartCauses().isEmpty());
+        assertEquals(Map.of("RECAPTURE",3L),p.editOutcomes());
+        assertEquals(Map.of("PLAN_QUEUED:RECAPTURE",1L,"PLANNING:RECAPTURE",1L,"COVERAGE:RECAPTURE",1L),p.editPhases());
+        assertEquals(Map.of("UNKNOWN",3L),p.geometryEdits());
+        assertEquals(3,p.postCaptureRereads(),"Each edit re-read only its own cell");assertEquals(2,p.replans(),"The first edit came before any plan ran");
+        var row=auto.rows().getFirst();assertEquals(3,row.postCaptureRereads());assertEquals(2,row.replans());assertEquals(p.editPhases(),row.editPhases());
+        auto.close();
+    }
+    @Test void outOfBoundsNonContextEditDuringPlanningIsIgnored() {
+        var f=new Factory();var auto=new LocalAirAutomatic(SETTINGS,f);
+        var d=until(auto,p->p.status()==LocalAirPreparation.Status.PLAN_QUEUED);var p=d.preparation;
+        var work=p.takeWork();assertEquals(LocalAirPreparation.Status.PLANNING,p.status());
+        f.overrides.put(blockKey(20,7,8),LocalAirPreparationTest.AIR);
+        assertEquals(LocalAirPreparation.EditOutcome.IGNORED,edit(d,20,7,8,0),"No cell or proof reads it yet");
+        p.complete(work.run());assertEquals(LocalAirPreparation.Status.COVERAGE,p.status(),"The plan stays current");
+        for(long tick=1;tick<=60;tick++) drain(auto,tick,2);
+        assertNotNull(p.field(),p.description());assertEquals(0,p.restarts());assertEquals(0,p.replans());auto.close();
+    }
+    @Test void editDuringAPlanJobAppliesAfterItAndDiscardsTheStalePlan() {
+        var f=new Factory();var auto=new LocalAirAutomatic(SETTINGS,f);
+        var d=until(auto,p->p.status()==LocalAirPreparation.Status.PLAN_QUEUED);var p=d.preparation;
+        var work=p.takeWork();long reads=p.rereadCells();
+        f.overrides.put(blockKey(8,7,8),LocalAirPreparationTest.SOLID);
+        assertEquals(LocalAirPreparation.EditOutcome.RECAPTURE,edit(d,8,7,8,0));
+        f.overrides.put(blockKey(8,8,8),LocalAirPreparationTest.SOLID);
+        assertEquals(LocalAirPreparation.EditOutcome.RECAPTURE,edit(d,8,8,8,0),"A second edit only queues too");
+        p.advance(256,Long.MAX_VALUE);
+        assertEquals(LocalAirPreparation.Status.PLANNING,p.status(),"The in-flight job finishes first");assertEquals(reads,p.rereadCells());
+        assertNull(p.takeWork(),"Nothing is dispatched behind the in-flight job");
+        p.complete(work.run());
+        assertEquals(LocalAirPreparation.Status.CAPTURING,p.status(),"The stale plan is discarded");
+        assertEquals(1,p.metrics().get(LocalAirMetrics.Stage.PLAN).discarded());
+        p.advance(256,Long.MAX_VALUE);assertEquals(reads+2,p.rereadCells(),"Both queued re-reads apply at once");
+        assertEquals(LocalAirPreparation.Status.PLAN_QUEUED,p.status());
+        for(long tick=1;tick<=60;tick++) drain(auto,tick,2);
+        assertNotNull(p.field(),p.description());assertSolid(p,8,7,8);assertSolid(p,8,8,8);
+        assertEquals(0,p.restarts(),p.restartCauses().toString());assertEquals(1,p.replans());auto.close();
     }
     @Test void snapshotContextCoversOtherCellsReadsButNotOwnPosition() {
         var bounds=new Bounds(0,0,0,4,1,1);long[] last={0};

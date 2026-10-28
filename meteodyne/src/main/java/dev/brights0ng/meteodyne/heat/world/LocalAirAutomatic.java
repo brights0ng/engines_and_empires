@@ -8,6 +8,7 @@
 // Updated by Claude: reported per-owner edit classification counts.
 // Updated by Claude: reported per-owner capture re-reads and requeued coverage columns.
 // Updated by Claude: reported per-owner revision bumps by call site.
+// Updated by Claude: retired rejected owners into a doubling per-group backoff; reported geometry edits, edit phases, post-capture re-reads and replans.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -38,6 +39,7 @@ final class LocalAirAutomatic {
         final LocalAirPreparation preparation;
         long weatherTick=-1;
         boolean wanted;
+        String rejected; // Sticky once seen REJECTED, so an edit-driven restart before reconcile cannot retry it.
         LocalAirRun.Seed checkpoint;
         Domain(long id,Bounds bounds,Capture capture,LocalAirPreparation preparation) {
             this.id=id;this.bounds=bounds;this.capture=capture;this.preparation=preparation;
@@ -46,7 +48,8 @@ final class LocalAirAutomatic {
     record Decision(LocalAirPlanner.Tile key,String state,String reason) { }
     record Row(long id,Bounds bounds,boolean retained,String preparation,String run,String reason,long frameTick,long restarts,int airNodes,int faces,String role,int drivenSources,long drivenReads,boolean persistentThermal,int restoredCells,int estimatedCells,int equilibriumIterations,LocalAirStartup.Report startup,long thermalReads,long thermalReused,String progress,
                Map<String,Long> restartCauses,Map<String,Long> failureCauses,long topologyStages,long weatherRevisions,long gridRebuilds,long shortSteps,Map<String,Long> editOutcomes,
-               long rereadCells,long requeuedColumns,Map<String,Long> revisionSites) { }
+               long rereadCells,long requeuedColumns,Map<String,Long> revisionSites,
+               long postCaptureRereads,long replans,Map<String,Long> geometryEdits,Map<String,Long> editPhases) { }
     record Transfer(long generation,long tick,int donors,int targets,double oldEnergy,double newEnergy,double incomingEnergy,double outgoingEnergy,double error) { }
     private static final class Transaction {
         final List<Domain> donors,targets;
@@ -75,6 +78,11 @@ final class LocalAirAutomatic {
     private String transferState="NONE";
     private List<Decision> decisions=List.of();
     private long nextId;
+    /** A rejected group's slot is released until retryTick; repeated rejections double the wait. */
+    private record Backoff(int rejections,long retryTick,String reason) { }
+    static final long BACKOFF_TICKS=600,MAX_BACKOFF_TICKS=12_000;
+    private final Map<Bounds,Backoff> backoffs=new HashMap<>();
+    private long now;
     LocalAirAutomatic(Settings settings,Factory factory) { this.settings=settings;this.factory=factory; }
     private void owner() { if(Thread.currentThread()!=thread) throw new IllegalStateException("Automatic domains require owner thread"); }
     List<Domain> domains() { owner();var all=new ArrayList<>(domains);if(transaction!=null) all.addAll(transaction.targets);all.addAll(retiring);return List.copyOf(all); }
@@ -108,6 +116,7 @@ final class LocalAirAutomatic {
         rejectedPreparations.keySet().retainAll(desired.keySet());
         var notes=new HashMap<>(coverageNotes);rejectedPreparations.forEach((b,reason)->notes.putIfAbsent(b,"Coverage blocked: "+reason));coverageNotes=Map.copyOf(notes);
         coverageNotes.forEach((b,message)->result.add(new Decision(desired.get(b)==null?null:desired.get(b).key(),message.startsWith("Coverage blocked")?"COVERAGE_BLOCKED":"COVERAGE_EXPANDED",message)));
+        backoff(desired,result);
         if(transaction!=null && !transaction.desired.equals(desired.keySet())) cancel("PLAN_SUPERSEDED");
         if(transaction!=null) {
             for(var d:domains) d.wanted=desired.containsKey(d.bounds) || transaction.donors.contains(d);
@@ -161,6 +170,27 @@ final class LocalAirAutomatic {
             retire(d);
         }
         decisions=List.copyOf(result);
+    }
+    /** A committed owner whose own layout was rejected (no coverage expansion replaced it) leaves its slot, and its
+     * group waits in BACKOFF until the retry tick; only that tick retries it, never an edit. The planner skips
+     * BACKOFF groups. Backoff ends when the group's demand is gone or its owner reaches a run.
+     * Owners retire only between transfers; a transfer still needs its donors. */
+    private void backoff(Map<Bounds,LocalAirPlanner.Group> desired,List<Decision> result) {
+        backoffs.keySet().retainAll(desired.keySet());
+        for(var d:List.copyOf(domains)) {
+            if(d.preparation.runStatus()!=null) { backoffs.remove(d.bounds);d.rejected=null;continue; }
+            if(d.preparation.status()==LocalAirPreparation.Status.REJECTED) d.rejected=d.preparation.description();
+            if(d.rejected==null || !desired.containsKey(d.bounds) || transaction!=null) continue;
+            var prior=backoffs.get(d.bounds);int rejections=prior==null?1:prior.rejections()+1;
+            long wait=Math.min(MAX_BACKOFF_TICKS,BACKOFF_TICKS<<Math.min(rejections-1,5));
+            backoffs.put(d.bounds,new Backoff(rejections,now+wait,d.rejected));retire(d);
+        }
+        for(var it=desired.entrySet().iterator();it.hasNext();) {
+            var entry=it.next();var backoff=backoffs.get(entry.getKey());
+            if(backoff==null || now>=backoff.retryTick() || domains.stream().anyMatch(d->d.bounds.equals(entry.getKey()))) continue;
+            result.add(new Decision(entry.getValue().key(),"BACKOFF","Rejected ("+backoff.rejections()+"x): "+backoff.reason()+"; retry at tick "+backoff.retryTick()));
+            it.remove();
+        }
     }
     private void retire(Domain d) {
         var seed=d.preparation.thermalCheckpoint();if(seed!=null) d.checkpoint=seed;
@@ -266,7 +296,7 @@ final class LocalAirAutomatic {
         return strict>=2;
     }
     void observe(long tick,double scale) {
-        owner();retiring.removeIf(d->!d.preparation.inFlight());for(var d:domains()) {
+        owner();now=Math.max(now,tick);retiring.removeIf(d->!d.preparation.inFlight());for(var d:domains()) {
             if(retiring.contains(d)) continue;
             if(d.weatherTick<0 || tick-d.weatherTick>=LocalAirRun.PHYSICAL_TICKS) {
                 d.weatherTick=tick;
@@ -275,6 +305,7 @@ final class LocalAirAutomatic {
             }
             d.preparation.observe(tick,scale);
             if(domains.contains(d)) { var seed=d.preparation.thermalCheckpoint();if(seed!=null) d.checkpoint=seed; }
+            if(domains.contains(d) && d.rejected==null && d.preparation.status()==LocalAirPreparation.Status.REJECTED) d.rejected=d.preparation.description();
         }
         progress(tick,scale);
     }
@@ -301,7 +332,8 @@ final class LocalAirAutomatic {
             String role=retiring.contains(d)?"RETIRING":transaction!=null && transaction.targets.contains(d)?"TARGET":d.wanted?"COMMITTED":"RETAINED";
             rows.add(new Row(d.id,d.bounds,domains.contains(d) && !d.wanted,d.preparation.status().name(),run==null?"UNAVAILABLE":run.name(),d.preparation.runReason(),frame==null?-1:frame.throughTick,d.preparation.restarts(),geometry==null?-1:geometry.flow().nodes(),geometry==null?-1:geometry.flow().faces(),role,d.preparation.drivenSourceCells(),d.preparation.drivenReadCells(),frame!=null && frame.persistentThermal,frame==null?0:frame.restoredCells,frame==null?0:frame.estimatedCells,d.preparation.estimationQuality()==null?0:d.preparation.estimationQuality().iterations(),d.preparation.startup(),d.preparation.thermalReadCells(),d.preparation.thermalReusedCells(),d.preparation.description(),
                     d.preparation.restartCauses(),d.preparation.failureCauses(),d.preparation.topologyStages(),d.preparation.weatherRevisions(),frame==null?0:frame.gridRebuilds,frame==null?0:frame.shortSteps,d.preparation.editOutcomes(),
-                    d.preparation.rereadCells(),d.preparation.requeuedColumns(),d.preparation.revisionSites()));
+                    d.preparation.rereadCells(),d.preparation.requeuedColumns(),d.preparation.revisionSites(),
+                    d.preparation.postCaptureRereads(),d.preparation.replans(),d.preparation.geometryEdits(),d.preparation.editPhases()));
         }
         return List.copyOf(rows);
     }
@@ -310,5 +342,5 @@ final class LocalAirAutomatic {
         for(var d:domains) { var seed=d.preparation.thermalCheckpoint();if(seed!=null) d.checkpoint=seed;if(d.checkpoint!=null) out.add(d.checkpoint); }return List.copyOf(out);
     }
     void persist() { owner();for(var seed:thermalCheckpoints()) factory.save(seed); }
-    void close() { owner();persist();for(var d:domains()) d.preparation.close();domains.clear();retiring.clear();transaction=null;decisions=List.of();rejectedLayouts.clear();rejectedPreparations.clear();coverageNotes=Map.of();recovery.clear(); }
+    void close() { owner();persist();for(var d:domains()) d.preparation.close();domains.clear();retiring.clear();transaction=null;decisions=List.of();rejectedLayouts.clear();rejectedPreparations.clear();coverageNotes=Map.of();recovery.clear();backoffs.clear(); }
 }

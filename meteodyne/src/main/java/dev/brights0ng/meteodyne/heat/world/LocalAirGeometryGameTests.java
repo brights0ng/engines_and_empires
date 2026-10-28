@@ -1,4 +1,5 @@
 // Written by ChatGPT.
+// Updated by Claude: checked Bright's snow buckets (1-3 layers air, 4-7 half block, 8 full).
 package dev.brights0ng.meteodyne.heat.world;
 
 import dev.brights0ng.meteodyne.Meteodyne;
@@ -8,6 +9,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -23,7 +25,9 @@ public final class LocalAirGeometryGameTests {
         var old=level.getBlockState(pos);var above=level.getBlockState(pos.above());
         try {
             level.setBlock(pos.above(),Blocks.AIR.defaultBlockState(),2);
-            var states=java.util.List.of(Blocks.AIR.defaultBlockState(),Blocks.SNOW.defaultBlockState(),
+            var snow=Blocks.SNOW.defaultBlockState();
+            var states=java.util.List.of(Blocks.AIR.defaultBlockState(),snow,snow.setValue(SnowLayerBlock.LAYERS,3),
+                    snow.setValue(SnowLayerBlock.LAYERS,4),snow.setValue(SnowLayerBlock.LAYERS,7),snow.setValue(SnowLayerBlock.LAYERS,8),
                     Blocks.OAK_SLAB.defaultBlockState(),Blocks.OAK_SLAB.defaultBlockState().setValue(BlockStateProperties.WATERLOGGED,true),
                     Blocks.OAK_DOOR.defaultBlockState(),Blocks.OAK_DOOR.defaultBlockState().setValue(BlockStateProperties.OPEN,true),
                     Blocks.OAK_STAIRS.defaultBlockState(),Blocks.WATER.defaultBlockState(),Blocks.LAVA.defaultBlockState());
@@ -35,7 +39,10 @@ public final class LocalAirGeometryGameTests {
                 helper.assertTrue(c.status()==LocalAirGeometryCapture.Status.CAPTURED,"Failed capture: "+state+" "+c.reason());
                 var p=c.snapshot().bakeClosedControl(ThermalGeometry.Coefficients.legacyMaterials());
                 helper.assertTrue(p.flow().faces()==0,"Diagnostic outer boundary must stay closed");
-                if(state.is(Blocks.SNOW)) helper.assertTrue(p.flow().solidVolume(0)==.125,"Thin snow must occupy one eighth block");
+                if(state.is(Blocks.SNOW)) {
+                    int layers=state.getValue(SnowLayerBlock.LAYERS);double volume=layers<=3?0:layers<8?.5:1;
+                    helper.assertTrue(p.flow().solidVolume(0)==volume,"Snow of "+layers+" layers occupies "+volume+" of the block, not "+p.flow().solidVolume(0));
+                }
                 if(!state.getFluidState().isEmpty()) helper.assertTrue(p.thermal().fluidState(0)>=0,"Missing independent fluid temperature");
                 if(state.is(Blocks.WATER)) {
                     var dependencies=new LocalAirDependencies(c.snapshot().bounds);
