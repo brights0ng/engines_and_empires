@@ -9,6 +9,7 @@
 // Updated by ChatGPT: exposed coverage failure evidence and human-readable preparation progress.
 // Updated by ChatGPT: reported bulk-certified sky cells separately from scalar geometry samples.
 // Updated by Claude: counted restart, failure, topology and weather churn by cause, reported in cause order.
+// Updated by Claude: classified block edits as ignored, source-only or geometry before any owner invalidation.
 package dev.brights0ng.meteodyne.heat.world;
 
 import dev.brights0ng.paradynelib.heat.air.ThermalGeometry;
@@ -20,6 +21,7 @@ import static dev.brights0ng.meteodyne.heat.world.LocalAirGeometryCapture.*;
 final class LocalAirPreparation {
     private static final class Ticket { volatile boolean cancelled; }
     enum Status { CAPTURING, PLAN_QUEUED, PLANNING, COVERAGE, BAKE_QUEUED, BAKING, PREPARED, REJECTED, FAILED, CLOSED }
+    enum EditOutcome { IGNORED, SOURCE, GEOMETRY }
     private static final class Estimation {
         final Prepared prepared;
         final LocalAirThermalState.Initial initial;
@@ -97,6 +99,7 @@ final class LocalAirPreparation {
         final java.util.ArrayList<SourceEdit> sources=new java.util.ArrayList<>();
         final java.util.HashSet<Long> edits=new java.util.HashSet<>(),sourceDirty=new java.util.HashSet<>();
         final java.util.HashSet<Integer> replacedSolid=new java.util.HashSet<>(),replacedFluid=new java.util.HashSet<>();
+        final java.util.HashMap<Integer,Heat> sourceHeat=new java.util.HashMap<>(); // Accepted source edits since capture; null values are removals.
         LocalAirGeometryCapture capture;
         Snapshot snapshot;
         LocalAirCoverage coverage;
@@ -143,7 +146,7 @@ final class LocalAirPreparation {
     private long restarts;
     private String lastRestart="Initial request";
     private java.util.function.Supplier<String> invalidationCause=()->"UNKNOWN";
-    private final java.util.TreeMap<String,Long> restartCauses=new java.util.TreeMap<>(),failureCauses=new java.util.TreeMap<>();
+    private final java.util.TreeMap<String,Long> restartCauses=new java.util.TreeMap<>(),failureCauses=new java.util.TreeMap<>(),editOutcomes=new java.util.TreeMap<>();
     private long topologyStages;
     private long captureReadCells,captureReusedCells;
     private long coverageReadCells,coverageReusedCells,coverageBulkCells;
@@ -609,22 +612,71 @@ final class LocalAirPreparation {
             }
             if(layoutBarrier>=0 && tick>layoutBarrier && stage.run!=null) {
                 time(tick,scale);if(++historyEvents>MAX_HISTORY_EVENTS) { fail("Layout source history exceeds limit");return true; }
-                stage.sources.add(new SourceEdit(tick,cell,sampled.heat(),scale));stage.sourceDirty.add(blockKey(x,y,z));return true;
+                stage.sources.add(new SourceEdit(tick,cell,sampled.heat(),scale));stage.sourceDirty.add(blockKey(x,y,z));stage.sourceHeat.put(cell,sampled.heat());return true;
             }
             if(stages.size()==1 && stage.history==null && stage.status==Status.PREPARED && stage.run!=null) {
                 time(tick,scale);driveRun(stage,tick);if(failed) return true;
                 boolean accepted=stage.run.changeSource(tick,cell,sampled.heat(),scale);
-                if(accepted) stage.sourceDirty.add(blockKey(x,y,z));return accepted;
+                if(accepted) { stage.sourceDirty.add(blockKey(x,y,z));stage.sourceHeat.put(cell,sampled.heat()); }return accepted;
             }
             if(stage.estimation!=null && stage.startTick>=0) {
                 time(tick,scale);if(++historyEvents>MAX_HISTORY_EVENTS) {fail("Initialization source history exceeds admission limit");return true;}
-                stage.sources.add(new SourceEdit(tick,cell,sampled.heat(),scale));stage.sourceDirty.add(blockKey(x,y,z));return true;
+                stage.sources.add(new SourceEdit(tick,cell,sampled.heat(),scale));stage.sourceDirty.add(blockKey(x,y,z));stage.sourceHeat.put(cell,sampled.heat());return true;
             }
             if(stage.history==null) return false;
             time(tick,scale);
             if(++historyEvents>MAX_HISTORY_EVENTS) { fail("Chronological edit history exceeds admission limit");return true; }
-            stage.sources.add(new SourceEdit(tick,cell,sampled.heat(),scale));stage.sourceDirty.add(blockKey(x,y,z));return true;
+            stage.sources.add(new SourceEdit(tick,cell,sampled.heat(),scale));stage.sourceDirty.add(blockKey(x,y,z));stage.sourceHeat.put(cell,sampled.heat());return true;
         } catch(RuntimeException error) { return false; }
+    }
+    /** Called after a server-thread block write and before any dependency revision. Only GEOMETRY
+     * needs the caller to invalidate; SOURCE has already been applied through changeSource. */
+    EditOutcome classifyEdit(int x,int y,int z,long tick,double scale) {
+        var outcome=classify(x,y,z,tick,scale);editOutcomes.merge(outcome.name(),1L,Long::sum);return outcome;
+    }
+    private EditOutcome classify(int x,int y,int z,long tick,double scale) {
+        refresh();if(closed || failed) return EditOutcome.GEOMETRY;
+        // Capture, coverage history and topology replay are never IGNORED; only heat-only edits keep the source path.
+        if(stages.size()!=1 || head().history!=null || head().snapshot==null) return historicalSource(x,y,z,tick,scale);
+        Cell sampled;
+        try { sampled=world.sample(x,y,z); } catch(RuntimeException error) { return EditOutcome.GEOMETRY; }
+        long key=blockKey(x,y,z);var stage=head();var snapshot=stage.snapshot;
+        int cell=bounds.index(x-bounds.x(),y-bounds.y(),z-bounds.z());
+        if(snapshot.context(key)) return EditOutcome.GEOMETRY;
+        if(cell<0) return stage.certificate!=null && stage.certificate.unaffectedBy(key)?EditOutcome.IGNORED:EditOutcome.GEOMETRY;
+        if(!stage.sourceHeat.containsKey(cell)) {
+            if(snapshot.sameCell(cell,sampled)) return EditOutcome.IGNORED;
+            if(snapshot.heatOnlyDiffers(cell,sampled)) return changeSource(x,y,z,tick,scale)?EditOutcome.SOURCE:EditOutcome.GEOMETRY;
+            return EditOutcome.GEOMETRY;
+        }
+        // The snapshot predates accepted source edits; compare heat with what the run now holds.
+        if(!snapshot.sameCell(cell,sampled) && !snapshot.heatOnlyDiffers(cell,sampled)) return EditOutcome.GEOMETRY;
+        if(java.util.Objects.equals(stage.sourceHeat.get(cell),sampled.heat())) return EditOutcome.IGNORED;
+        return changeSource(x,y,z,tick,scale)?EditOutcome.SOURCE:EditOutcome.GEOMETRY;
+    }
+    /** Heat-only edits against the latest stage: its snapshot, or the frozen history world while it captures. */
+    private EditOutcome historicalSource(int x,int y,int z,long tick,double scale) {
+        var stage=latest();long key=blockKey(x,y,z);
+        int cell=bounds.index(x-bounds.x(),y-bounds.y(),z-bounds.z());
+        if(cell<0 || stage.snapshot==null && stage.history==null) return EditOutcome.GEOMETRY;
+        boolean evidence=false;
+        for(var candidate:stages) if(candidate.snapshot!=null) { evidence=true;if(candidate.snapshot.context(key)) return EditOutcome.GEOMETRY; }
+        if(!evidence) return EditOutcome.GEOMETRY;
+        Cell sampled,before;
+        try { sampled=world.sample(x,y,z);before=stage.snapshot==null?stage.world.sample(x,y,z):null; }
+        catch(RuntimeException error) { return EditOutcome.GEOMETRY; }
+        boolean rest;Heat known;
+        if(stage.snapshot!=null) {
+            rest=stage.snapshot.sameCell(cell,sampled) || stage.snapshot.heatOnlyDiffers(cell,sampled);known=stage.snapshot.heat(cell);
+        } else {
+            rest=before.shape().equals(sampled.shape()) && before.solidK()==sampled.solidK() && before.solidCapacity()==sampled.solidCapacity()
+                    && before.fluidK()==sampled.fluidK() && before.fluidCapacity()==sampled.fluidCapacity()
+                    && before.driven()==sampled.driven() && before.natural()==sampled.natural();
+            known=before.heat();
+        }
+        if(stage.sourceHeat.containsKey(cell)) known=stage.sourceHeat.get(cell);
+        if(!rest || java.util.Objects.equals(known,sampled.heat())) return EditOutcome.GEOMETRY;
+        return changeSource(x,y,z,tick,scale)?EditOutcome.SOURCE:EditOutcome.GEOMETRY;
     }
     LocalAirRun.Status runStatus() { refresh();return closed || failed || head().run==null?null:head().run.status(); }
     private int interiorCell(int x,int y,int z) {
@@ -708,6 +760,7 @@ final class LocalAirPreparation {
     long restarts() { owner();return restarts; }
     String lastRestart() { owner();return lastRestart; }
     java.util.Map<String,Long> restartCauses() { owner();return java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(restartCauses)); }
+    java.util.Map<String,Long> editOutcomes() { owner();return java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(editOutcomes)); }
     java.util.Map<String,Long> failureCauses() { owner();return java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(failureCauses)); }
     long topologyStages() { owner();return topologyStages; }
     long weatherRevisions() { owner();return weatherRevision; }

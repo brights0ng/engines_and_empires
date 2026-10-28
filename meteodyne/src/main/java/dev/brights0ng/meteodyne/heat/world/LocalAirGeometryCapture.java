@@ -2,6 +2,7 @@
 // Updated by ChatGPT: natural-source classification and exact saved material identity.
 // Written by ChatGPT.
 // Updated by ChatGPT: guarded cross-layout snapshot reuse with imported dependency footprints.
+// Updated by Claude: per-cell edit classification and a lazy cross-cell read-context index.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.Arrays;
@@ -71,6 +72,7 @@ final class LocalAirGeometryCapture {
     static final class Footprint {
         private final long[] reads;
         Footprint(long[] reads) { this.reads=reads.clone(); }
+        long[] reads() { return reads.clone(); }
         void retain(Source target) { for(long read:reads) target.retainRead(blockX(read),blockY(read),blockZ(read)); }
         boolean unchanged(java.util.Set<Long> edits) {
             if(reads.length==0) return false;
@@ -199,6 +201,7 @@ final class LocalAirGeometryCapture {
         private final int[] drivenCells;
         private final Footprint[] footprints;
         private final double[] solidK,solidCapacity,fluidK,fluidCapacity;
+        private long[] context; // Owner-thread lazy index; sorted, distinct.
         private Snapshot(LocalAirGeometryCapture c) {
             bounds=c.bounds;contextId=c.contextId;geometryRevision=c.geometryRevision;materialRevision=c.materialRevision;
             shapes=c.shapes.clone();solidK=c.solidK.clone();solidCapacity=c.solidCapacity.clone();
@@ -231,6 +234,36 @@ final class LocalAirGeometryCapture {
         boolean sameMaterial(int index,Cell cell) {
             return shapes[index].equals(cell.shape) && solidK[index]==cell.solidK && solidCapacity[index]==cell.solidCapacity
                     && fluidK[index]==cell.fluidK && fluidCapacity[index]==cell.fluidCapacity;
+        }
+        boolean sameCell(int index,Cell cell) {
+            return sameMaterial(index,cell) && java.util.Objects.equals(heat[index],cell.heat)
+                    && driven[index]==cell.driven && natural[index]==cell.natural;
+        }
+        boolean heatOnlyDiffers(int index,Cell cell) {
+            return sameMaterial(index,cell) && !java.util.Objects.equals(heat[index],cell.heat)
+                    && driven[index]==cell.driven && natural[index]==cell.natural;
+        }
+        /** True when some other cell's sample read this position. Cells without read evidence
+         * conservatively count their six face neighbours as read context. */
+        boolean context(long blockKey) {
+            if(context==null) {
+                var keys=new java.util.ArrayList<long[]>();int total=0;
+                for(int i=0;i<shapes.length;i++) {
+                    int x=bounds.x+bounds.cellX(i),y=bounds.y+bounds.cellY(i),z=bounds.z+bounds.cellZ(i);
+                    long own=blockKey(x,y,z);
+                    long[] reads=footprints[i]==null?null:footprints[i].reads();
+                    if(reads==null || reads.length==0) reads=new long[]{blockKey(x-1,y,z),blockKey(x+1,y,z),blockKey(x,y-1,z),
+                            blockKey(x,y+1,z),blockKey(x,y,z-1),blockKey(x,y,z+1)};
+                    int n=0;for(long read:reads) if(read!=own) reads[n++]=read;
+                    if(n>0) { keys.add(n==reads.length?reads:Arrays.copyOf(reads,n));total+=n; }
+                }
+                long[] all=new long[total];int at=0;
+                for(var part:keys) { System.arraycopy(part,0,all,at,part.length);at+=part.length; }
+                Arrays.sort(all);
+                int n=0;for(int i=0;i<all.length;i++) if(n==0 || all[i]!=all[n-1]) all[n++]=all[i];
+                context=Arrays.copyOf(all,n);
+            }
+            return Arrays.binarySearch(context,blockKey)>=0;
         }
         /** Layout transfer may change origins/context IDs, but never material/shape ownership in overlap. */
         boolean layoutCompatible(Snapshot previous) {

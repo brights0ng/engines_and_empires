@@ -1,3 +1,4 @@
+// Updated by Claude: edited the domain to a different material, since a same-material swap is now ignored.
 // Written by ChatGPT.
 package dev.brights0ng.meteodyne.heat.world;
 
@@ -42,7 +43,7 @@ public final class LocalAirPipelineGameTests {
                     var distantChunk=new net.minecraft.world.level.chunk.LevelChunk(level,distant);
                     world.onChunkLoad(distantChunk);world.onChunkUnload(distantChunk);
                     helper.assertTrue(world.localAirGeometry()==prepared,"Unrelated chunk hooks retain the exact publication");
-                    level.setBlock(pos,Blocks.COBBLESTONE.defaultBlockState(),2);
+                    level.setBlock(pos,Blocks.OAK_PLANKS.defaultBlockState(),2);
                     helper.assertTrue(world.localAirGeometry()==null,"Domain edit invalidates before the next tick");
                 })
                 .thenWaitUntil(()->helper.assertTrue(world.localAirGeometry()!=null,"Invalidated request rebuilds through shared pool"))
