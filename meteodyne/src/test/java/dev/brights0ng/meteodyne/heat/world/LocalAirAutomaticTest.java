@@ -91,8 +91,8 @@ class LocalAirAutomaticTest {
         for(long tick=0;tick<400 && d.preparation.field()==null;tick++) {
             boolean capturing=d.preparation.status()==LocalAirPreparation.Status.CAPTURING;
             if(capturing && flip.test(tick) && f.overrides.remove(key)==null) f.overrides.put(key,LocalAirPreparationTest.SOLID);
-            var outcome=d.preparation.classifyEdit(x,y,z,tick,1);
-            if(outcome==LocalAirPreparation.EditOutcome.GEOMETRY) d.capture.dependencies().blockRevision(x,y,z,tick,"before","after");
+            var outcome=d.preparation.classifyEdit(x,y,z,tick,1,false);
+            if(outcome==LocalAirPreparation.EditOutcome.GEOMETRY) d.capture.dependencies().blockRevision(x,y,z,tick,"before","after",LocalAirDependencies.APPLY_AUTOMATIC);
             if(capturing) captureOutcomes.merge(outcome.name(),1L,Long::sum);
             auto.observe(tick,1);
             assertTrue(d.preparation.advance(256,Long.MAX_VALUE)<=256);

@@ -12,6 +12,8 @@
 // Updated by Claude: classified block edits as ignored, source-only or geometry before any owner invalidation.
 // Updated by Claude: re-read only affected cells or sky columns for edits during a fresh capture or coverage check.
 // Updated by Claude: named the fresh-stage guard that limits planning edits to the snapshot rules.
+// Updated by Claude: reported the call sites that bumped this owner's dependency revision.
+// Updated by Claude: treated context edits as GEOMETRY only when the read inputs changed.
 package dev.brights0ng.meteodyne.heat.world;
 
 import dev.brights0ng.paradynelib.heat.air.ThermalGeometry;
@@ -148,6 +150,7 @@ final class LocalAirPreparation {
     private long restarts;
     private String lastRestart="Initial request";
     private java.util.function.Supplier<String> invalidationCause=()->"UNKNOWN";
+    private java.util.function.Supplier<java.util.Map<String,Long>> revisionSites=java.util.Map::of;
     private final java.util.TreeMap<String,Long> restartCauses=new java.util.TreeMap<>(),failureCauses=new java.util.TreeMap<>(),editOutcomes=new java.util.TreeMap<>();
     private long topologyStages;
     private long captureReadCells,captureReusedCells,rereadCells,requeuedColumns;
@@ -229,6 +232,9 @@ final class LocalAirPreparation {
         failed=true;failure=reason;failureCauses.merge(category,1L,Long::sum);for(var stage:stages) stage.close();
     }
     void invalidationCause(java.util.function.Supplier<String> cause) { owner();invalidationCause=java.util.Objects.requireNonNull(cause); }
+    /** The owner's dependency revision bumps by call site; the dependencies own the thread-safe counts. */
+    void revisionSites(java.util.function.Supplier<java.util.Map<String,Long>> sites) { owner();revisionSites=java.util.Objects.requireNonNull(sites); }
+    java.util.Map<String,Long> revisionSites() { owner();return java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(revisionSites.get())); }
     LocalAirReuse reuseEvidence() {
         owner();if(!readyForLayout()) return null;
         var stage=head();var snapshot=stage.snapshot;
@@ -635,8 +641,14 @@ final class LocalAirPreparation {
     /** Called after a server-thread block write and before any dependency revision. Only GEOMETRY
      * needs the caller to invalidate; SOURCE has already been applied through changeSource, and
      * RECAPTURE has queued re-reads of the affected cells or sky columns of a fresh domain. */
-    EditOutcome classifyEdit(int x,int y,int z,long tick,double scale) {
-        var outcome=classify(x,y,z,tick,scale);editOutcomes.merge(outcome.name(),1L,Long::sum);return outcome;
+    EditOutcome classifyEdit(int x,int y,int z,long tick,double scale,
+                             net.minecraft.world.level.block.state.BlockState before,net.minecraft.world.level.block.state.BlockState after) {
+        // Null checks first: unit fixtures pass null states without loading the Minecraft-backed source.
+        return classifyEdit(x,y,z,tick,scale,before!=null && after!=null && LocalAirWorldSource.readInputsSame(before,after));
+    }
+    /** readInputsSame: a cell that reads this position (context) sees the same shape and fluid after the edit. */
+    EditOutcome classifyEdit(int x,int y,int z,long tick,double scale,boolean readInputsSame) {
+        var outcome=classify(x,y,z,tick,scale,readInputsSame);editOutcomes.merge(outcome.name(),1L,Long::sum);return outcome;
     }
     /** One stage that is neither replaying a topology history nor waiting on an incoming seed. */
     private boolean fresh() {
@@ -646,7 +658,7 @@ final class LocalAirPreparation {
     private boolean settled() {
         return stages.size()==1 && head().incoming==null && head().snapshot!=null && head().certificate!=null;
     }
-    private EditOutcome classify(int x,int y,int z,long tick,double scale) {
+    private EditOutcome classify(int x,int y,int z,long tick,double scale,boolean readInputsSame) {
         refresh();if(closed || failed) return EditOutcome.GEOMETRY;
         long key=blockKey(x,y,z);
         if(fresh()) {
@@ -659,7 +671,7 @@ final class LocalAirPreparation {
             }
             if(stage.status==Status.COVERAGE && (stage.coverage.status()==LocalAirCoverage.Status.CHECKING
                     || stage.coverage.status()==LocalAirCoverage.Status.ADMITTED)) {
-                int cell=bounds.index(x-bounds.x(),y-bounds.y(),z-bounds.z());boolean context=stage.snapshot.context(key);
+                int cell=bounds.index(x-bounds.x(),y-bounds.y(),z-bounds.z());boolean context=stage.snapshot.context(key) && !readInputsSame;
                 if(cell>=0 || context) {
                     Cell sampled;
                     try { sampled=world.sample(x,y,z); } catch(RuntimeException error) { return EditOutcome.GEOMETRY; }
@@ -674,12 +686,12 @@ final class LocalAirPreparation {
         // Only a fresh stage between capture and coverage (planning) keeps the snapshot rules below;
         // a history stage that is planning has no certificate and takes historicalSource.
         boolean planning=fresh() && head().snapshot!=null && (head().status==Status.PLAN_QUEUED || head().status==Status.PLANNING);
-        if(!settled() && !planning) return historicalSource(x,y,z,tick,scale);
+        if(!settled() && !planning) return historicalSource(x,y,z,tick,scale,readInputsSame);
         Cell sampled;
         try { sampled=world.sample(x,y,z); } catch(RuntimeException error) { return EditOutcome.GEOMETRY; }
         var stage=head();var snapshot=stage.snapshot;
         int cell=bounds.index(x-bounds.x(),y-bounds.y(),z-bounds.z());
-        if(snapshot.context(key)) return EditOutcome.GEOMETRY;
+        if(snapshot.context(key) && !readInputsSame) return EditOutcome.GEOMETRY;
         if(cell<0) return stage.certificate!=null && stage.certificate.unaffectedBy(key)?EditOutcome.IGNORED:EditOutcome.GEOMETRY;
         if(!stage.sourceHeat.containsKey(cell)) {
             if(snapshot.sameCell(cell,sampled)) return EditOutcome.IGNORED;
@@ -692,12 +704,12 @@ final class LocalAirPreparation {
         return changeSource(x,y,z,tick,scale)?EditOutcome.SOURCE:EditOutcome.GEOMETRY;
     }
     /** Heat-only edits against the latest stage: its snapshot, or the frozen history world while it captures. */
-    private EditOutcome historicalSource(int x,int y,int z,long tick,double scale) {
+    private EditOutcome historicalSource(int x,int y,int z,long tick,double scale,boolean readInputsSame) {
         var stage=latest();long key=blockKey(x,y,z);
         int cell=bounds.index(x-bounds.x(),y-bounds.y(),z-bounds.z());
         if(cell<0 || stage.snapshot==null && stage.history==null) return EditOutcome.GEOMETRY;
         boolean evidence=false;
-        for(var candidate:stages) if(candidate.snapshot!=null) { evidence=true;if(candidate.snapshot.context(key)) return EditOutcome.GEOMETRY; }
+        for(var candidate:stages) if(candidate.snapshot!=null) { evidence=true;if(candidate.snapshot.context(key) && !readInputsSame) return EditOutcome.GEOMETRY; }
         if(!evidence) return EditOutcome.GEOMETRY;
         Cell sampled,before;
         try { sampled=world.sample(x,y,z);before=stage.snapshot==null?stage.world.sample(x,y,z):null; }
