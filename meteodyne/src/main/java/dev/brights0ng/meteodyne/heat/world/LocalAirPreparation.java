@@ -11,6 +11,7 @@
 // Updated by Claude: counted restart, failure, topology and weather churn by cause, reported in cause order.
 // Updated by Claude: classified block edits as ignored, source-only or geometry before any owner invalidation.
 // Updated by Claude: re-read only affected cells or sky columns for edits during a fresh capture or coverage check.
+// Updated by Claude: named the fresh-stage guard that limits planning edits to the snapshot rules.
 package dev.brights0ng.meteodyne.heat.world;
 
 import dev.brights0ng.paradynelib.heat.air.ThermalGeometry;
@@ -637,6 +638,10 @@ final class LocalAirPreparation {
     EditOutcome classifyEdit(int x,int y,int z,long tick,double scale) {
         var outcome=classify(x,y,z,tick,scale);editOutcomes.merge(outcome.name(),1L,Long::sum);return outcome;
     }
+    /** One stage that is neither replaying a topology history nor waiting on an incoming seed. */
+    private boolean fresh() {
+        return stages.size()==1 && head().history==null && head().incoming==null;
+    }
     /** One admitted topology with no pending seed: its snapshot and certificate describe the live owner. */
     private boolean settled() {
         return stages.size()==1 && head().incoming==null && head().snapshot!=null && head().certificate!=null;
@@ -644,7 +649,7 @@ final class LocalAirPreparation {
     private EditOutcome classify(int x,int y,int z,long tick,double scale) {
         refresh();if(closed || failed) return EditOutcome.GEOMETRY;
         long key=blockKey(x,y,z);
-        if(stages.size()==1 && head().history==null && head().incoming==null) {
+        if(fresh()) {
             var stage=head();
             if(stage.status==Status.CAPTURING) {
                 if(stage.capture==null) return EditOutcome.IGNORED;
@@ -666,9 +671,9 @@ final class LocalAirPreparation {
             }
         }
         // Topology replay and capture of a history stage are never IGNORED; only heat-only edits keep the source path.
-        // A fresh stage between capture and coverage (planning) keeps the snapshot rules below.
-        boolean planning=stages.size()==1 && head().history==null && head().incoming==null && head().snapshot!=null
-                && (head().status==Status.PLAN_QUEUED || head().status==Status.PLANNING);
+        // Only a fresh stage between capture and coverage (planning) keeps the snapshot rules below;
+        // a history stage that is planning has no certificate and takes historicalSource.
+        boolean planning=fresh() && head().snapshot!=null && (head().status==Status.PLAN_QUEUED || head().status==Status.PLANNING);
         if(!settled() && !planning) return historicalSource(x,y,z,tick,scale);
         Cell sampled;
         try { sampled=world.sample(x,y,z); } catch(RuntimeException error) { return EditOutcome.GEOMETRY; }

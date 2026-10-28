@@ -1,3 +1,4 @@
+// Updated by Claude: classified blocks that request local-air coverage in any of their states.
 // Updated by ChatGPT: classified source, material and physical geometry changes for snapshot invalidation.
 package dev.brights0ng.meteodyne.heat.world;
 
@@ -107,6 +108,23 @@ public final class HeatTables {
     public static synchronized HeatPowerData.Variant power(BlockState state) {
         HeatPowerData d = data(state.getBlock());
         return d == NO_POWER ? null : d.find(state);
+    }
+
+    /**
+     * Whether a placed {@code block} asks for local-air coverage in any state: it has a driven variant, or a placed
+     * (not natural) variant that heats or cools the air. Unlike {@link #power}, an unlit campfire or furnace counts.
+     */
+    public static synchronized boolean airSourceCandidate(Block block) {
+        HeatPowerData d = data(block);
+        if (d == NO_POWER) {
+            return false;
+        }
+        for (HeatPowerData.Variant v : d.variants()) {
+            if (v.driven() || (v.inAir() && !v.natural())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Every driven variant of {@code state} (8f-3: on by its block entity), or empty. */

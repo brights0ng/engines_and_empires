@@ -1,5 +1,6 @@
 // Written by Claude.
 // Updated by Claude: tested the settled-owner gate after a topology edit and during its capture.
+// Updated by Claude: tested that a history stage which is planning keeps the historical path.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -152,6 +153,22 @@ class LocalAirEditClassifierTest {
         }
         assertEquals(LocalAirPreparation.Status.CAPTURING,d.preparation.status(),"The promoted stage is capturing");
         assertEquals(LocalAirPreparation.EditOutcome.GEOMETRY,d.preparation.classifyEdit(8,8,8,tick,1),"An incoming seed keeps the historical path");
+        auto.close();
+    }
+    @Test void historyStagePlanningKeepsTheHistoricalPath() {
+        var f=new Factory();var auto=new LocalAirAutomatic(SETTINGS,f);var d=edited(auto,f);long tick=10;
+        for(int i=0;i<400 && d.preparation.status()!=LocalAirPreparation.Status.PLAN_QUEUED;i++) {
+            auto.observe(++tick,1);d.preparation.advance(256,Long.MAX_VALUE);
+            if(d.preparation.status()==LocalAirPreparation.Status.PLAN_QUEUED) break;
+            var work=d.preparation.takeWork();if(work!=null) d.preparation.complete(work.run());
+        }
+        assertEquals(LocalAirPreparation.Status.PLAN_QUEUED,d.preparation.status(),d.preparation.description());
+        assertFalse(d.preparation.runReason().startsWith("Replaying"),"The history stage is promoted and alone");
+        // (8,8,8) is unchanged interior air: the snapshot rules would call it IGNORED.
+        assertNotEquals(LocalAirPreparation.EditOutcome.IGNORED,d.preparation.classifyEdit(8,8,8,tick,1),"Queued history stage");
+        var work=d.preparation.takeWork();assertNotNull(work);
+        assertEquals(LocalAirPreparation.Status.PLANNING,d.preparation.status());
+        assertNotEquals(LocalAirPreparation.EditOutcome.IGNORED,d.preparation.classifyEdit(8,8,8,tick,1),"Planning history stage");
         auto.close();
     }
 }

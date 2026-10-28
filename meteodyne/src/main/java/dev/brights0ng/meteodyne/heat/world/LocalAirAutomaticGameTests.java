@@ -4,6 +4,7 @@
 // Updated by ChatGPT: verified automatic view movement, source selection and saved-state reentry.
 // Updated by ChatGPT: verified real partial-cut rejection, bounded expansion and viewer recovery.
 // Updated by Claude: verified redstone pulses during a fresh automatic owner's capture never restart it.
+// Updated by Claude: expired the added source's demand by removing it, since an unlit source keeps its demand.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -268,7 +269,8 @@ public final class LocalAirAutomaticGameTests {
                     var reading=world.queryAutomaticLocalAir(fires.getFirst().getX()+.5,fires.getFirst().getY()+1.5,fires.getFirst().getZ()+.5,40);
                     helper.assertTrue(reading.currentSample().isPresent(),"Retained room is readable after expansion");
                     verifyView(helper,world,viewer,added);
-                    level.setBlock(added,level.getBlockState(added).setValue(BlockStateProperties.LIT,false),2);
+                    // Removed, not extinguished: an unlit placed source keeps requesting coverage (Phase 1 item 1.10).
+                    level.setBlock(added,Blocks.AIR.defaultBlockState(),2);
                 })
                 .thenWaitUntil(()->{
                     var auto=world.automaticAir();helper.assertTrue(auto.transfers()>=2 && auto.committedDomains().stream().anyMatch(d->d.bounds.nx()==32 && d.preparation.field()!=null),"Expired demand shrinks through a retained transfer: "+auto.transferState()+" "+auto.decisions());

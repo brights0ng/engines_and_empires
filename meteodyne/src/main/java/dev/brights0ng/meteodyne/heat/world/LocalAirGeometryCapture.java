@@ -4,6 +4,7 @@
 // Updated by ChatGPT: guarded cross-layout snapshot reuse with imported dependency footprints.
 // Updated by Claude: per-cell edit classification and a lazy cross-cell read-context index.
 // Updated by Claude: re-read only edited cells and their readers while capture is in progress.
+// Updated by Claude: kept the reader index on fastutil; footprint reads have no distance bound.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.Arrays;
@@ -13,6 +14,8 @@ import dev.brights0ng.paradynelib.heat.air.FlowGeometry;
 import dev.brights0ng.paradynelib.heat.air.FlowShape;
 import dev.brights0ng.paradynelib.heat.air.ThermalGeometry;
 import dev.brights0ng.paradynelib.heat.air.CellLayout;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
 /** Main-thread sliced capture; worker snapshots contain no world/Minecraft objects.
  * Complete geometry is distinct from verified exterior coverage and published field readiness.
@@ -336,8 +339,9 @@ final class LocalAirGeometryCapture {
     private final java.util.Set<Long> edits;
     private final double[] solidK,solidCapacity,fluidK,fluidCapacity;
     private final java.util.BitSet captured=new java.util.BitSet(),queued=new java.util.BitSet();
-    // Position -> {count, cells...} of captured cells whose sample read it. Plain java.util: unit tests run without Minecraft's libraries.
-    private final HashMap<Long,int[]> readers=new HashMap<>();
+    // Position -> captured cells whose sample read it. Shape context reads are bounded in count, not distance,
+    // so readers of a position cannot be found from its neighbourhood alone.
+    private final Long2ObjectOpenHashMap<IntArrayList> readers=new Long2ObjectOpenHashMap<>();
     private final java.util.ArrayDeque<Integer> reread=new java.util.ArrayDeque<>();
     private int cursor,reused,readCount,rereadCount;
     private Status status=Status.CAPTURING;
@@ -426,21 +430,18 @@ final class LocalAirGeometryCapture {
     }
     private void index(int i) {
         for(long read:reads(i)) {
-            int[] list=readers.get(read);
-            if(list==null) { readers.put(read,new int[]{1,i});continue; }
-            boolean present=false;for(int k=1;k<=list[0] && !present;k++) present=list[k]==i;
-            if(present) continue;
-            if(list[0]+1==list.length) { list=Arrays.copyOf(list,list.length*2);readers.put(read,list); }
-            list[++list[0]]=i;
+            var list=readers.get(read);
+            if(list==null) readers.put(read,list=new IntArrayList(2));
+            if(!list.contains(i)) list.add(i);
         }
         captured.set(i);
     }
     private void unindex(int i) {
         if(!captured.get(i) && !queued.get(i)) return;
         for(long read:reads(i)) {
-            int[] list=readers.get(read);if(list==null) continue;
-            for(int k=1;k<=list[0];k++) if(list[k]==i) { list[k]=list[list[0]--];break; }
-            if(list[0]==0) readers.remove(read);
+            var list=readers.get(read);if(list==null) continue;
+            int k=list.indexOf(i);if(k>=0) { list.set(k,list.getInt(list.size()-1));list.removeInt(list.size()-1); }
+            if(list.isEmpty()) readers.remove(read);
         }
     }
     /** An owner-thread edit at key, already applied to the source. Queues re-reads of the captured
@@ -452,8 +453,8 @@ final class LocalAirGeometryCapture {
         int own=bounds.index(blockX(key)-bounds.x,blockY(key)-bounds.y,blockZ(key)-bounds.z);
         var affected=new java.util.BitSet();
         if(own>=0 && captured.get(own)) affected.set(own);
-        int[] list=readers.get(key);
-        if(list!=null) for(int k=1;k<=list[0];k++) if(captured.get(list[k])) affected.set(list[k]);
+        var list=readers.get(key);
+        if(list!=null) for(int k=0;k<list.size();k++) if(captured.get(list.getInt(k))) affected.set(list.getInt(k));
         if(affected.isEmpty()) return false;
         if(own>=0 && affected.cardinality()==1 && affected.get(own) && sameCell(own,sample)) return false;
         for(int c=affected.nextSetBit(0);c>=0;c=affected.nextSetBit(c+1)) {
