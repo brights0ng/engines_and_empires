@@ -1,6 +1,7 @@
 // Extended by ChatGPT: non-blocking live thermal performance captures.
 // Extended by ChatGPT: operator-only thermal response tuning with explicit status and reset.
 // Extended by ChatGPT: explicit local-air diagnostic controls and sampling.
+// Updated by Claude: raised the live capture limit to 1800 seconds.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.Locale;
@@ -49,7 +50,7 @@ public final class HeatCommand {
                                 .executes(context -> response(context.getSource(),DoubleArgumentType.getDouble(context,"scale"),false))))
                 .then(Commands.literal("benchmark")
                         .then(Commands.literal("start").executes(context -> benchmark(context.getSource(),60))
-                                .then(Commands.argument("seconds",IntegerArgumentType.integer(5,300))
+                                .then(Commands.argument("seconds",IntegerArgumentType.integer(5,1800))
                                         .executes(context -> benchmark(context.getSource(),IntegerArgumentType.getInteger(context,"seconds")))))
                         .then(Commands.literal("status").executes(context -> benchmarkStatus(context.getSource(),false)))
                         .then(Commands.literal("stop").executes(context -> benchmarkStatus(context.getSource(),true))))

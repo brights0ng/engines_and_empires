@@ -1,6 +1,7 @@
 // Written by ChatGPT.
 // Extended by ChatGPT: separate local-air stage wall/CPU/queue timings and field-quality snapshots.
 // Updated by ChatGPT: measured numerical slice counts and maximum slice wall time.
+// Updated by Claude: 1800-second captures, a per-owner local-air timeline and soak reporting.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.nio.file.Files;
@@ -30,14 +31,18 @@ final class HeatBenchmark {
         final Map<String,Long> invalidations=new LinkedHashMap<>();
         final Map<String,Long> blockChanges=new LinkedHashMap<>();
         final Map<String,Long> snapshotWork=new LinkedHashMap<>();
+        final StringBuilder timeline=new StringBuilder(TIMELINE_HEADER);
+        final Map<String,long[]> availability=new LinkedHashMap<>();
         boolean recording;
-        long startedWall, jobs, cells, rebuiltJobs, settleJobs;
+        long startedWall, recordingTick, timelineRows, timelineDropped, jobs, cells, rebuiltJobs, settleJobs;
         double simulatedSeconds, gameSeconds;
         Session(CommandSourceStack source,long tick,int warmup,int seconds) {
             this.source=source;requestedTick=tick;warmupTicks=warmup*20L;durationTicks=seconds*20L;
         }
         void add(String metric,long value) { metrics.computeIfAbsent(metric,k->new ThermalTiming.Samples()).add(value); }
     }
+    static final int TIMELINE_INTERVAL=20,TIMELINE_MAX_ROWS=200_000,AVAILABLE_AGE_TICKS=40;
+    static final String TIMELINE_HEADER="tick,owner,domain_id,role,preparation,run,frame_tick,frame_age_ticks,available,restarts,topology_stages,weather_revisions,grid_rebuilds,short_steps,failures_total\n";
     record Token(Session owner,long submitted) { }
     record JobMeasurement(Token token,long wall,long cpu,long allocated,long queue,long solve,long publication,
                           int cells,boolean rebuilt,boolean settled,double simulatedSeconds,
@@ -64,7 +69,7 @@ final class HeatBenchmark {
     }
     boolean start(CommandSourceStack source,int seconds,int warmup) {
         if (session!=null) { source.sendFailure(Component.literal("A thermal benchmark capture is already active."));return false; }
-        if (seconds<1 || seconds>300 || warmup<0 || warmup>60) { throw new IllegalArgumentException("Invalid capture duration"); }
+        if (seconds<1 || seconds>1800 || warmup<0 || warmup>60) { throw new IllegalArgumentException("Invalid capture duration"); }
         session=new Session(source,source.getLevel().getGameTime(),warmup,seconds);
         source.sendSuccess(()->Component.literal("Thermal benchmark: "+warmup+"s warmup, then "+seconds+"s capture. Keep the same scene loaded; heat view off."),false);
         return true;
@@ -73,8 +78,42 @@ final class HeatBenchmark {
         Session s=session;
         if (s==null) { return; }
         long elapsed=now-s.requestedTick;
-        if (!s.recording && elapsed>=s.warmupTicks) { s.recording=true;s.startedWall=System.nanoTime(); }
-        if (elapsed>=s.warmupTicks+s.durationTicks) { finish(false); }
+        if (!s.recording && elapsed>=s.warmupTicks) { s.recording=true;s.startedWall=System.nanoTime();s.recordingTick=now; }
+        if (elapsed>=s.warmupTicks+s.durationTicks) { finish(false);return; }
+        if (s.recording && (now-s.recordingTick)%TIMELINE_INTERVAL==0) { timeline(s,now); }
+    }
+    /** One row per local-air owner: the manual owner when requested, then every automatic domain. */
+    private static void timeline(Session s,long now) {
+        var world=HeatWorld.of(s.source.getLevel());
+        if (world==null) { return; }
+        if (world.localAirStatus()!=LocalAirPreparation.Status.CLOSED) {
+            var r=world.localAirReport();
+            var field=world.localAirField();
+            timelineRow(s,now,"manual","manual","MANUAL",String.valueOf(r.get("preparation")),String.valueOf(r.get("run")),field==null?-1:field.throughTick,
+                    count(r,"restarts"),count(r,"topologyStages"),count(r,"weatherRevisions"),count(r,"gridRebuilds"),count(r,"shortSteps"),
+                    r.get("failureCauses") instanceof Map<?,?> causes?total(causes):0);
+        }
+        var auto=world.automaticAir();
+        if (auto==null) { return; }
+        for (var row:auto.rows()) {
+            timelineRow(s,now,"auto",Long.toString(row.id()),row.role(),row.preparation(),row.run(),row.frameTick(),row.restarts(),row.topologyStages(),
+                    row.weatherRevisions(),row.gridRebuilds(),row.shortSteps(),total(row.failureCauses()));
+        }
+    }
+    private static long count(Map<String,Object> report,String key) { return report.get(key) instanceof Number n?n.longValue():0; }
+    private static long total(Map<?,?> causes) { long sum=0;for(var v:causes.values()) if(v instanceof Number n) sum+=n.longValue();return sum; }
+    private static void timelineRow(Session s,long now,String owner,String domain,String role,String preparation,String run,long frameTick,
+                                    long restarts,long topologyStages,long weatherRevisions,long gridRebuilds,long shortSteps,long failures) {
+        long age=frameTick>=0?now-frameTick:-1;
+        boolean available=frameTick>=0 && age<=AVAILABLE_AGE_TICKS;
+        var stats=s.availability.computeIfAbsent(domain,k->new long[]{0,0,-1});
+        stats[0]++;if(available) stats[1]++;stats[2]=Math.max(stats[2],age);
+        if (s.timelineRows>=TIMELINE_MAX_ROWS) { s.timelineDropped++;return; }
+        s.timelineRows++;
+        s.timeline.append(now).append(',').append(owner).append(',').append(domain).append(',').append(role).append(',').append(preparation).append(',')
+                .append(run).append(',').append(frameTick).append(',').append(age).append(',').append(available).append(',').append(restarts).append(',')
+                .append(topologyStages).append(',').append(weatherRevisions).append(',').append(gridRebuilds).append(',').append(shortSteps).append(',')
+                .append(failures).append('\n');
     }
     long begin() { return session!=null && session.recording?System.nanoTime():0; }
     void end(String phase,long start) { if (start!=0 && session!=null && session.recording) { session.add(phase,System.nanoTime()-start); } }
@@ -152,6 +191,15 @@ final class HeatBenchmark {
                 csv.append(String.format(Locale.ROOT,"%s,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f%n",entry.getKey(),summary.count(),summary.mean(),summary.p50(),summary.p95(),summary.p99(),summary.max(),summary.total()));
             }
             report.put("metrics",metrics);
+            Map<String,Object> availability=new LinkedHashMap<>();
+            s.availability.forEach((domain,stats)->{
+                Map<String,Object> row=new LinkedHashMap<>();row.put("samples",stats[0]);
+                row.put("availableFraction",stats[0]==0?0.0:(double)stats[1]/stats[0]);row.put("maxAgeTicks",stats[2]);
+                availability.put(domain,row);
+            });
+            report.put("localAirAvailability",availability);
+            report.put("localAirTimelineDroppedRows",s.timelineDropped);
+            if (LocalAirSoak.active()) { report.put("soak",LocalAirSoak.report()); }
             report.put("workerCpuCoreFraction",s.metrics.containsKey("worker_cpu_ms") && s.metrics.get("worker_cpu_ms").summary(1e6).count()>0 && seconds>0
                     ?s.metrics.get("worker_cpu_ms").summary(1e6).total()/(seconds*1000):null);
             Files.writeString(directory.resolve("summary.json"),new GsonBuilder().setPrettyPrinting().create().toJson(report));
@@ -163,6 +211,7 @@ final class HeatBenchmark {
                         job.regionId,job.geometryRevision,job.materialRevision,job.sourceRevision,job.gameSeconds,job.responseScale));
             }
             Files.writeString(directory.resolve("jobs.csv"),jobsCsv);
+            Files.writeString(directory.resolve("local_air_timeline.csv"),s.timeline);
             lastReport=directory;
             if(s.jobs==0) { s.source.sendFailure(Component.literal("No thermal jobs captured. Stand near an active heat source and repeat; this is not a solver baseline.")); }
             s.source.sendSuccess(()->Component.literal("Thermal capture saved: "+directory+" ("+s.jobs+" jobs)."),false);

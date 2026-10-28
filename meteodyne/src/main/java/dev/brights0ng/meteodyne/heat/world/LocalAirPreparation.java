@@ -8,7 +8,7 @@
 // Updated by ChatGPT: paired consumer readings and render frames under one revision guard.
 // Updated by ChatGPT: exposed coverage failure evidence and human-readable preparation progress.
 // Updated by ChatGPT: reported bulk-certified sky cells separately from scalar geometry samples.
-// Updated by Claude: counted restart, failure, topology and weather churn by cause.
+// Updated by Claude: counted restart, failure, topology and weather churn by cause, reported in cause order.
 package dev.brights0ng.meteodyne.heat.world;
 
 import dev.brights0ng.paradynelib.heat.air.ThermalGeometry;
@@ -707,8 +707,8 @@ final class LocalAirPreparation {
     long attempts() { owner();return generation; }
     long restarts() { owner();return restarts; }
     String lastRestart() { owner();return lastRestart; }
-    java.util.Map<String,Long> restartCauses() { owner();return java.util.Map.copyOf(restartCauses); }
-    java.util.Map<String,Long> failureCauses() { owner();return java.util.Map.copyOf(failureCauses); }
+    java.util.Map<String,Long> restartCauses() { owner();return java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(restartCauses)); }
+    java.util.Map<String,Long> failureCauses() { owner();return java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(failureCauses)); }
     long topologyStages() { owner();return topologyStages; }
     long weatherRevisions() { owner();return weatherRevision; }
     long captureReadCells() { owner();return captureReadCells; }

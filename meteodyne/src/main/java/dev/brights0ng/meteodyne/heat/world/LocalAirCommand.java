@@ -3,6 +3,7 @@
 // Updated by ChatGPT: displayed request startup phase and wait telemetry.
 // Updated by ChatGPT: added explicit automatic view controls while preserving manual syntax.
 // Updated by ChatGPT: routed trial status to the selected runtime and clarified allocation messages.
+// Updated by Claude: added the scripted soak controls.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.Locale;
@@ -69,6 +70,13 @@ final class LocalAirCommand {
                     return 1;
                 }))
                 .then(Commands.literal("stop").executes(c->stop(c.getSource())))
+                .then(Commands.literal("soak").requires(source->source.hasPermission(2))
+                        .then(Commands.literal("build").executes(c->LocalAirSoak.build(c.getSource())))
+                        .then(Commands.literal("start")
+                                .then(Commands.literal("calm").executes(c->LocalAirSoak.start(c.getSource(),LocalAirSoak.Mode.CALM)))
+                                .then(Commands.literal("busy").executes(c->LocalAirSoak.start(c.getSource(),LocalAirSoak.Mode.BUSY))))
+                        .then(Commands.literal("stop").executes(c->LocalAirSoak.stop(c.getSource())))
+                        .then(Commands.literal("status").executes(c->LocalAirSoak.status(c.getSource()))))
                 .then(Commands.literal("view")
                         .then(Commands.literal("auto").then(Commands.argument("maxAgeTicks",IntegerArgumentType.integer(0,40))
                                 .executes(c->view(c.getSource(),IntegerArgumentType.getInteger(c,"maxAgeTicks"),LocalAirView.Mode.AUTOMATIC))))
