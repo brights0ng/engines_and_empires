@@ -1,4 +1,5 @@
 // Written by ChatGPT.
+// Updated by Claude: kept placed-source demands while the source is unlit.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -73,8 +74,8 @@ final class LocalAirDemands {
             lastSources=level.getGameTime();material=HeatTables.revision();var requests=new ArrayList<Request>();
             for(var pos:sources.get()) {
                 var chunk=level.getChunkSource().getChunkNow(pos.getX()>>4,pos.getZ()>>4);if(chunk==null || Ships.get().inPlot(level,pos)) continue;
-                var state=chunk.getBlockState(pos);var power=HeatTables.power(state);
-                if((power!=null && power.inAir() && !power.natural()) || !HeatTables.driven(state).isEmpty())
+                // Any state of a placed source block, lit or not, so toggling it keeps one demand and its domain.
+                if(HeatTables.airSourceCandidate(chunk.getBlockState(pos).getBlock()))
                     requests.add(new Request(key(Kind.PLACED_SOURCE,pos),cell(pos),true,true));
             }
             registry.reconcile(Kind.PLACED_SOURCE,requests);refreshSensors();

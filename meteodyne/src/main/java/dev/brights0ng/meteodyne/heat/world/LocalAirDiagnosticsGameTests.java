@@ -1,6 +1,7 @@
 // Written by ChatGPT.
 // Updated by ChatGPT: verify the public consumer query lifecycle.
 // Updated by ChatGPT: checked view ownership and age protocol metadata.
+// Updated by Claude: made the explicit-request block edit after capture, since edits before any capture read are ignored.
 package dev.brights0ng.meteodyne.heat.world;
 
 import dev.brights0ng.meteodyne.Meteodyne;
@@ -67,7 +68,13 @@ public final class LocalAirDiagnosticsGameTests {
         var world=HeatWorld.of(helper.getLevel());var dispatcher=helper.getLevel().getServer().getCommands().getDispatcher();
         var source=helper.getLevel().getServer().createCommandSourceStack().withLevel(helper.getLevel()).withPermission(2).withSuppressedOutput();
         world.clearLocalAirGeometry();
-        try {
+        helper.testInfo.addListener(new net.minecraft.gametest.framework.GameTestListener() {
+            public void testStructureLoaded(net.minecraft.gametest.framework.GameTestInfo info) { }
+            public void testPassed(net.minecraft.gametest.framework.GameTestInfo info,net.minecraft.gametest.framework.GameTestRunner runner) { world.clearLocalAirGeometry(); }
+            public void testFailed(net.minecraft.gametest.framework.GameTestInfo info,net.minecraft.gametest.framework.GameTestRunner runner) { world.clearLocalAirGeometry(); }
+            public void testAddedForRerun(net.minecraft.gametest.framework.GameTestInfo oldInfo,net.minecraft.gametest.framework.GameTestInfo newInfo,net.minecraft.gametest.framework.GameTestRunner runner) { world.clearLocalAirGeometry(); }
+        });
+        {
             var missing=world.queryLocalAir(0,0,0,0);
             helper.assertTrue(missing.reason()==LocalAirReading.Reason.NO_REQUEST && missing.sample().isEmpty(),"No request gives no invented reading");
             boolean denied=false;
@@ -96,33 +103,38 @@ public final class LocalAirDiagnosticsGameTests {
             var p=helper.absolutePos(new BlockPos(3,3,3));String point=p.getX()+" "+p.getY()+" "+p.getZ();
             helper.assertTrue(dispatcher.execute("meteodyne heat air start "+point+" "+point+" 20 0 0 1 0 2",source)==1,"Explicit diagnostic starts");
             helper.assertTrue(world.localAirStatus()==LocalAirPreparation.Status.CAPTURING,"Request is asynchronous");
-            var oldState=helper.getLevel().getBlockState(p);
-            var newState=(oldState.is(net.minecraft.world.level.block.Blocks.STONE)?net.minecraft.world.level.block.Blocks.DIRT:net.minecraft.world.level.block.Blocks.STONE).defaultBlockState();
-            try {
-                helper.getLevel().setBlock(p,newState,2);
-                var report=world.localAirReport();
-                var events=(LocalAirDependencies.Diagnostics)report.get("invalidations");
-                var event=events.recent().getLast();
-                helper.assertTrue(event.cause().equals("BLOCK") && event.x()==p.getX() && event.y()==p.getY() && event.z()==p.getZ()
-                        && event.before().equals(oldState.toString()) && event.after().equals(newState.toString()),"Real block hook reports exact invalidation states and position");
-                helper.assertTrue(((Number)report.get("restarts")).longValue()>=1,"Report distinguishes an actual cold restart");
-                helper.assertTrue(dispatcher.execute("meteodyne heat air status",source)==1,"Status renders restart diagnostics");
-            } finally { helper.getLevel().setBlock(p,oldState,2); }
-            var pending=world.queryLocalAir(p.getX()+0.5,p.getY()+0.5,p.getZ()+0.5,10);
-            helper.assertTrue(pending.status()==LocalAirReading.Status.PENDING && pending.sample().isEmpty(),"Consumer query does not synchronously prepare a field");
-            helper.assertTrue(world.localAirStatus()==LocalAirPreparation.Status.CAPTURING,"Query preserves asynchronous preparation");
-            helper.assertTrue(world.queryLocalAir(p.getX()+1,p.getY(),p.getZ(),10).reason()==LocalAirReading.Reason.OUTSIDE_DOMAIN,"Upper domain edge is exclusive");
-            helper.assertTrue(dispatcher.execute("meteodyne heat air start 0 0 0 32768 0 0 20 0 0 32768 0 2",source)==0,"Oversized bounds reject admission");
-            helper.assertTrue(world.localAirStatus()==LocalAirPreparation.Status.CAPTURING,"Rejected request preserves the active request");
-            helper.assertTrue(dispatcher.execute("meteodyne heat air live "+point+" "+point+" 1 0 2",source)==1,"Live diagnostic command starts");
-            helper.assertTrue("LIVE_CENTER".equals(world.localAirReport().get("forcingMode")),"Live mode is reported explicitly");
-            helper.assertTrue(dispatcher.execute("meteodyne heat air stop",source)==1,"Explicit stop works");
-            helper.assertTrue(world.localAirField()==null && world.localAirStatus()==LocalAirPreparation.Status.CLOSED,"Stop withholds all fields");
-            helper.assertTrue(world.queryLocalAir(p.getX(),p.getY(),p.getZ(),10).reason()==LocalAirReading.Reason.NO_REQUEST,"Stopped request cannot supply consumer samples");
-            boolean overflow=false;
-            try { LocalAirCommand.bounds(new BlockPos(Integer.MIN_VALUE,0,0),new BlockPos(Integer.MAX_VALUE,0,0)); }
-            catch(ArithmeticException expected) { overflow=true; }
-            helper.assertTrue(overflow,"Coordinate overflow is rejected");helper.succeed();
-        } finally { world.clearLocalAirGeometry(); }
+            world.setPaused(false);
+            // An edit before capture has read the cell is ignored, so edit once the single air cell's bottom cut is rejected.
+            helper.startSequence().thenWaitUntil(()->helper.assertTrue(world.localAirStatus()==LocalAirPreparation.Status.REJECTED,"Capture and planning ran: "+world.localAirStatus()+" "+world.localAirReport().get("editOutcomes")))
+                    .thenExecute(()->{ try {
+                        var oldState=helper.getLevel().getBlockState(p);
+                        var newState=(oldState.is(net.minecraft.world.level.block.Blocks.STONE)?net.minecraft.world.level.block.Blocks.DIRT:net.minecraft.world.level.block.Blocks.STONE).defaultBlockState();
+                        try {
+                            helper.getLevel().setBlock(p,newState,2);
+                            var report=world.localAirReport();
+                            var events=(LocalAirDependencies.Diagnostics)report.get("invalidations");
+                            var event=events.recent().getLast();
+                            helper.assertTrue(event.cause().equals("BLOCK") && event.x()==p.getX() && event.y()==p.getY() && event.z()==p.getZ()
+                                    && event.before().equals(oldState.toString()) && event.after().equals(newState.toString()),"Real block hook reports exact invalidation states and position");
+                            helper.assertTrue(((Number)report.get("restarts")).longValue()>=1,"Report distinguishes an actual cold restart");
+                            helper.assertTrue(dispatcher.execute("meteodyne heat air status",source)==1,"Status renders restart diagnostics");
+                        } finally { helper.getLevel().setBlock(p,oldState,2); }
+                        var pending=world.queryLocalAir(p.getX()+0.5,p.getY()+0.5,p.getZ()+0.5,10);
+                        helper.assertTrue(pending.status()==LocalAirReading.Status.PENDING && pending.sample().isEmpty(),"Consumer query does not synchronously prepare a field");
+                        helper.assertTrue(world.localAirStatus()==LocalAirPreparation.Status.CAPTURING,"Query preserves asynchronous preparation");
+                        helper.assertTrue(world.queryLocalAir(p.getX()+1,p.getY(),p.getZ(),10).reason()==LocalAirReading.Reason.OUTSIDE_DOMAIN,"Upper domain edge is exclusive");
+                        helper.assertTrue(dispatcher.execute("meteodyne heat air start 0 0 0 32768 0 0 20 0 0 32768 0 2",source)==0,"Oversized bounds reject admission");
+                        helper.assertTrue(world.localAirStatus()==LocalAirPreparation.Status.CAPTURING,"Rejected request preserves the active request");
+                        helper.assertTrue(dispatcher.execute("meteodyne heat air live "+point+" "+point+" 1 0 2",source)==1,"Live diagnostic command starts");
+                        helper.assertTrue("LIVE_CENTER".equals(world.localAirReport().get("forcingMode")),"Live mode is reported explicitly");
+                        helper.assertTrue(dispatcher.execute("meteodyne heat air stop",source)==1,"Explicit stop works");
+                        helper.assertTrue(world.localAirField()==null && world.localAirStatus()==LocalAirPreparation.Status.CLOSED,"Stop withholds all fields");
+                        helper.assertTrue(world.queryLocalAir(p.getX(),p.getY(),p.getZ(),10).reason()==LocalAirReading.Reason.NO_REQUEST,"Stopped request cannot supply consumer samples");
+                        boolean overflow=false;
+                        try { LocalAirCommand.bounds(new BlockPos(Integer.MIN_VALUE,0,0),new BlockPos(Integer.MAX_VALUE,0,0)); }
+                        catch(ArithmeticException expected) { overflow=true; }
+                        helper.assertTrue(overflow,"Coordinate overflow is rejected");
+                    } catch(com.mojang.brigadier.exceptions.CommandSyntaxException e) { throw new net.minecraft.gametest.framework.GameTestAssertException(e.getMessage()); } }).thenSucceed();
+        }
     }
 }

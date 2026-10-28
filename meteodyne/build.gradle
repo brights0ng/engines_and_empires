@@ -1,4 +1,5 @@
 // Updated by ChatGPT: expose the explicitly paced larger local-air diagnostic.
+// Updated by Claude: put fastutil on the unit-test runtime for the local-air capture's reader index.
 plugins {
     id 'eae.mod-conventions'
 }
@@ -29,6 +30,10 @@ dependencies {
     compileOnly("maven.modrinth:iris:${iris_version}") { transitive = false }
     shaderRuntimeElements("maven.modrinth:iris:${iris_version}") { transitive = false }
     shaderRuntimeElements("maven.modrinth:sodium:${sodium_version}") { transitive = false }
+
+    // Minecraft's own fastutil (the version HeatWorld compiles against): unit tests run without Minecraft's libraries,
+    // and LocalAirGeometryCapture keeps its reader index in fastutil collections.
+    testRuntimeOnly 'it.unimi.dsi:fastutil:8.5.12'
 }
 
 neoForge {

@@ -3,6 +3,8 @@
 // Written by ChatGPT.
 // Updated by ChatGPT: guarded cross-layout snapshot reuse with imported dependency footprints.
 // Updated by Claude: per-cell edit classification and a lazy cross-cell read-context index.
+// Updated by Claude: re-read only edited cells and their readers while capture is in progress.
+// Updated by Claude: kept the reader index on fastutil; footprint reads have no distance bound.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.Arrays;
@@ -12,6 +14,8 @@ import dev.brights0ng.paradynelib.heat.air.FlowGeometry;
 import dev.brights0ng.paradynelib.heat.air.FlowShape;
 import dev.brights0ng.paradynelib.heat.air.ThermalGeometry;
 import dev.brights0ng.paradynelib.heat.air.CellLayout;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
 /** Main-thread sliced capture; worker snapshots contain no world/Minecraft objects.
  * Complete geometry is distinct from verified exterior coverage and published field readiness.
@@ -100,12 +104,10 @@ final class LocalAirGeometryCapture {
                     Math.max(highX,b.highX),Math.max(highY,b.highY),Math.max(highZ,b.highZ));
         }
         boolean unchanged(java.util.Set<Long> edits) {
-            for(long edit:edits) {
-                int x=blockX(edit),y=blockY(edit),z=blockZ(edit);
-                if(x>=lowX && x<=highX && y>=lowY && y<=highY && z>=lowZ && z<=highZ) return false;
-            }
+            for(long edit:edits) if(contains(blockX(edit),blockY(edit),blockZ(edit))) return false;
             return true;
         }
+        boolean contains(int x,int y,int z) { return x>=lowX && x<=highX && y>=lowY && y<=highY && z>=lowZ && z<=highZ; }
     }
     /** BlockPos's 26/12/26 packing for valid Minecraft block coordinates, without a runtime class dependency. */
     static long blockKey(int x,int y,int z) {
@@ -336,7 +338,12 @@ final class LocalAirGeometryCapture {
     private final java.util.List<LocalAirReuse> reusable;
     private final java.util.Set<Long> edits;
     private final double[] solidK,solidCapacity,fluidK,fluidCapacity;
-    private int cursor,reused,readCount;
+    private final java.util.BitSet captured=new java.util.BitSet(),queued=new java.util.BitSet();
+    // Position -> captured cells whose sample read it. Shape context reads are bounded in count, not distance,
+    // so readers of a position cannot be found from its neighbourhood alone.
+    private final Long2ObjectOpenHashMap<IntArrayList> readers=new Long2ObjectOpenHashMap<>();
+    private final java.util.ArrayDeque<Integer> reread=new java.util.ArrayDeque<>();
+    private int cursor,reused,readCount,rereadCount;
     private Status status=Status.CAPTURING;
     private String reason="";
     LocalAirGeometryCapture(Bounds bounds,int cellLimit,Source source) {
@@ -352,7 +359,7 @@ final class LocalAirGeometryCapture {
         contextId=source.contextId();geometryRevision=source.geometryRevision();materialRevision=source.materialRevision();
         if(baseline!=null && (!bounds.equals(baseline.bounds) || contextId!=baseline.contextId || materialRevision!=baseline.materialRevision
                 || geometryRevision<baseline.geometryRevision)) throw new IllegalArgumentException("Incompatible incremental snapshot");
-        this.baseline=baseline;this.edits=java.util.Set.copyOf(edits);this.reusable=java.util.List.copyOf(reusable);
+        this.baseline=baseline;this.edits=new java.util.HashSet<>(edits);this.reusable=java.util.List.copyOf(reusable);
         shapes=baseline==null?new Shape[bounds.cells()]:baseline.shapes.clone();
         heat=baseline==null?new Heat[shapes.length]:baseline.heat.clone();
         driven=baseline==null?new boolean[shapes.length]:baseline.driven.clone();
@@ -369,6 +376,7 @@ final class LocalAirGeometryCapture {
     int sampledCells() { return cursor; }
     int readCells() { return readCount; }
     int reusedCells() { return reused; }
+    int rereadCells() { return rereadCount; }
     private void checkOwner() { if(Thread.currentThread()!=owner) { throw new IllegalStateException("Capture must stay on its owner thread"); } }
     private boolean current() {
         return source.contextId()==contextId && source.geometryRevision()==geometryRevision && source.materialRevision()==materialRevision;
@@ -377,34 +385,95 @@ final class LocalAirGeometryCapture {
         checkOwner();if(cellAllowance<0) { throw new IllegalArgumentException("Nonnegative work allowance required"); }
         if((status==Status.CAPTURING || status==Status.CAPTURED) && !current()) { status=Status.STALE;reason="Geometry/material revision changed"; }
         int used=0;
-        while(status==Status.CAPTURING && cellAllowance>0 && System.nanoTime()<deadlineNanos) {
+        while(status==Status.CAPTURING && used<cellAllowance && !reread.isEmpty() && System.nanoTime()<deadlineNanos) {
+            int i=reread.peekFirst();used++;rereadCount++;
+            if(!readCell(i)) break;
+            reread.removeFirst();queued.clear(i);
+        }
+        while(status==Status.CAPTURING && cursor<shapes.length && cellAllowance>0 && System.nanoTime()<deadlineNanos) {
             int i=cursor;
             int x=bounds.x+bounds.cellX(i),y=bounds.y+bounds.cellY(i),z=bounds.z+bounds.cellZ(i);
             if(baseline!=null && !edits.contains(blockKey(x,y,z)) && footprints[i]!=null && footprints[i].unchanged(edits)) {
-                cursor++;reused++;if(cursor==shapes.length) status=Status.CAPTURED;continue;
+                index(i);cursor++;reused++;continue;
             }
-            if(baseline==null && reuse(i,x,y,z)) { cursor++;reused++;if(cursor==shapes.length) status=Status.CAPTURED;continue; }
+            if(baseline==null && reuse(i,x,y,z)) { index(i);cursor++;reused++;continue; }
             if(used>=cellAllowance) break;
-            readCount++;
-            try {
-                var cell=java.util.Objects.requireNonNull(source.sample(x,y,z));
-                used++;
-                if(!current()) { status=Status.STALE;reason="Revision changed during capture";break; }
-                shapes[i]=cell.shape;solidK[i]=cell.solidK;solidCapacity[i]=cell.solidCapacity;
-                heat[i]=cell.heat;
-                driven[i]=cell.driven;natural[i]=cell.natural;
-                footprints[i]=source.lastReads();
-                fluidK[i]=cell.fluidK;fluidCapacity[i]=cell.fluidCapacity;cursor++;
-                if(cursor==shapes.length) { status=Status.CAPTURED; }
-            } catch(Unavailable e) { used++;status=e.status;reason=e.getMessage(); }
+            used++;
+            if(!readCell(i)) break;
+            cursor++;
         }
+        if(status==Status.CAPTURING && cursor==shapes.length && reread.isEmpty()) status=Status.CAPTURED;
         return used;
+    }
+    /** One owner-thread sample of cell i; false when capture stopped (stale or unavailable). */
+    private boolean readCell(int i) {
+        int x=bounds.x+bounds.cellX(i),y=bounds.y+bounds.cellY(i),z=bounds.z+bounds.cellZ(i);
+        readCount++;
+        try {
+            var cell=java.util.Objects.requireNonNull(source.sample(x,y,z));
+            if(!current()) { status=Status.STALE;reason="Revision changed during capture";return false; }
+            unindex(i);
+            shapes[i]=cell.shape;solidK[i]=cell.solidK;solidCapacity[i]=cell.solidCapacity;
+            heat[i]=cell.heat;
+            driven[i]=cell.driven;natural[i]=cell.natural;
+            footprints[i]=source.lastReads();
+            fluidK[i]=cell.fluidK;fluidCapacity[i]=cell.fluidCapacity;
+            index(i);return true;
+        } catch(Unavailable e) { status=e.status;reason=e.getMessage();return false; }
+    }
+    /** Positions cell i depends on; without read evidence, its own position and six face neighbours. */
+    private long[] reads(int i) {
+        var reads=footprints[i]==null?null:footprints[i].reads();
+        if(reads!=null && reads.length>0) return reads;
+        int x=bounds.x+bounds.cellX(i),y=bounds.y+bounds.cellY(i),z=bounds.z+bounds.cellZ(i);
+        return new long[]{blockKey(x,y,z),blockKey(x-1,y,z),blockKey(x+1,y,z),blockKey(x,y-1,z),blockKey(x,y+1,z),blockKey(x,y,z-1),blockKey(x,y,z+1)};
+    }
+    private void index(int i) {
+        for(long read:reads(i)) {
+            var list=readers.get(read);
+            if(list==null) readers.put(read,list=new IntArrayList(2));
+            if(!list.contains(i)) list.add(i);
+        }
+        captured.set(i);
+    }
+    private void unindex(int i) {
+        if(!captured.get(i) && !queued.get(i)) return;
+        for(long read:reads(i)) {
+            var list=readers.get(read);if(list==null) continue;
+            int k=list.indexOf(i);if(k>=0) { list.set(k,list.getInt(list.size()-1));list.removeInt(list.size()-1); }
+            if(list.isEmpty()) readers.remove(read);
+        }
+    }
+    /** An owner-thread edit at key, already applied to the source. Queues re-reads of the captured
+     * cells it can affect (its own cell and every cell whose sample read it) and returns whether any
+     * were queued. Cells the cursor has not reached are read later, after the edit. */
+    boolean edited(long key,Cell sample) {
+        checkOwner();if(status!=Status.CAPTURING && status!=Status.CAPTURED) return false;
+        edits.add(key); // A later lease or baseline copy of this position would predate the edit.
+        int own=bounds.index(blockX(key)-bounds.x,blockY(key)-bounds.y,blockZ(key)-bounds.z);
+        var affected=new java.util.BitSet();
+        if(own>=0 && captured.get(own)) affected.set(own);
+        var list=readers.get(key);
+        if(list!=null) for(int k=0;k<list.size();k++) if(captured.get(list.getInt(k))) affected.set(list.getInt(k));
+        if(affected.isEmpty()) return false;
+        if(own>=0 && affected.cardinality()==1 && affected.get(own) && sameCell(own,sample)) return false;
+        for(int c=affected.nextSetBit(0);c>=0;c=affected.nextSetBit(c+1)) {
+            if(!queued.get(c)) { queued.set(c);reread.addLast(c); }
+            captured.clear(c);
+        }
+        status=Status.CAPTURING;return true;
+    }
+    private boolean sameCell(int i,Cell cell) {
+        return shapes[i].equals(cell.shape) && solidK[i]==cell.solidK && solidCapacity[i]==cell.solidCapacity
+                && fluidK[i]==cell.fluidK && fluidCapacity[i]==cell.fluidCapacity
+                && java.util.Objects.equals(heat[i],cell.heat) && driven[i]==cell.driven && natural[i]==cell.natural;
     }
     private boolean reuse(int i,int x,int y,int z) {
         for(var lease:reusable) {
             if(!lease.accepts(source)) continue;
             var old=lease.snapshot;var b=old.bounds;int j=b.index(x-b.x(),y-b.y(),z-b.z());
-            if(j<0 || lease.edits.contains(blockKey(x,y,z)) || old.footprints[j]==null || !old.footprints[j].unchanged(lease.edits)) continue;
+            if(j<0 || lease.edits.contains(blockKey(x,y,z)) || old.footprints[j]==null || !old.footprints[j].unchanged(lease.edits)
+                    || edits.contains(blockKey(x,y,z)) || !old.footprints[j].unchanged(edits)) continue;
             old.footprints[j].retain(source);
             shapes[i]=old.shapes[j];heat[i]=old.heat[j];driven[i]=old.driven[j];natural[i]=old.natural[j];footprints[i]=old.footprints[j];
             solidK[i]=old.solidK[j];solidCapacity[i]=old.solidCapacity[j];fluidK[i]=old.fluidK[j];fluidCapacity[i]=old.fluidCapacity[j];return true;

@@ -16,6 +16,7 @@
 // Updated by ChatGPT: checked recovery tile availability without loading chunks.
 // Updated by ChatGPT: shared bounded sky indexes with immediate block/chunk invalidation.
 // Updated by Claude: classified server-thread edits before invalidating owners and filtered sky-irrelevant edits.
+// Updated by Claude: indexed placed sources for local-air demand in any state, beside the legacy placed index.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.ArrayList;
@@ -141,6 +142,8 @@ public final class HeatWorld {
     final AirParams params = AirParams.DEFAULT;
     /** Placed sources per chunk: position ({@code BlockPos.asLong}) to state. */
     private final Long2ObjectOpenHashMap<Long2ObjectOpenHashMap<BlockState>> placed = new Long2ObjectOpenHashMap<>();
+    /** Blocks that request local-air coverage in any state, lit or not, per chunk. Kept beside {@link #placed}. */
+    private final Long2ObjectOpenHashMap<Long2ObjectOpenHashMap<BlockState>> placedAir = new Long2ObjectOpenHashMap<>();
     private final Long2ObjectOpenHashMap<Naturals> naturals = new Long2ObjectOpenHashMap<>();
     /** Loaded chunks holding saved region data. */
     private final LongOpenHashSet savedChunks = new LongOpenHashSet();
@@ -418,7 +421,7 @@ public final class HeatWorld {
         if(!WeatherConfig.heat().enabled()) { airDemands.clear();return; }
         airDemands.refresh(()->{
             var positions=new ArrayList<BlockPos>();
-            for(var map:placed.values()) for(long pos:map.keySet()) positions.add(BlockPos.of(pos));
+            for(var map:placedAir.values()) for(long pos:map.keySet()) positions.add(BlockPos.of(pos));
             return positions;
         },force);
     }
@@ -578,11 +581,17 @@ public final class HeatWorld {
                 airDemands.sensor(blockEntity.getBlockPos(),blockEntity.getBlockState());
         invalidateLocalAir(level,chunk.getPos(),"CHUNK_LOAD_APPLIED");
         long key = chunk.getPos().toLong();
-        Long2ObjectOpenHashMap<BlockState> found = scanPlaced(chunk);
+        Long2ObjectOpenHashMap<BlockState> found = new Long2ObjectOpenHashMap<>(), air = new Long2ObjectOpenHashMap<>();
+        scanPlaced(chunk, found, air);
         if (found.isEmpty()) {
             placed.remove(key);
         } else {
             placed.put(key, found);
+        }
+        if (air.isEmpty()) {
+            placedAir.remove(key);
+        } else {
+            placedAir.put(key, air);
         }
         naturals.remove(key);
         if (chunk.hasData(HeatContent.CHUNK_DATA) && !chunk.getData(HeatContent.CHUNK_DATA).boxes().isEmpty()) {
@@ -605,6 +614,7 @@ public final class HeatWorld {
         }
         long key = cp.toLong();
         placed.remove(key);
+        placedAir.remove(key);
         naturals.remove(key);
         savedChunks.remove(key);
         touchChunk(cp, "chunk_unload");
@@ -612,22 +622,12 @@ public final class HeatWorld {
 
     private void blockChanged(BlockPos pos, BlockState before, BlockState after) {
         long key = ChunkPos.asLong(pos.getX() >> 4, pos.getZ() >> 4);
-        boolean isPlaced = placedCandidate(after);
-        Long2ObjectOpenHashMap<BlockState> map = placed.get(key);
-        if(isPlaced || map!=null && map.containsKey(pos.asLong())) airDemands.sourcesChanged();
+        boolean isPlaced = placedCandidate(after), isAir = HeatTables.airSourceCandidate(after.getBlock());
+        Long2ObjectOpenHashMap<BlockState> airMap = placedAir.get(key);
+        if(isAir || airMap!=null && airMap.containsKey(pos.asLong())) airDemands.sourcesChanged();
         airDemands.sensor(pos,after);
-        if (isPlaced) {
-            if (map == null) {
-                map = new Long2ObjectOpenHashMap<>();
-                placed.put(key, map);
-            }
-            map.put(pos.asLong(), after);
-        } else if (map != null) {
-            map.remove(pos.asLong());
-            if (map.isEmpty()) {
-                placed.remove(key);
-            }
-        }
+        index(placed, key, pos, after, isPlaced);
+        index(placedAir, key, pos, after, isAir);
         naturals.remove(key);
         // Classify only changes relevant to existing snapshots. Source indexing above remains unconditional.
         int reach = WindConfig.params().sideReach();
@@ -653,6 +653,24 @@ public final class HeatWorld {
         }
     }
 
+    /** Puts or removes {@code pos} in one per-chunk source index. */
+    private static void index(Long2ObjectOpenHashMap<Long2ObjectOpenHashMap<BlockState>> index, long key, BlockPos pos,
+            BlockState state, boolean member) {
+        Long2ObjectOpenHashMap<BlockState> map = index.get(key);
+        if (member) {
+            if (map == null) {
+                map = new Long2ObjectOpenHashMap<>();
+                index.put(key, map);
+            }
+            map.put(pos.asLong(), state);
+        } else if (map != null) {
+            map.remove(pos.asLong());
+            if (map.isEmpty()) {
+                index.remove(key);
+            }
+        }
+    }
+
     private void touchChunk(ChunkPos cp, String cause) {
         int reach = Math.max(1, WindConfig.params().sideReach());
         for (HeatRegion r : regions) {
@@ -664,12 +682,37 @@ public final class HeatWorld {
         }
     }
 
-    private static Long2ObjectOpenHashMap<BlockState> scanPlaced(LevelChunk chunk) {
-        Long2ObjectOpenHashMap<BlockState> out = new Long2ObjectOpenHashMap<>();
-        for (Found f : scan(chunk, false)) {
-            out.put(BlockPos.asLong(f.x, f.y, f.z), f.state);
+    /**
+     * One pass over {@code chunk}: {@code placed} gets the legacy placed sources ({@link #placedCandidate}),
+     * {@code air} the blocks that request local-air coverage in any state ({@link HeatTables#airSourceCandidate}).
+     */
+    private static void scanPlaced(LevelChunk chunk, Long2ObjectOpenHashMap<BlockState> placed,
+            Long2ObjectOpenHashMap<BlockState> air) {
+        LevelChunkSection[] sections = chunk.getSections();
+        int baseX = chunk.getPos().getMinBlockX();
+        int baseZ = chunk.getPos().getMinBlockZ();
+        for (int i = 0; i < sections.length; i++) {
+            LevelChunkSection section = sections[i];
+            if (section.hasOnlyAir()
+                    || !section.maybeHas(s -> placedCandidate(s) || HeatTables.airSourceCandidate(s.getBlock()))) {
+                continue;
+            }
+            int baseY = chunk.getSectionYFromSectionIndex(i) << 4;
+            for (int y = 0; y < 16; y++) {
+                for (int z = 0; z < 16; z++) {
+                    for (int x = 0; x < 16; x++) {
+                        BlockState state = section.getBlockState(x, y, z);
+                        long pos = BlockPos.asLong(baseX + x, baseY + y, baseZ + z);
+                        if (placedCandidate(state)) {
+                            placed.put(pos, state);
+                        }
+                        if (HeatTables.airSourceCandidate(state.getBlock())) {
+                            air.put(pos, state);
+                        }
+                    }
+                }
+            }
         }
-        return out;
     }
 
     /** The sources in {@code chunk} that heat the air: placed ones, or natural ones. */
@@ -775,6 +818,7 @@ public final class HeatWorld {
         java.util.function.LongPredicate gone = key -> Ships.get().inPlot(level, new ChunkPos(key))
                 && level.getChunkSource().getChunkNow(ChunkPos.getX(key), ChunkPos.getZ(key)) == null;
         placed.keySet().removeIf(gone);
+        placedAir.keySet().removeIf(gone);
         naturals.keySet().removeIf(gone);
         savedChunks.removeIf(gone);
     }

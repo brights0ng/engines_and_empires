@@ -1,4 +1,5 @@
 // Written by ChatGPT.
+// Updated by Claude: verified an unlit placed source keeps its demand and automatic domain while it toggles.
 package dev.brights0ng.meteodyne.heat.world;
 
 import static dev.brights0ng.meteodyne.heat.world.LocalAirDemandRegistry.*;
@@ -11,6 +12,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.neoforged.neoforge.gametest.*;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import java.util.*;
+import java.util.concurrent.locks.LockSupport;
 
 @GameTestHolder(Meteodyne.MODID)
 @PrefixGameTestTemplate(false)
@@ -67,5 +69,57 @@ public final class LocalAirDemandGameTests {
             helper.assertTrue(!adapter.registry.snapshot().entries().isEmpty(),"Departure retains a bounded grace interval");
             adapter.clear();helper.assertTrue(adapter.registry.snapshot().entries().isEmpty(),"Shutdown/disable clears demand");helper.succeed();
         } finally { adapter.clear();player.discard(); }
+    }
+    @GameTest(template=GameTestStructures.EMPTY,batch="local_air_unlit_source",timeoutTicks=1200)
+    public static void unlitSourceKeepsDemandAndDomain(GameTestHelper helper) {
+        var level=helper.getLevel();var world=HeatWorld.of(level);world.setPaused(false);world.clearLocalAirGeometry();world.stopLocalAirPlan();
+        var at=helper.absolutePos(new BlockPos(3072,2,3072));
+        var low=new BlockPos(Math.floorDiv(at.getX(),16)*16,level.getMaxBuildHeight()-16,Math.floorDiv(at.getZ(),16)*16);
+        world.setTestArea(new int[]{low.getX(),low.getY(),low.getZ(),low.getX()+15,low.getY()+15,low.getZ()+15});
+        var chunk=new net.minecraft.world.level.ChunkPos(low.getX()>>4,low.getZ()>>4);boolean forced=!level.getForcedChunks().contains(chunk.toLong());
+        if(forced) level.setChunkForced(chunk.x,chunk.z,true);
+        var restore=new LinkedHashMap<BlockPos,net.minecraft.world.level.block.state.BlockState>();
+        var data=level.getChunkAt(low);var saved=data.getData(HeatContent.CHUNK_DATA).serializeNBT(level.registryAccess());
+        Runnable cleanup=()->{world.stopLocalAirPlan();world.clearLocalAirGeometry();world.setTestArea(null);restore.forEach((pos,state)->level.setBlock(pos,state,2));data.getData(HeatContent.CHUNK_DATA).deserializeNBT(level.registryAccess(),saved);data.setUnsaved(true);if(forced) level.setChunkForced(chunk.x,chunk.z,false);};
+        helper.testInfo.addListener(new GameTestListener() {
+            public void testStructureLoaded(GameTestInfo info) { }
+            public void testPassed(GameTestInfo info,GameTestRunner runner) { cleanup.run(); }
+            public void testFailed(GameTestInfo info,GameTestRunner runner) { cleanup.run(); }
+            public void testAddedForRerun(GameTestInfo oldInfo,GameTestInfo newInfo,GameTestRunner runner) { cleanup.run(); }
+        });
+        for(int x=0;x<16;x++) for(int y=0;y<16;y++) for(int z=0;z<16;z++) {
+            var p=low.offset(x,y,z);restore.put(p,level.getBlockState(p));
+            boolean room=x>=4 && x<=11 && y>=7 && y<=9 && z>=4 && z<=11;
+            level.setBlock(p,(room?Blocks.AIR:Blocks.STONE).defaultBlockState(),2);
+        }
+        var fire=low.offset(8,7,8);var source=key(Kind.PLACED_SOURCE,fire);
+        level.setBlock(fire,Blocks.CAMPFIRE.defaultBlockState().setValue(BlockStateProperties.LIT,false),2);
+        helper.assertTrue(active(world.localAirDemands(),source),"An unlit placed source still requests coverage");
+        world.planLocalAir(new LocalAirPlanner.Settings(0,1,8,8));world.startAutomaticAir(new LocalAirAutomatic.Settings(2,16384,0,4));
+        // Ticks since toggling started (-1 before), owner ids seen and ticks without an active demand or owner.
+        long[] toggling={-1,0,0};var owners=new LinkedHashSet<Long>();
+        helper.onEachTick(()->{
+            LockSupport.parkNanos(50_000_000L);if(toggling[0]<0) return;
+            if(toggling[0]>0 && toggling[0]%60==0 && toggling[0]<=300) {
+                var state=level.getBlockState(fire);level.setBlock(fire,state.setValue(BlockStateProperties.LIT,!state.getValue(BlockStateProperties.LIT)),2);
+            }
+            if(!active(world.localAirDemands(),source)) toggling[1]++;
+            var owner=owner(world,fire);if(owner==null) toggling[2]++;else owners.add(owner.id);
+            toggling[0]++;
+        });
+        helper.startSequence().thenWaitUntil(()->{
+            var owner=owner(world,fire);
+            helper.assertTrue(owner!=null && owner.preparation.field()!=null,"An automatic owner covers the unlit source: "+world.automaticAir().rows()+" "+world.automaticAir().decisions());
+        }).thenExecute(()->{ owners.add(owner(world,fire).id);toggling[0]=0; }).thenWaitUntil(()->{
+            helper.assertTrue(toggling[0]>300,"Toggling for 300 ticks");
+        }).thenExecute(()->{
+            helper.assertTrue(toggling[1]==0,"The placed-source demand stays active while unlit: "+toggling[1]+" ticks without it");
+            helper.assertTrue(toggling[2]==0 && owners.size()==1,"One automatic owner throughout: "+owners+", "+toggling[2]+" ticks without one; "+world.automaticAir().decisions());
+        }).thenSucceed();
+    }
+    private static LocalAirAutomatic.Domain owner(HeatWorld world,BlockPos p) {
+        var auto=world.automaticAir();if(auto==null) return null;
+        for(var d:auto.committedDomains()) if(d.bounds.contains(p.getX()+.5,p.getY()+.5,p.getZ()+.5)) return d;
+        return null;
     }
 }

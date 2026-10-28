@@ -3,6 +3,7 @@
 // Updated by ChatGPT: reused live donor sky proofs with target dependency registration.
 // Updated by ChatGPT: interleaved column proofs and reported recoverable boundary cuts.
 // Updated by ChatGPT: consumed shared suffix/obstruction evidence and exact empty-section proofs.
+// Updated by Claude: requeued only the column proofs an in-progress edit can affect.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.HashMap;
@@ -125,6 +126,7 @@ final class LocalAirCoverage {
     private final java.util.Set<Long> edits;
     private final java.util.List<LocalAirReuse> reusable;
     private final java.util.Map<Column,Proof> proofs=new HashMap<>();
+    private final java.util.Map<Column,Start> startByColumn=new HashMap<>();
     private static final class Cursor {
         final Start start;
         int y;
@@ -136,7 +138,7 @@ final class LocalAirCoverage {
     }
     private final java.util.ArrayDeque<Cursor> pending=new java.util.ArrayDeque<>();
     private int reads,reused,bulk;
-    private long required,verified;
+    private long required,verified,requeued;
     private Failure failure;
     private Status status=Status.CHECKING;
     private String reason="";
@@ -152,7 +154,8 @@ final class LocalAirCoverage {
     LocalAirCoverage(Plan plan,World world,int readLimit,Certificate previous,java.util.Set<Long> edits,java.util.List<LocalAirReuse> reusable) {
         this.plan=java.util.Objects.requireNonNull(plan);this.world=java.util.Objects.requireNonNull(world);
         minY=world.minBuildY();maxY=world.maxBuildY();
-        this.edits=java.util.Set.copyOf(edits);this.reusable=java.util.List.copyOf(reusable);
+        this.edits=new java.util.HashSet<>(edits);this.reusable=java.util.List.copyOf(reusable);
+        for(var start:plan.starts) startByColumn.put(start.column,start);
         var snapshot=plan.snapshot;
         baseline=previous!=null && snapshot.bounds.equals(previous.snapshot.bounds)
                 && snapshot.contextId==previous.snapshot.contextId && snapshot.materialRevision==previous.snapshot.materialRevision
@@ -177,6 +180,7 @@ final class LocalAirCoverage {
     int sampledCells() { return reads; }
     int reusedCells() { return reused; }
     int bulkCells() { return bulk; }
+    long requeuedColumns() { return requeued; }
     private void reject(Status status,String reason) { this.status=status;this.reason=reason; }
     private void checkOwner() { if(Thread.currentThread()!=owner) throw new IllegalStateException("Coverage capture requires owner thread"); }
     private boolean current() {
@@ -237,6 +241,32 @@ final class LocalAirCoverage {
             }
         }
         return used;
+    }
+    /** An owner-thread edit at (x,y,z). Restarts every finished or partial column proof whose reads
+     * can contain it (any position at or above a proof without read evidence, within one column) and
+     * returns whether any were requeued. Positions no proof has read yet are read later, after the edit. */
+    boolean edited(int x,int y,int z) {
+        checkOwner();if(status!=Status.CHECKING && status!=Status.ADMITTED) return false;
+        edits.add(blockKey(x,y,z)); // Baseline or donor proofs over this position predate the edit.
+        long before=requeued;
+        for(var it=proofs.entrySet().iterator();it.hasNext();) {
+            var entry=it.next();var column=entry.getKey();var proof=entry.getValue();
+            boolean read=proof.reads==null?Math.abs((long)x-column.x)<=1 && Math.abs((long)z-column.z)<=1 && y>=proof.lowY:proof.reads.contains(x,y,z);
+            if(!read) continue;
+            var start=startByColumn.get(column);
+            it.remove();verified-=maxY-start.y;pending.addLast(new Cursor(start));requeued++;
+        }
+        for(var cursor:pending) {
+            var start=cursor.start;
+            if(!(cursor.observed!=null && cursor.observed.contains(x,y,z)
+                    || start.column.x==x && start.column.z==z && y>=start.y && y<cursor.y)) continue;
+            // Scalar progress is counted per row read, indexed progress in proven; a cursor holds at most one.
+            verified-=cursor.proven+(cursor.y-start.y);
+            cursor.y=start.y;cursor.observed=null;cursor.knownReads=true;cursor.indexed=false;cursor.fallback=false;cursor.proven=0;
+            requeued++;
+        }
+        if(requeued==before) return false;
+        status=Status.CHECKING;return true;
     }
     private void unavailable(Unavailable e) { reject(e.status==LocalAirGeometryCapture.Status.MISSING_GEOMETRY?Status.MISSING_GEOMETRY:Status.UNSUPPORTED_GEOMETRY,e.getMessage()); }
     private void obstructed(Start start,int y) {
