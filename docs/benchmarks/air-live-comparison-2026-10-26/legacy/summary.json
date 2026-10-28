@@ -1,0 +1,171 @@
+{
+  "writtenBy": "ChatGPT",
+  "schema": "thermal-live-v3",
+  "timeUtc": "2026-10-27T00:01:59.539027100Z",
+  "elapsedWallSeconds": 60.0031105,
+  "requestedGameSeconds": 60,
+  "stoppedEarly": false,
+  "warmupGameSeconds": 10,
+  "java": "21.0.12.1+1-LTS",
+  "processors": 6,
+  "heatSettings": "HeatSettings[enabled\u003dtrue, budgetCores\u003d0.25, threads\u003d1, nearStep\u003d1.0, farStep\u003d10.0, naturalReach\u003d32, margin\u003d12, maxSize\u003d48, responseScale\u003d1.0]",
+  "dimension": "minecraft:overworld",
+  "position": "(58.87037565654044, -59.0, -62.80135550605406)",
+  "simulatedSecondsAcrossJobs": 60.0,
+  "gameSecondsAcrossJobs": 60.0,
+  "thermalTimeScope": "simulatedSecondsAcrossJobs and jobs.csv simulated_seconds are thermal seconds after response scaling, excluding natural initialization. gameSecondsAcrossJobs and game_seconds are unscaled elapsed game time. response_scale_at_dispatch is the selected rate, not necessarily the interval-average rate if it changed while a region waited.",
+  "completedMeasuredJobs": 60,
+  "processedCells": 699840,
+  "geometryRebuildJobs": 0,
+  "settleJobs": 0,
+  "invalidationEvents": {},
+  "blockStateChanges": {},
+  "snapshotWork": {},
+  "snapshotScope": "snapshot_prepare_ms is per-tick shared preparation, outside planning_ms but inside thermal_tick_ms. snapshot_slice_ms is one region\u0027s batch of at most eight lines/columns. geometry_snapshot_ms, geometry_incremental_ms and material_snapshot_ms sum active slice time for a completed update, excluding time waiting between ticks. Completed updates can overlap capture boundaries. Live preparation targets 2 ms and caps 256 line/column units per tick across all regions; atomic units, allocation, source refresh and scheduling can exceed the soft time target.",
+  "invalidationScope": "Region invalidations coalesce before snapshots; source changes count prepared source-list changes. Block state pairs count relevant hook events once, capped at 128 distinct pairs plus overflow. No event history is retained outside a capture.",
+  "scope": "Heat pipeline, including explicitly active local-air diagnostics. thermal_tick_ms contains planning_ms, legacy snapshot_prepare_ms, and local_air_snapshot_advance_ms; these timings overlap and must not be added. local_air_\u003cstage\u003e_wall_ms/cpu_ms/queue_ms require dispatch and collection within this capture; unfinished tail jobs are excluded. local_air_worker_ms is the broader collect-time series and may include jobs dispatched earlier. Legacy worker_* metrics and raw jobs remain legacy-only. This does not measure whole-server MSPT or client FPS.",
+  "localAirAtEnd": {
+    "preparation": "CLOSED",
+    "forcingMode": "FIXED",
+    "weatherSampleTick": -1,
+    "weatherSampleMs": 0.0,
+    "run": "UNAVAILABLE",
+    "reason": "",
+    "physicalJobInFlight": false,
+    "sharedBudgetMs": 250.0,
+    "snapshotAdvanceMs": 0.0,
+    "snapshotChargedUnits": 0,
+    "attempts": 0,
+    "restarts": 0,
+    "lastRestart": "No request",
+    "captureReadCells": 0,
+    "captureReusedCells": 0,
+    "coverageReadCells": 0,
+    "coverageReusedCells": 0,
+    "workerTimings": {},
+    "fieldAvailable": false
+  },
+  "responseScaleAtEnd": 1.0,
+  "responseScaleMode": "config",
+  "regionsAtEnd": [
+    {
+      "id": 1,
+      "box": [
+        45,
+        -64,
+        -74,
+        71,
+        -49,
+        -48
+      ],
+      "sources": 9,
+      "windMps": [
+        0.6082780142402567,
+        1.4972866301621794
+      ],
+      "naturalOnly": true,
+      "geometryRevision": 7,
+      "materialRevision": 7,
+      "sourceRevision": 1,
+      "preparedGeometryRevision": 7,
+      "preparedMaterialRevision": 7,
+      "snapshotPending": false,
+      "ship": false,
+      "publishedAgeTicks": 9,
+      "inFlight": false
+    }
+  ],
+  "metrics": {
+    "snapshot_prepare_ms": {
+      "count": 1200,
+      "mean": 3.6166666666666904E-4,
+      "p50": 4.0E-4,
+      "p95": 5.0E-4,
+      "p99": 7.0E-4,
+      "max": 0.001,
+      "total": 0.4340000000000029
+    },
+    "thermal_tick_ms": {
+      "count": 1200,
+      "mean": 0.023175250000000005,
+      "p50": 0.0043,
+      "p95": 0.1308,
+      "p99": 0.2424,
+      "max": 6.5308,
+      "total": 27.810300000000005
+    },
+    "planning_ms": {
+      "count": 60,
+      "mean": 0.18928833333333336,
+      "p50": 0.166,
+      "p95": 0.2845,
+      "p99": 0.3181,
+      "max": 0.3181,
+      "total": 11.357300000000002
+    },
+    "worker_wall_ms": {
+      "count": 60,
+      "mean": 0.8516533333333334,
+      "p50": 0.4575,
+      "p95": 0.8137,
+      "p99": 19.6657,
+      "max": 19.6657,
+      "total": 51.0992
+    },
+    "worker_cpu_ms": {
+      "count": 60,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "p99": 0.0,
+      "max": 0.0,
+      "total": 0.0
+    },
+    "worker_allocated_bytes": {
+      "count": 60,
+      "mean": 153130.26666666666,
+      "p50": 152080.0,
+      "p95": 152080.0,
+      "p99": 215096.0,
+      "max": 215096.0,
+      "total": 9187816.0
+    },
+    "queue_wait_ms": {
+      "count": 60,
+      "mean": 0.6441766666666667,
+      "p50": 0.0217,
+      "p95": 0.5478,
+      "p99": 27.0756,
+      "max": 27.0756,
+      "total": 38.650600000000004
+    },
+    "worker_solve_ms": {
+      "count": 60,
+      "mean": 0.4152666666666666,
+      "p50": 0.3913,
+      "p95": 0.6387,
+      "p99": 0.7657,
+      "max": 0.7657,
+      "total": 24.915999999999997
+    },
+    "worker_publication_ms": {
+      "count": 60,
+      "mean": 0.01875166666666667,
+      "p50": 0.0126,
+      "p95": 0.0433,
+      "p99": 0.1476,
+      "max": 0.1476,
+      "total": 1.1251000000000002
+    },
+    "worker_clean_wall_ms": {
+      "count": 60,
+      "mean": 0.8516533333333334,
+      "p50": 0.4575,
+      "p95": 0.8137,
+      "p99": 19.6657,
+      "max": 19.6657,
+      "total": 51.0992
+    }
+  },
+  "workerCpuCoreFraction": 0.0
+}
