@@ -2,6 +2,7 @@
 // Extended by ChatGPT: separate local-air stage wall/CPU/queue timings and field-quality snapshots.
 // Updated by ChatGPT: measured numerical slice counts and maximum slice wall time.
 // Updated by Claude: 1800-second captures, a per-owner local-air timeline and soak reporting.
+// Updated by Claude: timeline edit outcomes, capture re-reads, requeued coverage columns and revision sites.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.nio.file.Files;
@@ -42,7 +43,7 @@ final class HeatBenchmark {
         void add(String metric,long value) { metrics.computeIfAbsent(metric,k->new ThermalTiming.Samples()).add(value); }
     }
     static final int TIMELINE_INTERVAL=20,TIMELINE_MAX_ROWS=200_000,AVAILABLE_AGE_TICKS=40;
-    static final String TIMELINE_HEADER="tick,owner,domain_id,role,preparation,run,frame_tick,frame_age_ticks,available,restarts,topology_stages,weather_revisions,grid_rebuilds,short_steps,failures_total\n";
+    static final String TIMELINE_HEADER="tick,owner,domain_id,role,preparation,run,frame_tick,frame_age_ticks,available,restarts,topology_stages,weather_revisions,grid_rebuilds,short_steps,failures_total,edit_ignored,edit_source,edit_recapture,edit_geometry,reread_cells,requeued_columns,revision_sites\n";
     record Token(Session owner,long submitted) { }
     record JobMeasurement(Token token,long wall,long cpu,long allocated,long queue,long solve,long publication,
                           int cells,boolean rebuilt,boolean settled,double simulatedSeconds,
@@ -91,19 +92,23 @@ final class HeatBenchmark {
             var field=world.localAirField();
             timelineRow(s,now,"manual","manual","MANUAL",String.valueOf(r.get("preparation")),String.valueOf(r.get("run")),field==null?-1:field.throughTick,
                     count(r,"restarts"),count(r,"topologyStages"),count(r,"weatherRevisions"),count(r,"gridRebuilds"),count(r,"shortSteps"),
-                    r.get("failureCauses") instanceof Map<?,?> causes?total(causes):0);
+                    r.get("failureCauses") instanceof Map<?,?> causes?total(causes):0,
+                    r.get("editOutcomes") instanceof Map<?,?> edits?edits:Map.of(),count(r,"rereadCells"),count(r,"requeuedColumns"),
+                    r.get("revisionSites") instanceof Map<?,?> sites?sites:Map.of());
         }
         var auto=world.automaticAir();
         if (auto==null) { return; }
         for (var row:auto.rows()) {
             timelineRow(s,now,"auto",Long.toString(row.id()),row.role(),row.preparation(),row.run(),row.frameTick(),row.restarts(),row.topologyStages(),
-                    row.weatherRevisions(),row.gridRebuilds(),row.shortSteps(),total(row.failureCauses()));
+                    row.weatherRevisions(),row.gridRebuilds(),row.shortSteps(),total(row.failureCauses()),
+                    row.editOutcomes(),row.rereadCells(),row.requeuedColumns(),row.revisionSites());
         }
     }
     private static long count(Map<String,Object> report,String key) { return report.get(key) instanceof Number n?n.longValue():0; }
     private static long total(Map<?,?> causes) { long sum=0;for(var v:causes.values()) if(v instanceof Number n) sum+=n.longValue();return sum; }
     private static void timelineRow(Session s,long now,String owner,String domain,String role,String preparation,String run,long frameTick,
-                                    long restarts,long topologyStages,long weatherRevisions,long gridRebuilds,long shortSteps,long failures) {
+                                    long restarts,long topologyStages,long weatherRevisions,long gridRebuilds,long shortSteps,long failures,
+                                    Map<?,?> edits,long rereadCells,long requeuedColumns,Map<?,?> sites) {
         long age=frameTick>=0?now-frameTick:-1;
         boolean available=frameTick>=0 && age<=AVAILABLE_AGE_TICKS;
         var stats=s.availability.computeIfAbsent(domain,k->new long[]{0,0,-1});
@@ -113,7 +118,15 @@ final class HeatBenchmark {
         s.timeline.append(now).append(',').append(owner).append(',').append(domain).append(',').append(role).append(',').append(preparation).append(',')
                 .append(run).append(',').append(frameTick).append(',').append(age).append(',').append(available).append(',').append(restarts).append(',')
                 .append(topologyStages).append(',').append(weatherRevisions).append(',').append(gridRebuilds).append(',').append(shortSteps).append(',')
-                .append(failures).append('\n');
+                .append(failures).append(',');
+        for (var outcome:LocalAirPreparation.EditOutcome.values()) {
+            s.timeline.append(edits.get(outcome.name()) instanceof Number n?n.longValue():0).append(',');
+        }
+        s.timeline.append(rereadCells).append(',').append(requeuedColumns).append(',');
+        // Semicolon-separated so the cell needs no CSV quoting; site tags contain no commas or semicolons.
+        boolean first=true;
+        for (var site:sites.entrySet()) { if(!first) { s.timeline.append(';'); }first=false;s.timeline.append(site.getKey()).append('=').append(site.getValue()); }
+        s.timeline.append('\n');
     }
     long begin() { return session!=null && session.recording?System.nanoTime():0; }
     void end(String phase,long start) { if (start!=0 && session!=null && session.recording) { session.add(phase,System.nanoTime()-start); } }

@@ -1,4 +1,5 @@
 // Written by Claude.
+// Updated by Claude: checked read-input comparison on real block states.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -73,6 +74,22 @@ public final class LocalAirEditClassifierGameTests {
                     level.setBlock(wall,Blocks.STONE.defaultBlockState(),2);
                     helper.assertTrue(outcome(world,"GEOMETRY")>geometry[0],"A stone placed next to the fence is a geometry edit: "+world.localAirReport().get("editOutcomes"));
                 }).thenSucceed();
+    }
+    @GameTest(template=GameTestStructures.EMPTY,batch="local_air_edit_classifier")
+    public static void readInputsCompareConvertedShapeAndFluidState(GameTestHelper helper) {
+        var wire=Blocks.REDSTONE_WIRE.defaultBlockState();var leaves=Blocks.OAK_LEAVES.defaultBlockState();
+        var water=Blocks.WATER.defaultBlockState();
+        helper.assertTrue(LocalAirWorldSource.readInputsSame(wire.setValue(BlockStateProperties.POWER,0),wire.setValue(BlockStateProperties.POWER,15)),"Wire power keeps shape and fluid");
+        helper.assertTrue(LocalAirWorldSource.readInputsSame(leaves.setValue(BlockStateProperties.DISTANCE,1),leaves.setValue(BlockStateProperties.DISTANCE,2)),"Leaf distance keeps shape and fluid");
+        helper.assertTrue(LocalAirWorldSource.readInputsSame(Blocks.FURNACE.defaultBlockState(),Blocks.FURNACE.defaultBlockState().setValue(BlockStateProperties.LIT,true)),"Furnace lit keeps shape");
+        helper.assertTrue(LocalAirWorldSource.readInputsSame(Blocks.STONE.defaultBlockState(),Blocks.DIRT.defaultBlockState()),"Different blocks with equal converted shapes compare equal");
+        helper.assertFalse(LocalAirWorldSource.readInputsSame(Blocks.STONE.defaultBlockState(),Blocks.AIR.defaultBlockState()),"Solid to air changes the shape");
+        helper.assertFalse(LocalAirWorldSource.readInputsSame(Blocks.STONE_SLAB.defaultBlockState(),Blocks.STONE_SLAB.defaultBlockState().setValue(BlockStateProperties.SLAB_TYPE,net.minecraft.world.level.block.state.properties.SlabType.TOP)),"Slab half changes the shape");
+        helper.assertFalse(LocalAirWorldSource.readInputsSame(water,water.setValue(BlockStateProperties.LEVEL,1)),"Fluid amount changes the fluid state");
+        helper.assertFalse(LocalAirWorldSource.readInputsSame(Blocks.AIR.defaultBlockState(),water),"Air to water changes the fluid state");
+        helper.assertFalse(LocalAirWorldSource.readInputsSame(Blocks.MOVING_PISTON.defaultBlockState(),Blocks.MOVING_PISTON.defaultBlockState()),"Dynamic shapes never compare equal");
+        helper.assertFalse(LocalAirWorldSource.readInputsSame(null,wire),"An unknown before state never compares equal");
+        helper.succeed();
     }
     @SuppressWarnings("unchecked")
     private static long outcome(HeatWorld world,String name) {

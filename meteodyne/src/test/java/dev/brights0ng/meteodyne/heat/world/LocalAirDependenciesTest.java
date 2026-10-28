@@ -1,5 +1,6 @@
 // Written by ChatGPT.
 // Updated by ChatGPT: verify bounded immutable invalidation diagnostics and restart attribution.
+// Updated by Claude: verified revision bumps are counted by call site.
 package dev.brights0ng.meteodyne.heat.world;
 
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,16 @@ class LocalAirDependenciesTest {
         assertEquals(20,d.diagnostics().counts().get("CHUNK_LOAD_APPLIED"));assertEquals(1,snapshot.recent().size());
         assertThrows(UnsupportedOperationException.class,()->snapshot.recent().clear());
         assertThrows(UnsupportedOperationException.class,()->snapshot.counts().clear());
+    }
+    @Test void everyRevisionBumpRecordsItsCallSite() {
+        var d=new LocalAirDependencies(new Bounds(0,0,0,1,1,1));
+        d.blockRevision(0,0,0,1,"a","b",LocalAirDependencies.APPLY_AUTOMATIC);d.blockRevision(0,0,0,2,"a","b",LocalAirDependencies.APPLY_AUTOMATIC);
+        d.blockChanged(0,0,0,3,"a","b",LocalAirDependencies.OFF_THREAD);d.blockChanged(50,0,50,3,"a","b",LocalAirDependencies.OFF_THREAD);
+        d.historyLost(0,0,0,4);d.chunkChanged(0,0,5,"CHUNK_LOAD_APPLIED");d.getAndIncrement();d.blockChanged(0,0,0);
+        assertEquals(java.util.Map.of(LocalAirDependencies.APPLY_AUTOMATIC,2L,LocalAirDependencies.OFF_THREAD,1L,LocalAirDependencies.HISTORY_OVERFLOW,1L,
+                LocalAirDependencies.CHUNK,1L,"OTHER:getAndIncrement",1L,"OTHER:blockChanged",1L),d.revisionSites());
+        assertEquals(7,d.get(),"Unaffected positions record no site");
+        assertThrows(UnsupportedOperationException.class,()->d.revisionSites().clear());
     }
     @Test void offThreadCauseAndHistoryLossRemainVisibleWithoutWorldAccess() throws Exception {
         var d=new LocalAirDependencies(new Bounds(0,0,0,1,1,1));d.historyReads(true);

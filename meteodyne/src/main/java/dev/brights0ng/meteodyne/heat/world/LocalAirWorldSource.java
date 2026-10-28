@@ -2,6 +2,7 @@
 // Written by ChatGPT.
 // Updated by ChatGPT: world identity and imported read dependencies for live layout reuse.
 // Updated by ChatGPT: exposed world-shared sky indexing and strictly empty section classification.
+// Updated by Claude: compared an edit's read inputs (collision shape and fluid) with the conversion sample records.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.IdentityHashMap;
@@ -116,19 +117,7 @@ final class LocalAirWorldSource implements LocalAirCoverage.World {
         view.reads=0;var pos=new BlockPos(x,y,z);var state=view.getBlockState(pos);var fluid=state.getFluidState();
         var shape=fluid.isEmpty() && !state.getBlock().hasDynamicShape()?dryShapes.get(state):null;
         if(shape==null) {
-            // Snow's collision shape omits the lowest layer; its physical occupancy does not.
-            var boxes=(state.getBlock() instanceof SnowLayerBlock?state.getShape(view,pos):state.getCollisionShape(view,pos)).toAabbs();
-            if(boxes.size()>64) { throw unsupported("Collision shape exceeds box budget"); }
-            int[] solid=new int[boxes.size()*6];int at=0;
-            for(var box:boxes) {
-                double[] c={box.minX,box.minY,box.minZ,box.maxX,box.maxY,box.maxZ};
-                for(double v:c) if(!Double.isFinite(v) || v<0 || v>1) { throw unsupported("Out-of-cell collision shape needs material ownership mapping"); }
-                for(int axis=0;axis<3;axis++) {
-                    solid[at+axis]=sampleIndex(c[axis]);solid[at+axis+3]=sampleIndex(c[axis+3]);
-                    if(solid[at+axis]>=solid[at+axis+3]) { throw unsupported("Solid feature is below sampled resolution"); }
-                }
-                at+=6;
-            }
+            int[] solid=solid(state,view,pos);
             int[] liquid=new int[0];
             if(!fluid.isEmpty()) {
                 float height=fluid.getHeight(view,pos);
@@ -148,6 +137,35 @@ final class LocalAirWorldSource implements LocalAirCoverage.World {
                 dev.brights0ng.paradynelib.heat.air.AirParams.DEFAULT.gridPower(variant.power(),variant.radiant()),
                 HeatTables.absoluteLimit(state,variant),variant.maxOffset(),variant.perFace());
         return new LocalAirGeometryCapture.Cell(shape,material.conductance(),material.capacity(),liquid.conductance(),liquid.capacity(),heat,driven,!driven && variant!=null && variant.natural());
+    }
+    /** Solid boxes exactly as a sample records them, in sixteenths. */
+    private static int[] solid(BlockState state,BlockGetter view,BlockPos pos) {
+        // Snow's collision shape omits the lowest layer; its physical occupancy does not.
+        var boxes=(state.getBlock() instanceof SnowLayerBlock?state.getShape(view,pos):state.getCollisionShape(view,pos)).toAabbs();
+        if(boxes.size()>64) { throw unsupported("Collision shape exceeds box budget"); }
+        int[] solid=new int[boxes.size()*6];int at=0;
+        for(var box:boxes) {
+            double[] c={box.minX,box.minY,box.minZ,box.maxX,box.maxY,box.maxZ};
+            for(double v:c) if(!Double.isFinite(v) || v<0 || v>1) { throw unsupported("Out-of-cell collision shape needs material ownership mapping"); }
+            for(int axis=0;axis<3;axis++) {
+                solid[at+axis]=sampleIndex(c[axis]);solid[at+axis+3]=sampleIndex(c[axis+3]);
+                if(solid[at+axis]>=solid[at+axis+3]) { throw unsupported("Solid feature is below sampled resolution"); }
+            }
+            at+=6;
+        }
+        return solid;
+    }
+    /** Whether another cell reading this position sees the same inputs before and after an edit:
+     * the same fluid state and the same collision shape in sample's conversion (never VoxelShape identity).
+     * Dynamic shapes depend on more than the state, so they never compare equal. */
+    static boolean readInputsSame(BlockState before,BlockState after) {
+        if(before==null || after==null || before.getBlock().hasDynamicShape() || after.getBlock().hasDynamicShape()) return false;
+        // Fluid states are canonical per fluid, amount and falling flag.
+        if(!before.getFluidState().equals(after.getFluidState())) return false;
+        try {
+            return java.util.Arrays.equals(solid(before,net.minecraft.world.level.EmptyBlockGetter.INSTANCE,BlockPos.ZERO),
+                    solid(after,net.minecraft.world.level.EmptyBlockGetter.INSTANCE,BlockPos.ZERO));
+        } catch(LocalAirGeometryCapture.Unavailable unsupported) { return false; }
     }
     private static int sampleIndex(double coordinate) { return Math.max(0,Math.min(16,(int)Math.ceil(coordinate*16-.5))); }
     private static LocalAirGeometryCapture.Unavailable unsupported(String reason) {
