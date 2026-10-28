@@ -18,6 +18,7 @@
 // Updated by Claude: classified server-thread edits before invalidating owners and filtered sky-irrelevant edits.
 // Updated by Claude: indexed placed sources for local-air demand in any state, beside the legacy placed index.
 // Updated by Claude: tagged local-air revision bumps by call site and reported re-read and revision-site counters.
+// Updated by Claude: compared sky relevance in local air's snow buckets; reported geometry edits, edit phases, post-capture re-reads and replans.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.ArrayList;
@@ -53,7 +54,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.EmptyBlockGetter;
-import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
@@ -288,6 +288,10 @@ public final class HeatWorld {
         report.put("topologyStages",localAirPreparation==null?0:localAirPreparation.topologyStages());
         report.put("editOutcomes",localAirPreparation==null?Map.of():localAirPreparation.editOutcomes());
         report.put("rereadCells",localAirPreparation==null?0:localAirPreparation.rereadCells());
+        report.put("postCaptureRereads",localAirPreparation==null?0:localAirPreparation.postCaptureRereads());
+        report.put("replans",localAirPreparation==null?0:localAirPreparation.replans());
+        report.put("geometryEdits",localAirPreparation==null?Map.of():localAirPreparation.geometryEdits());
+        report.put("editPhases",localAirPreparation==null?Map.of():localAirPreparation.editPhases());
         report.put("requeuedColumns",localAirPreparation==null?0:localAirPreparation.requeuedColumns());
         report.put("revisionSites",localAirPreparation==null?Map.of():localAirPreparation.revisionSites());
         report.put("weatherRevisions",localAirPreparation==null?0:localAirPreparation.weatherRevisions());
@@ -555,11 +559,12 @@ public final class HeatWorld {
     private static boolean staticAirEdit(BlockState before,BlockState after) {
         return before!=null && HeatTables.driven(before).isEmpty() && HeatTables.driven(after).isEmpty();
     }
-    /** Only these properties can change a cached sky column or empty-section classification. */
+    /** Only these properties can change a cached sky column or empty-section classification,
+     * compared in local air's snow buckets: thin snow (1-3 layers) reads as air. */
     private static boolean skyRelevant(BlockState before,BlockState after) {
+        before=LocalAirWorldSource.localAirState(before);after=LocalAirWorldSource.localAirState(after);
         return before.isAir()!=after.isAir() || before.getFluidState().isEmpty()!=after.getFluidState().isEmpty()
                 || before.getBlock().hasDynamicShape() || after.getBlock().hasDynamicShape()
-                || before.getBlock() instanceof SnowLayerBlock || after.getBlock() instanceof SnowLayerBlock
                 || before.getCollisionShape(EmptyBlockGetter.INSTANCE,BlockPos.ZERO).isEmpty()
                         !=after.getCollisionShape(EmptyBlockGetter.INSTANCE,BlockPos.ZERO).isEmpty();
     }

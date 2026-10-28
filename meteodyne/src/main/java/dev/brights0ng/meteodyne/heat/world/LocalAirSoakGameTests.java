@@ -1,5 +1,6 @@
 // Written by Claude.
 // Updated by Claude: reproduced the live busy soak across a full automatic capture and checked the new counters reach summary.json.
+// Updated by Claude: added the snowy-biome churn (snow layers 1..8, one stone after the first capture) and required zero restarts.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.nio.file.Files;
@@ -23,6 +24,8 @@ import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -82,13 +85,16 @@ public final class LocalAirSoakGameTests {
                     helper.assertTrue(json.has("soak") && json.getAsJsonObject("soak").get("mode").getAsString().equals("BUSY"),"active soak reported");
                     var atEnd=json.getAsJsonObject("localAirAtEnd");
                     helper.assertTrue(atEnd.has("revisionSites") && atEnd.has("rereadCells") && atEnd.has("requeuedColumns"),"revision sites and re-read counters reported");
+                    helper.assertTrue(atEnd.has("geometryEdits") && atEnd.has("editPhases") && atEnd.has("postCaptureRereads") && atEnd.has("replans"),"geometry edit and replan counters reported");
                     helper.succeed();
                 } catch(java.io.IOException error) { throw new IllegalStateException(error); }
                 finally { cleanup.run(); }
             });
         } catch(RuntimeException error) { cleanup.run();throw error; }
     }
-    /** The live sequence: air plan 4 4 32 8; air auto 4 131072 1000000 4; soak build; soak start busy. Random ticks stay on. */
+    /** The live sequence: air plan 4 4 32 8; air auto 4 131072 1000000 4; soak build; soak start busy. Random ticks stay on.
+     * Like the live snowy smoke, snow builds up on interior ground (one layer every 40 ticks, 1..8), and one stone
+     * lands inside the first domain to finish capture. Every owner must re-read rather than restart. */
     @GameTest(template=GameTestStructures.EMPTY,batch="local_air_soak_capture",timeoutTicks=2400)
     public static void soakBusyCaptureCompletes(GameTestHelper helper) {
         var level=helper.getLevel();var world=HeatWorld.of(level);world.setPaused(false);world.clearLocalAirGeometry();world.stopLocalAirPlan();
@@ -135,11 +141,27 @@ public final class LocalAirSoakGameTests {
         world.startAutomaticAir(new LocalAirAutomatic.Settings(4,131072,1_000_000,4));
         LocalAirSoak.build(level,origin,LocalAirSoak.STATIONS,true); // the code path of /meteodyne heat air soak build
         LocalAirSoak.start(level,LocalAirSoak.Mode.BUSY,true);      // ... and of soak start busy
+        // Snow sits on stone, clear of the campfire's and furnace's light, so random ticks do not melt it.
+        var snow=new ArrayList<BlockPos>();
+        for(var station:LocalAirSoak.stations()) {
+            var ground=station.surface().offset(2,-1,-3);level.setBlock(ground,Blocks.STONE.defaultBlockState(),Block.UPDATE_CLIENTS);snow.add(ground.above());
+        }
+        long start=level.getGameTime();boolean[] stone={false};
         helper.onEachTick(()->{
             // A live tick's length, so worker jobs and the soak schedule keep their live ratio.
             LockSupport.parkNanos(50_000_000L);
+            long elapsed=level.getGameTime()-start;
+            if(elapsed>0 && elapsed%40==0 && elapsed/40<=8) for(var pos:snow)
+                level.setBlock(pos,Blocks.SNOW.defaultBlockState().setValue(SnowLayerBlock.LAYERS,(int)(elapsed/40)),Block.UPDATE_CLIENTS);
             var auto=world.automaticAir();
-            if(auto!=null) for(var d:auto.committedDomains()) if(d.preparation.restarts()>2) helper.fail("Domain "+d.id+" restarted "+d.preparation.restarts()+" times: "+owners(auto));
+            if(auto!=null && !stone[0]) for(var d:auto.committedDomains()) if(d.preparation.status()!=LocalAirPreparation.Status.CAPTURING) {
+                for(var station:LocalAirSoak.stations()) {
+                    var pos=station.surface().offset(1,1,-3);
+                    if(d.bounds.contains(pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5)) { level.setBlock(pos,Blocks.STONE.defaultBlockState(),Block.UPDATE_CLIENTS);stone[0]=true;break; }
+                }
+                if(stone[0]) break;
+            }
+            if(auto!=null) for(var d:auto.committedDomains()) if(d.preparation.restarts()>0) helper.fail("Domain "+d.id+" restarted "+d.preparation.restarts()+" times: "+owners(auto));
         });
         helper.startSequence().thenWaitUntil(()->{
             var auto=world.automaticAir();var committed=auto.committedDomains();
@@ -147,6 +169,8 @@ public final class LocalAirSoakGameTests {
             // The run has published a frame once it is READY. field() also needs that frame to be current with the
             // 10-tick weather samples, which a loaded shared job lane need not reach within this timeout.
             for(var d:committed) helper.assertTrue(d.preparation.runStatus()==LocalAirRun.Status.READY,"Every committed owner publishes a frame: "+owners(auto));
+            helper.assertTrue(stone[0],"A stone landed inside a domain after its capture");
+            for(var d:committed) helper.assertTrue(d.preparation.restarts()==0,"Domain "+d.id+" never restarts: "+owners(auto));
         }).thenSucceed();
     }
     private static String owners(LocalAirAutomatic auto) {
@@ -154,7 +178,8 @@ public final class LocalAirSoakGameTests {
         for(var d:auto.domains()) out.append("\n  domain ").append(d.id).append(' ').append(d.bounds).append(" recent invalidations ").append(d.capture.dependencies().diagnostics().recent());
         for(var row:auto.rows()) out.append("\n  domain ").append(row.id()).append(' ').append(row.role()).append(' ').append(row.preparation())
                 .append(" frameTick ").append(row.frameTick()).append(" restarts ").append(row.restarts()).append(" restartCauses ").append(row.restartCauses())
-                .append(" revisionSites ").append(row.revisionSites()).append(" editOutcomes ").append(row.editOutcomes()).append(" (").append(row.progress()).append(")\n    run ").append(row.run()).append(' ').append(row.reason()).append(" startup ").append(row.startup());
+                .append(" revisionSites ").append(row.revisionSites()).append(" editOutcomes ").append(row.editOutcomes())
+                .append(" geometryEdits ").append(row.geometryEdits()).append(" editPhases ").append(row.editPhases()).append(" replans ").append(row.replans()).append(" (").append(row.progress()).append(")\n    run ").append(row.run()).append(' ').append(row.reason()).append(" startup ").append(row.startup());
         return out.append("\n  decisions ").append(auto.decisions()).toString();
     }
     private LocalAirSoakGameTests() { }

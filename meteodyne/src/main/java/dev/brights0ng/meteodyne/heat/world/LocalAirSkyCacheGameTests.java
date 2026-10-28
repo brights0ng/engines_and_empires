@@ -1,4 +1,5 @@
 // Written by ChatGPT.
+// Updated by Claude: used half-block snow for the roof edit; thin snow now reads as air.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -50,7 +51,7 @@ public final class LocalAirSkyCacheGameTests {
                     helper.assertTrue(history.world().skyCache()==null,"Historical geometry never consults the live sky index");history.close();
                     System.out.println("SKY_INDEX_WARM "+warm);
                 });
-        for(var state:List.of(Blocks.STONE.defaultBlockState(),Blocks.STONE_SLAB.defaultBlockState(),Blocks.WATER.defaultBlockState(),Blocks.SNOW.defaultBlockState())) {
+        for(var state:List.of(Blocks.STONE.defaultBlockState(),Blocks.STONE_SLAB.defaultBlockState(),Blocks.WATER.defaultBlockState(),Blocks.SNOW.defaultBlockState().setValue(net.minecraft.world.level.block.SnowLayerBlock.LAYERS,4))) {
             sequence.thenExecute(()->{
                 level.setBlock(roof,state,2);helper.assertTrue(world.localAirGeometry()==null,"An edit above a bulk/shared proof withdraws geometry immediately");
             }).thenWaitUntil(()->helper.assertTrue(world.localAirStatus()==LocalAirPreparation.Status.REJECTED,"Edited roof/fluid/thin occupancy is rejected: "+world.localAirReport()))

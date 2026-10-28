@@ -4,6 +4,7 @@
 // Updated by ChatGPT: verified rejected-cut recovery and retained donor behavior under limits.
 // Updated by Claude: tested restart-cause and weather grid-rebuild counters.
 // Updated by Claude: tested continuous no-op and real edits while a fresh owner captures.
+// Updated by Claude: tested that rejected owners release their slot into a doubling backoff.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -16,6 +17,7 @@ class LocalAirAutomaticTest {
     private static final LocalAirRun.Weather WEATHER=new LocalAirRun.Weather(20,0,0);
     private static class Factory implements LocalAirAutomatic.Factory {
         int created,reads;boolean openBottom,corruptTarget,loaded=true,ownReads;
+        int rejectX=Integer.MIN_VALUE; // Domains with this origin x see an open bottom.
         final Map<Long,Cell> overrides=new HashMap<>();
         public LocalAirRun.Weather weather(Bounds b) { return WEATHER; }
         public LocalAirAutomatic.Capture capture(Bounds b) {
@@ -32,7 +34,7 @@ class LocalAirAutomaticTest {
                     var override=overrides.get(last[0]);if(override!=null) return override;
                     if(corruptTarget && b.x()==32 && x==39 && y==6 && z==7) return LocalAirPreparationTest.SOLID;
                     boolean inside=Math.floorMod(x,16)>5 && Math.floorMod(x,16)<10 && y>5 && y<10 && Math.floorMod(z,16)>5 && Math.floorMod(z,16)<10;
-                    if(openBottom && y==0) return LocalAirPreparationTest.AIR;
+                    if((openBottom || b.x()==rejectX) && y==0) return LocalAirPreparationTest.AIR;
                     if(!inside) return LocalAirPreparationTest.SOLID;
                     var air=LocalAirPreparationTest.AIR;
                     return Math.floorMod(x,16)==7 && y==6 && Math.floorMod(z,16)==7?new Cell(air.shape(),1,1,1,1,new Heat(12,65,Double.NaN,false)):air;
@@ -117,6 +119,36 @@ class LocalAirAutomaticTest {
         assertEquals(0,row.restarts(),row.restartCauses().toString());assertTrue(row.rereadCells()>0);
         assertEquals(0,row.topologyStages());auto.close();
     }
+    private static String backoff(LocalAirAutomatic auto) {
+        return auto.decisions().stream().filter(d->d.state().equals("BACKOFF")).map(LocalAirAutomatic.Decision::reason).findFirst().orElse(null);
+    }
+    @Test void rejectedOwnerReleasesItsSlotAndRetriesOnlyAfterADoublingBackoff() {
+        // One slot: the rejected group's owner retires and the other group takes the slot.
+        var f=new Factory();f.rejectX=0;var auto=new LocalAirAutomatic(new LocalAirAutomatic.Settings(1,32768,0,4),f);var r=registry();
+        request(r,"bad",8);request(r,"good",72);auto.reconcile(plan(r),0,32);
+        assertEquals(0,auto.committedDomains().getFirst().bounds.x());drain(auto,0);
+        assertEquals(LocalAirPreparation.Status.REJECTED,auto.committedDomains().getFirst().preparation.status());
+        auto.reconcile(plan(r),0,32);
+        assertEquals(1,auto.committedDomains().size());assertEquals(64,auto.committedDomains().getFirst().bounds.x(),"The slot went to the other group");
+        var reason=backoff(auto);assertNotNull(reason,auto.decisions().toString());
+        assertTrue(reason.contains("bottom coverage cut") && reason.contains("retry at tick 600"),reason);
+        drain(auto,0);assertNotNull(auto.committedDomains().getFirst().preparation.field());auto.close();
+        // Retry timing on its own: 600 ticks, then 1200 after a second rejection; edits never retry.
+        f=new Factory();f.rejectX=0;auto=new LocalAirAutomatic(SETTINGS,f);r=registry();request(r,"bad",8);
+        auto.reconcile(plan(r),0,32);drain(auto,0);auto.reconcile(plan(r),0,32);
+        assertEquals(1,f.created);assertTrue(auto.committedDomains().isEmpty());assertTrue(backoff(auto).contains("retry at tick 600"));
+        auto.observe(599,1);auto.beforeEdit(8,0,8);auto.reconcile(plan(r),0,32);
+        assertEquals(1,f.created,"Neither an edit nor time before the retry tick allocates");assertNotNull(backoff(auto));
+        auto.observe(600,1);auto.reconcile(plan(r),0,32);assertEquals(2,f.created,"The retry tick retries");
+        drain(auto,600);auto.reconcile(plan(r),0,32);
+        assertTrue(auto.committedDomains().isEmpty());assertTrue(backoff(auto).contains("(2x)") && backoff(auto).contains("retry at tick 1800"),backoff(auto));
+        auto.observe(1799,1);auto.beforeEdit(8,0,8);auto.reconcile(plan(r),0,32);assertEquals(2,f.created);
+        auto.observe(1800,1);auto.reconcile(plan(r),0,32);assertEquals(3,f.created);
+        // Removing the demand clears the backoff: the group's return allocates at once.
+        drain(auto,1800);auto.reconcile(plan(r),0,32);assertNotNull(backoff(auto));
+        r.remove(new LocalAirDemandRegistry.Key(LocalAirDemandRegistry.Kind.PLAYER,"bad"));auto.reconcile(plan(r),0,32);assertNull(backoff(auto));
+        request(r,"bad",8);auto.reconcile(plan(r),0,32);assertEquals(4,f.created);assertNull(backoff(auto));auto.close();
+    }
     @Test void rejectedInitialOwnerExpandsAndPublishesInsteadOfWaitingForAnImpossibleSeed() {
         var f=new RecoveryFactory();var auto=new LocalAirAutomatic(SETTINGS,f);var r=registry();request(r,"p",8);
         auto.reconcile(plan(r),0,32);drain(auto,0);
@@ -131,7 +163,7 @@ class LocalAirAutomaticTest {
         var f=new RecoveryFactory();f.chunks=false;var auto=new LocalAirAutomatic(SETTINGS,f);var r=registry();request(r,"p",8);
         auto.reconcile(plan(r),0,32);drain(auto,0);
         for(int i=0;i<4;i++) auto.reconcile(plan(r),0,32);
-        assertEquals(1,f.created);assertEquals(4096,auto.cells());
+        assertEquals(1,f.created);assertEquals(0,auto.cells(),"The rejected owner released its slot into backoff");
         var missing=auto.presentation(0,8.5,7.5,8.5,40);assertTrue(missing.reading().currentSample().isEmpty());assertTrue(missing.detail().contains("not loaded"),missing.detail());
         assertTrue(auto.decisions().stream().anyMatch(d->d.state().equals("COVERAGE_BLOCKED")));
         f.chunks=true;auto.reconcile(plan(r),0,32);drain(auto,0);assertTrue(auto.query(0,8.5,7.5,8.5,40).currentSample().isPresent());auto.close();

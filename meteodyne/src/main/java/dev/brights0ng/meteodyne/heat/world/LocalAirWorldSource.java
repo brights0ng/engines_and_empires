@@ -3,13 +3,16 @@
 // Updated by ChatGPT: world identity and imported read dependencies for live layout reuse.
 // Updated by ChatGPT: exposed world-shared sky indexing and strictly empty section classification.
 // Updated by Claude: compared an edit's read inputs (collision shape and fluid) with the conversion sample records.
+// Updated by Claude: read snow layers in Bright's buckets (1-3 air, 4-7 bottom half, 8 full); labelled edits by block pair.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.IdentityHashMap;
 import java.util.function.LongSupplier;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -138,6 +141,21 @@ final class LocalAirWorldSource implements LocalAirCoverage.World {
                 HeatTables.absoluteLimit(state,variant),variant.maxOffset(),variant.perFace());
         return new LocalAirGeometryCapture.Cell(shape,material.conductance(),material.capacity(),liquid.conductance(),liquid.capacity(),heat,driven,!driven && variant!=null && variant.natural());
     }
+    /** The state local air reads in place of a block state: snow layers 1-3 are air, 4-7 the bottom half block
+     * a bottom slab occupies, 8 a full block. Shape, material and heat then cannot vary within a bucket. */
+    static BlockState localAirState(BlockState state) {
+        if(!(state.getBlock() instanceof SnowLayerBlock) || !state.hasProperty(SnowLayerBlock.LAYERS)) return state;
+        int layers=state.getValue(SnowLayerBlock.LAYERS);
+        return layers<=3?Blocks.AIR.defaultBlockState():state.setValue(SnowLayerBlock.LAYERS,layers<8?4:8);
+    }
+    /** "<before id>-><after id>", plus "[<changed property names>]" when the block is the same. */
+    static String editLabel(BlockState before,BlockState after) {
+        var label=BuiltInRegistries.BLOCK.getKey(before.getBlock())+"->"+BuiltInRegistries.BLOCK.getKey(after.getBlock());
+        if(before.getBlock()!=after.getBlock()) return label;
+        var changed=new java.util.ArrayList<String>();
+        for(var property:before.getProperties()) if(!before.getValue(property).equals(after.getValue(property))) changed.add(property.getName());
+        return label+"["+String.join(",",changed)+"]";
+    }
     /** Solid boxes exactly as a sample records them, in sixteenths. */
     private static int[] solid(BlockState state,BlockGetter view,BlockPos pos) {
         // Snow's collision shape omits the lowest layer; its physical occupancy does not.
@@ -159,7 +177,9 @@ final class LocalAirWorldSource implements LocalAirCoverage.World {
      * the same fluid state and the same collision shape in sample's conversion (never VoxelShape identity).
      * Dynamic shapes depend on more than the state, so they never compare equal. */
     static boolean readInputsSame(BlockState before,BlockState after) {
-        if(before==null || after==null || before.getBlock().hasDynamicShape() || after.getBlock().hasDynamicShape()) return false;
+        if(before==null || after==null) return false;
+        before=localAirState(before);after=localAirState(after);
+        if(before.getBlock().hasDynamicShape() || after.getBlock().hasDynamicShape()) return false;
         // Fluid states are canonical per fluid, amount and falling flag.
         if(!before.getFluidState().equals(after.getFluidState())) return false;
         try {
@@ -183,7 +203,8 @@ final class LocalAirWorldSource implements LocalAirCoverage.World {
             }
             var chunk=level.getChunkSource().getChunkNow(pos.getX()>>4,pos.getZ()>>4);
             if(chunk==null) { throw new LocalAirGeometryCapture.Unavailable(LocalAirGeometryCapture.Status.MISSING_GEOMETRY,"Chunk not loaded"); }
-            return overlay!=null && overlay.containsKey(pos.asLong())?overlay.get(pos.asLong()):chunk.getBlockState(pos);
+            // Every sampled and context read goes through the snow buckets.
+            return localAirState(overlay!=null && overlay.containsKey(pos.asLong())?overlay.get(pos.asLong()):chunk.getBlockState(pos));
         }
         @Override public FluidState getFluidState(BlockPos pos) { return getBlockState(pos).getFluidState(); }
         @Override public BlockEntity getBlockEntity(BlockPos pos) { throw unsupported("Block-entity-dependent collision shape"); }

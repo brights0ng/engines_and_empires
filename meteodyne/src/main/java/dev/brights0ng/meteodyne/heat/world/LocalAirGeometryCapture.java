@@ -5,6 +5,7 @@
 // Updated by Claude: per-cell edit classification and a lazy cross-cell read-context index.
 // Updated by Claude: re-read only edited cells and their readers while capture is in progress.
 // Updated by Claude: kept the reader index on fastutil; footprint reads have no distance bound.
+// Updated by Claude: reported queued cells and re-read positions for edits after capture completes.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.Arrays;
@@ -95,9 +96,9 @@ final class LocalAirGeometryCapture {
             return new ReadBounds(lx,ly,lz,hx,hy,hz);
         }
     }
-    private static int blockX(long key) { return (int)(key>>38); }
-    private static int blockY(long key) { return (int)(key<<52>>52); }
-    private static int blockZ(long key) { return (int)(key<<26>>38); }
+    static int blockX(long key) { return (int)(key>>38); }
+    static int blockY(long key) { return (int)(key<<52>>52); }
+    static int blockZ(long key) { return (int)(key<<26>>38); }
     record ReadBounds(int lowX,int lowY,int lowZ,int highX,int highY,int highZ) {
         ReadBounds union(ReadBounds b) {
             return new ReadBounds(Math.min(lowX,b.lowX),Math.min(lowY,b.lowY),Math.min(lowZ,b.lowZ),
@@ -343,6 +344,8 @@ final class LocalAirGeometryCapture {
     // so readers of a position cannot be found from its neighbourhood alone.
     private final Long2ObjectOpenHashMap<IntArrayList> readers=new Long2ObjectOpenHashMap<>();
     private final java.util.ArrayDeque<Integer> reread=new java.util.ArrayDeque<>();
+    // Edited positions and the cells they queued since the last takeRereadPositions.
+    private final java.util.HashSet<Long> rereadPositions=new java.util.HashSet<>();
     private int cursor,reused,readCount,rereadCount;
     private Status status=Status.CAPTURING;
     private String reason="";
@@ -457,11 +460,21 @@ final class LocalAirGeometryCapture {
         if(list!=null) for(int k=0;k<list.size();k++) if(captured.get(list.getInt(k))) affected.set(list.getInt(k));
         if(affected.isEmpty()) return false;
         if(own>=0 && affected.cardinality()==1 && affected.get(own) && sameCell(own,sample)) return false;
+        rereadPositions.add(key);
         for(int c=affected.nextSetBit(0);c>=0;c=affected.nextSetBit(c+1)) {
             if(!queued.get(c)) { queued.set(c);reread.addLast(c); }
-            captured.clear(c);
+            captured.clear(c);rereadPositions.add(blockKey(bounds.x+bounds.cellX(c),bounds.y+bounds.cellY(c),bounds.z+bounds.cellZ(c)));
         }
         status=Status.CAPTURING;return true;
+    }
+    /** Whether the cell at key is queued for a re-read, which will see any edit made before it runs. */
+    boolean pending(long key) {
+        checkOwner();int own=bounds.index(blockX(key)-bounds.x,blockY(key)-bounds.y,blockZ(key)-bounds.z);
+        return own>=0 && queued.get(own);
+    }
+    /** Edited positions and the positions of the cells they queued since the last call, which then clears them. */
+    java.util.Set<Long> takeRereadPositions() {
+        checkOwner();var out=java.util.Set.copyOf(rereadPositions);rereadPositions.clear();return out;
     }
     private boolean sameCell(int i,Cell cell) {
         return shapes[i].equals(cell.shape) && solidK[i]==cell.solidK && solidCapacity[i]==cell.solidCapacity

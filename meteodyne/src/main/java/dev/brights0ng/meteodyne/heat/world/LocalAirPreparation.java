@@ -15,6 +15,7 @@
 // Updated by Claude: reported the call sites that bumped this owner's dependency revision.
 // Updated by Claude: treated context edits as GEOMETRY only when the read inputs changed.
 // Updated by Claude: kept heat-only edits between capture and run start as the run's starting source heat.
+// Updated by Claude: re-read geometry edits between capture and run start instead of restarting; counted them by block pair and phase.
 package dev.brights0ng.meteodyne.heat.world;
 
 import dev.brights0ng.paradynelib.heat.air.ThermalGeometry;
@@ -24,7 +25,8 @@ import static dev.brights0ng.meteodyne.heat.world.LocalAirGeometryCapture.*;
  * Optional coupled diagnostic with chronological weather and verified source updates; no worker world access or production routing.
  */
 final class LocalAirPreparation {
-    private static final class Ticket { volatile boolean cancelled; }
+    /** revision bumps when the stage reopens; a job taken under an older revision finishes and is discarded. */
+    private static final class Ticket { volatile boolean cancelled;volatile long revision; }
     enum Status { CAPTURING, PLAN_QUEUED, PLANNING, COVERAGE, BAKE_QUEUED, BAKING, PREPARED, REJECTED, FAILED, CLOSED }
     enum EditOutcome { IGNORED, SOURCE, RECAPTURE, GEOMETRY }
     private static final class Estimation {
@@ -47,18 +49,19 @@ final class LocalAirPreparation {
         private final LocalAirGeometryHandoff.Job bake;
         private final LocalAirRun.Work simulation;
         private final Estimation estimation;
+        private final long revision;
         private final long submitted=System.nanoTime();
         private long completedNanos;
         private Work(Stage stage,Snapshot snapshot,LocalAirGeometryHandoff.Job bake,LocalAirRun.Work simulation) {this(stage,snapshot,bake,simulation,null);}
         private Work(Stage stage,Snapshot snapshot,LocalAirGeometryHandoff.Job bake,LocalAirRun.Work simulation,Estimation estimation) {
-            this.estimation=estimation;
+            this.estimation=estimation;revision=stage.ticket.revision;
             this.ticket=stage.ticket;this.snapshot=snapshot;this.bake=bake;this.simulation=simulation;
         }
         Result run() {
             return runSlice(submitted,Long.MAX_VALUE);
         }
         boolean estimate() { return estimation!=null; }
-        boolean continues(Result result) { return estimation!=null && !ticket.cancelled && !result.failed() && !estimation.solver.ready(); }
+        boolean continues(Result result) { return estimation!=null && !ticket.cancelled && ticket.revision==revision && !result.failed() && !estimation.solver.ready(); }
         void batchCompleted() { completedNanos=System.nanoTime(); }
         Result runSlice(long enqueuedAt,long allowance) {
             long start=System.nanoTime();
@@ -107,6 +110,11 @@ final class LocalAirPreparation {
         // Accepted source edits since capture; null values are removals. Entries made before startTick is set
         // become source events at the start tick (begin), so the run starts with the latest heat.
         final java.util.HashMap<Integer,Heat> sourceHeat=new java.util.HashMap<>();
+        // Between capture and run start a fresh stage keeps its capture and coverage, so a geometry edit
+        // re-reads the affected cells or columns. reopen is the re-read waiting on this stage's in-flight job.
+        final java.util.HashSet<Long> rereads=new java.util.HashSet<>(); // Re-read positions since the last plan.
+        int reopen;
+        boolean captured,planned;
         LocalAirGeometryCapture capture;
         Snapshot snapshot;
         LocalAirCoverage coverage;
@@ -155,8 +163,11 @@ final class LocalAirPreparation {
     private java.util.function.Supplier<String> invalidationCause=()->"UNKNOWN";
     private java.util.function.Supplier<java.util.Map<String,Long>> revisionSites=java.util.Map::of;
     private final java.util.TreeMap<String,Long> restartCauses=new java.util.TreeMap<>(),failureCauses=new java.util.TreeMap<>(),editOutcomes=new java.util.TreeMap<>();
+    // GEOMETRY and RECAPTURE edits by "<before>-><after>[changed properties]" (at most 32 keys, then OTHER) and by "<STATUS>:<outcome>".
+    private static final int MAX_EDIT_KEYS=32,REOPEN_COVERAGE=1,REOPEN_CAPTURE=2;
+    private final java.util.TreeMap<String,Long> geometryEdits=new java.util.TreeMap<>(),editPhases=new java.util.TreeMap<>();
     private long topologyStages;
-    private long captureReadCells,captureReusedCells,rereadCells,requeuedColumns;
+    private long captureReadCells,captureReusedCells,rereadCells,requeuedColumns,postCaptureRereads,replans;
     private long coverageReadCells,coverageReusedCells,coverageBulkCells;
     private int minY,maxY,historyEvents;
     private double scaleNow;
@@ -314,9 +325,16 @@ final class LocalAirPreparation {
                     captureReadCells+=stage.capture.readCells()-beforeReads;
                     captureReusedCells+=stage.capture.reusedCells()-beforeReuse;
                     rereadCells+=stage.capture.rereadCells()-beforeReread;
+                    if(stage.captured) postCaptureRereads+=stage.capture.rereadCells()-beforeReread;
                 }
                 if(stage.capture.status()==LocalAirGeometryCapture.Status.CAPTURED) {
-                    stage.snapshot=stage.capture.snapshot();stage.capture=null;stage.status=Status.PLAN_QUEUED;
+                    // The capture stays until the run starts, so later geometry edits re-read only what they affect.
+                    stage.snapshot=stage.capture.snapshot();stage.status=Status.PLAN_QUEUED;stage.captured=true;
+                    // A re-read cell carries its live heat; an older pending heat edit must not override it at begin().
+                    for(long key:stage.capture.takeRereadPositions()) {
+                        stage.rereads.add(key);
+                        int cell=bounds.index(blockX(key)-bounds.x(),blockY(key)-bounds.y(),blockZ(key)-bounds.z());if(cell>=0) stage.sourceHeat.remove(cell);
+                    }
                     bindDriven(stage.snapshot);
                 } else if(stage.capture.status()!=LocalAirGeometryCapture.Status.CAPTURING) {
                     stage.reason=stage.capture.reason();stage.status=Status.REJECTED;
@@ -341,7 +359,9 @@ final class LocalAirPreparation {
                     }
                     stage.bake=stage.handoff.begin(stage.snapshot,stage.certificate);stage.status=Status.BAKE_QUEUED;
                     if(stage.history!=null) stage.history.close();
-                    stage.coverage=null; // The immutable certificate now owns the completed proofs.
+                    // The immutable certificate owns the completed proofs. A fresh stage keeps its coverage until the
+                    // run starts, so an edit before then can requeue just the proofs that read it.
+                    if(stage.history!=null) stage.coverage=null;
                 } else if(stage.coverage.status()!=LocalAirCoverage.Status.CHECKING) {
                     stage.reason=stage.coverage.reason();stage.status=Status.REJECTED;
                     if(stage.history!=null) stage.history.close();
@@ -431,6 +451,7 @@ final class LocalAirPreparation {
             var work=stage.run.takeWork();
             if(work!=null) outstanding=new Work(stage,stage.snapshot,null,work);
         } else if(stage.status==Status.PLAN_QUEUED || stage.status==Status.BAKE_QUEUED) {
+            if(stage.status==Status.PLAN_QUEUED) { if(stage.planned) replans++;stage.planned=true; }
             outstanding=new Work(stage,stage.snapshot,stage.status==Status.BAKE_QUEUED?stage.bake:null,null);
             stage.status=stage.status==Status.PLAN_QUEUED?Status.PLANNING:Status.BAKING;
         }
@@ -440,9 +461,12 @@ final class LocalAirPreparation {
         try {
         refresh();if(result.work!=outstanding) return;
         var stage=stages.stream().filter(candidate->candidate.ticket==result.work.ticket).findFirst().orElse(null);
-        boolean discarded=closed || failed || stage==null;
+        // A re-read queued while this job ran makes its result stale; the queued re-reads apply now, all at once.
+        boolean stale=stage!=null && result.work.revision!=stage.ticket.revision;
+        boolean discarded=closed || failed || stage==null || stale;
         metrics.complete(result.timing,result.failed(),discarded);outstanding=null;
         startup.completed(result.timing,result.work.completedNanos>0?result.work.completedNanos:System.nanoTime());
+        if(stale && !closed && !failed) applyReopen(stage);
         if(discarded) return;
         if(result.error!=null) { fail(result.error.toString());return; }
         if(result.estimation!=null) {
@@ -454,7 +478,11 @@ final class LocalAirPreparation {
         }
         if(result.simulation!=null) { stage.run.complete(result.simulation);return; }
         if(stage.status==Status.PLANNING) {
-            stage.coverage=new LocalAirCoverage(result.plan,stage.world,coverageLimit,stage.incomingCoverage,stage.edits,reusable);stage.status=Status.COVERAGE;
+            // A replan keeps the previous coverage's finished proofs that no re-read can affect.
+            var previous=stage.coverage;
+            stage.coverage=previous==null?new LocalAirCoverage(result.plan,stage.world,coverageLimit,stage.incomingCoverage,stage.edits,reusable)
+                    :new LocalAirCoverage(result.plan,stage.world,coverageLimit,previous,stage.rereads,stage.edits,reusable);
+            stage.rereads.clear();stage.status=Status.COVERAGE;
         } else if(stage.status==Status.BAKING) {
             if(stage.handoff.complete(result.completion)) { stage.status=Status.PREPARED;if(thermalProvider==null) reusable=java.util.List.of(); }
             else { stage.status=Status.REJECTED;stage.reason="Geometry completion no longer current"; }
@@ -511,6 +539,8 @@ final class LocalAirPreparation {
             var incoming=stage.incoming==null?null:stage.incoming.forEdit(stage.replacedSolid,stage.replacedFluid);
             stage.run=new LocalAirRun(stage.handoff.published(),stage.snapshot,runSettings,stage.startTick,stage.startScale,incoming,initial.weather(),initial.revision(),stage.layoutIncoming,stage.initialDriven,stage.incoming==null?thermalInitial:null);
             stage.replayedTick=stage.startTick;
+            // From the run's start, geometry edits take the topology-stage path; the capture and coverage are done.
+            stage.capture=null;stage.coverage=null;stage.rereads.clear();
         }
         if(stage.sealed) return;
         if(stage.run.status()==LocalAirRun.Status.FAILED || stage.run.status()==LocalAirRun.Status.LAG_LIMIT) {
@@ -668,11 +698,22 @@ final class LocalAirPreparation {
     EditOutcome classifyEdit(int x,int y,int z,long tick,double scale,
                              net.minecraft.world.level.block.state.BlockState before,net.minecraft.world.level.block.state.BlockState after) {
         // Null checks first: unit fixtures pass null states without loading the Minecraft-backed source.
-        return classifyEdit(x,y,z,tick,scale,before!=null && after!=null && LocalAirWorldSource.readInputsSame(before,after));
+        return classifyEdit(x,y,z,tick,scale,before!=null && after!=null && LocalAirWorldSource.readInputsSame(before,after),
+                ()->before==null || after==null?"UNKNOWN":LocalAirWorldSource.editLabel(before,after));
     }
     /** readInputsSame: a cell that reads this position (context) sees the same shape and fluid after the edit. */
     EditOutcome classifyEdit(int x,int y,int z,long tick,double scale,boolean readInputsSame) {
-        var outcome=classify(x,y,z,tick,scale,readInputsSame);editOutcomes.merge(outcome.name(),1L,Long::sum);return outcome;
+        return classifyEdit(x,y,z,tick,scale,readInputsSame,()->"UNKNOWN");
+    }
+    private EditOutcome classifyEdit(int x,int y,int z,long tick,double scale,boolean readInputsSame,java.util.function.Supplier<String> label) {
+        refresh();var phase=closed?Status.CLOSED:failed?Status.FAILED:head().status;
+        var outcome=classify(x,y,z,tick,scale,readInputsSame);editOutcomes.merge(outcome.name(),1L,Long::sum);
+        if(outcome==EditOutcome.GEOMETRY || outcome==EditOutcome.RECAPTURE) {
+            var key=label.get();
+            geometryEdits.merge(geometryEdits.containsKey(key) || geometryEdits.size()<MAX_EDIT_KEYS?key:"OTHER",1L,Long::sum);
+            editPhases.merge(phase+":"+outcome,1L,Long::sum);
+        }
+        return outcome;
     }
     /** One stage that is neither replaying a topology history nor waiting on an incoming seed. */
     private boolean fresh() {
@@ -691,20 +732,12 @@ final class LocalAirPreparation {
                 if(stage.capture==null) return EditOutcome.IGNORED;
                 Cell sampled;
                 try { sampled=world.sample(x,y,z); } catch(RuntimeException error) { return EditOutcome.GEOMETRY; }
-                return stage.capture.edited(key,sampled)?EditOutcome.RECAPTURE:EditOutcome.IGNORED;
+                boolean reread=stage.capture.edited(key,sampled);
+                // A coverage kept from before this re-capture must not hand a proof that read the edit to the replan.
+                boolean column=stage.coverage!=null && coverageEdited(stage,x,y,z);
+                return reread || column?EditOutcome.RECAPTURE:EditOutcome.IGNORED;
             }
-            if(stage.status==Status.COVERAGE && (stage.coverage.status()==LocalAirCoverage.Status.CHECKING
-                    || stage.coverage.status()==LocalAirCoverage.Status.ADMITTED)) {
-                int cell=bounds.index(x-bounds.x(),y-bounds.y(),z-bounds.z());boolean context=stage.snapshot.context(key) && !readInputsSame;
-                if(cell>=0 || context) {
-                    Cell sampled;
-                    try { sampled=world.sample(x,y,z); } catch(RuntimeException error) { return EditOutcome.GEOMETRY; }
-                    return context?EditOutcome.GEOMETRY:ownCell(stage,cell,sampled,x,y,z,tick,scale);
-                }
-                long before=stage.coverage.requeuedColumns();boolean requeued=stage.coverage.edited(x,y,z);
-                requeuedColumns+=stage.coverage.requeuedColumns()-before;
-                return requeued?EditOutcome.RECAPTURE:EditOutcome.IGNORED;
-            }
+            if(beforeRun(stage)) return beforeRun(stage,x,y,z,key,tick,scale,readInputsSame);
         }
         // Topology replay and capture of a history stage are never IGNORED; only heat-only edits keep the source path.
         // Only a fresh stage between capture and coverage (planning) keeps the snapshot rules below;
@@ -718,6 +751,58 @@ final class LocalAirPreparation {
         if(snapshot.context(key) && !readInputsSame) return EditOutcome.GEOMETRY;
         if(cell<0) return stage.certificate!=null && stage.certificate.unaffectedBy(key)?EditOutcome.IGNORED:EditOutcome.GEOMETRY;
         return ownCell(stage,cell,sampled,x,y,z,tick,scale);
+    }
+    /** A fresh stage between capture and run start that still holds its capture (and, once checked, its coverage). */
+    private boolean beforeRun(Stage stage) {
+        if(stage.capture==null || stage.snapshot==null || stage.run!=null || layoutBarrier>=0) return false;
+        return switch(stage.status) {
+            case PLAN_QUEUED,PLANNING,BAKE_QUEUED,BAKING,PREPARED -> true;
+            case COVERAGE -> stage.coverage.status()==LocalAirCoverage.Status.CHECKING || stage.coverage.status()==LocalAirCoverage.Status.ADMITTED;
+            default -> false;
+        };
+    }
+    /** Geometry edits re-read instead of restarting: an edit at a captured cell or a changed context position
+     * re-reads the cells it affects and replans; other positions only matter to the open-sky proofs that read them. */
+    private EditOutcome beforeRun(Stage stage,int x,int y,int z,long key,long tick,double scale,boolean readInputsSame) {
+        int cell=bounds.index(x-bounds.x(),y-bounds.y(),z-bounds.z());boolean context=stage.snapshot.context(key) && !readInputsSame;
+        if(cell>=0 || context) {
+            Cell sampled;
+            try { sampled=world.sample(x,y,z); } catch(RuntimeException error) { return EditOutcome.GEOMETRY; }
+            // A cell already queued reads the live state later; the snapshot is stale for it until then.
+            if(cell>=0 && stage.capture.pending(key)) return EditOutcome.RECAPTURE;
+            boolean own=cell>=0 && !stage.snapshot.sameCell(cell,sampled) && !stage.snapshot.heatOnlyDiffers(cell,sampled);
+            if(context || own) {
+                if(stage.capture.edited(key,sampled)) { reopen(stage,REOPEN_CAPTURE);return EditOutcome.RECAPTURE; }
+                // Every reader is already queued behind this stage's in-flight job.
+                if(stage.reopen==REOPEN_CAPTURE) return EditOutcome.RECAPTURE;
+            }
+            if(cell>=0) return ownCell(stage,cell,sampled,x,y,z,tick,scale);
+        }
+        // Outside the cells and their read context: only the open-sky proofs can have read this position.
+        if(stage.certificate==null) return stage.coverage!=null && coverageEdited(stage,x,y,z)?EditOutcome.RECAPTURE:EditOutcome.IGNORED;
+        if(stage.certificate.unaffectedBy(key)) return EditOutcome.IGNORED;
+        if(!coverageEdited(stage,x,y,z)) return EditOutcome.GEOMETRY;
+        reopen(stage,REOPEN_COVERAGE);return EditOutcome.RECAPTURE;
+    }
+    private boolean coverageEdited(Stage stage,int x,int y,int z) {
+        long before=stage.coverage.requeuedColumns();boolean requeued=stage.coverage.edited(x,y,z);
+        requeuedColumns+=stage.coverage.requeuedColumns()-before;return requeued;
+    }
+    /** Queues a re-read of a stage before its run: back to CAPTURING for cells, or to COVERAGE for sky columns.
+     * The certificate is void at once. While this stage's worker job is in flight, the re-read waits for it. */
+    private void reopen(Stage stage,int kind) {
+        stage.reopen=Math.max(stage.reopen,kind);stage.certificate=null;stage.ticket.revision++;
+        if(outstanding==null || outstanding.ticket!=stage.ticket) applyReopen(stage);
+    }
+    private void applyReopen(Stage stage) {
+        int kind=stage.reopen;stage.reopen=0;if(kind==0) return;
+        stage.certificate=null;stage.bake=null;stage.handoff.invalidate();stage.estimation=null;stage.reason="";
+        // Nothing has run from the start tick yet: begin() replays the pending heat at the next start.
+        if(stage.startTick>=0) { stage.startTick=-1;stage.sources.clear();stage.appliedSources=0;stage.initialDriven=null; }
+        if(kind==REOPEN_CAPTURE) {
+            stage.status=Status.CAPTURING;
+            thermalInitial=null;thermalValues=null;thermalReader=null;thermalCursor=0; // Initial temperatures belong to the old snapshot.
+        } else stage.status=Status.COVERAGE;
     }
     /** An edit at a captured cell of a fresh or settled stage: only a heat change keeps the source path. */
     private EditOutcome ownCell(Stage stage,int cell,Cell sampled,int x,int y,int z,long tick,double scale) {
@@ -841,6 +926,10 @@ final class LocalAirPreparation {
     long captureReadCells() { owner();return captureReadCells; }
     long captureReusedCells() { owner();return captureReusedCells; }
     long rereadCells() { owner();return rereadCells; }
+    long postCaptureRereads() { owner();return postCaptureRereads; }
+    long replans() { owner();return replans; }
+    java.util.Map<String,Long> geometryEdits() { owner();return java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(geometryEdits)); }
+    java.util.Map<String,Long> editPhases() { owner();return java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(editPhases)); }
     long requeuedColumns() { owner();return requeuedColumns; }
     long coverageReadCells() { owner();return coverageReadCells; }
     long coverageReusedCells() { owner();return coverageReusedCells; }

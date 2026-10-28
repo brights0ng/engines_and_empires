@@ -4,6 +4,7 @@
 // Updated by ChatGPT: interleaved column proofs and reported recoverable boundary cuts.
 // Updated by ChatGPT: consumed shared suffix/obstruction evidence and exact empty-section proofs.
 // Updated by Claude: requeued only the column proofs an in-progress edit can affect.
+// Updated by Claude: kept unaffected finished proofs across a replan of the same owner.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.HashMap;
@@ -152,15 +153,33 @@ final class LocalAirCoverage {
         this(plan,world,readLimit,previous,edits,java.util.List.of());
     }
     LocalAirCoverage(Plan plan,World world,int readLimit,Certificate previous,java.util.Set<Long> edits,java.util.List<LocalAirReuse> reusable) {
+        this(previous!=null && plan.snapshot.bounds.equals(previous.snapshot.bounds)
+                && plan.snapshot.contextId==previous.snapshot.contextId && plan.snapshot.materialRevision==previous.snapshot.materialRevision
+                && plan.snapshot.geometryRevision>=previous.snapshot.geometryRevision && world.minBuildY()==previous.minY && world.maxBuildY()==previous.maxY
+                ?previous.proofs:java.util.Map.of(),plan,world,readLimit,edits,reusable);
+    }
+    /** A replan of the same owner after re-reads: keeps previous's finished proofs whose column starts at the same
+     * height and whose reads contain no re-read position. The other columns are proved again from their starts. */
+    LocalAirCoverage(Plan plan,World world,int readLimit,LocalAirCoverage previous,java.util.Set<Long> rereads,java.util.Set<Long> edits,java.util.List<LocalAirReuse> reusable) {
+        this(kept(plan,world,previous,rereads),plan,world,readLimit,edits,reusable);
+    }
+    private static java.util.Map<Column,Proof> kept(Plan plan,World world,LocalAirCoverage previous,java.util.Set<Long> rereads) {
+        if(previous.world!=world || previous.minY!=world.minBuildY() || previous.maxY!=world.maxBuildY()
+                || !plan.snapshot.bounds.equals(previous.plan.snapshot.bounds) || plan.snapshot.contextId!=previous.plan.snapshot.contextId
+                || plan.snapshot.materialRevision!=previous.plan.snapshot.materialRevision) return java.util.Map.of();
+        var out=new HashMap<Column,Proof>();
+        for(var start:plan.starts) {
+            var proof=previous.proofs.get(start.column);var old=previous.startByColumn.get(start.column);
+            if(proof!=null && old!=null && old.y==start.y && proof.reads!=null && proof.reads.unchanged(rereads)) out.put(start.column,proof);
+        }
+        return out;
+    }
+    private LocalAirCoverage(java.util.Map<Column,Proof> baseline,Plan plan,World world,int readLimit,java.util.Set<Long> edits,java.util.List<LocalAirReuse> reusable) {
         this.plan=java.util.Objects.requireNonNull(plan);this.world=java.util.Objects.requireNonNull(world);
         minY=world.minBuildY();maxY=world.maxBuildY();
         this.edits=new java.util.HashSet<>(edits);this.reusable=java.util.List.copyOf(reusable);
         for(var start:plan.starts) startByColumn.put(start.column,start);
-        var snapshot=plan.snapshot;
-        baseline=previous!=null && snapshot.bounds.equals(previous.snapshot.bounds)
-                && snapshot.contextId==previous.snapshot.contextId && snapshot.materialRevision==previous.snapshot.materialRevision
-                && snapshot.geometryRevision>=previous.snapshot.geometryRevision && minY==previous.minY && maxY==previous.maxY
-                ?previous.proofs:java.util.Map.of();
+        this.baseline=baseline;
         if(readLimit<0) throw new IllegalArgumentException("Nonnegative coverage limit required");
         var b=plan.snapshot.bounds;
         if(!current()) reject(Status.STALE,"Revisions changed before coverage capture");
