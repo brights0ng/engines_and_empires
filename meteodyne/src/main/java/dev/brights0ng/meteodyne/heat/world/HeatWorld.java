@@ -15,6 +15,7 @@
 // Updated by ChatGPT: routed explicit manual/automatic view selections without creating work.
 // Updated by ChatGPT: checked recovery tile availability without loading chunks.
 // Updated by ChatGPT: shared bounded sky indexes with immediate block/chunk invalidation.
+// Updated by Claude: classified server-thread edits before invalidating owners and filtered sky-irrelevant edits.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.ArrayList;
@@ -49,8 +50,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.CampfireBlock;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
@@ -281,6 +282,7 @@ public final class HeatWorld {
         report.put("restartCauses",localAirPreparation==null?Map.of():localAirPreparation.restartCauses());
         report.put("failureCauses",localAirPreparation==null?Map.of():localAirPreparation.failureCauses());
         report.put("topologyStages",localAirPreparation==null?0:localAirPreparation.topologyStages());
+        report.put("editOutcomes",localAirPreparation==null?Map.of():localAirPreparation.editOutcomes());
         report.put("weatherRevisions",localAirPreparation==null?0:localAirPreparation.weatherRevisions());
         var counted=localAirField();
         report.put("gridRebuilds",counted==null?0:counted.gridRebuilds);report.put("shortSteps",counted==null?0:counted.shortSteps);
@@ -499,8 +501,9 @@ public final class HeatWorld {
         if (!(chunk.getLevel() instanceof ServerLevel level) || level.dimension() != Level.OVERWORLD) {
             return;
         }
-        var sky=LOCAL_AIR_SKY.get(level);if(sky!=null) sky.blockChanged(pos.getX(),pos.getZ());
+        var sky=LOCAL_AIR_SKY.get(level);
         if (level.getServer().isSameThread()) {
+            if(sky!=null && (before==null || skyRelevant(before,after))) sky.blockChanged(pos.getX(),pos.getZ());
             HeatWorld world = WORLDS.get(level);
             if(world!=null && world.automaticAir!=null) world.automaticAir.beforeEdit(pos.getX(),pos.getY(),pos.getZ());
             if(world!=null && world.automaticAir!=null) for(var d:world.automaticAir.domains())
@@ -508,19 +511,15 @@ public final class HeatWorld {
             if(world!=null && world.localAirSource!=null && !world.localAirSource.remember(pos,before)) {
                 var epoch=LOCAL_AIR_EPOCHS.get(level);if(epoch!=null) epoch.historyLost(pos.getX(),pos.getY(),pos.getZ(),level.getGameTime());
             }
-            boolean refreshed=false;
-            if(world!=null && world.localAirPreparation!=null && before!=null && before.getBlock()==after.getBlock()
-                    && before.getBlock().getClass()==CampfireBlock.class
-                    && before.hasProperty(BlockStateProperties.LIT)
-                    && before.setValue(BlockStateProperties.LIT,after.getValue(BlockStateProperties.LIT))==after) {
-                refreshed=world.localAirPreparation.changeSource(pos.getX(),pos.getY(),pos.getZ(),level.getGameTime(),world.responseScale());
-            }
-            if(!refreshed) {
-                var epoch=LOCAL_AIR_EPOCHS.get(level);
-                if(epoch!=null && epoch.affectsBlock(pos.getX(),pos.getY(),pos.getZ())) {
+            var epoch=LOCAL_AIR_EPOCHS.get(level);
+            if(epoch!=null && epoch.affectsBlock(pos.getX(),pos.getY(),pos.getZ())) {
+                var prep=world==null?null:world.localAirPreparation;
+                var outcome=prep==null?LocalAirPreparation.EditOutcome.GEOMETRY
+                        :prep.classifyEdit(pos.getX(),pos.getY(),pos.getZ(),level.getGameTime(),world.responseScale());
+                if(outcome==LocalAirPreparation.EditOutcome.GEOMETRY) {
                     long previous=epoch.blockRevision(pos.getX(),pos.getY(),pos.getZ(),level.getGameTime(),String.valueOf(before),String.valueOf(after));
-                    if(world!=null && world.localAirPreparation!=null && staticAirEdit(before,after)) {
-                        world.localAirPreparation.changeGeometry(pos.getX(),pos.getY(),pos.getZ(),previous,level.getGameTime(),world.responseScale(),
+                    if(prep!=null && staticAirEdit(before,after)) {
+                        prep.changeGeometry(pos.getX(),pos.getY(),pos.getZ(),previous,level.getGameTime(),world.responseScale(),
                                 before.getBlock()==after.getBlock(),sameAirFluid(before,after));
                     }
                 }
@@ -529,6 +528,7 @@ public final class HeatWorld {
                 world.blockChanged(pos, before, after);
             }
         } else {
+            if(sky!=null) sky.blockChanged(pos.getX(),pos.getZ());
             for(var dependency:AUTOMATIC_AIR_EPOCHS.getOrDefault(level,List.of()))
                 dependency.blockChanged(pos.getX(),pos.getY(),pos.getZ(),-1,String.valueOf(before),String.valueOf(after));
             var dependencies=LOCAL_AIR_EPOCHS.get(level);
@@ -548,17 +548,22 @@ public final class HeatWorld {
     private static boolean staticAirEdit(BlockState before,BlockState after) {
         return before!=null && HeatTables.driven(before).isEmpty() && HeatTables.driven(after).isEmpty();
     }
+    /** Only these properties can change a cached sky column or empty-section classification. */
+    private static boolean skyRelevant(BlockState before,BlockState after) {
+        return before.isAir()!=after.isAir() || before.getFluidState().isEmpty()!=after.getFluidState().isEmpty()
+                || before.getBlock().hasDynamicShape() || after.getBlock().hasDynamicShape()
+                || before.getBlock() instanceof SnowLayerBlock || after.getBlock() instanceof SnowLayerBlock
+                || before.getCollisionShape(EmptyBlockGetter.INSTANCE,BlockPos.ZERO).isEmpty()
+                        !=after.getCollisionShape(EmptyBlockGetter.INSTANCE,BlockPos.ZERO).isEmpty();
+    }
     private static boolean sameAirFluid(BlockState before,BlockState after) {
         return before.getFluidState().createLegacyBlock().getBlock()==after.getFluidState().createLegacyBlock().getBlock();
     }
     private static void applyAutomaticEdit(LocalAirAutomatic.Domain d,BlockPos pos,BlockState before,BlockState after,long tick,double scale) {
         var epoch=d.capture.dependencies();var source=(LocalAirWorldSource)d.capture.world();var prep=d.preparation;
         if(!source.remember(pos,before)) epoch.historyLost(pos.getX(),pos.getY(),pos.getZ(),tick);
-        boolean changed=false;
-        if(before!=null && before.getBlock()==after.getBlock() && before.getBlock().getClass()==CampfireBlock.class
-                && before.hasProperty(BlockStateProperties.LIT) && before.setValue(BlockStateProperties.LIT,after.getValue(BlockStateProperties.LIT))==after)
-            changed=prep.changeSource(pos.getX(),pos.getY(),pos.getZ(),tick,scale);
-        if(!changed && epoch.affectsBlock(pos.getX(),pos.getY(),pos.getZ())) {
+        if(!epoch.affectsBlock(pos.getX(),pos.getY(),pos.getZ())) return;
+        if(prep.classifyEdit(pos.getX(),pos.getY(),pos.getZ(),tick,scale)==LocalAirPreparation.EditOutcome.GEOMETRY) {
             long previous=epoch.blockRevision(pos.getX(),pos.getY(),pos.getZ(),tick,String.valueOf(before),String.valueOf(after));
             if(staticAirEdit(before,after))
                 prep.changeGeometry(pos.getX(),pos.getY(),pos.getZ(),previous,tick,scale,
