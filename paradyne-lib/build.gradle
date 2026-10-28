@@ -1,6 +1,6 @@
 // Extended by ChatGPT: opt-in thermal/airflow benchmarks, including thermal traversal controls.
 // Edited by ChatGPT with offline numerical benchmark tasks and qualification controls.
-// Edited by Claude: GeckoLib dependency.
+// Edited by Claude: GeckoLib dependency; coupled-air scaling scene argument.
 plugins {
     id 'eae.mod-conventions'
 }
@@ -82,5 +82,6 @@ tasks.register('coupledAirBenchmark', JavaExec) {
             providers.gradleProperty('coupledAirEquilibriumProtocol').getOrElse('long'),
             providers.gradleProperty('coupledAirQualificationStep').getOrElse('0.5'),
             providers.gradleProperty('coupledAirQualificationCase').getOrElse('0,8,8,3'),
-            providers.gradleProperty('coupledAirEquilibriumStep').getOrElse('1.0')
+            providers.gradleProperty('coupledAirEquilibriumStep').getOrElse('1.0'),
+            providers.gradleProperty('coupledAirScalingScene').getOrElse('all')
 }
