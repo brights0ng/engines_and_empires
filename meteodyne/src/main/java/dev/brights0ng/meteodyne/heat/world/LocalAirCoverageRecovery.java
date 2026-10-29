@@ -1,4 +1,5 @@
 // Written by ChatGPT.
+// Updated by Claude: capped expansions on bounding-box tiles from the plan's componentTiles; kept the nearest player distance across merges.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -44,7 +45,7 @@ final class LocalAirCoverageRecovery {
                 var proposed=new HashSet<>(old);proposed.add(tile);extra.put(base,proposed);
                 var candidate=components(plan);
                 long count=candidate.stream().filter(c->c.group.state()==State.PROPOSED_UNVERIFIED).mapToLong(c->c.group.tiles().size()).sum();
-                if(candidate.stream().filter(c->c.bases.contains(base)).anyMatch(c->c.group.tiles().size()>plan.settings().componentTiles() || c.group.cells()>LocalAirCommand.CELL_CAP)) message="component/per-domain tile limit";
+                if(candidate.stream().filter(c->c.bases.contains(base)).anyMatch(c->boxTiles(c.group.tiles())>plan.settings().componentTiles())) message="component/per-domain tile limit";
                 else if(count>plan.settings().totalTiles()) message="total planner tile limit";
                 else if(candidate.stream().anyMatch(c->c.group.state()!=State.PROPOSED_UNVERIFIED && c.bases.contains(base))) message="expansion touches deferred coverage";
                 if(message.isEmpty()) { components=candidate;messages.put(base,"Expanding coverage at "+LocalAirCoverage.face(cut)+" after "+rejected.failure.reason()); }
@@ -63,16 +64,16 @@ final class LocalAirCoverageRecovery {
         for(var group:plan.groups()) {
             var tiles=new TreeSet<>(group.tiles());tiles.addAll(extra.getOrDefault(group.tiles(),Set.of()));
             var bases=new ArrayList<List<Tile>>();bases.add(group.tiles());
-            var requests=new ArrayList<>(group.requests());var missing=new LinkedHashSet<>(group.missingChunks());var state=group.state();
+            var requests=new ArrayList<>(group.requests());var missing=new LinkedHashSet<>(group.missingChunks());var state=group.state();int distance=group.playerDistance();
             boolean joined;
             do {
                 joined=false;
                 for(var prior:List.copyOf(result)) if(touches(tiles,prior.group.tiles())) {
                     result.remove(prior);tiles.addAll(prior.group.tiles());bases.addAll(prior.bases);requests.addAll(prior.group.requests());missing.addAll(prior.group.missingChunks());
-                    if(prior.group.state()!=State.PROPOSED_UNVERIFIED) state=prior.group.state();joined=true;
+                    if(prior.group.state()!=State.PROPOSED_UNVERIFIED) state=prior.group.state();distance=Math.min(distance,prior.group.playerDistance());joined=true;
                 }
             } while(joined);
-            result.add(new Component(new Group(tiles.first(),List.copyOf(tiles),requests,List.copyOf(missing),state,(long)tiles.size()*4096),List.copyOf(bases)));
+            result.add(new Component(new Group(tiles.first(),List.copyOf(tiles),requests,List.copyOf(missing),state,(long)tiles.size()*4096,distance),List.copyOf(bases)));
         }
         result.sort(Comparator.comparing(c->c.group.key()));return result;
     }

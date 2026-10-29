@@ -9,6 +9,7 @@
 // Updated by Claude: reported per-owner capture re-reads and requeued coverage columns.
 // Updated by Claude: reported per-owner revision bumps by call site.
 // Updated by Claude: retired rejected owners into a doubling per-group backoff; reported geometry edits, edit phases, post-capture re-reads and replans.
+// Updated by Claude: derived the per-domain cell cap from the plan's componentTiles; admitted nearer groups first; retired owners unproposed for GRACE_TICKS.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -18,10 +19,15 @@ import static dev.brights0ng.meteodyne.heat.world.LocalAirGeometryCapture.Bounds
  * Dense/sparse transfers commit at a common tick; failed/unadmitted replacements retain their donor owners.
  */
 final class LocalAirAutomatic {
+    /** Default planner componentTiles for automatic domains (a 48x32x32 domain); the total-cell ceiling is four of them. */
+    static final int DEFAULT_COMPONENT_TILES=12,MAX_DOMAINS=4,
+            MAX_CELLS=MAX_DOMAINS*DEFAULT_COMPONENT_TILES*LocalAirPlanner.TILE_EDGE*LocalAirPlanner.TILE_EDGE*LocalAirPlanner.TILE_EDGE;
+    /** cells is the total across all owners, including retained and replacement buffers; the per-domain cap is the
+     * plan's componentTiles * 4096. */
     record Settings(int domains,int cells,int coverage,int steps) {
         Settings {
-            if(domains<1 || domains>4 || cells<4096 || cells>131072 || coverage<0 || coverage>1_000_000 || steps<1 || steps>64)
-                throw new IllegalArgumentException("Automatic limits: domains 1..4, total cells 4096..131072, coverage 0..1000000, steps 1..64");
+            if(domains<1 || domains>MAX_DOMAINS || cells<4096 || cells>MAX_CELLS || coverage<0 || coverage>1_000_000 || steps<1 || steps>64)
+                throw new IllegalArgumentException("Automatic limits: domains 1.."+MAX_DOMAINS+", total cells 4096.."+MAX_CELLS+", coverage 0..1000000, steps 1..64");
         }
     }
     record Capture(LocalAirCoverage.World world,LocalAirDependencies dependencies) { }
@@ -41,8 +47,9 @@ final class LocalAirAutomatic {
         boolean wanted;
         String rejected; // Sticky once seen REJECTED, so an edit-driven restart before reconcile cannot retry it.
         LocalAirRun.Seed checkpoint;
-        Domain(long id,Bounds bounds,Capture capture,LocalAirPreparation preparation) {
-            this.id=id;this.bounds=bounds;this.capture=capture;this.preparation=preparation;
+        long proposedTick; // Last reconcile at which a proposed group's bounds touched this owner.
+        Domain(long id,Bounds bounds,Capture capture,LocalAirPreparation preparation,long proposedTick) {
+            this.id=id;this.bounds=bounds;this.capture=capture;this.preparation=preparation;this.proposedTick=proposedTick;
         }
     }
     record Decision(LocalAirPlanner.Tile key,String state,String reason) { }
@@ -81,6 +88,9 @@ final class LocalAirAutomatic {
     /** A rejected group's slot is released until retryTick; repeated rejections double the wait. */
     private record Backoff(int rejections,long retryTick,String reason) { }
     static final long BACKOFF_TICKS=600,MAX_BACKOFF_TICKS=12_000;
+    /** A committed owner whose group stays unproposed this long is retired; shorter gaps keep it, so moving players
+     * do not thrash owners. */
+    static final long GRACE_TICKS=100;
     private final Map<Bounds,Backoff> backoffs=new HashMap<>();
     private long now;
     LocalAirAutomatic(Settings settings,Factory factory) { this.settings=settings;this.factory=factory; }
@@ -103,7 +113,9 @@ final class LocalAirAutomatic {
         }
         var recovered=recovery.update(plan,minY,maxY,rejectedLayouts.entrySet().stream().map(e->new LocalAirCoverageRecovery.Rejection(e.getKey(),e.getValue())).toList(),factory::loaded);
         coverageNotes=recovered.notes();
-        var groups=new ArrayList<>(recovered.groups());groups.sort(Comparator.<LocalAirPlanner.Group>comparingInt(LocalAirAutomatic::priority).thenComparing(LocalAirPlanner.Group::key));
+        var groups=new ArrayList<>(recovered.groups());groups.sort(Comparator.<LocalAirPlanner.Group>comparingInt(LocalAirAutomatic::priority)
+                .thenComparingInt(LocalAirPlanner.Group::playerDistance).thenComparing(LocalAirPlanner.Group::key));
+        long domainCells=LocalAirPlanner.componentCells(plan.settings());
         var desired=new LinkedHashMap<Bounds,LocalAirPlanner.Group>();
         for(var g:groups) {
             if(g.state()!=LocalAirPlanner.State.PROPOSED_UNVERIFIED) { result.add(new Decision(g.key(),g.state().name(),"Planner deferred this whole group"));continue; }
@@ -117,11 +129,14 @@ final class LocalAirAutomatic {
         var notes=new HashMap<>(coverageNotes);rejectedPreparations.forEach((b,reason)->notes.putIfAbsent(b,"Coverage blocked: "+reason));coverageNotes=Map.copyOf(notes);
         coverageNotes.forEach((b,message)->result.add(new Decision(desired.get(b)==null?null:desired.get(b).key(),message.startsWith("Coverage blocked")?"COVERAGE_BLOCKED":"COVERAGE_EXPANDED",message)));
         backoff(desired,result);
+        for(var d:domains) if(desired.keySet().stream().anyMatch(b->touches(d.bounds,b))) d.proposedTick=now;
         if(transaction!=null && !transaction.desired.equals(desired.keySet())) cancel("PLAN_SUPERSEDED");
         if(transaction!=null) {
             for(var d:domains) d.wanted=desired.containsKey(d.bounds) || transaction.donors.contains(d);
             result.add(new Decision(null,"TRANSFERRING",transferState));decisions=List.copyOf(result);return;
         }
+        // An owner nothing proposed has touched for GRACE_TICKS gives up its slot before admission, after saving.
+        for(var d:List.copyOf(domains)) if(now-d.proposedTick>=GRACE_TICKS) retire(d);
         // A rejected owner cannot supply a sealed transfer seed. Save its last valid checkpoint before rebuilding.
         for(var d:List.copyOf(domains)) if(!desired.containsKey(d.bounds) && d.preparation.coverageFailure()!=null
                 && desired.keySet().stream().anyMatch(b->touches(d.bounds,b) && b.cells()<=settings.cells-(cells()-d.bounds.cells()))) retire(d);
@@ -130,7 +145,7 @@ final class LocalAirAutomatic {
         var targetBounds=desired.keySet().stream().filter(b->donors.stream().anyMatch(d->touches(d.bounds,b))).toList();
         if(!donors.isEmpty()) {
             int targetCells=targetBounds.stream().mapToInt(Bounds::cells).sum();
-            boolean cap=targetBounds.stream().anyMatch(b->b.cells()>32768) || domains.size()-donors.size()+targetBounds.size()>settings.domains
+            boolean cap=targetBounds.stream().anyMatch(b->b.cells()>domainCells) || domains.size()-donors.size()+targetBounds.size()>settings.domains
                     || targetCells>settings.cells-cells() || !retiring.isEmpty();
             if(cap || targetBounds.stream().anyMatch(rejectedPreparations::containsKey)) {
                 for(var d:donors) d.wanted=true;
@@ -157,17 +172,14 @@ final class LocalAirAutomatic {
                 result.add(new Decision(g.key(),"TRANSFER_PENDING","Resize/merge/split requires retained-state transfer; existing owners retained"));continue;
             }
             int finalOwners=transaction==null?domains.size():domains.size()-transaction.donors.size()+transaction.targets.size();
-            if(finalOwners>=settings.domains || b.cells()>settings.cells-cells() || b.cells()>LocalAirCommand.CELL_CAP) {
+            if(finalOwners>=settings.domains || b.cells()>settings.cells-cells() || b.cells()>domainCells) {
                 coverageNote(b,"Coverage blocked: runtime owner/cell limit includes retained and replacement buffers");
-                result.add(new Decision(g.key(),"RUNTIME_LIMIT","Owner/cell allowance includes retained domains; per-domain cap 32768"));continue;
+                result.add(new Decision(g.key(),"RUNTIME_LIMIT","Owner/cell allowance includes retained domains; per-domain cap "+domainCells));continue;
             }
             try {
                 var d=create(b);d.wanted=true;domains.add(d);
                 result.add(new Decision(g.key(),"OWNED","Domain "+d.id));
             } catch(RuntimeException e) { result.add(new Decision(g.key(),"CAPTURE_UNAVAILABLE",e.toString())); }
-        }
-        for(var d:List.copyOf(domains)) if(factory.thermal()!=null && !d.wanted && desired.keySet().stream().noneMatch(b->touches(d.bounds,b))) {
-            retire(d);
         }
         decisions=List.copyOf(result);
     }
@@ -206,7 +218,7 @@ final class LocalAirAutomatic {
                 new LocalAirRun.Settings(weather.ambient(),weather.windX(),weather.windZ(),settings.steps),16);
         if(factory.thermal()!=null) prep.thermalInitialization(factory.thermal());
         prep.invalidationCause(capture.dependencies()::lastCause);prep.revisionSites(capture.dependencies()::revisionSites);
-        return new Domain(++nextId,b,capture,prep);
+        return new Domain(++nextId,b,capture,prep,now);
     }
     void beforeEdit(int x,int y,int z) {
         owner();rejectedLayouts.clear();rejectedPreparations.clear();recovery.retryBlocked();

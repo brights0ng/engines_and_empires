@@ -4,6 +4,7 @@
 // Updated by ChatGPT: exposed world-shared sky indexing and strictly empty section classification.
 // Updated by Claude: compared an edit's read inputs (collision shape and fluid) with the conversion sample records.
 // Updated by Claude: read snow layers in Bright's buckets (1-3 air, 4-7 bottom half, 8 full); labelled edits by block pair.
+// Updated by Claude: clipped fence, wall and fence-gate collision to their own cell.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.IdentityHashMap;
@@ -11,12 +12,16 @@ import java.util.function.LongSupplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.phys.shapes.BooleanOp;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /** Server-thread geometry/material extraction only; no chunk loads and no world objects in output.
  * Revision supplier covers geometry/chunk/context edits; separately verified source-only events retain geometry.
@@ -156,10 +161,18 @@ final class LocalAirWorldSource implements LocalAirCoverage.World {
         for(var property:before.getProperties()) if(!before.getValue(property).equals(after.getValue(property))) changed.add(property.getName());
         return label+"["+String.join(",",changed)+"]";
     }
+    /** The collision shape local air reads. Fences, walls and fence gates are clipped to their own cell: the part
+     * above y=1 only stops entities jumping over, and air passes over it. Every other shape is read unchanged. */
+    static VoxelShape collisionShape(BlockState state,BlockGetter view,BlockPos pos) {
+        var shape=state.getCollisionShape(view,pos);
+        if(state.is(BlockTags.FENCES) || state.is(BlockTags.WALLS) || state.is(BlockTags.FENCE_GATES))
+            return Shapes.join(shape,Shapes.block(),BooleanOp.AND);
+        return shape;
+    }
     /** Solid boxes exactly as a sample records them, in sixteenths. */
     private static int[] solid(BlockState state,BlockGetter view,BlockPos pos) {
         // Snow's collision shape omits the lowest layer; its physical occupancy does not.
-        var boxes=(state.getBlock() instanceof SnowLayerBlock?state.getShape(view,pos):state.getCollisionShape(view,pos)).toAabbs();
+        var boxes=(state.getBlock() instanceof SnowLayerBlock?state.getShape(view,pos):collisionShape(state,view,pos)).toAabbs();
         if(boxes.size()>64) { throw unsupported("Collision shape exceeds box budget"); }
         int[] solid=new int[boxes.size()*6];int at=0;
         for(var box:boxes) {

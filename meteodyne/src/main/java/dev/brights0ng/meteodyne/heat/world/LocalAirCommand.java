@@ -4,6 +4,7 @@
 // Updated by ChatGPT: added explicit automatic view controls while preserving manual syntax.
 // Updated by ChatGPT: routed trial status to the selected runtime and clarified allocation messages.
 // Updated by Claude: added the scripted soak controls.
+// Updated by Claude: raised the automatic total-cell ceiling to four 12-tile domains and named it a total in the usage text.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.Locale;
@@ -34,7 +35,7 @@ final class LocalAirCommand {
                                 .executes(c->automaticSample(c.getSource(),c.getSource().getPosition(),IntegerArgumentType.getInteger(c,"maxAgeTicks")))
                                 .then(Commands.argument("position",Vec3Argument.vec3()).executes(c->automaticSample(c.getSource(),Vec3Argument.getVec3(c,"position"),IntegerArgumentType.getInteger(c,"maxAgeTicks"))))))
                         .then(Commands.argument("domains",IntegerArgumentType.integer(1,4))
-                        .then(Commands.argument("totalCells",IntegerArgumentType.integer(4096,131072))
+                        .then(Commands.argument("totalCells",IntegerArgumentType.integer(4096,LocalAirAutomatic.MAX_CELLS))
                         .then(Commands.argument("coverageLimit",IntegerArgumentType.integer(0,EVIDENCE_CAP))
                         .then(Commands.argument("steps",IntegerArgumentType.integer(1,64)).executes(c->{
                             var w=world(c.getSource());if(w==null) return 0;
@@ -138,7 +139,7 @@ final class LocalAirCommand {
     }
     private static int automaticStatus(CommandSourceStack source) {
         var w=world(source);if(w==null) return 0;var auto=w.automaticAir();
-        if(auto==null) { source.sendSuccess(()->Component.literal("Automatic trial off. Configure air plan, then /meteodyne heat air auto <domains> <totalCells> <coverageLimit> <steps>."),false);return 1; }
+        if(auto==null) { source.sendSuccess(()->Component.literal("Automatic trial off. Configure air plan, then /meteodyne heat air auto <domains> <totalCells> <coverageLimit> <steps>. totalCells is shared by all owners; each owner is capped at the plan's componentTiles x 4096 cells."),false);return 1; }
         source.sendSuccess(()->Component.literal("Automatic trial: "+auto.settings+"; committed owners "+auto.committedDomains().size()+", total preparations "+auto.domains().size()+", reserved cells "+auto.cells()+"; layout "+auto.transferState()+", transfers "+auto.transfers()+". Capture, workers and wall budget are shared with existing heat work."),false);
         if(auto.lastTransfer()!=null) source.sendSuccess(()->Component.literal("Last layout transfer: "+auto.lastTransfer()),false);
         for(var row:auto.rows()) source.sendSuccess(()->Component.literal("Auto "+row),false);

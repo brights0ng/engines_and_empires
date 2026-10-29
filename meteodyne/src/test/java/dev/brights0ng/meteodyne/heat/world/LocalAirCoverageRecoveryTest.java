@@ -1,4 +1,5 @@
 // Written by ChatGPT.
+// Updated by Claude: capped the per-domain expansion through componentTiles now that the cell cap derives from it.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -38,7 +39,7 @@ class LocalAirCoverageRecoveryTest {
         var total=new LocalAirCoverageRecovery().update(two,0,32,List.of(east),t->true);
         assertTrue(total.notes().values().iterator().next().contains("total planner"));assertEquals(2,total.groups().size());
         var eight=group(0,1,2,3,4,5,6,7);
-        var capped=new LocalAirCoverageRecovery().update(plan(64,eight),0,32,List.of(rejection(eight,127,8,8,0,1)),t->true);
+        var capped=new LocalAirCoverageRecovery().update(new Plan(0,0,0,new Settings(0,1,64,8),List.of(eight),List.of(),0,""),0,32,List.of(rejection(eight,127,8,8,0,1)),t->true);
         assertEquals(32768,capped.groups().getFirst().cells());assertTrue(capped.notes().values().iterator().next().contains("per-domain"));
         var top=new LocalAirCoverageRecovery().update(plan(8,g),0,32,List.of(rejection(g,8,15,8,1,1)),t->true);
         assertEquals(List.of(new Tile(0,0,0),new Tile(0,1,0)),top.groups().getFirst().tiles());

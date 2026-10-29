@@ -1,5 +1,6 @@
 // Written by ChatGPT.
 // Updated by Claude: checked Bright's snow buckets (1-3 layers air, 4-7 half block, 8 full).
+// Updated by Claude: a fence now captures with its collision clipped to the cell.
 package dev.brights0ng.meteodyne.heat.world;
 
 import dev.brights0ng.meteodyne.Meteodyne;
@@ -76,7 +77,7 @@ public final class LocalAirGeometryGameTests {
             var source=new LocalAirWorldSource(level,()->1);
             var fence=new LocalAirGeometryCapture(new LocalAirGeometryCapture.Bounds(pos.getX(),pos.getY(),pos.getZ(),1,1,1),1,source);
             fence.advance(1,Long.MAX_VALUE);
-            helper.assertTrue(fence.status()==LocalAirGeometryCapture.Status.UNSUPPORTED_GEOMETRY,"Overhanging collider must reject admission");
+            helper.assertTrue(fence.status()==LocalAirGeometryCapture.Status.CAPTURED,"Fence collision is clipped to its cell: "+fence.reason());
         } finally { level.setBlock(pos,old,2);level.setBlock(pos.above(),above,2); }
         helper.succeed();
     }

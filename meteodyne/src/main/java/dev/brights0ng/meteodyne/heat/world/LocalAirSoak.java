@@ -1,7 +1,9 @@
 // Written by Claude.
+// Updated by Claude: held station and churn chunks with a non-persistent ticket instead of saved chunk forcing.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -13,7 +15,11 @@ import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ChunkLevel;
+import net.minecraft.server.level.ChunkMap;
+import net.minecraft.server.level.FullChunkStatus;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.TicketType;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -38,6 +44,10 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 @EventBusSubscriber(modid=Meteodyne.MODID)
 final class LocalAirSoak {
     static final int STATIONS=4,SPACING=48,CHURN_CHUNK_X=24,CHURN_CHUNK_Z=2;
+    /** Never saved, unlike setChunkForced: a crash or killed process leaves no forced chunks in the world. */
+    static final TicketType<ChunkPos> TICKET=TicketType.create("meteodyne_soak",Comparator.comparingLong(ChunkPos::toLong));
+    /** Region-ticket distance that lands on the level vanilla forcing uses (entity ticking). */
+    static final int TICKET_DISTANCE=ChunkLevel.byStatus(FullChunkStatus.FULL)-ChunkMap.FORCED_TICKET_LEVEL;
     enum Mode { CALM, BUSY }
     enum Action { FURNACE, CAMPFIRE, CROP, LEAF, REDSTONE, CHUNK }
 
@@ -87,7 +97,7 @@ final class LocalAirSoak {
             build(level,BlockPos.containing(source.getPosition()),STATIONS,true);
         } catch(IllegalStateException e) { source.sendFailure(Component.literal(e.getMessage()));return 0; }
         var s=state;
-        source.sendSuccess(()->Component.literal("Soak stations built at "+s.stations.stream().map(st->st.surface().toShortString()).toList()+"; station chunks force-loaded. Next: /meteodyne heat air soak start calm"),false);
+        source.sendSuccess(()->Component.literal("Soak stations built at "+s.stations.stream().map(st->st.surface().toShortString()).toList()+"; station chunks held loaded (never saved). Next: /meteodyne heat air soak start calm"),false);
         return 1;
     }
     static int start(CommandSourceStack source,Mode mode) {
@@ -101,7 +111,7 @@ final class LocalAirSoak {
         var level=overworld(source);if(level==null) return 0;
         if(state==null) { source.sendFailure(Component.literal("No soak stations built."));return 0; }
         stop(level);
-        source.sendSuccess(()->Component.literal("Soak stopped; churn and station chunks unforced. "+summary()),false);
+        source.sendSuccess(()->Component.literal("Soak stopped; churn and station chunks released. "+summary()),false);
         return 1;
     }
     static int status(CommandSourceStack source) {
@@ -210,7 +220,7 @@ final class LocalAirSoak {
                 case CHUNK -> {
                     if(!s.chunkChurn) break;
                     boolean first=s.chunkFlips++%2==0;var a=churnChunk(s,0);var b=churnChunk(s,CHURN_CHUNK_Z);
-                    level.setChunkForced(a.x,a.z,first);level.setChunkForced(b.x,b.z,!first);
+                    hold(level,a,first);hold(level,b,!first);
                 }
             }
             s.counts.merge(action,1L,Long::sum);
@@ -226,10 +236,15 @@ final class LocalAirSoak {
         var origin=new ChunkPos(s.origin);return new ChunkPos(origin.x+CHURN_CHUNK_X,origin.z+dz);
     }
     private static void forceChurn(ServerLevel level,State s,boolean on) {
-        for(int dz:new int[]{0,CHURN_CHUNK_Z}) { var c=churnChunk(s,dz);level.setChunkForced(c.x,c.z,on); }
+        for(int dz:new int[]{0,CHURN_CHUNK_Z}) hold(level,churnChunk(s,dz),on);
     }
     private static void forceStations(ServerLevel level,State s,boolean on) {
-        for(var st:s.stations) level.setChunkForced(st.surface().getX()>>4,st.surface().getZ()>>4,on);
+        for(var st:s.stations) hold(level,new ChunkPos(st.surface()),on);
+    }
+    /** Idempotent: a chunk holds at most one soak ticket. */
+    private static void hold(ServerLevel level,ChunkPos pos,boolean on) {
+        if(on) level.getChunkSource().addRegionTicket(TICKET,pos,TICKET_DISTANCE,pos);
+        else level.getChunkSource().removeRegionTicket(TICKET,pos,TICKET_DISTANCE,pos);
     }
 
     // ---- reporting ----

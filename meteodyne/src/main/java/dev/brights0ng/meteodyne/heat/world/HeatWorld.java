@@ -19,6 +19,7 @@
 // Updated by Claude: indexed placed sources for local-air demand in any state, beside the legacy placed index.
 // Updated by Claude: tagged local-air revision bumps by call site and reported re-read and revision-site counters.
 // Updated by Claude: compared sky relevance in local air's snow buckets; reported geometry edits, edit phases, post-capture re-reads and replans.
+// Updated by Claude: compared sky relevance with fence, wall and gate collision clipped to the cell; passed player positions to the planner.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.ArrayList;
@@ -355,8 +356,9 @@ public final class HeatWorld {
             var box=testArea.clone();java.util.function.Predicate<LocalAirDemandRegistry.Cell> within=c->inside(box,c.x(),c.y(),c.z());
             demand=new LocalAirDemandRegistry.Snapshot(demand.tick(),demand.revision(),demand.entries().stream().filter(e->within.test(e.request().cell())).toList(),demand.anchors().stream().filter(a->within.test(a.cell())).toList());
         }
+        var players=level.players().stream().map(p->new LocalAirDemandRegistry.Cell(p.getBlockX(),p.getBlockY(),p.getBlockZ())).toList();
         var plan=airPlanner.update(demand,level.getMinBuildHeight(),level.getMaxBuildHeight(),
-                (x,z)->level.getChunkSource().getChunkNow(x,z)!=null);
+                (x,z)->level.getChunkSource().getChunkNow(x,z)!=null,players);
         if(automaticAir!=null) {
             automaticAir.reconcile(plan,level.getMinBuildHeight(),level.getMaxBuildHeight());publishAutomaticEpochs();
         }
@@ -565,8 +567,8 @@ public final class HeatWorld {
         before=LocalAirWorldSource.localAirState(before);after=LocalAirWorldSource.localAirState(after);
         return before.isAir()!=after.isAir() || before.getFluidState().isEmpty()!=after.getFluidState().isEmpty()
                 || before.getBlock().hasDynamicShape() || after.getBlock().hasDynamicShape()
-                || before.getCollisionShape(EmptyBlockGetter.INSTANCE,BlockPos.ZERO).isEmpty()
-                        !=after.getCollisionShape(EmptyBlockGetter.INSTANCE,BlockPos.ZERO).isEmpty();
+                || LocalAirWorldSource.collisionShape(before,EmptyBlockGetter.INSTANCE,BlockPos.ZERO).isEmpty()
+                        !=LocalAirWorldSource.collisionShape(after,EmptyBlockGetter.INSTANCE,BlockPos.ZERO).isEmpty();
     }
     private static boolean sameAirFluid(BlockState before,BlockState after) {
         return before.getFluidState().createLegacyBlock().getBlock()==after.getFluidState().createLegacyBlock().getBlock();
