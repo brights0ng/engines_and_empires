@@ -5,6 +5,7 @@
 // Updated by Claude: tested restart-cause and weather grid-rebuild counters.
 // Updated by Claude: tested continuous no-op and real edits while a fresh owner captures.
 // Updated by Claude: tested that rejected owners release their slot into a doubling backoff.
+// Updated by Claude: tested that an unproposed far owner keeps its slot for GRACE_TICKS, then yields it to a nearer group.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -148,6 +149,30 @@ class LocalAirAutomaticTest {
         drain(auto,1800);auto.reconcile(plan(r),0,32);assertNotNull(backoff(auto));
         r.remove(new LocalAirDemandRegistry.Key(LocalAirDemandRegistry.Kind.PLAYER,"bad"));auto.reconcile(plan(r),0,32);assertNull(backoff(auto));
         request(r,"bad",8);auto.reconcile(plan(r),0,32);assertEquals(4,f.created);assertNull(backoff(auto));auto.close();
+    }
+    @Test void aCommittedFarGroupYieldsItsSlotToANearerGroupAfterTheGraceNotBefore() {
+        // One slot and one planner tile: the group nearer the player takes the tile, so the far group stops being proposed.
+        var f=new Factory();var auto=new LocalAirAutomatic(new LocalAirAutomatic.Settings(1,32768,0,4),f);var r=registry();
+        var player=List.of(new LocalAirDemandRegistry.Cell(8,8,8));
+        java.util.function.Supplier<LocalAirPlanner.Plan> plan=()->new LocalAirPlanner(new LocalAirPlanner.Settings(0,1,1,64)).update(r.snapshot(),0,32,(x,z)->true,player);
+        request(r,"far",72);auto.observe(10,1);auto.reconcile(plan.get(),0,32);
+        var far=auto.committedDomains().getFirst();assertEquals(64,far.bounds.x());
+        request(r,"near",8);auto.reconcile(plan.get(),0,32);
+        assertEquals(List.of(far),auto.committedDomains());
+        assertTrue(auto.decisions().stream().anyMatch(d->d.state().equals("RUNTIME_LIMIT") && d.key().x()==0),auto.decisions().toString());
+        assertTrue(auto.decisions().stream().anyMatch(d->d.state().equals("TOTAL_LIMIT") && d.key().x()==4),auto.decisions().toString());
+        auto.observe(10+LocalAirAutomatic.GRACE_TICKS-1,1);auto.reconcile(plan.get(),0,32);
+        assertEquals(List.of(far),auto.committedDomains(),"The far owner keeps its slot through the grace");
+        auto.observe(10+LocalAirAutomatic.GRACE_TICKS,1);auto.reconcile(plan.get(),0,32);
+        assertEquals(1,auto.committedDomains().size());assertEquals(0,auto.committedDomains().getFirst().bounds.x(),"The nearer group took the slot");
+        assertEquals(LocalAirPreparation.Status.CLOSED,far.preparation.status());
+        // Being proposed again within the grace restarts it.
+        var near=auto.committedDomains().getFirst();var key=new LocalAirDemandRegistry.Key(LocalAirDemandRegistry.Kind.PLAYER,"near");
+        r.remove(key);auto.observe(200,1);auto.reconcile(plan.get(),0,32);assertEquals(List.of(near),auto.committedDomains());
+        request(r,"near",8);auto.observe(300,1);auto.reconcile(plan.get(),0,32);assertEquals(List.of(near),auto.committedDomains());
+        r.remove(key);auto.observe(300+LocalAirAutomatic.GRACE_TICKS-1,1);auto.reconcile(plan.get(),0,32);assertEquals(List.of(near),auto.committedDomains());
+        auto.observe(300+LocalAirAutomatic.GRACE_TICKS,1);auto.reconcile(plan.get(),0,32);
+        assertEquals(64,auto.committedDomains().getFirst().bounds.x(),"The far group returns once the near owner's grace ends");auto.close();
     }
     @Test void rejectedInitialOwnerExpandsAndPublishesInsteadOfWaitingForAnImpossibleSeed() {
         var f=new RecoveryFactory();var auto=new LocalAirAutomatic(SETTINGS,f);var r=registry();request(r,"p",8);
@@ -376,6 +401,7 @@ class LocalAirAutomaticTest {
         assertTrue(frame.temperature(frame.flow.nodeAt(7.5,6.5,7.5))>20,"Live donor overlap takes precedence over disk estimates");
         assertEquals(0,auto.lastTransfer().error(),1e-6);assertTrue(frame.restoredCells>0);
         r.clear();request(r,"far",72);auto.reconcile(plan(r),0,32);drain(auto,40);
+        auto.observe(40+LocalAirAutomatic.GRACE_TICKS,1);auto.reconcile(plan(r),0,32);
         assertEquals(1,auto.committedDomains().size(),"Inactive coverage releases ownership after saving");assertEquals(LocalAirPreparation.Status.CLOSED,expanded.preparation.status());
         auto.close();assertFalse(saved.isEmpty());
     }

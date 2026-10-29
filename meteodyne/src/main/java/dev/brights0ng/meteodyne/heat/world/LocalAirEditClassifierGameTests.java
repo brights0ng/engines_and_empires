@@ -1,6 +1,7 @@
 // Written by Claude.
 // Updated by Claude: checked read-input comparison on real block states.
 // Updated by Claude: checked snow layers classify by bucket in a prepared domain.
+// Updated by Claude: checked fence, wall and gate read inputs compare their cell-clipped collision.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -97,6 +98,14 @@ public final class LocalAirEditClassifierGameTests {
         helper.assertTrue(LocalAirWorldSource.readInputsSame(snow.setValue(SnowLayerBlock.LAYERS,5),Blocks.STONE_SLAB.defaultBlockState()),"Half-block snow reads like a bottom slab");
         helper.assertTrue(LocalAirWorldSource.readInputsSame(snow.setValue(SnowLayerBlock.LAYERS,4),snow.setValue(SnowLayerBlock.LAYERS,7)),"Four to seven layers share one bucket");
         helper.assertFalse(LocalAirWorldSource.readInputsSame(snow.setValue(SnowLayerBlock.LAYERS,7),snow.setValue(SnowLayerBlock.LAYERS,8)),"Eight layers fill the block");
+        // Unclipped, a 1.5-block fence could not be converted and never compared equal.
+        var fence=Blocks.OAK_FENCE.defaultBlockState();var gate=Blocks.OAK_FENCE_GATE.defaultBlockState();
+        helper.assertTrue(LocalAirWorldSource.readInputsSame(fence,Blocks.SPRUCE_FENCE.defaultBlockState()),"Fence posts compare by their clipped shape");
+        helper.assertTrue(LocalAirWorldSource.readInputsSame(Blocks.COBBLESTONE_WALL.defaultBlockState(),Blocks.STONE_BRICK_WALL.defaultBlockState()),"Wall posts compare by their clipped shape");
+        helper.assertTrue(LocalAirWorldSource.readInputsSame(gate,gate.setValue(BlockStateProperties.IN_WALL,true)),"A gate lowered into a wall keeps its collision");
+        helper.assertFalse(LocalAirWorldSource.readInputsSame(fence,Blocks.AIR.defaultBlockState()),"A fence beside air is not air");
+        helper.assertFalse(LocalAirWorldSource.readInputsSame(fence,fence.setValue(BlockStateProperties.EAST,true)),"A fence arm toward the air changes the shape");
+        helper.assertFalse(LocalAirWorldSource.readInputsSame(gate,gate.setValue(BlockStateProperties.OPEN,true)),"Opening a gate clears its collision");
         helper.succeed();
     }
     // Its own batch: the manual domain is one per world, and the fixture above holds it.

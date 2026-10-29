@@ -1,6 +1,7 @@
 // Written by ChatGPT.
 // Updated by ChatGPT: kept automatic lattice positions aligned to world coordinates.
 // Updated by ChatGPT: used explicit coverage progress instead of a generic waiting label.
+// Updated by Claude: coarsened the lattice of domains larger than one view packet instead of failing the payload.
 package dev.brights0ng.meteodyne.heat.world;
 import java.util.*;
 final class LocalAirViewModel {
@@ -9,12 +10,17 @@ final class LocalAirViewModel {
         if(spacing<1 || spacing>32) throw new IllegalArgumentException("Lattice spacing must be 1..32 blocks");
         if(frame==null || LocalAirDiagnostics.age(frame,now)>maxAge) return List.of();
         var points=new ArrayList<LocalAirViewNetwork.Point>();
-        lattice(frame.bounds,spacing,worldAnchored,(x,y,z)->{
+        // A 12-tile domain holds 49,152 cells, more than one packet carries: widen the spacing until the lattice fits.
+        int fit=spacing;while(fit<32 && count(frame.bounds,fit,worldAnchored)>LocalAirViewNetwork.MAX_POINTS) fit++;
+        lattice(frame.bounds,fit,worldAnchored,(x,y,z)->{
             var sample=LocalAirDiagnostics.sample(frame,now,x+.5,y+.5,z+.5);
             if(sample.availability()==LocalAirDiagnostics.Availability.AIR)
                 points.add(new LocalAirViewNetwork.Point(x,y,z,(float)(sample.temperature()-frame.weather.ambient()),(float)sample.x(),(float)sample.y(),(float)sample.z()));
         });
         return points;
+    }
+    private static long count(LocalAirGeometryCapture.Bounds b,int spacing,boolean worldAnchored) {
+        long[] n={0};lattice(b,spacing,worldAnchored,(x,y,z)->n[0]++);return n[0];
     }
     /** Cell centers anchored to the domain minimum; spacing changes sampling only. */
     static void lattice(LocalAirGeometryCapture.Bounds b,int spacing,LatticePoint visitor) {

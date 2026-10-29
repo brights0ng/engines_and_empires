@@ -1,6 +1,7 @@
 // Written by Claude.
 // Updated by Claude: reproduced the live busy soak across a full automatic capture and checked the new counters reach summary.json.
 // Updated by Claude: added the snowy-biome churn (snow layers 1..8, one stone after the first capture) and required zero restarts.
+// Updated by Claude: checked station chunks stay loaded on the soak ticket without being force-loaded.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.nio.file.Files;
@@ -172,6 +173,48 @@ public final class LocalAirSoakGameTests {
             helper.assertTrue(stone[0],"A stone landed inside a domain after its capture");
             for(var d:committed) helper.assertTrue(d.preparation.restarts()==0,"Domain "+d.id+" never restarts: "+owners(auto));
         }).thenSucceed();
+    }
+    /** The soak holds station chunks with its own never-saved ticket: build adds no forced chunk, yet the chunk stays
+     * loaded at the forced level, and stop releases it. The station sits far from the test grid, outside any chunk the
+     * game-test framework itself force-loads. */
+    @GameTest(template=GameTestStructures.EMPTY,batch="local_air_soak_tickets",timeoutTicks=200)
+    public static void soakTicketsHoldStationChunksWithoutForcingThem(GameTestHelper helper) {
+        var level=helper.getLevel();var origin=helper.absolutePos(new BlockPos(2,1,2)).offset(4096,0,4096);
+        var chunk=new ChunkPos(origin);level.getChunk(chunk.x,chunk.z); // loads it for build's loaded-chunk check
+        var forcedBefore=java.util.Set.copyOf(level.getForcedChunks());
+        int h=level.getHeight(Heightmap.Types.WORLD_SURFACE,origin.getX(),origin.getZ());
+        Map<BlockPos,BlockState> saved=new HashMap<>();
+        for(int x=-8;x<=3;x++) for(int y=-1;y<=3;y++) for(int z=-6;z<=7;z++) {
+            var pos=new BlockPos(origin.getX()+x,h+y,origin.getZ()+z);saved.put(pos,level.getBlockState(pos));
+        }
+        boolean[] cleaned={false};
+        Runnable cleanup=()->{
+            if(cleaned[0]) return;cleaned[0]=true;LocalAirSoak.stop(level);
+            var order=new ArrayList<>(saved.keySet());order.sort((a,b)->Integer.compare(b.getY(),a.getY()));
+            for(var pos:order) level.setBlock(pos,saved.get(pos),Block.UPDATE_CLIENTS|Block.UPDATE_KNOWN_SHAPE);
+        };
+        helper.testInfo.addListener(new GameTestListener() {
+            public void testStructureLoaded(GameTestInfo info) { }
+            public void testPassed(GameTestInfo info,GameTestRunner runner) { cleanup.run(); }
+            public void testFailed(GameTestInfo info,GameTestRunner runner) { cleanup.run(); }
+            public void testAddedForRerun(GameTestInfo oldInfo,GameTestInfo newInfo,GameTestRunner runner) { cleanup.run(); }
+        });
+        LocalAirSoak.build(level,origin,1,true);
+        var station=new ChunkPos(LocalAirSoak.stations().getFirst().surface());
+        helper.assertTrue(level.getForcedChunks().equals(forcedBefore),"Build forces no chunk: "+level.getForcedChunks()+" vs "+forcedBefore);
+        helper.assertFalse(level.getForcedChunks().contains(station.toLong()),"The station chunk is not saved as forced");
+        helper.startSequence().thenIdle(60).thenExecute(()->{
+            helper.assertTrue(level.getChunkSource().getChunkNow(station.x,station.z)!=null,"The station chunk is still loaded");
+            helper.assertTrue(ticketLevel(level,station)<=net.minecraft.server.level.ChunkMap.FORCED_TICKET_LEVEL,"The soak ticket holds the forced level: "+level.getChunkSource().getChunkDebugData(station));
+            helper.assertTrue(level.getForcedChunks().equals(forcedBefore),"Still no forced chunk after 60 ticks");
+            LocalAirSoak.stop(level);
+        }).thenIdle(5).thenExecute(()->helper.assertTrue(ticketLevel(level,station)>net.minecraft.server.level.ChunkMap.FORCED_TICKET_LEVEL,
+                "Stop releases the soak ticket: "+level.getChunkSource().getChunkDebugData(station))).thenSucceed();
+    }
+    /** The chunk holder's ticket level, or a level past every loaded status once no holder is left. */
+    private static int ticketLevel(net.minecraft.server.level.ServerLevel level,ChunkPos pos) {
+        var data=level.getChunkSource().getChunkDebugData(pos);
+        return data.equals("null")?Integer.MAX_VALUE:Integer.parseInt(data.lines().findFirst().orElseThrow().trim());
     }
     private static String owners(LocalAirAutomatic auto) {
         var out=new StringBuilder();

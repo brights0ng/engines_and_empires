@@ -1,4 +1,5 @@
 // Written by ChatGPT.
+// Updated by Claude: ordered groups by distance to the nearest player and capped components on bounding-box tiles.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.*;
@@ -25,9 +26,29 @@ public final class LocalAirPlanner {
     public record Column(int x,int z) { }
     public record Unsupported(Entry request,String reason) { }
     public enum State { PROPOSED_UNVERIFIED, MISSING_CHUNKS, COMPONENT_LIMIT, TOTAL_LIMIT }
-    /** Tiles form one face-connected calculation group. Interior faces must share pressure and heat flux. */
-    public record Group(Tile key,List<Tile> tiles,List<Entry> requests,List<Column> missingChunks,State state,long cells) {
+    /** Tiles form one face-connected calculation group. Interior faces must share pressure and heat flux.
+     * playerDistance: tiles from the group's nearest tile to the nearest player; Integer.MAX_VALUE with no player. */
+    public record Group(Tile key,List<Tile> tiles,List<Entry> requests,List<Column> missingChunks,State state,long cells,int playerDistance) {
         public Group { tiles=List.copyOf(tiles);requests=List.copyOf(requests);missingChunks=List.copyOf(missingChunks); }
+        public Group(Tile key,List<Tile> tiles,List<Entry> requests,List<Column> missingChunks,State state,long cells) {
+            this(key,tiles,requests,missingChunks,state,cells,Integer.MAX_VALUE);
+        }
+    }
+    /** Cells a domain of componentTiles tiles may hold. */
+    public static long componentCells(Settings settings) { return (long)settings.componentTiles*TILE_EDGE*TILE_EDGE*TILE_EDGE; }
+    /** Tiles in the bounding box of these tiles: a domain can take the box, so the component cap applies to it. */
+    public static long boxTiles(Collection<Tile> tiles) {
+        if(tiles.isEmpty()) return 0;
+        long lx=Long.MAX_VALUE,ly=lx,lz=lx,hx=Long.MIN_VALUE,hy=hx,hz=hx;
+        for(var t:tiles) { lx=Math.min(lx,t.x);ly=Math.min(ly,t.y);lz=Math.min(lz,t.z);hx=Math.max(hx,t.x);hy=Math.max(hy,t.y);hz=Math.max(hz,t.z); }
+        return (hx-lx+1)*(hy-ly+1)*(hz-lz+1);
+    }
+    /** Chebyshev distance in tiles from the nearest of these tiles to the nearest player tile. */
+    static int playerDistance(Collection<Tile> tiles,Collection<Tile> players) {
+        long best=Integer.MAX_VALUE;
+        for(var p:players) for(var t:tiles)
+            best=Math.min(best,Math.max(Math.abs((long)t.x-p.x),Math.max(Math.abs((long)t.y-p.y),Math.abs((long)t.z-p.z))));
+        return (int)best;
     }
     public record Plan(long tick,long demandRevision,long layoutRevision,Settings settings,List<Group> groups,List<Unsupported> unsupported,
                        int tileVisits,String failure) {
@@ -49,7 +70,11 @@ public final class LocalAirPlanner {
 
     /** loadedColumn must be a non-loading availability lookup on the owner thread. maxY is exclusive. */
     public Plan update(Snapshot demand,int minY,int maxY,BiPredicate<Integer,Integer> loadedColumn) {
-        owner();Objects.requireNonNull(demand);Objects.requireNonNull(loadedColumn);
+        return update(demand,minY,maxY,loadedColumn,List.of());
+    }
+    /** players: block positions of the players to rank groups by; the caller supplies them, never a world. */
+    public Plan update(Snapshot demand,int minY,int maxY,BiPredicate<Integer,Integer> loadedColumn,List<Cell> players) {
+        owner();Objects.requireNonNull(demand);Objects.requireNonNull(loadedColumn);Objects.requireNonNull(players);
         if(minY>=maxY) throw new IllegalArgumentException("Empty world height");
         if(demand.entries().size()>MAX_REQUESTS) return publish(demand,List.of(),List.of(),0,"Request work limit exceeded");
         var unsupported=new ArrayList<Unsupported>();
@@ -92,8 +117,11 @@ public final class LocalAirPlanner {
         var requests=new ArrayList<List<Entry>>();for(int i=0;i<components.size();i++) requests.add(new ArrayList<>());
         for(var f:footprints) requests.get(ownerByTile.get(f.first)).add(f.entry);
         var order=new ArrayList<Integer>();for(int i=0;i<components.size();i++) order.add(i);
-        // Nearby player requests precede other active owners, then retained-only work. Ties are spatially stable.
-        order.sort(Comparator.<Integer>comparingInt(i->priority(requests.get(i))).thenComparing(i->components.get(i).getFirst()));
+        var playerTiles=players.stream().map(p->new Tile(Math.floorDiv(p.x(),TILE_EDGE),Math.floorDiv(p.y(),TILE_EDGE),Math.floorDiv(p.z(),TILE_EDGE))).toList();
+        var distances=new int[components.size()];for(int i=0;i<distances.length;i++) distances[i]=playerDistance(components.get(i),playerTiles);
+        // Nearby player requests precede other active owners, then retained-only work; within a class, groups nearer
+        // a player come first. Ties are spatially stable.
+        order.sort(Comparator.<Integer>comparingInt(i->priority(requests.get(i))).thenComparingInt(i->distances[i]).thenComparing(i->components.get(i).getFirst()));
         var availability=new HashMap<Column,Boolean>();var groups=new ArrayList<Group>();int admitted=0;
         for(int i:order) {
             var component=components.get(i);var missing=new LinkedHashSet<Column>();long cells=0;
@@ -105,10 +133,10 @@ public final class LocalAirPlanner {
             }
             State state;
             if(!missing.isEmpty()) state=State.MISSING_CHUNKS;
-            else if(component.size()>settings.componentTiles) state=State.COMPONENT_LIMIT;
+            else if(boxTiles(component)>settings.componentTiles) state=State.COMPONENT_LIMIT;
             else if(component.size()>settings.totalTiles-admitted) state=State.TOTAL_LIMIT;
             else { state=State.PROPOSED_UNVERIFIED;admitted+=component.size(); }
-            groups.add(new Group(component.getFirst(),component,requests.get(i),List.copyOf(missing),state,cells));
+            groups.add(new Group(component.getFirst(),component,requests.get(i),List.copyOf(missing),state,cells,distances[i]));
         }
         groups.sort(Comparator.comparing(Group::key));
         return publish(demand,groups,unsupported,visits,"");
