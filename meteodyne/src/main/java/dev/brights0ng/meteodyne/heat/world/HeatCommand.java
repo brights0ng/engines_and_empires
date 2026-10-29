@@ -2,6 +2,7 @@
 // Extended by ChatGPT: operator-only thermal response tuning with explicit status and reset.
 // Extended by ChatGPT: explicit local-air diagnostic controls and sampling.
 // Updated by Claude: raised the live capture limit to 1800 seconds.
+// Updated by Claude: registered the air-cell count study (/meteodyne heat cellcount).
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.Locale;
@@ -12,6 +13,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.climate.Temperature;
+import dev.brights0ng.meteodyne.heat.airgrid.AirCellCountCommand;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -33,6 +35,8 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *   <li>{@code /meteodyne heat step <seconds>}: plans and runs every region that long now, on the server thread (for
  *       testing; a big number freezes the server for a moment).</li>
  *   <li>{@code /meteodyne heat show}: turns the in-world view of the nearest region on or off for you ({@link HeatView}).</li>
+ *   <li>{@code /meteodyne heat cellcount [radius] [down] [up]}: counts the cells air-grid schemes would need around you
+ *       ({@link AirCellCountCommand}).</li>
  * </ul>
  */
 @EventBusSubscriber(modid = Meteodyne.MODID)
@@ -42,6 +46,7 @@ public final class HeatCommand {
     static void onRegisterCommands(RegisterCommandsEvent event) {
         LiteralArgumentBuilder<CommandSourceStack> heat = Commands.literal("heat")
                 .then(LocalAirCommand.tree())
+                .then(AirCellCountCommand.tree())
                 .executes(context -> info(context.getSource()))
                 .then(Commands.literal("response")
                         .executes(context -> response(context.getSource(),null,false))
