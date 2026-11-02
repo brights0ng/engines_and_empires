@@ -6,11 +6,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import dev.brights0ng.meteodyne.heat.world.HeatWorld;
+import dev.brights0ng.meteodyne.heat.scan.ScanRecorder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 
 /**
+ * Edited by Claude.
  * Tells the heat simulation (weather phase 8f-2) about every block change in a loaded chunk: its source index and its
  * regions' blocks. Block place and break events would miss explosions, pistons, {@code /fill} and Create contraptions
  * assembling and disassembling; everything goes through here. Split from Frontier's {@code LevelChunkFrontierMixin}
@@ -28,6 +30,7 @@ public abstract class LevelChunkHeatMixin {
         if (before == null) {
             return;
         }
+        ScanRecorder.blockChanged((LevelChunk) (Object) this, pos, before, state);
         HeatWorld.onBlockChanged((LevelChunk) (Object) this, pos, before, state);
     }
 }
