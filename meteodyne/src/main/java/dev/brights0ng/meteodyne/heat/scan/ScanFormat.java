@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; edited by Claude (recording format v2, GreedyFluids M6f).
 package dev.brights0ng.meteodyne.heat.scan;
 
 import java.io.DataInputStream;
@@ -25,14 +25,20 @@ import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** Version 1 wire constants, state rules and small readers for scanner consumers and game tests. */
+/**
+ * Wire constants, state rules and small readers for scanner consumers and game tests. Snapshots are version 1;
+ * recordings are version 2 (v1 recordings still read: they have no CELLS records and a 48-block BLOCK radius).
+ */
 public final class ScanFormat {
-    public static final int SNAPSHOT_MAGIC = 0x4746534E, RECORDING_MAGIC = 0x47465243, VERSION = 1;
+    public static final int SNAPSHOT_MAGIC = 0x4746534E, RECORDING_MAGIC = 0x47465243;
+    public static final int SNAPSHOT_VERSION = 1, RECORDING_VERSION = 2;
     public static final byte AIR = 0, LAVA = 1, WATER = 2, OPENING = 3, POROUS = 4, PARTIAL = 5,
             SOLID = 6, UNKNOWN = 7;
     public static final byte END = 0, STATE = 1, DIM = 2, POS = 3, BLOCK = 4, ACTION = 5,
-            SECTION = 6, LOAD = 7, MARK = 8;
-    public static final int BLOCK_RADIUS = 48, SECTION_RADIUS = 3, TRAJECTORY_INTERVAL = 10;
+            SECTION = 6, LOAD = 7, MARK = 8, CELLS = 9;
+    /** v2 header value of blockRadius: BLOCK and ACTION cover every section in range (v1 wrote 48 blocks). */
+    public static final int BLOCK_RADIUS_SECTIONS = -1;
+    public static final int SECTION_RADIUS = 3, TRAJECTORY_INTERVAL = 10;
     private static final Map<BlockState, Byte> CLASSES = new IdentityHashMap<>();
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
@@ -87,15 +93,21 @@ public final class ScanFormat {
     public record Action(long tick, int x, int y, int z, byte kind) implements Entry { }
     public record Section(long tick, int sx, int sy, int sz, int[] counts, int sourceCount,
                           int uniformId) implements Entry { }
+    /** Cell contents of a mixed section: STATE ids by local palette index, cell (x,y,z) at (y·16 + z)·16 + x. */
+    public record Cells(long tick, int sx, int sy, int sz, int[] palette, short[] cells) implements Entry {
+        public int stateId(int x, int y, int z) { return palette[Short.toUnsignedInt(cells[(y * 16 + z) * 16 + x])]; }
+    }
     public record Load(long tick, float msptAvg, byte weather) implements Entry { }
     public record Mark(long tick, String text) implements Entry { }
     public record Recording(long startGameTime, long startEpochMillis, int blockRadius, int sectionRadius,
                             int trajectoryInterval, List<Entry> entries) { }
 
-    private static DataInputStream open(Path file, int magic) throws IOException {
+    private static DataInputStream open(Path file, int magic, int minVersion, int maxVersion) throws IOException {
         DataInputStream in = new DataInputStream(new GZIPInputStream(Files.newInputStream(file)));
         try {
-            if (in.readInt() != magic || in.readInt() != VERSION) throw new IOException("Unknown scan format");
+            int version;
+            if (in.readInt() != magic || (version = in.readInt()) < minVersion || version > maxVersion)
+                throw new IOException("Unknown scan format");
             return in;
         } catch (IOException e) {
             in.close();
@@ -104,7 +116,7 @@ public final class ScanFormat {
     }
 
     public static Snapshot readSnapshot(Path file) throws IOException {
-        try (var in = open(file, SNAPSHOT_MAGIC)) {
+        try (var in = open(file, SNAPSHOT_MAGIC, SNAPSHOT_VERSION, SNAPSHOT_VERSION)) {
             String label = in.readUTF(), dimension = in.readUTF(), biome = in.readUTF();
             long time = in.readLong(), day = in.readLong();
             boolean rain = in.readBoolean(), thunder = in.readBoolean();
@@ -130,7 +142,7 @@ public final class ScanFormat {
     }
 
     public static Recording readRecording(Path file) throws IOException {
-        try (var in = open(file, RECORDING_MAGIC)) {
+        try (var in = open(file, RECORDING_MAGIC, 1, RECORDING_VERSION)) {
             long start = in.readLong(), epoch = in.readLong();
             int blockRadius = in.readInt(), sectionRadius = in.readInt(), interval = in.readInt();
             List<Entry> entries = new ArrayList<>();
@@ -150,6 +162,21 @@ public final class ScanFormat {
                         int[] counts = new int[8];
                         for (int i = 0; i < 8; i++) counts[i] = in.readUnsignedShort();
                         yield new Section(tick, sx, sy, sz, counts, in.readUnsignedShort(), in.readInt());
+                    }
+                    case CELLS -> {
+                        long tick = in.readLong();
+                        int sx = in.readInt(), sy = in.readInt(), sz = in.readInt();
+                        int size = in.readUnsignedShort();
+                        if (size < 1 || size > 4096) throw new IOException("Invalid CELLS palette size " + size);
+                        int[] palette = new int[size];
+                        for (int i = 0; i < size; i++) palette[i] = in.readInt();
+                        short[] cells = new short[4096];
+                        for (int i = 0; i < 4096; i++) {
+                            int index = size <= 256 ? in.readUnsignedByte() : in.readUnsignedShort();
+                            if (index >= size) throw new IOException("Invalid CELLS palette index");
+                            cells[i] = (short) index;
+                        }
+                        yield new Cells(tick, sx, sy, sz, palette, cells);
                     }
                     case LOAD -> new Load(in.readLong(), in.readFloat(), in.readByte());
                     case MARK -> new Mark(in.readLong(), in.readUTF());

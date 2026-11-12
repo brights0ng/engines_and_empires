@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; edited by Claude (SNAPSHOT_VERSION constant, M6f).
 package dev.brights0ng.meteodyne.heat.scan;
 
 import java.io.DataOutputStream;
@@ -70,7 +70,7 @@ public final class ScanSnapshot {
             try (var out = new DataOutputStream(new GZIPOutputStream(Files.newOutputStream(file,
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)))) {
                 out.writeInt(ScanFormat.SNAPSHOT_MAGIC);
-                out.writeInt(ScanFormat.VERSION);
+                out.writeInt(ScanFormat.SNAPSHOT_VERSION);
                 out.writeUTF(label);
                 out.writeUTF(level.dimension().location().toString());
                 out.writeUTF(player == null || level.getChunkSource().getChunkNow(
