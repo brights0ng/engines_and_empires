@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; edited by Claude (CELLS count, M6f).
 package dev.brights0ng.meteodyne.heat.scan;
 
 import java.io.IOException;
@@ -106,10 +106,10 @@ public final class ScanCommand {
         long[] n = status.recordCounts();
         reply(source, String.format(Locale.ROOT,
                 "%s %s (%d bytes, %.1f s, %d records: %d states, %d dimensions, %d positions, %d blocks, "
-                        + "%d actions, %d sections, %d load samples, %d marks; %d off-thread dropped, %d sections pending)",
+                        + "%d actions, %d sections (%d with cells), %d load samples, %d marks; %d off-thread dropped, %d sections pending)",
                 status.recording() ? "Recording" : "Stopped", status.file().toAbsolutePath(), status.fileSize(),
                 status.durationTicks() / 20.0, status.records(), n[ScanFormat.STATE], n[ScanFormat.DIM], n[ScanFormat.POS],
-                n[ScanFormat.BLOCK], n[ScanFormat.ACTION], n[ScanFormat.SECTION], n[ScanFormat.LOAD], n[ScanFormat.MARK],
+                n[ScanFormat.BLOCK], n[ScanFormat.ACTION], n[ScanFormat.SECTION], n[ScanFormat.CELLS], n[ScanFormat.LOAD], n[ScanFormat.MARK],
                 status.droppedOffThread(), status.sectionsPending()));
     }
 
