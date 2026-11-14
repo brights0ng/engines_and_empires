@@ -68,7 +68,10 @@ neoForge {
                 systemProperty 'meteodyne.airWeatherScene', airWeatherSceneEnabled.toString()
                 systemProperty 'meteodyne.airSceneOutput', layout.buildDirectory.dir('reports/air-scene').get().asFile.absolutePath
             }
-            ['meteodyne.climatologyDays', 'meteodyne.climatologyX', 'meteodyne.climatologyZ'].each { key ->
+            // GreedyFluids M7b b2 (Claude): -Pmeteodyne.airflowSnapshots=<scans folder> runs the opt-in airflow mapping
+            // check (AirflowGameTests.snapshotMappingCheck).
+            ['meteodyne.climatologyDays', 'meteodyne.climatologyX', 'meteodyne.climatologyZ',
+             'meteodyne.airflowSnapshots'].each { key ->
                 if (project.hasProperty(key)) {
                     systemProperty key, project.property(key).toString()
                 }
