@@ -43,9 +43,9 @@ public final class Airflow {
     @SubscribeEvent
     static void onServerAboutToStart(ServerAboutToStartEvent event) {
         engine = WeatherConfig.heatEngine();
-        if (engine != Engine.LEGACY) {
-            Meteodyne.LOGGER.info("[heat] engine is {}: the legacy heat regions and local-air domains are off", engine);
-        }
+        // Logged either way, so the log always shows which engine a session ran.
+        Meteodyne.LOGGER.info("[heat] engine is {}{}", engine,
+                engine == Engine.AIRFLOW ? ": the legacy heat regions and local-air domains are off" : "");
     }
 
     @SubscribeEvent
