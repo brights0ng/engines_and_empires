@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b b2).
+// Written by Claude (GreedyFluids M7b b2); edited by Claude (b3: placed sources per section).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -12,6 +12,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import dev.brights0ng.greedyfluids.grid.CellGrid3D;
 import dev.brights0ng.meteodyne.Meteodyne;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2DoubleMap;
+import it.unimi.dsi.fastutil.longs.Long2DoubleOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongIterator;
@@ -39,9 +41,11 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
  *       forgotten when its last user releases it.</li>
  *   <li><b>Reading.</b> A section whose blocks all share one code (air, a stone mass) is stored as that code, found
  *       from the section's palette; any other as {@code byte[4096]}, index {@code (y * 16 + z) * 16 + x}.</li>
+ *   <li><b>Sources (b3).</b> Each cached section also keeps its placed heat sources ({@link AirflowSources}), found
+ *       when its palette holds one.</li>
  *   <li><b>Edits.</b> The block hook ({@link #blockChanged}) updates a cached section in place and tells the
- *       listeners when a cell's code changes. A {@link Codes} view handed out earlier keeps the codes it was made
- *       with: an edit copies the array first.</li>
+ *       listeners when a cell's code or a source's power changes. A {@link Codes} view handed out earlier keeps the
+ *       codes it was made with: an edit copies the array first.</li>
  *   <li><b>Dropping.</b> A chunk unload drops its cached sections (a wanted one is read again once its chunk is
  *       back). A data-map or tag reload drops every section, at the next tick: the codes changed meaning.</li>
  * </ul>
@@ -63,6 +67,10 @@ public final class AirflowSections {
 
         /** A block in a cached section changed code. */
         default void cellChanged(BlockPos pos, byte before, byte after) {
+        }
+
+        /** A block in a cached section changed its source power, W ({@link AirflowSources}). */
+        default void sourceChanged(BlockPos pos, double before, double after) {
         }
 
         /** A cached section was dropped (chunk unload or reload); it is read again if still wanted. */
@@ -129,11 +137,17 @@ public final class AirflowSections {
         }
     }
 
-    /** A cached section: one code, or an array shared with views until the next edit. */
+    /** A section's placed sources: world positions ({@link BlockPos#asLong}) and watts, parallel. */
+    public record Sources(long[] positions, double[] watts) {
+        static final Sources NONE = new Sources(new long[0], new double[0]);
+    }
+
+    /** A cached section: one code, or an array shared with views until the next edit; and its sources. */
     private static final class Entry {
         byte uniform;
         byte[] cells;
         boolean shared;
+        Long2DoubleOpenHashMap sources;
 
         byte code(int index) {
             return cells == null ? uniform : cells[index];
@@ -239,6 +253,28 @@ public final class AirflowSections {
         return new Codes(section, generation, e.uniform, e.cells);
     }
 
+    /** The placed sources of a cached section, or null if it isn't cached. */
+    public Sources sources(long section) {
+        if (generation != AirflowCells.generation()) {
+            return null;
+        }
+        Entry e = entries.get(section);
+        if (e == null) {
+            return null;
+        }
+        if (e.sources == null || e.sources.isEmpty()) {
+            return Sources.NONE;
+        }
+        long[] positions = new long[e.sources.size()];
+        double[] watts = new double[positions.length];
+        int i = 0;
+        for (Long2DoubleMap.Entry s : e.sources.long2DoubleEntrySet()) {
+            positions[i] = s.getLongKey();
+            watts[i++] = s.getDoubleValue();
+        }
+        return new Sources(positions, watts);
+    }
+
     /**
      * Sweeps a reload, then reads wanted sections whose chunks are loaded until {@code budgetNanos} is spent (at least
      * one). Returns the sections read.
@@ -277,7 +313,7 @@ public final class AirflowSections {
         return new Stats(entries.size(), pending.size(), reads, readNanos, edits);
     }
 
-    /** Reads one section: from the palette when every state shares a code, else cell by cell. */
+    /** Reads one section: from the palette when every state shares a code, else cell by cell; then its sources. */
     private static Entry read(LevelChunk chunk, int sy) {
         LevelChunkSection section = chunk.getSection(chunk.getSectionIndexFromSectionY(sy));
         Entry e = new Entry();
@@ -285,6 +321,7 @@ public final class AirflowSections {
         if (section.hasOnlyAir()) {
             return e;
         }
+        e.sources = sources(chunk, section, sy);
         Map<BlockState, Byte> local = new IdentityHashMap<>();
         section.getStates().count((state, count) -> local.put(state, AirflowCells.code(state)));
         byte first = local.values().iterator().next();
@@ -308,6 +345,26 @@ public final class AirflowSections {
         }
         e.cells = cells;
         return e;
+    }
+
+    /** The section's placed sources, or null if its palette holds none. */
+    private static Long2DoubleOpenHashMap sources(LevelChunk chunk, LevelChunkSection section, int sy) {
+        if (!section.maybeHas(s -> AirflowSources.watts(s) != 0)) {
+            return null;
+        }
+        Long2DoubleOpenHashMap out = new Long2DoubleOpenHashMap();
+        int bx = chunk.getPos().getMinBlockX(), by = SectionPos.sectionToBlockCoord(sy), bz = chunk.getPos().getMinBlockZ();
+        for (int y = 0; y < 16; y++) {
+            for (int z = 0; z < 16; z++) {
+                for (int x = 0; x < 16; x++) {
+                    double w = AirflowSources.watts(section.getBlockState(x, y, z));
+                    if (w != 0) {
+                        out.put(BlockPos.asLong(bx + x, by + y, bz + z), w);
+                    }
+                }
+            }
+        }
+        return out.isEmpty() ? null : out;
     }
 
     /** A reload changed what codes mean: drop every section, and read the wanted ones again. */
@@ -334,6 +391,21 @@ public final class AirflowSections {
         if (e == null) {
             return;
         }
+        BlockPos at = pos.immutable();
+        double was = e.sources == null ? 0 : e.sources.get(at.asLong()), now = AirflowSources.watts(after);
+        if (was != now) {
+            if (now == 0) {
+                e.sources.remove(at.asLong());
+            } else {
+                if (e.sources == null) {
+                    e.sources = new Long2DoubleOpenHashMap();
+                }
+                e.sources.put(at.asLong(), now);
+            }
+            for (Listener l : listeners) {
+                l.sourceChanged(at, was, now);
+            }
+        }
         int index = Codes.index(pos.getX() & 15, pos.getY() & 15, pos.getZ() & 15);
         byte before = e.code(index), code = AirflowCells.code(after);
         if (before == code) {
@@ -341,7 +413,6 @@ public final class AirflowSections {
         }
         e.set(index, code);
         edits++;
-        BlockPos at = pos.immutable();
         for (Listener l : listeners) {
             l.cellChanged(at, before, code);
         }

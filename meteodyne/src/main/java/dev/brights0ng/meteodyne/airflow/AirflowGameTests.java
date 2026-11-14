@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7b); edited by Claude (b2: classifier, section cache and snapshot check).
+// Written by Claude (GreedyFluids M7b); edited by Claude (b2: classifier, section cache and snapshot check; b3: a
+// region around an anchor).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -41,6 +42,7 @@ import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -52,6 +54,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  *       edits, copy-on-write, dropping, and uniform sections from the palette;</li>
  *   <li>b2, opt-in: the container check, re-classifying the GreedyFluids snapshots with the in-game rule
  *       ({@code -Pmeteodyne.airflowSnapshots=<scans folder>}).</li>
+ *   <li>b3: a region forms around an anchor on the air thread, hears an edit, and stops with its thread (b4 adds
+ *       the rest: players, doors, sources, the switch).</li>
  * </ul>
  * Runs in the bare Meteodyne run, the core-less run and the aggregate. The section tests use the top sections of
  * the build height above their own spot, where no other test builds, and put the blocks back.
@@ -284,6 +288,82 @@ public final class AirflowGameTests {
         public void sectionDropped(long section) {
             dropped.add(section);
         }
+    }
+
+    /**
+     * A region manager of its own (the engine is LEGACY here) with one fixed anchor: its window's chunks are forced,
+     * its sections read, the region built on the air thread and stepped; a block placed in its air reaches the next
+     * frame; stopping joins the thread and releases the sections. The game test server ticks far faster than real
+     * time while the air thread works in real time, so the timeout is in the tens of thousands of ticks (seconds here).
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_regions", timeoutTicks = 20_000)
+    public static void regionFormsAroundAnAnchorAndHearsAnEdit(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos anchor = helper.absolutePos(new BlockPos(1, 2, 1));
+        BlockPos edit = anchor.offset(3, 0, 3);
+        helper.assertTrue(level.getBlockState(edit).isAir(), "the edit's cell should start as air");
+        int[] o = AirflowRegions.window(level, Vec3.atCenterOf(anchor));
+        List<long[]> forced = new ArrayList<>();
+        for (int cx = o[0] >> 4; cx < (o[0] + AirflowRegions.WX) >> 4; cx++) {
+            for (int cz = o[2] >> 4; cz < (o[2] + AirflowRegions.WZ) >> 4; cz++) {
+                if (level.setChunkForced(cx, cz, true)) {
+                    forced.add(new long[] {cx, cz});
+                }
+            }
+        }
+        boolean opened = AirflowSections.get(level) == null;
+        AirflowRegions regions = new AirflowRegions(level);
+        regions.anchors(l -> List.of(Vec3.atCenterOf(anchor)));
+        regions.start();
+        boolean[] stopped = {false};
+        Runnable cleanup = () -> {
+            stopped[0] = true;
+            regions.stop();
+            level.setBlock(edit, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+            for (long[] c : forced) {
+                level.setChunkForced((int) c[0], (int) c[1], false);
+            }
+            if (opened) {
+                AirflowSections.close(level);
+            }
+        };
+        helper.onEachTick(() -> {
+            if (!stopped[0]) {
+                regions.tick();
+            }
+        });
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region r = regions.regionAt(anchor.getX(), anchor.getY(), anchor.getZ());
+                    helper.assertTrue(r != null && r.slot() != null && r.slot().steps() >= 2,
+                            "waiting for the region to be built and stepped");
+                })
+                .thenExecute(() -> {
+                    AirflowRegions.Region r = regions.regions().get(0);
+                    helper.assertTrue(regions.regions().size() == 1, "one anchor, one region: " + regions.regions().size());
+                    helper.assertTrue(r.x0() % 16 == 0 && r.y0() % 16 == 0 && r.z0() % 16 == 0, "snapped to sections");
+                    helper.assertTrue(r.slot().status() == AirflowRuntime.Status.RUNNING, "running: " + r.slot().failure());
+                    helper.assertTrue(r.slot().frame().frame().isAir(edit.getX() - r.x0() + 0.5,
+                            edit.getY() - r.y0() + 0.5, edit.getZ() - r.z0() + 0.5), "the cell is air in the frame");
+                    level.setBlock(edit, Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
+                })
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region r = regions.regions().get(0);
+                    helper.assertFalse(r.slot().frame().frame().isAir(edit.getX() - r.x0() + 0.5,
+                            edit.getY() - r.y0() + 0.5, edit.getZ() - r.z0() + 0.5), "waiting for the edit's frame");
+                })
+                .thenExecute(() -> {
+                    AirflowRuntime.Frame f = regions.frameAt(anchor.getX() + 0.5, anchor.getY() + 0.5, anchor.getZ() + 0.5);
+                    double t = f.frame().temperature(anchor.getX() - regions.regions().get(0).x0() + 0.5,
+                            anchor.getY() - regions.regions().get(0).y0() + 0.5,
+                            anchor.getZ() - regions.regions().get(0).z0() + 0.5);
+                    helper.assertTrue(Double.isFinite(t), "a finite temperature at the anchor: " + t);
+                    AirflowRuntime runtime = regions.runtime();
+                    cleanup.run();
+                    helper.assertFalse(runtime.alive(), "stopping joins the air thread");
+                    helper.assertTrue(regions.regions().isEmpty(), "stopping retires the regions");
+                })
+                .thenSucceed();
     }
 
     // ---- The container check (opt-in) ----

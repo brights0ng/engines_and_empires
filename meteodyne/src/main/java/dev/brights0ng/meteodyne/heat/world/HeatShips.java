@@ -63,6 +63,14 @@ public interface HeatShips {
     }
 
     /**
+     * Whether {@code pos} (a player's position, world blocks) is aboard a ship: inside a ship's world bounds grown by
+     * {@code margin} blocks. Added by Claude for GreedyFluids M7b b3 (no air window while aboard).
+     */
+    default boolean aboard(ServerLevel level, Vec3 pos, double margin) {
+        return false;
+    }
+
+    /**
      * What the ship's regions take from where it is now: the outside air at its world centre, the wind against it in
      * its own frame, whether a hangar roofs it, and whether one of {@code people} is within {@code near} blocks.
      */
