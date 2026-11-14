@@ -1,5 +1,6 @@
 // Updated by Gemini: accounted for removed MineColonies files in manifest checks; added empire mod.
 // Updated by Claude: Empire's required outside mods and its gated Simple Spoilage and Meteodyne packages.
+// Updated by Claude: outside libraries of ours (GreedyFluids, Meteodyne only; GreedyFluids M7b).
 package dev.brights0ng.enginesandempires;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,7 +34,8 @@ import org.junit.jupiter.api.Test;
  * import, since each one is a reference that breaks (or lies) once the mods are separate jars.
  *
  * <p>Rules: (a) a file's mod is the root of its package; (b) a file may mention only its own mod and the mods the
- * graph lets it use, with {@code frontier.seismic} the one Frontier package allowed Seismic and Sparse Ores; (c) an
+ * graph lets it use, with {@code frontier.seismic} the one Frontier package allowed Seismic and Sparse Ores, and a
+ * library of ours ({@link #LIBRARIES}) only from the mods listed for it; (c) an
  * outside mod a file's mod does not require may be mentioned only from a {@code compat} package, or, for Sable, a
  * {@code sable} package, unless {@code arch-allowlist.txt} says why not; feature mods never mention
  * {@code EnginesAndEmpiresMod}; and the per-mod file counts of {@code docs/split/mod-split-manifest.csv} hold.
@@ -70,6 +72,13 @@ class ArchitectureTest {
             "enginesandempires", "engines_and_empires",
             // The test-only mod of the core-less combined run (coreless/, split step 4c).
             "corelesstests", "coreless_tests");
+
+    /**
+     * Libraries of ours under {@code dev.brights0ng} that are not mods of the family, by package root, and the mods that
+     * may mention them (Bright, 2026-11-14, GreedyFluids M7b): GreedyFluids is pinned in Meteodyne's vendor/maven and
+     * nested in Meteodyne's jar, so only Meteodyne may use it.
+     */
+    private static final Map<String, Set<String>> LIBRARIES = Map.of("greedyfluids", Set.of("meteodyne"));
 
     /** Plan section 2: the other mods of ours each mod may mention (its own is always allowed). */
     private static final Map<String, Set<String>> ALLOWED = Map.of(
@@ -257,7 +266,12 @@ class ArchitectureTest {
                 while (m.find()) {
                     String target = ROOTS.get(m.group(1));
                     if (target == null) {
-                        seen.add(OURS + m.group(1) + " (not a mod of the family)");
+                        Set<String> users = LIBRARIES.get(m.group(1));
+                        if (users == null) {
+                            seen.add(OURS + m.group(1) + " (not a mod of the family)");
+                        } else if (!users.contains(s.mod)) {
+                            seen.add(OURS + m.group(1) + " (a library of ours only " + users + " may use)");
+                        }
                     } else if (!allowedEdge(s, target)) {
                         seen.add(target + " (" + OURS + m.group(1) + ")");
                     }

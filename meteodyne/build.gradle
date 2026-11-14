@@ -1,5 +1,6 @@
 // Updated by ChatGPT: expose the explicitly paced larger local-air diagnostic.
 // Updated by Claude: put fastutil on the unit-test runtime for the local-air capture's reader index.
+// Updated by Claude: GreedyFluids, pinned in vendor/maven, required at runtime and bundled jar-in-jar (GreedyFluids M7b).
 plugins {
     id 'eae.mod-conventions'
 }
@@ -9,6 +10,20 @@ def airSceneEnabled = providers.gradleProperty('meteodyne.airScene').map { it.to
 def airWeatherSceneEnabled = providers.gradleProperty('meteodyne.airWeatherScene').map { it.toBoolean() }.getOrElse(false)
 
 configurations {
+    // Outside libraries Meteodyne needs at runtime: GreedyFluids. implementation, so Meteodyne and its tests compile
+    // against it; offered as a consumable configuration to every project that requires Meteodyne (eae.family-base's
+    // requireMod adds it to their runtimeOnly), so the core's and the core-less runs load it too.
+    requiredRuntime {
+        canBeConsumed = false
+        canBeResolved = false
+    }
+    implementation.extendsFrom requiredRuntime
+    requiredRuntimeElements {
+        canBeConsumed = true
+        canBeResolved = false
+        extendsFrom requiredRuntime
+    }
+
     // Iris and Sodium, for testing the clouds with shader packs in the dev client (the pack ships them from Modrinth).
     // Nothing of Meteodyne's own runs uses them: the root's client run syncs them into run/mods (see the root's
     // shaderRuntime), so they are offered from here as a consumable configuration only.
@@ -19,6 +34,12 @@ configurations {
 }
 
 dependencies {
+    // GreedyFluids, at the pinned version (meteodyne/gradle.properties), from vendor/maven (the repository is in
+    // eae.family-base, so the projects that require Meteodyne resolve it too). In the release jar it is nested
+    // (jar-in-jar, META-INF/jarjar): the one jar-in-jar of the family, since it is a plain library, not a mod.
+    requiredRuntime("dev.brights0ng:greedyfluids:${greedyfluids_version}")
+    jarJar("dev.brights0ng:greedyfluids:${greedyfluids_version}")
+
     // Sable is optional (plan section 2): only the sable sub-package touches it, and only after ModList.isLoaded("sable"),
     // so it is compiled against but never on the runtime classpath of Meteodyne's own runs. Non-transitive: its pom
     // pulls in a Sable build that isn't published. Its companion library (Pose3d, bounding boxes) is inside Sable's jar

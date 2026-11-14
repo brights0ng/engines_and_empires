@@ -20,6 +20,7 @@
 // Updated by Claude: tagged local-air revision bumps by call site and reported re-read and revision-site counters.
 // Updated by Claude: compared sky relevance in local air's snow buckets; reported geometry edits, edit phases, post-capture re-reads and replans.
 // Updated by Claude: compared sky relevance with fence, wall and gate collision clipped to the cell; passed player positions to the planner.
+// Updated by Claude: the legacy heat regions and local-air domains stand down while the airflow engine runs (GreedyFluids M7b).
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.meteodyne.airflow.Airflow;
 import dev.brights0ng.meteodyne.climate.Temperature;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
 import dev.brights0ng.meteodyne.ships.Ships;
@@ -366,7 +368,7 @@ public final class HeatWorld {
     }
     void startAutomaticAir(LocalAirAutomatic.Settings settings) {
         if(!level.getServer().isSameThread()) throw new IllegalStateException("Automatic domains require server thread");
-        if(airPlanner==null || !WeatherConfig.heat().enabled()) throw new IllegalStateException("Enable heat and configure air plan first");
+        if(airPlanner==null || !legacyEnabled()) throw new IllegalStateException("Enable heat and configure air plan first");
         if(automaticAir!=null && !automaticAir.settings.equals(settings)) throw new IllegalStateException("Use air auto off before changing runtime limits");
         if(automaticAir==null) automaticAir=new LocalAirAutomatic(settings,new LocalAirAutomatic.Factory() {
             public boolean loaded(LocalAirPlanner.Tile tile) { return level.getChunkSource().getChunkNow(tile.x(),tile.z())!=null; }
@@ -428,7 +430,7 @@ public final class HeatWorld {
                 :automaticAir.query(tick,x,y,z,maxAgeTicks);
     }
     private void refreshAirDemands(boolean force) {
-        if(!WeatherConfig.heat().enabled()) { airDemands.clear();return; }
+        if(!legacyEnabled()) { airDemands.clear();return; }
         airDemands.refresh(()->{
             var positions=new ArrayList<BlockPos>();
             for(var map:placedAir.values()) for(long pos:map.keySet()) positions.add(BlockPos.of(pos));
@@ -834,6 +836,14 @@ public final class HeatWorld {
         savedChunks.removeIf(gone);
     }
 
+    /**
+     * Whether the legacy heat regions and the local-air domains run: the heat simulation is on and the airflow engine
+     * isn't (GreedyFluids M7b). Placed sources stay indexed either way.
+     */
+    static boolean legacyEnabled() {
+        return WeatherConfig.heat().enabled() && !Airflow.active();
+    }
+
     // ---- the tick ----
 
     void tick() {
@@ -858,7 +868,8 @@ public final class HeatWorld {
         HeatSettings s = WeatherConfig.heat();
         long now = level.getGameTime();
         collect();
-        if (!s.enabled()) {
+        // The airflow engine (GreedyFluids M7b) replaces the regions: they stand down as if the simulation were off.
+        if (!s.enabled() || Airflow.active()) {
             stopAutomaticAir();
             clearLocalAirGeometry();
             if (!regions.isEmpty()) {

@@ -1,4 +1,5 @@
 // Updated by ChatGPT: added reloadable thermal response speed without changing weather time or wind units.
+// Updated by Claude: [heat] engine, the airflow/legacy switch (GreedyFluids M7b).
 package dev.brights0ng.meteodyne.rain;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -357,6 +358,13 @@ public final class WeatherConfig {
             .comment("Whether the heat simulation runs.")
             .define("enabled", true);
 
+    public static final ModConfigSpec.EnumValue<dev.brights0ng.meteodyne.airflow.Airflow.Engine> HEAT_ENGINE = BUILDER
+            .comment("Which simulation runs the air (GreedyFluids M7b). Read when the server starts: a change needs a restart.",
+                    "LEGACY: the heat regions around placed sources, ships' rooms included.",
+                    "AIRFLOW: GreedyFluids air regions around players. In development: nothing reads them yet, so no room",
+                    "heat is felt, and ships' rooms have none. The budget, threads and step settings below are LEGACY's.")
+            .defineEnum("engine", dev.brights0ng.meteodyne.airflow.Airflow.Engine.LEGACY);
+
     public static final ModConfigSpec.DoubleValue HEAT_BUDGET = BUILDER
             .comment("CPU cores the simulation may use on average (its own threads, not the server thread). When it",
                     "needs more, rooms are stepped less often in longer steps: warming stays on time, a little coarser.")
@@ -410,6 +418,11 @@ public final class WeatherConfig {
     }
 
     public static final ModConfigSpec SPEC = BUILDER.build();
+
+    /** Which simulation runs the air (GreedyFluids M7b); LEGACY before the config loads. {@code Airflow} reads it at server start. */
+    public static dev.brights0ng.meteodyne.airflow.Airflow.Engine heatEngine() {
+        return SPEC.isLoaded() ? HEAT_ENGINE.get() : dev.brights0ng.meteodyne.airflow.Airflow.Engine.LEGACY;
+    }
 
     /** The height cooling, C per 100 blocks. */
     public static double heightCoolingPer100() {

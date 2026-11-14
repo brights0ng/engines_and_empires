@@ -5,6 +5,7 @@
 // Updated by ChatGPT: routed trial status to the selected runtime and clarified allocation messages.
 // Updated by Claude: added the scripted soak controls.
 // Updated by Claude: raised the automatic total-cell ceiling to four 12-tile domains and named it a total in the usage text.
+// Updated by Claude: refused while the airflow engine runs (GreedyFluids M7b).
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.Locale;
@@ -112,6 +113,9 @@ final class LocalAirCommand {
                         .then(Commands.argument("steps",IntegerArgumentType.integer(1,64)).executes(LocalAirCommand::start))))))))));
     }
     private static HeatWorld world(CommandSourceStack source) {
+        if(dev.brights0ng.meteodyne.airflow.Airflow.active()) {
+            source.sendFailure(Component.literal("Local air diagnostics are off while [heat] engine is AIRFLOW."));return null;
+        }
         var world=HeatWorld.of(source.getLevel());
         if(world==null) source.sendFailure(Component.literal("Local air diagnostics run in the Overworld only."));
         return world;
