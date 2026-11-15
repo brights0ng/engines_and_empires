@@ -1,17 +1,22 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: ids, timing, the recorder; only assigned regions
 // stay alive); edited by Claude (M7d d1: fixed tiles replace player-centred windows; d2: saving and restoring; M7c:
-// the background field, driven sources, limits and body heat; M7e: the generator's terrain off the server thread).
+// the background field, driven sources, limits and body heat; M7e: the generator's terrain off the server thread,
+// the speed limit and tile cap).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.heat.world.HeatShips;
+import dev.brights0ng.meteodyne.rain.WeatherConfig;
 import dev.brights0ng.meteodyne.wind.WindSources;
 import dev.brights0ng.paradynelib.wind.WindColumn;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -40,6 +45,9 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  *   <li><b>Assignment:</b> each player keeps the tile holding them alive (only players are readers that do;
  *       Bright, 2026-11-15). Only that tile runs: a room crossing a border sees the background past it until tiles
  *       exchange heat (M8).</li>
+ *   <li><b>Limits ({@link AirflowLimits}; Bright, 2026-11-15):</b> a player moving faster than
+ *       {@code airflowSpeedLimit} (5.5 blocks a second) opens no new tile, though the tile they are in keeps running;
+ *       past {@code airflowTileCap} tiles (12 on the server, or per player) the tiles empty longest close early.</li>
  *   <li><b>Life:</b> a region wants its 32 sections from {@link AirflowSections} and is built once all are cached.
  *       It is retired after {@link #GRACE_TICKS} with no player in it (so stepping back and forth across a border
  *       rebuilds nothing), or when one of its sections is dropped (a chunk unload, or a data-map or tag reload). A
@@ -87,6 +95,9 @@ public final class AirflowRegions implements AirflowSections.Listener {
         private final long[] sections;
         private AirflowRuntime.Slot slot;
         private boolean occupied;
+        /** The player last in its tile, and when (the cap's order and owner). */
+        private UUID owner;
+        private long lastOccupied;
         private long emptySince = -1, retryAt = -1, built = -1;
         private double sentT = Double.NaN, sentWindX, sentWindZ;
         private AirflowBackground background;
@@ -159,10 +170,11 @@ public final class AirflowRegions implements AirflowSections.Listener {
     private final List<Region> regions = new ArrayList<>();
     private final Map<Long, Region> byTile = new HashMap<>();
     private AirflowSections sections;
-    private Function<ServerLevel, List<Vec3>> anchors = AirflowRegions::players;
+    private Function<ServerLevel, List<Anchor>> anchors = AirflowRegions::players;
+    private final AirflowLimits.Speeds speeds = new AirflowLimits.Speeds(AirflowLimits.WINDOW_TICKS);
     private int nextId = 1;
     private long managerNanos;
-    private long savesWritten, sectionsLost, restores;
+    private long savesWritten, sectionsLost, restores, heldForSpeed, closedByCap;
     /** The tile grid's shift (game tests only, so a test's structure never straddles a border), blocks. */
     private int shiftX, shiftY, shiftZ;
     private AirflowRecorder recorder;
@@ -226,6 +238,16 @@ public final class AirflowRegions implements AirflowSections.Listener {
         return restores;
     }
 
+    /** Matches where a player was too fast to open the tile they were in. */
+    public long heldForSpeed() {
+        return heldForSpeed;
+    }
+
+    /** Regions closed early by the tile cap. */
+    public long closedByCap() {
+        return closedByCap;
+    }
+
     /** The running recorder, or null. */
     public AirflowRecorder recorder() {
         return recorder;
@@ -253,9 +275,23 @@ public final class AirflowRegions implements AirflowSections.Listener {
         return Collections.unmodifiableList(regions);
     }
 
-    /** Replaces which points keep tiles alive (the players by default; game tests use fixed points). */
-    void anchors(Function<ServerLevel, List<Vec3>> anchors) {
-        this.anchors = anchors;
+    /** What keeps a tile alive: a player (or a game test's point) and where it is. */
+    record Anchor(UUID id, Vec3 pos) {
+    }
+
+    /**
+     * Replaces which points keep tiles alive (the players by default; game tests use fixed points, each its own
+     * anchor by its place in the list).
+     */
+    void anchors(Function<ServerLevel, List<Vec3>> points) {
+        this.anchors = l -> {
+            List<Vec3> ps = points.apply(l);
+            List<Anchor> out = new ArrayList<>(ps.size());
+            for (int i = 0; i < ps.size(); i++) {
+                out.add(new Anchor(new UUID(0L, i), ps.get(i)));
+            }
+            return out;
+        };
     }
 
     /**
@@ -326,20 +362,41 @@ public final class AirflowRegions implements AirflowSections.Listener {
     }
 
     /**
-     * Marks the region of each anchor's tile occupied, opening it if it isn't there; every other region starts (or
-     * continues) its grace.
+     * Marks the region of each anchor's tile occupied, opening it if it isn't there and the anchor is slow enough;
+     * every other region starts (or continues) its grace. Then closes regions past the tile cap.
      */
     private void match() {
+        long now = level.getGameTime();
+        double limit = WeatherConfig.airflowSpeedLimit();
         for (Region r : regions) {
             r.occupied = false;
         }
-        for (Vec3 p : anchors.apply(level)) {
+        Set<UUID> seen = new HashSet<>();
+        for (Anchor a : anchors.apply(level)) {
+            Vec3 p = a.pos();
+            seen.add(a.id());
+            double speed = speeds.record(a.id(), now, p.x, p.y, p.z);
             int[] o = tileOf(p.x, p.y, p.z);
             Region home = byTile.get(AirflowTiles.key(o[0], o[1], o[2]));
             if (home == null) {
+                if (!AirflowLimits.mayOpen(speed, limit)) {
+                    heldForSpeed++;
+                    continue;
+                }
                 home = open(o[0], o[1], o[2]);
             }
             home.occupied = true;
+            home.owner = a.id();
+            home.lastOccupied = now;
+        }
+        speeds.keep(seen);
+        List<AirflowLimits.Tile<Region>> tiles = new ArrayList<>(regions.size());
+        for (Region r : regions) {
+            tiles.add(new AirflowLimits.Tile<>(r, r.owner, r.lastOccupied, r.occupied));
+        }
+        for (Region r : AirflowLimits.overCap(tiles, WeatherConfig.airflowCapMode(), WeatherConfig.airflowTileCap())) {
+            retire(r);
+            closedByCap++;
         }
     }
 
@@ -652,12 +709,12 @@ public final class AirflowRegions implements AirflowSections.Listener {
     }
 
     /** The players that keep tiles alive: non-spectators not aboard a ship. */
-    private static List<Vec3> players(ServerLevel level) {
-        List<Vec3> out = new ArrayList<>();
+    private static List<Anchor> players(ServerLevel level) {
+        List<Anchor> out = new ArrayList<>();
         HeatShips ships = HeatShips.get();
         for (ServerPlayer p : level.players()) {
             if (!p.isSpectator() && !ships.aboard(level, p.position(), ABOARD_MARGIN)) {
-                out.add(p.position());
+                out.add(new Anchor(p.getUUID(), p.position()));
             }
         }
         return out;

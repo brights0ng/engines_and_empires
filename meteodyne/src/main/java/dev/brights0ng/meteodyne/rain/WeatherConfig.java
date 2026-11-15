@@ -1,6 +1,7 @@
 // Updated by ChatGPT: added reloadable thermal response speed without changing weather time or wind units.
 // Updated by Claude: [heat] engine, the airflow/legacy switch (GreedyFluids M7b).
 // Updated by Claude: [seasons] obliquity and sunLatitude, the sun's strength through the year.
+// Updated by Claude: [heat] airflow speed limit and tile cap (GreedyFluids M7e).
 package dev.brights0ng.meteodyne.rain;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -381,9 +382,25 @@ public final class WeatherConfig {
     public static final ModConfigSpec.EnumValue<dev.brights0ng.meteodyne.airflow.Airflow.Engine> HEAT_ENGINE = BUILDER
             .comment("Which simulation runs the air (GreedyFluids M7b). Read when the server starts: a change needs a restart.",
                     "LEGACY: the heat regions around placed sources, ships' rooms included.",
-                    "AIRFLOW: GreedyFluids air regions around players. In development: nothing reads them yet, so no room",
-                    "heat is felt, and ships' rooms have none. The budget, threads and step settings below are LEGACY's.")
+                    "AIRFLOW: GreedyFluids air tiles around players (in development); ships' rooms have no room heat.",
+                    "The budget, threads and step settings below are LEGACY's.")
             .defineEnum("engine", dev.brights0ng.meteodyne.airflow.Airflow.Engine.LEGACY);
+
+    public static final ModConfigSpec.DoubleValue AIRFLOW_SPEED_LIMIT = BUILDER
+            .comment("AIRFLOW: a player moving faster than this, blocks a second over the last 2 s, opens no new air",
+                    "tile (walking is 4.3, running 5.6); a tile they are already in keeps running at any speed. 0: no",
+                    "limit.")
+            .defineInRange("airflowSpeedLimit", 5.5, 0.0, 1000.0);
+
+    public static final ModConfigSpec.EnumValue<dev.brights0ng.meteodyne.airflow.AirflowLimits.CapMode> AIRFLOW_CAP_MODE =
+            BUILDER.comment("AIRFLOW: how airflowTileCap counts. SERVER: tiles on the whole server. PER_PLAYER: tiles per",
+                    "player, a tile belonging to the player last in it.")
+            .defineEnum("airflowTileCapMode", dev.brights0ng.meteodyne.airflow.AirflowLimits.CapMode.SERVER);
+
+    public static final ModConfigSpec.IntValue AIRFLOW_TILE_CAP = BUILDER
+            .comment("AIRFLOW: the most air tiles that run at once (see airflowTileCapMode). Past it, the tiles empty",
+                    "longest close early; a tile with a player in it always runs.")
+            .defineInRange("airflowTileCap", 12, 1, 1024);
 
     public static final ModConfigSpec.DoubleValue HEAT_BUDGET = BUILDER
             .comment("CPU cores the simulation may use on average (its own threads, not the server thread). When it",
@@ -442,6 +459,21 @@ public final class WeatherConfig {
     /** Which simulation runs the air (GreedyFluids M7b); LEGACY before the config loads. {@code Airflow} reads it at server start. */
     public static dev.brights0ng.meteodyne.airflow.Airflow.Engine heatEngine() {
         return SPEC.isLoaded() ? HEAT_ENGINE.get() : dev.brights0ng.meteodyne.airflow.Airflow.Engine.LEGACY;
+    }
+
+    /** AIRFLOW: the speed over which a player opens no new tile, blocks a second (0: none). */
+    public static double airflowSpeedLimit() {
+        return SPEC.isLoaded() ? AIRFLOW_SPEED_LIMIT.get() : 5.5;
+    }
+
+    /** AIRFLOW: how the tile cap counts. */
+    public static dev.brights0ng.meteodyne.airflow.AirflowLimits.CapMode airflowCapMode() {
+        return SPEC.isLoaded() ? AIRFLOW_CAP_MODE.get() : dev.brights0ng.meteodyne.airflow.AirflowLimits.CapMode.SERVER;
+    }
+
+    /** AIRFLOW: the most tiles that run at once. */
+    public static int airflowTileCap() {
+        return SPEC.isLoaded() ? AIRFLOW_TILE_CAP.get() : 12;
     }
 
     /** The height cooling, C per 100 blocks. */

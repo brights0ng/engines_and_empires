@@ -1,6 +1,6 @@
 // Written by Claude (GreedyFluids M7b); edited by Claude (b2: classifier, section cache and snapshot check; b3: a
 // region around an anchor; b4: a region around a player, the commands and recorder, the switch; M7d d1: tiles; d2:
-// saving and restoring; M7c: watts and hot walls from the heat tables).
+// saving and restoring; M7c: watts and hot walls from the heat tables; M7e: the speed limit).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -645,6 +645,85 @@ public final class AirflowGameTests {
 
     /** Window size of part b3: four sections across, three tall. */
     private static final int WX = 64, WY = 48, WZ = 64;
+
+    /**
+     * M7e (Bright, 2026-11-15): an anchor faster than {@code airflowSpeedLimit} (5.5 blocks a second over 2 s) opens no
+     * tile, while the tile it keeps coming back to stays alive at that speed past its grace; once it slows down in
+     * the new tile, that tile opens.
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_speed", timeoutTicks = 40_000)
+    public static void fastAnchorsOpenNoTilesButKeepTheirOwn(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        Vec3 a = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 2, 1)));
+        AirflowRegions regions = new AirflowRegions(level);
+        regions.alignForTests(helper.absolutePos(BlockPos.ZERO));
+        int[] oa = regions.tileOf(a.x, a.y, a.z);
+        Vec3 c = a.add(AirflowRegions.WX, 0, 0);
+        int[] oc = regions.tileOf(c.x, c.y, c.z);
+        List<long[]> forced = new ArrayList<>();
+        for (int cx = oa[0] >> 4; cx < (oc[0] + AirflowRegions.WX) >> 4; cx++) {
+            for (int cz = oa[2] >> 4; cz < (oa[2] + AirflowRegions.WZ) >> 4; cz++) {
+                if (level.setChunkForced(cx, cz, true)) {
+                    forced.add(new long[] {cx, cz});
+                }
+            }
+        }
+        boolean opened = AirflowSections.get(level) == null;
+        // 0: still at a; 1: back and forth between a and c every 10 ticks (128 blocks a second); 2: still at c
+        int[] phase = {0};
+        regions.anchors(l -> {
+            if (phase[0] == 0) {
+                return List.of(a);
+            }
+            if (phase[0] == 2) {
+                return List.of(c);
+            }
+            return List.of((l.getGameTime() / AirflowRegions.SCAN_TICKS) % 2 == 0 ? a : c);
+        });
+        regions.start();
+        boolean[] stopped = {false};
+        helper.onEachTick(() -> {
+            if (!stopped[0]) {
+                regions.tick();
+            }
+        });
+        AirflowRegions.Region[] home = {null};
+        long[] held = {0};
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region r = regions.regionAt(a.x, a.y, a.z);
+                    helper.assertTrue(r != null && r.slot() != null, "waiting for the still anchor's tile");
+                })
+                .thenExecute(() -> {
+                    home[0] = regions.regionAt(a.x, a.y, a.z);
+                    helper.assertTrue(oc[0] == oa[0] + AirflowRegions.WX, "c is in the next tile east");
+                    held[0] = regions.heldForSpeed();
+                    phase[0] = 1;
+                })
+                .thenWaitUntil(() -> helper.assertTrue(regions.heldForSpeed() - held[0] >= 40,
+                        "waiting for 40 matches held for speed (past the grace)"))
+                .thenExecute(() -> {
+                    helper.assertTrue(regions.regions().size() == 1 && regions.regions().get(0) == home[0],
+                            "only the anchor's own tile runs, never rebuilt: " + regions.regions().size());
+                    helper.assertTrue(regions.regionAt(c.x, c.y, c.z) == null, "no tile opened at speed");
+                    phase[0] = 2;
+                })
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region r = regions.regionAt(c.x, c.y, c.z);
+                    helper.assertTrue(r != null && r.slot() != null, "waiting for the tile to open once still");
+                })
+                .thenExecute(() -> {
+                    stopped[0] = true;
+                    regions.stop();
+                    for (long[] f : forced) {
+                        level.setChunkForced((int) f[0], (int) f[1], false);
+                    }
+                    if (opened) {
+                        AirflowSections.close(level);
+                    }
+                })
+                .thenSucceed();
+    }
 
     /**
      * M7c (Bright, 2026-11-15): sources give real-world watts from {@code meteodyne:heat_power}; lava and magma are walls
