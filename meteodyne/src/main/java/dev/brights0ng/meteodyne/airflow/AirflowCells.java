@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b).
+// Written by Claude (GreedyFluids M7b); edited by Claude (M7c: hot walls).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -36,8 +36,8 @@ import net.neoforged.neoforge.registries.datamaps.DataMapsUpdatedEvent;
  * <ol>
  *   <li>Blocks tagged {@code meteodyne:airflow_solid} are solids (beds by default: the shape rule alone would let
  *       air under and over them).</li>
- *   <li>Blocks holding water or lava (waterlogged ones too) are solids of the fluid's material (part c makes lava
- *       hot).</li>
+ *   <li>Blocks holding water or lava (waterlogged ones too) are solids of the fluid's material; a block whose
+ *       {@code heat_power} gives a {@code wall_temperature} (lava, magma; M7c) is a wall fixed at it.</li>
  *   <li>Blocks tagged {@code meteodyne:airflow_air} are air (fences and iron bars by default: their collision
  *       spans the cell, but air passes).</li>
  *   <li>Then the scanner's class ({@link ScanFormat#classify}): AIR and POROUS (leaves) are air; doors and trapdoors
@@ -70,13 +70,26 @@ public final class AirflowCells {
     /** What a code is. */
     public enum Kind { AIR, SOLID, DOOR_SHUT, DOOR_OPEN }
 
-    /** One code's meaning: its kind and, for solids and doors, its material (null for air). */
-    public record Cell(Kind kind, Material material) {
+    /**
+     * One code's meaning: its kind; for solids and doors, its material (null for air); and for a solid, the
+     * temperature its wall is fixed at, C (NaN for none; M7c).
+     */
+    public record Cell(Kind kind, Material material, double wall) {
+        /** A cell with no fixed wall. */
+        public Cell(Kind kind, Material material) {
+            this(kind, material, Double.NaN);
+        }
+
         /** Writes this cell into a GreedyFluids grid at (x, y, z), grid cells. */
         public void apply(CellGrid3D grid, int x, int y, int z) {
             switch (kind) {
                 case AIR -> grid.setAir(x, y, z);
-                case SOLID -> grid.setSolid(x, y, z, material);
+                case SOLID -> {
+                    grid.setSolid(x, y, z, material);
+                    if (!Double.isNaN(wall)) {
+                        grid.setFixedTemperature(x, y, z, wall);
+                    }
+                }
                 case DOOR_SHUT, DOOR_OPEN -> grid.setDoor(x, y, z, material, kind == Kind.DOOR_OPEN);
             }
         }
@@ -147,7 +160,7 @@ public final class AirflowCells {
 
     /** What {@code state} is, before interning. */
     static Cell classify(BlockState state) {
-        if (state.is(AIRFLOW_SOLID)) {
+        if (state.is(AIRFLOW_SOLID) || Double.isFinite(AirflowSources.wall(state))) {
             return solid(state);
         }
         byte scan = ScanFormat.classify(state);
@@ -168,7 +181,8 @@ public final class AirflowCells {
     }
 
     private static Cell solid(BlockState state) {
-        return new Cell(Kind.SOLID, material(state));
+        double wall = AirflowSources.wall(state);
+        return new Cell(Kind.SOLID, material(state), Double.isFinite(wall) ? wall : Double.NaN);
     }
 
     /** The collision shape's boxes, block units. */

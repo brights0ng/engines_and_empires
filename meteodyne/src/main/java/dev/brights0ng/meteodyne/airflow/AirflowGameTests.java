@@ -1,6 +1,6 @@
 // Written by Claude (GreedyFluids M7b); edited by Claude (b2: classifier, section cache and snapshot check; b3: a
 // region around an anchor; b4: a region around a player, the commands and recorder, the switch; M7d d1: tiles; d2:
-// saving and restoring).
+// saving and restoring; M7c: watts and hot walls from the heat tables).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -647,6 +647,33 @@ public final class AirflowGameTests {
     private static final int WX = 64, WY = 48, WZ = 64;
 
     /**
+     * M7c (Bright, 2026-11-15): sources give real-world watts from {@code meteodyne:heat_power}; lava and magma are walls
+     * at a fixed temperature (solid cells whose code carries it); radiant-only blocks put nothing into the air.
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_sources")
+    public static void heatTablesGiveWattsAndHotWalls(GameTestHelper helper) {
+        BlockState campfire = Blocks.CAMPFIRE.defaultBlockState();
+        helper.assertTrue(AirflowSources.watts(campfire) == 10_000, "a lit campfire: " + AirflowSources.watts(campfire));
+        helper.assertTrue(AirflowSources.watts(campfire.setValue(BlockStateProperties.LIT, false)) == 0, "an unlit one");
+        BlockState furnace = Blocks.FURNACE.defaultBlockState().setValue(BlockStateProperties.LIT, true);
+        helper.assertTrue(AirflowSources.watts(furnace) == 5_000, "a lit furnace: " + AirflowSources.watts(furnace));
+        helper.assertTrue(AirflowSources.watts(Blocks.GLOWSTONE.defaultBlockState()) == 0, "glowstone is radiant only");
+        helper.assertTrue(AirflowSources.watts(Blocks.LAVA.defaultBlockState()) == 0, "lava gives no watts");
+        byte lavaCode = AirflowCells.code(Blocks.LAVA.defaultBlockState());
+        byte magmaCode = AirflowCells.code(Blocks.MAGMA_BLOCK.defaultBlockState());
+        byte stoneCode = AirflowCells.code(Blocks.STONE.defaultBlockState());
+        AirflowCells.Table table = AirflowCells.table(); // after the codes: interning makes a new table
+        Cell lava = table.cell(lavaCode), magma = table.cell(magmaCode), stone = table.cell(stoneCode);
+        helper.assertTrue(lava.kind() == Kind.SOLID && lava.wall() == 1000, "lava is a wall at 1000 C: " + lava);
+        helper.assertTrue(magma.kind() == Kind.SOLID && magma.wall() == 400, "magma at 400 C: " + magma);
+        helper.assertTrue(Double.isNaN(stone.wall()), "stone isn't fixed: " + stone);
+        CellGrid3D grid = new CellGrid3D(16, 16, 16);
+        lava.apply(grid, 3, 3, 3);
+        helper.assertTrue(grid.fixedTemperature(grid.index(3, 3, 3)) == 1000, "a lava cell is written fixed");
+        helper.succeed();
+    }
+
+    /**
      * d2: a campfire warms a closed stone room (closed, so the warmth stays in a few small boxes rather than mixing
      * into the open tile's big ones); stopping the manager saves the tile into its chunks; with the fire put out, a
      * new manager builds the tile from what was saved, so its very first frame is still warm in the room.
@@ -779,8 +806,8 @@ public final class AirflowGameTests {
         if (f == null || f.frame() == null) {
             return null;
         }
-        return new double[] {f.frame().temperature(at.getX() - r.x0() + 0.5, at.getY() - r.y0() + 0.5,
-                at.getZ() - r.z0() + 0.5), f.frame().background().reference()};
+        int lx = at.getX() - r.x0(), ly = at.getY() - r.y0(), lz = at.getZ() - r.z0();
+        return new double[] {f.frame().temperature(lx + 0.5, ly + 0.5, lz + 0.5), f.frame().background().at(lx, ly, lz)};
     }
 
     /**

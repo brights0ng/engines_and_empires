@@ -1,7 +1,8 @@
-// Written by Claude (GreedyFluids M7d d3).
+// Written by Claude (GreedyFluids M7d d3); edited by Claude (M7c: the background is Temperature.at).
 package dev.brights0ng.meteodyne.airflow;
 
-import dev.brights0ng.meteodyne.climate.Climate;
+import dev.brights0ng.meteodyne.climate.Temperature;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
@@ -16,8 +17,8 @@ import net.minecraft.world.level.chunk.LevelChunk;
  *       ({@link AirflowSaved}); the air value, or the wall value for a block inside a wall;</li>
  *   <li>{@link Source#BACKGROUND}: else the background.</li>
  * </ol>
- * The background is the climate at the tile's centre, the interim rule the tiles use (until part c), so a saved
- * offset is read against the background it was saved against. Server thread.
+ * The background is Meteodyne's air temperature at the block ({@code Temperature.at}), the field the tiles
+ * interpolate (M7c), so a saved offset is read against about the background it was saved against. Server thread.
  */
 public final class AirflowTemperatures {
 
@@ -46,10 +47,8 @@ public final class AirflowTemperatures {
                 return new Reading(t, Source.LIVE, f.tick());
             }
         }
-        int[] o = regions.tileOf(x, y, z);
-        double background = Climate.sample(level, o[0] + AirflowRegions.WX / 2.0, o[1] + AirflowRegions.WY / 2.0,
-                o[2] + AirflowRegions.WZ / 2.0).temperature();
         int bx = Mth.floor(x), by = Mth.floor(y), bz = Mth.floor(z);
+        double background = Temperature.at(level, new BlockPos(bx, by, bz));
         LevelChunk chunk = level.getChunkSource().getChunkNow(bx >> 4, bz >> 4);
         if (chunk != null && chunk.hasData(AirflowContent.CHUNK_DATA)) {
             AirflowSaved.Section s = chunk.getData(AirflowContent.CHUNK_DATA).section(SectionPos.blockToSectionCoord(by));

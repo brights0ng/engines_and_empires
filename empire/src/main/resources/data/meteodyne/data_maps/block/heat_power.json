@@ -12,7 +12,8 @@
       },
       "power": 2.0,
       "radiant": 0.6,
-      "max_offset": 60
+      "max_offset": 60,
+      "watts": 20000
     }
   }
 }

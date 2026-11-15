@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b b3).
+// Written by Claude (GreedyFluids M7b b3); edited by Claude (M7c: fixed walls).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -19,6 +19,8 @@ import dev.brights0ng.meteodyne.airflow.AirflowCells.Kind;
  *   <li>SOLID↔DOOR is two: GreedyFluids takes one edit per cell per batch, so the second (the new door or block) goes
  *       in {@link #second}, applied after {@code first}.</li>
  *   <li>A door opening or shutting is a {@link #doors} toggle, not an edit.</li>
+ *   <li>A solid whose fixed wall temperature changes (lava placed, lava turned to obsidian; M7c) is a
+ *       {@link #walls} entry, applied after both edit lists; a material change alone still makes no edit.</li>
  * </ul>
  * Pure Java: no Minecraft classes, so the unit tests can run it.
  */
@@ -32,9 +34,14 @@ final class AirflowBatch {
     record DoorToggle(int x, int y, int z, boolean open) {
     }
 
+    /** A solid cell's fixed wall temperature, C (NaN: none). */
+    record WallChange(int x, int y, int z, double celsius) {
+    }
+
     final List<CellEdit3D> first = new ArrayList<>();
     final List<CellEdit3D> second = new ArrayList<>();
     final List<DoorToggle> doors = new ArrayList<>();
+    final List<WallChange> walls = new ArrayList<>();
     /** Cells whose changes came to nothing (or to a material change alone). */
     int dropped;
 
@@ -54,6 +61,10 @@ final class AirflowBatch {
 
     private void add(int x, int y, int z, Cell before, Cell after) {
         Kind b = before.kind(), a = after.kind();
+        if (a == Kind.SOLID && (b != Kind.SOLID ? !Double.isNaN(after.wall())
+                : Double.compare(before.wall(), after.wall()) != 0)) {
+            walls.add(new WallChange(x, y, z, after.wall()));
+        }
         if (b == a) {
             dropped++;
             return;
@@ -83,6 +94,6 @@ final class AirflowBatch {
     }
 
     boolean isEmpty() {
-        return first.isEmpty() && second.isEmpty() && doors.isEmpty();
+        return first.isEmpty() && second.isEmpty() && doors.isEmpty() && walls.isEmpty();
     }
 }

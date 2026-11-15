@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: counters; M7d d2: saved state in and out).
+// Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: counters; M7d d2: saved state in and out; M7c: the
+// background field, fixed walls, thermostats and body heat).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -21,13 +22,18 @@ import dev.brights0ng.greedyfluids.solve.SolverConfig3D;
  * <ul>
  *   <li><b>Geometry:</b> {@link AirflowBatch.Change}s, merged per step ({@link AirflowBatch}). An edit whose cell isn't
  *       what it expects (AIR for a placement, SOLID for a break, a door for a removal) is skipped and counted as a
- *       desync; the region manager's events and the region's grid should never disagree.</li>
+ *       desync; the region manager's events and the region's grid should never disagree. Fixed walls (lava, magma;
+ *       M7c) come with the cells and follow their changes.</li>
  *   <li><b>Sources:</b> {@link SourceChange}s set a block's power. Bright's power rule (2026-11-04): a source in air or
  *       a door gets all of it; a solid one splits it equally over its AIR face neighbours inside the window (none: no
- *       power). Recomputed after every geometry batch.</li>
- *   <li><b>Weather:</b> {@link Weather} sets a uniform background and the wind (interim, until part c). Follow
- *       weights are 1 for air with no solid or door above it inside the window, else 0, and are recomputed when the
- *       background is next set after a geometry change.</li>
+ *       power). Recomputed after every geometry batch. A source with an absolute limit (M7c) is a thermostat: off
+ *       while the air it heats (or cools) is past the limit, on again 1 C back, checked every
+ *       {@link #THERMOSTAT_STEPS} steps.</li>
+ *   <li><b>Weather (M7c c2):</b> {@link Weather} sets the wind and the background field: per-cell temperatures from
+ *       the server's lattice ({@link AirflowField#cells}) and follow weights from the sky light through the air
+ *       ({@link AirflowField#sky}). Without a lattice (tests), one temperature and the M7b follow rule (air with only
+ *       air above it). Follow weights are recomputed at the next weather after a geometry change.</li>
+ *   <li><b>Body heat (M7c c3):</b> {@link Bodies} replaces the moving heat sources (players).</li>
  *   <li><b>Saved state (M7d d2):</b> built from the tile's saved sections when there are any (decayed to the build
  *       tick, {@link AirflowSaved}); {@link #save} packs the current state the same way.</li>
  * </ul>
@@ -35,30 +41,71 @@ import dev.brights0ng.greedyfluids.solve.SolverConfig3D;
  */
 final class AirflowRegionModel implements AirflowRuntime.Model {
 
+    /** Steps between thermostat checks (2 s). */
+    static final int THERMOSTAT_STEPS = 4;
+    /** A thermostat's way back, C. */
+    static final double HYSTERESIS = 1;
+
     /**
      * What a region is built from, gathered on the server thread; immutable. {@code sections} holds the codes of each
      * 16³ section, ordered {@code (j * nsz + k) * nsx + i} for section i along x, j along y and k along z;
-     * {@code sourceCells} are region cell indices {@code (y * nz + z) * nx + x}, parallel to {@code sourceWatts}.
-     * {@code saved} holds the saved sections in the same order (entries null where none; the array null for none at
-     * all), to be decayed to game tick {@code now}.
+     * {@code sourceCells} are region cell indices {@code (y * nz + z) * nx + x}, parallel to {@code sourceWatts} and
+     * {@code sourceLimits} (C, NaN for none; the array null for none at all). {@code saved} holds the saved sections in
+     * the same order (entries null where none; the array null for none at all), to be decayed to game tick
+     * {@code now}. {@code lattice} and {@code tops} are the background's ({@link Weather}); null for the uniform
+     * {@code backgroundT}.
      */
     record Spec(int x0, int y0, int z0, int nx, int ny, int nz, AirflowSections.Codes[] sections,
                 AirflowCells.Table table, double backgroundT, double windX, double windZ, int[] sourceCells,
-                double[] sourceWatts, AirflowSaved.Section[] saved, long now) {
-        /** As above, with nothing saved. */
+                double[] sourceWatts, double[] sourceLimits, AirflowSaved.Section[] saved, long now, float[] lattice,
+                int[] tops) {
+        /** As above, with nothing saved, no limits and a uniform background. */
         Spec(int x0, int y0, int z0, int nx, int ny, int nz, AirflowSections.Codes[] sections,
              AirflowCells.Table table, double backgroundT, double windX, double windZ, int[] sourceCells,
              double[] sourceWatts) {
-            this(x0, y0, z0, nx, ny, nz, sections, table, backgroundT, windX, windZ, sourceCells, sourceWatts, null, 0);
+            this(x0, y0, z0, nx, ny, nz, sections, table, backgroundT, windX, windZ, sourceCells, sourceWatts, null,
+                    null, 0, null, null);
+        }
+
+        /** As above, built from saved sections. */
+        Spec(int x0, int y0, int z0, int nx, int ny, int nz, AirflowSections.Codes[] sections,
+             AirflowCells.Table table, double backgroundT, double windX, double windZ, int[] sourceCells,
+             double[] sourceWatts, AirflowSaved.Section[] saved, long now) {
+            this(x0, y0, z0, nx, ny, nz, sections, table, backgroundT, windX, windZ, sourceCells, sourceWatts, null,
+                    saved, now, null, null);
         }
     }
 
-    /** A block's source power, W (0: none), region cells. */
-    record SourceChange(int x, int y, int z, double watts) {
+    /** A block's source power, W (0: none), and its absolute limit, C (NaN: none); region cells. */
+    record SourceChange(int x, int y, int z, double watts, double limit) {
+        SourceChange(int x, int y, int z, double watts) {
+            this(x, y, z, watts, Double.NaN);
+        }
     }
 
-    /** The outside air: uniform background temperature, C, and wind, m/s. */
-    record Weather(double backgroundT, double windX, double windZ) {
+    /**
+     * The outside air: wind, m/s, and the background: the lattice ({@link AirflowField}, C) and each column's first
+     * open height (region cells) for the follow weights; without a lattice, {@code backgroundT} everywhere.
+     */
+    record Weather(double backgroundT, double windX, double windZ, float[] lattice, int[] tops) {
+        Weather(double backgroundT, double windX, double windZ) {
+            this(backgroundT, windX, windZ, null, null);
+        }
+    }
+
+    /** The players' body heat: x, y, z (region metres) and watts per player, packed. */
+    record Bodies(double[] xyzw) {
+    }
+
+    /** One source block: its power, W, limit, C (NaN: none), and whether its thermostat has it on. */
+    private static final class Block {
+        double watts, limit;
+        boolean on = true;
+
+        Block(double watts, double limit) {
+            this.watts = watts;
+            this.limit = limit;
+        }
     }
 
     private static final int[][] FACES = {{-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}};
@@ -68,11 +115,13 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     private final int x0, y0, z0;
     private final int nx, ny, nz;
     private final boolean restored;
-    private final Map<Integer, Double> blocks = new HashMap<>();
+    private final Map<Integer, Block> blocks = new HashMap<>();
     private Map<Integer, Double> applied = new HashMap<>();
     private double backgroundT;
+    private float[] lattice;
+    private int[] tops;
     private boolean followStale;
-    private int desyncs;
+    private int desyncs, sinceCheck;
     private long edits, toggles;
 
     private AirflowRegionModel(CellGrid3D grid, Spec spec) {
@@ -84,15 +133,21 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         this.ny = spec.ny();
         this.nz = spec.nz();
         this.backgroundT = spec.backgroundT();
-        Background3D background = Background3D.uniform(nx, ny, nz, backgroundT).withFollow(follow());
+        this.lattice = spec.lattice();
+        this.tops = spec.tops();
+        Background3D background = background();
         ThermalState initial = spec.saved() == null ? null
                 : AirflowSaved.unpack(spec.saved(), nx, ny, nz, background::cell, spec.now());
         restored = initial != null;
-        region = initial == null ? new AirRegion(grid, background, spec.windX(), spec.windZ())
-                : AirRegion.restore(grid, background, initial, spec.windX(), spec.windZ(),
-                        SolverConfig3D.DEFAULT.withAmbientT(background.reference()));
+        SolverConfig3D config = SolverConfig3D.DEFAULT.withAmbientT(background.reference());
+        region = initial == null ? new AirRegion(grid, background, null, spec.windX(), spec.windZ(), config)
+                : AirRegion.restore(grid, background, initial, spec.windX(), spec.windZ(), config);
         for (int i = 0; i < spec.sourceCells().length; i++) {
-            blocks.merge(spec.sourceCells()[i], spec.sourceWatts()[i], Double::sum);
+            double limit = spec.sourceLimits() == null ? Double.NaN : spec.sourceLimits()[i];
+            blocks.merge(spec.sourceCells()[i], new Block(spec.sourceWatts()[i], limit), (a, b) -> {
+                a.watts += b.watts;
+                return a;
+            });
         }
         distribute();
     }
@@ -117,6 +172,15 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         return new AirflowRegionModel(grid, spec);
     }
 
+    /** The background now: the lattice and sky follow weights, or (without a lattice) uniform with the M7b rule. */
+    private Background3D background() {
+        if (lattice == null) {
+            return Background3D.uniform(nx, ny, nz, backgroundT).withFollow(followAbove());
+        }
+        float[] follow = tops == null ? followAbove() : AirflowField.follow(AirflowField.sky(grid, tops));
+        return Background3D.of(nx, ny, nz, AirflowField.cells(lattice, nx, ny, nz), follow);
+    }
+
     @Override
     public void apply(List<Object> events) {
         List<AirflowBatch.Change> changes = new ArrayList<>();
@@ -130,11 +194,19 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
                 if (s.watts() == 0) {
                     blocks.remove(cell);
                 } else {
-                    blocks.put(cell, s.watts());
+                    Block b = blocks.get(cell);
+                    if (b == null) {
+                        blocks.put(cell, new Block(s.watts(), s.limit()));
+                    } else {
+                        b.watts = s.watts();
+                        b.limit = s.limit();
+                    }
                 }
                 sources = true;
             } else if (e instanceof Weather w) {
                 weather = w; // the latest wins
+            } else if (e instanceof Bodies b) {
+                region.setEntityHeat(b.xyzw());
             } else {
                 throw new IllegalArgumentException("unknown airflow event " + e);
             }
@@ -158,6 +230,13 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
                     desyncs++;
                 }
             }
+            for (AirflowBatch.WallChange w : batch.walls) {
+                if (grid.type(w.x(), w.y(), w.z()) == CellType.SOLID) {
+                    region.setFixedTemperature(w.x(), w.y(), w.z(), w.celsius());
+                } else {
+                    desyncs++;
+                }
+            }
             if (!first.isEmpty() || !second.isEmpty()) {
                 sources = true;
                 followStale = true;
@@ -167,10 +246,14 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
             distribute();
         }
         if (weather != null) {
-            if (weather.backgroundT() != backgroundT || followStale) {
+            boolean changed = followStale || weather.backgroundT() != backgroundT || weather.lattice() != lattice
+                    || weather.tops() != tops;
+            if (changed) {
                 backgroundT = weather.backgroundT();
+                lattice = weather.lattice();
+                tops = weather.tops();
                 followStale = false;
-                region.setBackground(Background3D.uniform(nx, ny, nz, backgroundT).withFollow(follow()));
+                region.setBackground(background());
             }
             region.setWind(weather.windX(), weather.windZ());
         }
@@ -195,27 +278,35 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         return out;
     }
 
+    /** The cells a block's power goes into: its own if it is air or a door, else its AIR face neighbours. */
+    private List<Integer> targets(int cell) {
+        int x = cell % nx, z = cell / nx % nz, y = cell / (nx * nz);
+        List<Integer> out = new ArrayList<>(6);
+        if (grid.type(x, y, z).isFluid()) {
+            out.add(cell);
+            return out;
+        }
+        for (int[] f : FACES) {
+            if (air(x + f[0], y + f[1], z + f[2])) {
+                out.add(grid.index(x + f[0], y + f[1], z + f[2]));
+            }
+        }
+        return out;
+    }
+
     /**
-     * Spreads the source blocks over cells (the power rule) and sets what changed. A cell a block was placed in has
-     * already lost its power (GreedyFluids clears it with the edit) and is left alone.
+     * Spreads the source blocks that are on over cells (the power rule) and sets what changed. A cell a block was
+     * placed in has already lost its power (GreedyFluids clears it with the edit) and is left alone.
      */
     private void distribute() {
         Map<Integer, Double> want = new HashMap<>();
-        for (Map.Entry<Integer, Double> b : blocks.entrySet()) {
-            int cell = b.getKey();
-            int x = cell % nx, z = cell / nx % nz, y = cell / (nx * nz);
-            if (grid.type(x, y, z).isFluid()) {
-                want.merge(cell, b.getValue(), Double::sum);
+        for (Map.Entry<Integer, Block> b : blocks.entrySet()) {
+            if (!b.getValue().on) {
                 continue;
             }
-            int open = 0;
-            for (int[] f : FACES) {
-                open += air(x + f[0], y + f[1], z + f[2]) ? 1 : 0;
-            }
-            for (int[] f : FACES) {
-                if (open > 0 && air(x + f[0], y + f[1], z + f[2])) {
-                    want.merge(grid.index(x + f[0], y + f[1], z + f[2]), b.getValue() / open, Double::sum);
-                }
+            List<Integer> into = targets(b.getKey());
+            for (int c : into) {
+                want.merge(c, b.getValue().watts / into.size(), Double::sum);
             }
         }
         for (Map.Entry<Integer, Double> a : applied.entrySet()) {
@@ -233,6 +324,34 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         applied = want;
     }
 
+    /** Switches limited sources by the air they work on; returns whether any changed. */
+    private boolean thermostats() {
+        boolean changed = false;
+        for (Map.Entry<Integer, Block> e : blocks.entrySet()) {
+            Block b = e.getValue();
+            if (Double.isNaN(b.limit)) {
+                continue;
+            }
+            List<Integer> into = targets(e.getKey());
+            if (into.isEmpty()) {
+                continue;
+            }
+            double sum = 0;
+            for (int c : into) {
+                sum += region.sampleT(c % nx + 0.5, c / (nx * nz) + 0.5, c / nx % nz + 0.5);
+            }
+            double t = sum / into.size();
+            boolean heats = b.watts > 0;
+            boolean on = b.on ? (heats ? t < b.limit : t > b.limit)
+                    : (heats ? t < b.limit - HYSTERESIS : t > b.limit + HYSTERESIS);
+            if (on != b.on) {
+                b.on = on;
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
     private boolean air(int x, int y, int z) {
         return grid.inBounds(x, y, z) && grid.type(x, y, z) == CellType.AIR;
     }
@@ -241,8 +360,8 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         region.setSource(cell % nx, cell / (nx * nz), cell / nx % nz, watts);
     }
 
-    /** 1 for air with only air above it inside the window, else 0. */
-    private float[] follow() {
+    /** M7b's follow weights: 1 for air with only air above it inside the window, else 0. */
+    private float[] followAbove() {
         float[] w = new float[nx * ny * nz];
         for (int z = 0; z < nz; z++) {
             for (int x = 0; x < nx; x++) {
@@ -257,6 +376,12 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     @Override
     public void step() {
         region.step();
+        if (++sinceCheck >= THERMOSTAT_STEPS) {
+            sinceCheck = 0;
+            if (thermostats()) {
+                distribute();
+            }
+        }
     }
 
     @Override

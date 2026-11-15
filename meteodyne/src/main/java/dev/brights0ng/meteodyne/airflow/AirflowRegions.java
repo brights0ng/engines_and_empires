@@ -1,5 +1,6 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: ids, timing, the recorder; only assigned regions
-// stay alive); edited by Claude (M7d d1: fixed tiles replace player-centred windows; d2: saving and restoring).
+// stay alive); edited by Claude (M7d d1: fixed tiles replace player-centred windows; d2: saving and restoring; M7c:
+// the background field, driven sources, limits and body heat).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -10,10 +11,10 @@ import java.util.Map;
 import java.util.function.Function;
 
 import dev.brights0ng.meteodyne.Meteodyne;
-import dev.brights0ng.meteodyne.climate.Climate;
 import dev.brights0ng.meteodyne.heat.world.HeatShips;
 import dev.brights0ng.meteodyne.wind.WindSources;
 import dev.brights0ng.paradynelib.wind.WindColumn;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
@@ -42,9 +43,12 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  *       failed region is rebuilt from fresh codes after
  *       {@link AirflowRuntime#backoffTicks}. No window for a player aboard a ship, or spectating.</li>
  *   <li><b>Events:</b> block edits and source changes in a built region's tile go to its queue as they happen.</li>
- *   <li><b>Interim inputs (until part c):</b> uniform background and surface wind from the climate at the window
- *       centre, re-sent when they move by {@link #BACKGROUND_STEP} °C or {@link #WIND_STEP} m/s (checked every
- *       {@link #WEATHER_TICKS}); placed-source powers from {@link AirflowSources}.</li>
+ *   <li><b>Inputs (M7c):</b> the background field ({@link AirflowBackground}: the tile's lattice of Meteodyne's air
+ *       temperature, read before the tile is built, and its column tops for the follow weights) and the surface
+ *       wind at the tile's centre, re-sent when a lattice point moves by {@link #BACKGROUND_STEP} °C, the wind by
+ *       {@link #WIND_STEP} m/s, or after an edit (checked every {@link #WEATHER_TICKS}); placed sources'
+ *       watts and limits ({@link AirflowSources}); driven sources polled at the same cadence; each player in the
+ *       tile's body heat, {@link AirflowSources#PLAYER_WATTS} W.</li>
  *   <li><b>Saving (M7d d2):</b> a running region saves its temperatures into its chunks ({@link AirflowChunkData})
  *       every {@link #SAVE_TICKS}, when it retires and when the server stops; a region is built from what its
  *       chunks hold, decayed toward the background ({@link AirflowSaved}). A save that arrives after its chunk
@@ -64,6 +68,8 @@ public final class AirflowRegions implements AirflowSections.Listener {
     /** How often each region's weather is checked, ticks. */
     static final int WEATHER_TICKS = 20;
     public static final double BACKGROUND_STEP = 0.25, WIND_STEP = 0.25;
+    /** Server-thread time per tick spent reading new tiles' ground samples, ns. */
+    static final long BACKGROUND_BUDGET_NANOS = 500_000L;
     /** How often a running region saves its temperatures, ticks (60 s). */
     static final long SAVE_TICKS = 1200;
     /** How far outside a ship's bounds a player still counts as aboard, blocks. */
@@ -80,6 +86,11 @@ public final class AirflowRegions implements AirflowSections.Listener {
         private boolean occupied;
         private long emptySince = -1, retryAt = -1, built = -1;
         private double sentT = Double.NaN, sentWindX, sentWindZ;
+        private AirflowBackground background;
+        private float[] sentLattice;
+        private boolean geometryChanged, hadBodies;
+        /** Driven sources in the tile, with the power last sent for each. */
+        private final Long2ObjectOpenHashMap<AirflowSources.Power> driven = new Long2ObjectOpenHashMap<>();
 
         private Region(int id, int x0, int y0, int z0) {
             this.id = id;
@@ -284,6 +295,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
         long now = level.getGameTime();
         runtime.tick(now);
         writeSaves();
+        fillBackgrounds(start + BACKGROUND_BUDGET_NANOS);
         if (now % SCAN_TICKS == 0) {
             match();
         }
@@ -322,6 +334,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
 
     private Region open(int x0, int y0, int z0) {
         Region r = new Region(nextId++, x0, y0, z0);
+        r.background = new AirflowBackground(level, x0, y0, z0, WX, WY, WZ);
         for (long s : r.sections) {
             sections.want(s);
         }
@@ -372,6 +385,8 @@ public final class AirflowRegions implements AirflowSections.Listener {
             case RUNNING -> {
                 if ((now - r.built) % WEATHER_TICKS == 0) {
                     weather(r);
+                    pollDriven(r);
+                    bodies(r);
                 }
                 if (now > r.built && (now - r.built) % SAVE_TICKS == 0) {
                     r.slot.requestSave();
@@ -383,6 +398,9 @@ public final class AirflowRegions implements AirflowSections.Listener {
     }
 
     private boolean ready(Region r) {
+        if (!r.background.ready()) {
+            return false;
+        }
         for (long s : r.sections) {
             if (!sections.ready(s)) {
                 return false;
@@ -391,35 +409,117 @@ public final class AirflowRegions implements AirflowSections.Listener {
         return true;
     }
 
+    /** Reads new tiles' ground samples until {@code deadline}, in the order the tiles opened. */
+    private void fillBackgrounds(long deadline) {
+        for (Region r : regions) {
+            if (!r.background.ready()) {
+                r.background.fill(deadline);
+                if (System.nanoTime() >= deadline) {
+                    return;
+                }
+            }
+        }
+    }
+
     /** Gathers what the region is built from (server thread) into a factory run on the air thread. */
     private AirflowRuntime.Factory factory(Region r) {
         AirflowSections.Codes[] codes = new AirflowSections.Codes[r.sections.length];
         AirflowSaved.Section[] saved = new AirflowSaved.Section[r.sections.length];
         boolean any = false;
         List<Integer> cells = new ArrayList<>();
-        List<Double> watts = new ArrayList<>();
+        List<Double> watts = new ArrayList<>(), limits = new ArrayList<>();
+        r.driven.clear();
         for (int i = 0; i < codes.length; i++) {
             codes[i] = sections.codes(r.sections[i]);
             saved[i] = savedSection(r.sections[i]);
             any |= saved[i] != null;
             AirflowSections.Sources src = sections.sources(r.sections[i]);
             for (int s = 0; s < src.positions().length; s++) {
+                if (src.driven().length > 0 && contains(src.driven(), src.positions()[s])) {
+                    continue; // a driven block's whole power comes from the poll
+                }
                 BlockPos p = BlockPos.of(src.positions()[s]);
                 cells.add(((p.getY() - r.y0) * WZ + p.getZ() - r.z0) * WX + p.getX() - r.x0);
                 watts.add(src.watts()[s]);
+                limits.add(src.limits()[s]);
+            }
+            for (long d : src.driven()) {
+                BlockPos p = BlockPos.of(d);
+                AirflowSources.Power power = drivenPower(p);
+                r.driven.put(d, power);
+                if (!power.isNone()) {
+                    cells.add(((p.getY() - r.y0) * WZ + p.getZ() - r.z0) * WX + p.getX() - r.x0);
+                    watts.add(power.watts());
+                    limits.add(power.limit());
+                }
             }
         }
-        double[] w = weatherAt(r);
-        r.sentT = w[0];
-        r.sentWindX = w[1];
-        r.sentWindZ = w[2];
+        double[] w = windAt(r);
+        float[] lattice = r.background.lattice();
+        int[] tops = r.background.columnTops();
+        r.sentLattice = lattice;
+        r.sentT = lattice[0];
+        r.sentWindX = w[0];
+        r.sentWindZ = w[1];
+        r.geometryChanged = false;
         if (any) {
             restores++;
         }
         AirflowRegionModel.Spec spec = new AirflowRegionModel.Spec(r.x0, r.y0, r.z0, WX, WY, WZ, codes,
-                AirflowCells.table(), w[0], w[1], w[2], cells.stream().mapToInt(Integer::intValue).toArray(),
-                watts.stream().mapToDouble(Double::doubleValue).toArray(), any ? saved : null, level.getGameTime());
+                AirflowCells.table(), lattice[0], w[0], w[1], cells.stream().mapToInt(Integer::intValue).toArray(),
+                watts.stream().mapToDouble(Double::doubleValue).toArray(),
+                limits.stream().mapToDouble(Double::doubleValue).toArray(), any ? saved : null, level.getGameTime(),
+                lattice, tops);
         return () -> AirflowRegionModel.build(spec);
+    }
+
+    private static boolean contains(long[] values, long v) {
+        for (long x : values) {
+            if (x == v) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** A driven block's whole power now: its state's part and its drivers' (server thread). */
+    private AirflowSources.Power drivenPower(BlockPos p) {
+        net.minecraft.world.level.block.state.BlockState state = level.getBlockState(p);
+        AirflowSources.Power byState = AirflowSources.power(state), byDriver = AirflowSources.driven(level, p, state);
+        double watts = byState.watts() + byDriver.watts();
+        double limit = Double.isNaN(byDriver.limit()) ? byState.limit() : byDriver.limit();
+        return watts == 0 ? AirflowSources.Power.NONE : new AirflowSources.Power(watts, limit);
+    }
+
+    /** Polls a running region's driven sources and sends those whose power changed. */
+    private void pollDriven(Region r) {
+        for (var e : r.driven.long2ObjectEntrySet()) {
+            BlockPos p = BlockPos.of(e.getLongKey());
+            AirflowSources.Power now = drivenPower(p);
+            if (!now.equals(e.getValue())) {
+                e.setValue(now);
+                r.slot.post(new AirflowRegionModel.SourceChange(p.getX() - r.x0, p.getY() - r.y0, p.getZ() - r.z0,
+                        now.watts(), now.limit()));
+            }
+        }
+    }
+
+    /** Sends a running region the body heat of every player in its tile. */
+    private void bodies(Region r) {
+        List<Double> xyzw = new ArrayList<>();
+        for (ServerPlayer p : level.players()) {
+            Vec3 at = p.position().add(0, 0.9, 0);
+            if (!p.isSpectator() && r.contains(at.x, at.y, at.z)) {
+                xyzw.add(at.x - r.x0);
+                xyzw.add(at.y - r.y0);
+                xyzw.add(at.z - r.z0);
+                xyzw.add(AirflowSources.PLAYER_WATTS);
+            }
+        }
+        if (!xyzw.isEmpty() || r.hadBodies) {
+            r.hadBodies = !xyzw.isEmpty();
+            r.slot.post(new AirflowRegionModel.Bodies(xyzw.stream().mapToDouble(Double::doubleValue).toArray()));
+        }
     }
 
     /** What a section's chunk holds for it, or null (nothing saved, or the chunk isn't loaded). */
@@ -461,22 +561,30 @@ public final class AirflowRegions implements AirflowSections.Listener {
     }
 
     private void weather(Region r) {
-        double[] w = weatherAt(r);
-        if (Math.abs(w[0] - r.sentT) >= BACKGROUND_STEP
-                || Math.hypot(w[1] - r.sentWindX, w[2] - r.sentWindZ) >= WIND_STEP) {
-            r.sentT = w[0];
-            r.sentWindX = w[1];
-            r.sentWindZ = w[2];
-            r.slot.post(new AirflowRegionModel.Weather(w[0], w[1], w[2]));
+        double[] w = windAt(r);
+        float[] lattice = r.background.lattice();
+        boolean moved = false;
+        for (int i = 0; i < lattice.length && !moved; i++) {
+            moved = Math.abs(lattice[i] - r.sentLattice[i]) >= BACKGROUND_STEP;
+        }
+        if (moved || r.geometryChanged || Math.hypot(w[0] - r.sentWindX, w[1] - r.sentWindZ) >= WIND_STEP) {
+            if (moved) {
+                r.sentLattice = lattice;
+                r.sentT = lattice[0];
+            }
+            r.sentWindX = w[0];
+            r.sentWindZ = w[1];
+            r.geometryChanged = false;
+            r.slot.post(new AirflowRegionModel.Weather(r.sentT, w[0], w[1], r.sentLattice,
+                    r.background.columnTops()));
         }
     }
 
-    /** The interim outside air at the window centre: temperature, C, and surface wind x, z, m/s. */
-    private double[] weatherAt(Region r) {
-        double x = r.x0 + WX / 2.0, y = r.y0 + WY / 2.0, z = r.z0 + WZ / 2.0;
-        double t = Climate.sample(level, x, y, z).temperature();
+    /** The surface wind at the tile's centre: x, z, m/s. */
+    private double[] windAt(Region r) {
+        double x = r.x0 + WX / 2.0, z = r.z0 + WZ / 2.0;
         WindColumn wind = WindSources.column(level, x, z);
-        return new double[] {t, wind == null ? 0 : wind.surfaceX(), wind == null ? 0 : wind.surfaceZ()};
+        return new double[] {wind == null ? 0 : wind.surfaceX(), wind == null ? 0 : wind.surfaceZ()};
     }
 
     @Override
@@ -486,15 +594,31 @@ public final class AirflowRegions implements AirflowSections.Listener {
             AirflowCells.Table table = AirflowCells.table();
             r.slot.post(new AirflowBatch.Change(pos.getX() - r.x0, pos.getY() - r.y0, pos.getZ() - r.z0,
                     table.cell(before), table.cell(after)));
+            r.geometryChanged = true;
         }
     }
 
     @Override
-    public void sourceChanged(BlockPos pos, double before, double after) {
+    public void sourceChanged(BlockPos pos, double before, double after, double limit) {
         Region r = regionAt(pos.getX(), pos.getY(), pos.getZ());
-        if (r != null && r.slot != null) {
+        if (r != null && r.slot != null && !r.driven.containsKey(pos.asLong())) {
             r.slot.post(new AirflowRegionModel.SourceChange(pos.getX() - r.x0, pos.getY() - r.y0,
-                    pos.getZ() - r.z0, after));
+                    pos.getZ() - r.z0, after, limit));
+        }
+    }
+
+    @Override
+    public void drivenChanged(BlockPos pos, boolean isDriven) {
+        Region r = regionAt(pos.getX(), pos.getY(), pos.getZ());
+        if (r == null || r.slot == null) {
+            return;
+        }
+        if (isDriven) {
+            r.driven.put(pos.asLong(), AirflowSources.Power.NONE); // the next poll sends its power
+        } else if (r.driven.remove(pos.asLong()) != null) {
+            AirflowSources.Power byState = AirflowSources.power(level.getBlockState(pos));
+            r.slot.post(new AirflowRegionModel.SourceChange(pos.getX() - r.x0, pos.getY() - r.y0,
+                    pos.getZ() - r.z0, byState.watts(), byState.limit()));
         }
     }
 
