@@ -489,7 +489,8 @@ public final class AirflowGameTests {
                     cleanup.run();
                     helper.assertFalse(runtime.alive(), "stopping joins the air thread");
                     helper.assertFalse(Thread.getAllStackTraces().keySet().stream()
-                            .anyMatch(t -> t.isAlive() && t.getName().equals("Meteodyne airflow")), "no air thread is left");
+                            .anyMatch(t -> t.isAlive() && t.getName().equals(runtime.threadName())),
+                            "no air thread is left");
                 })
                 .thenSucceed();
     }
@@ -541,6 +542,76 @@ public final class AirflowGameTests {
     }
 
     // ---- The container check (opt-in) ----
+
+    /**
+     * After the smoke (Bright, 2026-11-14, option a): only a region a player is assigned to stays alive. An anchor
+     * moves to 24 blocks east of its region's centre, out of the inner zone though still inside the window: a second
+     * region opens around it, the first counts as empty at once and retires after the grace period.
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_assign", timeoutTicks = 40_000)
+    public static void onlyTheAssignedRegionStaysAlive(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        // 24 blocks up, so the anchor sits in its window's middle section (the floor is in the world's bottom one)
+        Vec3 a = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 26, 1)));
+        int[] oa = AirflowRegions.window(level, a);
+        Vec3 b = new Vec3(oa[0] + AirflowRegions.WX / 2.0 + 24.5, a.y, a.z);
+        int[] ob = AirflowRegions.window(level, b);
+        List<long[]> forced = new ArrayList<>();
+        for (int cx = Math.min(oa[0], ob[0]) >> 4; cx < (Math.max(oa[0], ob[0]) + AirflowRegions.WX) >> 4; cx++) {
+            for (int cz = Math.min(oa[2], ob[2]) >> 4; cz < (Math.max(oa[2], ob[2]) + AirflowRegions.WZ) >> 4; cz++) {
+                if (level.setChunkForced(cx, cz, true)) {
+                    forced.add(new long[] {cx, cz});
+                }
+            }
+        }
+        boolean opened = AirflowSections.get(level) == null;
+        Vec3[] at = {a};
+        AirflowRegions regions = new AirflowRegions(level);
+        regions.anchors(l -> List.of(at[0]));
+        regions.start();
+        boolean[] stopped = {false};
+        helper.onEachTick(() -> {
+            if (!stopped[0]) {
+                regions.tick();
+            }
+        });
+        AirflowRegions.Region[] first = {null};
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region r = regions.regionAt(a.x, a.y, a.z);
+                    helper.assertTrue(r != null && r.slot() != null && r.occupied(), "waiting for the first region");
+                })
+                .thenExecute(() -> {
+                    first[0] = regions.regionAt(a.x, a.y, a.z);
+                    helper.assertTrue(first[0].inner(a.x, a.y, a.z), "the anchor starts in its region's inner zone");
+                    helper.assertTrue(first[0].contains(b.x, b.y, b.z), "the new spot is still inside the first window");
+                    at[0] = b;
+                })
+                .thenWaitUntil(() -> {
+                    helper.assertTrue(regions.regions().size() == 2 && !first[0].occupied(),
+                            "waiting for a region around the new spot, with the first one unassigned");
+                })
+                .thenWaitUntil(() -> helper.assertTrue(!regions.regions().contains(first[0]),
+                        "waiting for the first region's grace period to end"))
+                .thenExecute(() -> {
+                    StringBuilder seen = new StringBuilder();
+                    for (AirflowRegions.Region r : regions.regions()) {
+                        seen.append("; ").append(regionLine(r, level)).append(r.inner(b.x, b.y, b.z) ? " (holds it)" : "");
+                    }
+                    helper.assertTrue(regions.regions().size() == 1 && regions.regions().get(0).occupied()
+                            && regions.regions().get(0).inner(b.x, b.y, b.z),
+                            "one region, around the anchor at " + b + seen);
+                    stopped[0] = true;
+                    regions.stop();
+                    for (long[] c : forced) {
+                        level.setChunkForced((int) c[0], (int) c[1], false);
+                    }
+                    if (opened) {
+                        AirflowSections.close(level);
+                    }
+                })
+                .thenSucceed();
+    }
 
     /** Window size of part b3: four sections across, three tall. */
     private static final int WX = 64, WY = 48, WZ = 64;

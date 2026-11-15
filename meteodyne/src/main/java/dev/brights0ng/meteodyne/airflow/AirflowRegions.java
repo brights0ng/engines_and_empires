@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: ids, timing, the recorder).
+// Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: ids, timing, the recorder; only assigned regions
+// stay alive).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -31,12 +32,14 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  *   <li><b>Windows:</b> 64×48×64, snapped to sections: horizontally the four sections across nearest the player (who
  *       is then at least 24 blocks from a side), vertically the player's section ± 1, clamped to the build
  *       height.</li>
- *   <li><b>Sharing:</b> a player inside another region's inner zone (at least 16 blocks from each of its sides, top
- *       and bottom included) uses it, the one whose centre is nearest; otherwise the player gets a region of their
- *       own. Regions may overlap; queries read the one whose centre is nearest ({@link #frameAt}).</li>
+ *   <li><b>Assignment:</b> each player is assigned one region: one whose inner zone (at least 16 blocks from each of
+ *       its sides, top and bottom included) holds them, preferring a region assigned at the last match, then the
+ *       nearest centre; otherwise a region of their own. Regions may overlap; queries read the one whose centre is
+ *       nearest ({@link #frameAt}).</li>
  *   <li><b>Life:</b> a region wants its 48 sections from {@link AirflowSections} and is built once all are cached.
- *       It is retired after {@link #GRACE_TICKS} with no player inside, or when one of its sections is dropped
- *       (a chunk unload, or a data-map or tag reload). A failed region is rebuilt from fresh codes after
+ *       It is retired after {@link #GRACE_TICKS} with no player assigned (Bright, 2026-11-14: a player merely inside
+ *       a window no longer keeps it), or when one of its sections is dropped (a chunk unload, or a data-map or tag
+ *       reload). A failed region is rebuilt from fresh codes after
  *       {@link AirflowRuntime#backoffTicks}. No window for a player aboard a ship, or spectating.</li>
  *   <li><b>Events:</b> block edits and source changes in a built region's window go to its queue as they happen.</li>
  *   <li><b>Interim inputs (until part c):</b> uniform background and surface wind from the climate at the window
@@ -69,7 +72,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
         private final int x0, y0, z0;
         private final long[] sections;
         private AirflowRuntime.Slot slot;
-        private boolean occupied;
+        private boolean occupied, wasOccupied;
         private long emptySince = -1, retryAt = -1, built = -1;
         private double sentT = Double.NaN, sentWindX, sentWindZ;
 
@@ -111,7 +114,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
             return slot;
         }
 
-        /** Whether a player was inside at the last match. */
+        /** Whether a player was assigned to it at the last match. */
         public boolean occupied() {
             return occupied;
         }
@@ -272,22 +275,29 @@ public final class AirflowRegions implements AirflowSections.Listener {
         managerNanos += System.nanoTime() - start;
     }
 
-    /** Matches anchors to regions, opening one where an anchor has none. */
+    /**
+     * Assigns each anchor one region, opening one where none fits. Only assigned regions count as occupied: a region an
+     * anchor is merely inside starts its grace. Among regions whose inner zone holds the anchor, one assigned at the
+     * last match wins over a closer centre, so a player between two regions doesn't keep both alive by flip-flopping.
+     */
     private void match() {
         for (Region r : regions) {
+            r.wasOccupied = r.occupied;
             r.occupied = false;
         }
         for (Vec3 p : anchors.apply(level)) {
             Region home = null;
             double best = Double.POSITIVE_INFINITY;
+            boolean homeWas = false;
             for (Region r : regions) {
-                if (r.contains(p.x, p.y, p.z)) {
-                    r.occupied = true;
+                if (!r.inner(p.x, p.y, p.z)) {
+                    continue;
                 }
                 double d = r.centreDistanceSq(p.x, p.y, p.z);
-                if (r.inner(p.x, p.y, p.z) && d < best) {
+                if (home == null || (r.wasOccupied && !homeWas) || (r.wasOccupied == homeWas && d < best)) {
                     home = r;
                     best = d;
+                    homeWas = r.wasOccupied;
                 }
             }
             if (home == null) {
@@ -296,8 +306,8 @@ public final class AirflowRegions implements AirflowSections.Listener {
                 if (home == null) {
                     home = open(o[0], o[1], o[2]);
                 }
-                home.occupied = true;
             }
+            home.occupied = true;
         }
     }
 

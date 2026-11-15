@@ -173,6 +173,8 @@ public final class AirflowRuntime {
     private final ConcurrentLinkedQueue<Slot> retires = new ConcurrentLinkedQueue<>();
     private final List<Slot> running = new ArrayList<>();
     private final AtomicLong ids = new AtomicLong();
+    private static final AtomicLong RUNTIMES = new AtomicLong();
+    private final String threadName = "Meteodyne airflow #" + RUNTIMES.incrementAndGet();
     private final BiConsumer<Slot, Throwable> onFailure;
     private volatile long tick;
     private volatile boolean stopping;
@@ -218,7 +220,7 @@ public final class AirflowRuntime {
             throw new IllegalStateException("already started");
         }
         stopping = false;
-        Thread t = new Thread(this::loop, "Meteodyne airflow");
+        Thread t = new Thread(this::loop, threadName);
         t.setDaemon(true);
         thread = t;
         t.start();
@@ -250,6 +252,11 @@ public final class AirflowRuntime {
     /** Wall time the air thread has spent working (building, stepping, retiring), ns. */
     public long busyNanos() {
         return busyNanos;
+    }
+
+    /** The air thread's name ("Meteodyne airflow #n", one number per runtime). */
+    public String threadName() {
+        return threadName;
     }
 
     private Slot enqueue(Slot slot) {
