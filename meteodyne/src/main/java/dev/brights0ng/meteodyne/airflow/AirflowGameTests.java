@@ -227,7 +227,11 @@ public final class AirflowGameTests {
         helper.succeed();
     }
 
-    /** A section whose states all share one code is stored as that code, found from the palette. */
+    /**
+     * A section whose states all share one code is stored as that code, found from the palette. The stone mass is
+     * written straight into the chunk section (no light updates or block hooks): 8,192 lit block changes in one tick
+     * left a light backlog that other tests' light checks tripped over.
+     */
     @GameTest(template = GameTestStructures.EMPTY)
     public static void uniformSectionsComeFromThePalette(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -236,15 +240,15 @@ public final class AirflowGameTests {
         long top = SectionPos.asLong(cx, level.getMaxSection() - 1, cz);
         long below = SectionPos.asLong(cx, level.getMaxSection() - 2, cz);
         BlockPos torch = SectionPos.of(top).origin().offset(7, 0, 7);
-        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
-        BlockPos mass = SectionPos.of(below).origin();
+        net.minecraft.world.level.chunk.LevelChunkSection massSection = level.getChunk(cx, cz)
+                .getSection(level.getSectionIndexFromSectionY(SectionPos.y(below)));
         int flags = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
         boolean opened = AirflowSections.get(level) == null;
         AirflowSections sections = AirflowSections.open(level);
         try {
             level.setBlock(torch, Blocks.TORCH.defaultBlockState(), flags);
             for (int i = 0; i < AirflowSections.SECTION_CELLS; i++) {
-                level.setBlock(p.setWithOffset(mass, i & 15, i >> 8, (i >> 4) & 15), Blocks.STONE.defaultBlockState(), flags);
+                massSection.setBlockState(i & 15, i >> 8, (i >> 4) & 15, Blocks.STONE.defaultBlockState(), false);
             }
             sections.want(top);
             sections.want(below);
@@ -263,7 +267,7 @@ public final class AirflowGameTests {
         } finally {
             level.setBlock(torch, Blocks.AIR.defaultBlockState(), flags);
             for (int i = 0; i < AirflowSections.SECTION_CELLS; i++) {
-                level.setBlock(p.setWithOffset(mass, i & 15, i >> 8, (i >> 4) & 15), Blocks.AIR.defaultBlockState(), flags);
+                massSection.setBlockState(i & 15, i >> 8, (i >> 4) & 15, Blocks.AIR.defaultBlockState(), false);
             }
             if (opened) {
                 AirflowSections.close(level);
