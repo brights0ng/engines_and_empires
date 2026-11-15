@@ -1,6 +1,8 @@
+// Edited by Claude: in airflow mode the room is airflow's offset (GreedyFluids M7e).
 package dev.brights0ng.meteodyne.climate;
 
 import dev.brights0ng.meteodyne.WeatherOwnership;
+import dev.brights0ng.meteodyne.airflow.AirflowTemperatures;
 import dev.brights0ng.meteodyne.heat.world.HeatWorld;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
 import dev.brights0ng.meteodyne.ships.Ships;
@@ -12,8 +14,9 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Meteodyne's answer to the library's {@link TemperatureProvider} (split seam S1; food by temperature, 2026-10-15,
  * {@code claude/food-temperature.md}): the air where the pack owns the weather (underground included; on a ship, the air
- * where the ship is), the heat simulation's room, and the seasonal mean for long gaps. NaN where the pack doesn't own
- * the weather (other dimensions).
+ * where the ship is), the heat simulation's room (in airflow mode, {@link AirflowTemperatures#offset}: food, ice
+ * chests and instruments all read it; M7e, Bright 2026-11-15), and the seasonal mean for long gaps. NaN where the pack
+ * doesn't own the weather (other dimensions).
  */
 public final class MeteodyneTemperature implements TemperatureProvider {
 
@@ -38,6 +41,10 @@ public final class MeteodyneTemperature implements TemperatureProvider {
     public double room(ServerLevel level, Vec3 at) {
         if (!WeatherOwnership.owns(level)) {
             return 0;
+        }
+        double airflow = AirflowTemperatures.offset(level, at);
+        if (!Double.isNaN(airflow)) {
+            return airflow;
         }
         HeatWorld heat = HeatWorld.of(level);
         return heat != null && WeatherConfig.heat().enabled() ? heat.roomAt(at) : 0;

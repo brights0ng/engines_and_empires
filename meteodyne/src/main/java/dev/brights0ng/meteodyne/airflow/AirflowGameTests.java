@@ -679,6 +679,9 @@ public final class AirflowGameTests {
      * new manager builds the tile from what was saved, so its very first frame is still warm in the room.
      * d3: the temperature lookup reads the live frame while the tile runs, the save while none does, and the
      * background once the save is gone.
+     * e (2026-11-15): with the manager installed as the server's, the readers' room offset
+     * ({@code MeteodyneTemperature.room}, which food and thermometers add to the outside air) follows the same three
+     * sources; a point inside the room's stone wall reads the air beside it while the tile runs.
      */
     @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_save", timeoutTicks = 40_000)
     public static void aTileComesBackWarmFromItsSave(GameTestHelper helper) {
@@ -732,6 +735,7 @@ public final class AirflowGameTests {
         double[] warm = {Double.NaN};
         Runnable cleanup = () -> {
             stopped[0] = true;
+            AirflowRegions.useForTests(null);
             regions[0].stop();
             for (java.util.Map.Entry<BlockPos, BlockState> e : prior.entrySet()) {
                 level.setBlock(e.getKey(), e.getValue(), Block.UPDATE_CLIENTS);
@@ -761,10 +765,20 @@ public final class AirflowGameTests {
                     AirflowTemperatures.Reading live = AirflowTemperatures.at(regions[0], probe.getX() + 0.5,
                             probe.getY() + 0.5, probe.getZ() + 0.5);
                     helper.assertTrue(live.source() == AirflowTemperatures.Source.LIVE, "live while running: " + live);
+                    AirflowRegions.useForTests(regions[0]);
+                    var provider = dev.brights0ng.meteodyne.climate.MeteodyneTemperature.INSTANCE;
+                    double room = provider.room(level, Vec3.atCenterOf(probe));
+                    helper.assertTrue(room > 2, "the readers' room offset in the warm room: " + room);
+                    double wall = provider.room(level, Vec3.atCenterOf(low.offset(0, 3, 3)));
+                    helper.assertTrue(wall > 0.5, "a block in the wall reads the air beside it: " + wall);
                 })
                 .thenExecute(() -> {
                     regions[0].stop();
                     helper.assertTrue(regions[0].savesWritten() >= 1, "stopping saves the tile");
+                    double savedRoom = dev.brights0ng.meteodyne.climate.MeteodyneTemperature.INSTANCE.room(level,
+                            Vec3.atCenterOf(probe));
+                    helper.assertTrue(savedRoom > 0, "the saved offset with no tile running: " + savedRoom);
+                    AirflowRegions.useForTests(null);
                     LevelChunk c = level.getChunkSource().getChunkNow(probe.getX() >> 4, probe.getZ() >> 4);
                     helper.assertTrue(c != null && c.hasData(AirflowContent.CHUNK_DATA)
                             && c.getData(AirflowContent.CHUNK_DATA).section(probe.getY() >> 4) != null,

@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b); edited by Claude (b4: an engine override for game tests).
+// Written by Claude (GreedyFluids M7b); edited by Claude (b4: an engine override for game tests; M7e: readers).
 package dev.brights0ng.meteodyne.airflow;
 
 import dev.brights0ng.meteodyne.Meteodyne;
@@ -11,8 +11,8 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 /**
  * Which simulation runs the air (GreedyFluids M7b; Bright, 2026-11-14): the legacy heat regions, or GreedyFluids air
  * regions around players. The two are exclusive: under {@link Engine#AIRFLOW} the legacy regions (ships' rooms
- * included) and the local-air domains stand down ({@code HeatWorld.legacyEnabled}), so nothing feels room heat until
- * the airflow regions are read (M7 part e).
+ * included) and the local-air domains stand down ({@code HeatWorld.legacyEnabled}); the readers' room offset comes
+ * from {@link AirflowTemperatures#offset} instead (M7 part e).
  *
  * <p>Taken from {@code [heat] engine} when the server starts (server configs load just before
  * {@link ServerAboutToStartEvent}) and kept for the session, so a config edit needs a restart. LEGACY with no server.
