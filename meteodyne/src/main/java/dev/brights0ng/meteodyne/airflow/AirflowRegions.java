@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b b3).
+// Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: ids, timing, the recorder).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -22,6 +22,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
  * The region manager (M7b b3): GreedyFluids regions around the Overworld's players, on the server thread, when the
@@ -64,6 +65,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
 
     /** One region: its window and its slot on the air thread. Server thread. */
     public static final class Region {
+        private final int id;
         private final int x0, y0, z0;
         private final long[] sections;
         private AirflowRuntime.Slot slot;
@@ -71,7 +73,8 @@ public final class AirflowRegions implements AirflowSections.Listener {
         private long emptySince = -1, retryAt = -1, built = -1;
         private double sentT = Double.NaN, sentWindX, sentWindZ;
 
-        private Region(int x0, int y0, int z0) {
+        private Region(int id, int x0, int y0, int z0) {
+            this.id = id;
             this.x0 = x0;
             this.y0 = y0;
             this.z0 = z0;
@@ -84,6 +87,11 @@ public final class AirflowRegions implements AirflowSections.Listener {
                     }
                 }
             }
+        }
+
+        /** A number for status and records, unique on this server run. */
+        public int id() {
+            return id;
         }
 
         public int x0() {
@@ -137,6 +145,9 @@ public final class AirflowRegions implements AirflowSections.Listener {
     private final List<Region> regions = new ArrayList<>();
     private AirflowSections sections;
     private Function<ServerLevel, List<Vec3>> anchors = AirflowRegions::players;
+    private int nextId = 1;
+    private long managerNanos;
+    private AirflowRecorder recorder;
 
     AirflowRegions(ServerLevel level) {
         this.level = level;
@@ -155,6 +166,38 @@ public final class AirflowRegions implements AirflowSections.Listener {
 
     public AirflowRuntime runtime() {
         return runtime;
+    }
+
+    /** The level's section cache. */
+    public AirflowSections sections() {
+        return sections;
+    }
+
+    /** Server-thread time this manager's ticks have taken, ns. */
+    public long managerNanos() {
+        return managerNanos;
+    }
+
+    /** The running recorder, or null. */
+    public AirflowRecorder recorder() {
+        return recorder;
+    }
+
+    /** Starts recording into {@code dir} (server thread); a running recording is stopped first. */
+    public AirflowRecorder record(java.nio.file.Path dir) {
+        stopRecording();
+        recorder = new AirflowRecorder(this, dir);
+        return recorder;
+    }
+
+    /** Stops the recording, writing its summary; returns it, or null if none ran. */
+    public AirflowRecorder stopRecording() {
+        AirflowRecorder r = recorder;
+        recorder = null;
+        if (r != null) {
+            r.close();
+        }
+        return r;
     }
 
     /** The regions, read-only (server thread). */
@@ -205,6 +248,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
     }
 
     void stop() {
+        stopRecording();
         if (!runtime.stop()) {
             Meteodyne.LOGGER.warn("Airflow: the air thread did not stop within 5 s");
         }
@@ -216,6 +260,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
 
     /** One server tick. */
     void tick() {
+        long start = System.nanoTime();
         long now = level.getGameTime();
         runtime.tick(now);
         if (now % SCAN_TICKS == 0) {
@@ -224,6 +269,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
         for (Region r : List.copyOf(regions)) {
             service(r, now);
         }
+        managerNanos += System.nanoTime() - start;
     }
 
     /** Matches anchors to regions, opening one where an anchor has none. */
@@ -274,7 +320,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
     }
 
     private Region open(int x0, int y0, int z0) {
-        Region r = new Region(x0, y0, z0);
+        Region r = new Region(nextId++, x0, y0, z0);
         for (long s : r.sections) {
             sections.want(s);
         }
@@ -436,6 +482,11 @@ public final class AirflowRegions implements AirflowSections.Listener {
         }
     }
 
+    /** Makes {@code regions} the server's (or none, with null) for game tests; the caller starts and stops it. */
+    static void useForTests(AirflowRegions regions) {
+        running = regions;
+    }
+
     @SubscribeEvent
     static void onServerStopping(ServerStoppingEvent event) {
         AirflowRegions r = running;
@@ -450,6 +501,14 @@ public final class AirflowRegions implements AirflowSections.Listener {
         AirflowRegions r = running;
         if (r != null && event.getLevel() == r.level) {
             r.tick();
+        }
+    }
+
+    @SubscribeEvent
+    static void onServerTick(ServerTickEvent.Post event) {
+        AirflowRegions r = running;
+        if (r != null && r.recorder != null) {
+            r.recorder.tick();
         }
     }
 }

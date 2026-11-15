@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b).
+// Written by Claude (GreedyFluids M7b); edited by Claude (b4: an engine override for game tests).
 package dev.brights0ng.meteodyne.airflow;
 
 import dev.brights0ng.meteodyne.Meteodyne;
@@ -51,6 +51,14 @@ public final class Airflow {
     @SubscribeEvent
     static void onServerStopped(ServerStoppedEvent event) {
         engine = Engine.LEGACY;
+    }
+
+    /**
+     * Sets the engine mid-session, for game tests of the switch (their own batch, set back in a finally). Only the
+     * legacy side follows: the airflow regions start at server start alone.
+     */
+    static void useForTests(Engine e) {
+        engine = e;
     }
 
     private Airflow() {

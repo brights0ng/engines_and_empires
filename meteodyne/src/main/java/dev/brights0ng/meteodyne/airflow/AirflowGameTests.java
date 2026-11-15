@@ -1,5 +1,5 @@
 // Written by Claude (GreedyFluids M7b); edited by Claude (b2: classifier, section cache and snapshot check; b3: a
-// region around an anchor).
+// region around an anchor; b4: a region around a player, the commands and recorder, the switch).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -56,6 +56,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  *       ({@code -Pmeteodyne.airflowSnapshots=<scans folder>}).</li>
  *   <li>b3: a region forms around an anchor on the air thread, hears an edit, and stops with its thread (b4 adds
  *       the rest: players, doors, sources, the switch).</li>
+ *   <li>b4: a region forms around a (mock) player and hears a door placed, opened, and a campfire; the commands and
+ *       the recorder answer; stopping leaves no air thread; airflow mode stands the legacy regions down (so
+ *       {@code roomAt} reads 0) and legacy comes back unchanged.</li>
  * </ul>
  * Runs in the bare Meteodyne run, the core-less run and the aggregate. The section tests use the top sections of
  * the build height above their own spot, where no other test builds, and put the blocks back.
@@ -363,6 +366,177 @@ public final class AirflowGameTests {
                     helper.assertFalse(runtime.alive(), "stopping joins the air thread");
                     helper.assertTrue(regions.regions().isEmpty(), "stopping retires the regions");
                 })
+                .thenSucceed();
+    }
+
+    /**
+     * b4: the server's region manager (installed for the test) puts a window around a player's spot, snapped so the
+     * spot is at least 24 blocks from each side; a door placed shut, then opened, and a lit campfire reach the region;
+     * {@code status}, {@code sample} and {@code record} answer and the recording's summary is written; stopping
+     * leaves no air thread. The spot is a fixed anchor: a mock player crashes this server (see the comment inside).
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_player", timeoutTicks = 40_000)
+    public static void regionHearsDoorsSourcesAndCommands(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos stand = helper.absolutePos(new BlockPos(1, 2, 1));
+        BlockPos lower = stand.offset(4, 0, 2), upper = lower.above(), fire = stand.offset(2, 0, 4);
+        for (BlockPos p : List.of(lower, upper, fire)) {
+            helper.assertTrue(level.getBlockState(p).isAir(), "the test's cells should start as air: " + p);
+        }
+        int[] o = AirflowRegions.window(level, Vec3.atBottomCenterOf(stand));
+        List<long[]> forced = new ArrayList<>();
+        for (int cx = o[0] >> 4; cx < (o[0] + AirflowRegions.WX) >> 4; cx++) {
+            for (int cz = o[2] >> 4; cz < (o[2] + AirflowRegions.WZ) >> 4; cz++) {
+                if (level.setChunkForced(cx, cz, true)) {
+                    forced.add(new long[] {cx, cz});
+                }
+            }
+        }
+        // An anchor, not a mock ServerPlayer: one crashes the server here (WeatherNetwork sends weather_sync to its
+        // embedded connection, which never negotiated the channel). AirflowRegions' default anchors are the players.
+        Vec3 player = Vec3.atBottomCenterOf(stand);
+        boolean opened = AirflowSections.get(level) == null;
+        AirflowRegions regions = new AirflowRegions(level);
+        regions.anchors(l -> List.of(player));
+        regions.start();
+        AirflowRegions.useForTests(regions);
+        var commands = level.getServer().getCommands().getDispatcher();
+        var op = level.getServer().createCommandSourceStack().withLevel(level)
+                .withPosition(Vec3.atBottomCenterOf(stand));
+        int flags = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
+        BlockState shut = Blocks.OAK_DOOR.defaultBlockState();
+        double watts = AirflowSources.watts(Blocks.CAMPFIRE.defaultBlockState());
+        AirflowRuntime.Counters[] before = {AirflowRuntime.Counters.NONE};
+        boolean[] done = {false};
+        Runnable cleanup = () -> {
+            if (done[0]) {
+                return;
+            }
+            done[0] = true;
+            AirflowRegions.useForTests(null);
+            regions.stop();
+            for (BlockPos p : List.of(upper, lower, fire)) {
+                level.setBlock(p, Blocks.AIR.defaultBlockState(), flags);
+            }
+           for (long[] c : forced) {
+                level.setChunkForced((int) c[0], (int) c[1], false);
+            }
+            if (opened) {
+                AirflowSections.close(level);
+            }
+        };
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region r = regions.regionAt(player.x, player.y, player.z);
+                    helper.assertTrue(r != null && r.slot() != null && r.slot().steps() >= 2,
+                            "waiting for the player's region to be built and stepped");
+                })
+                .thenExecute(() -> {
+                    AirflowRegions.Region r = regions.regionAt(player.x, player.y, player.z);
+                    double px = player.x, pz = player.z;
+                    helper.assertTrue(px - r.x0() >= 24 && r.x0() + AirflowRegions.WX - px >= 24
+                            && pz - r.z0() >= 24 && r.z0() + AirflowRegions.WZ - pz >= 24,
+                            "the player is at least 24 blocks from each side: " + regionLine(r, level));
+                    helper.assertTrue(command(commands, "meteodyne airflow record start", op) == 1, "record starts");
+                    before[0] = r.slot().counters(); // other tests may have left blocks or sources in the window
+                    level.setBlock(lower, shut, flags);
+                    level.setBlock(upper, shut.setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER), flags);
+                    level.setBlock(fire, Blocks.CAMPFIRE.defaultBlockState(), flags);
+                })
+                .thenWaitUntil(() -> {
+                    AirflowRuntime.Counters c = regions.regionAt(player.x, player.y, player.z)
+                            .slot().counters();
+                    helper.assertTrue(c.edits() >= before[0].edits() + 2
+                                    && Math.abs(c.watts() - before[0].watts() - watts) < 1e-6,
+                            "waiting for the door and the campfire (" + watts + " W more than " + before[0] + "): " + c);
+                })
+                .thenExecute(() -> {
+                    level.setBlock(lower, shut.setValue(DoorBlock.OPEN, true), flags);
+                    level.setBlock(upper, shut.setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER).setValue(DoorBlock.OPEN, true),
+                            flags);
+                })
+                .thenWaitUntil(() -> {
+                    AirflowRuntime.Counters c = regions.regionAt(player.x, player.y, player.z)
+                            .slot().counters();
+                    helper.assertTrue(c.toggles() >= before[0].toggles() + 2, "waiting for both door halves to open: " + c);
+                })
+                .thenExecute(() -> {
+                    AirflowRegions.Region r = regions.regionAt(player.x, player.y, player.z);
+                    AirflowRuntime.Slot slot = r.slot();
+                    helper.assertTrue(slot.counters().desyncs() == 0, "no desyncs: " + slot.counters());
+                    helper.assertTrue(slot.failures() == 0 && slot.status() == AirflowRuntime.Status.RUNNING,
+                            "no failures: " + slot.failure());
+                    helper.assertTrue(command(commands, "meteodyne airflow status", op) == 1, "status answers");
+                    helper.assertTrue(command(commands, "meteodyne airflow sample", op) == 1, "sample answers at the player");
+                    helper.assertTrue(command(commands, "meteodyne airflow record mark door open", op) == 1, "mark");
+                })
+                .thenIdle(40)
+                .thenExecute(() -> {
+                    AirflowRecorder rec = regions.recorder();
+                    helper.assertTrue(rec != null && rec.seconds() >= 1, "a second recorded");
+                    Path summary = rec.dir().resolve("summary.md");
+                    helper.assertTrue(command(commands, "meteodyne airflow record stop", op) == 1, "record stops");
+                    try {
+                        String text = Files.readString(summary);
+                        helper.assertTrue(text.contains("Server thread, p99 per tick") && text.contains("door open"),
+                                "the summary has the measures and the mark");
+                        helper.assertTrue(Files.readAllLines(rec.dir().resolve("ticks.csv")).size() > 20,
+                                "ticks were recorded");
+                    } catch (IOException e) {
+                        helper.fail("summary: " + e);
+                    }
+                    AirflowRuntime runtime = regions.runtime();
+                    cleanup.run();
+                    helper.assertFalse(runtime.alive(), "stopping joins the air thread");
+                    helper.assertFalse(Thread.getAllStackTraces().keySet().stream()
+                            .anyMatch(t -> t.isAlive() && t.getName().equals("Meteodyne airflow")), "no air thread is left");
+                })
+                .thenSucceed();
+    }
+
+    /** Runs a command; -1 if it does not parse. */
+    private static int command(com.mojang.brigadier.CommandDispatcher<net.minecraft.commands.CommandSourceStack> commands, String text,
+            net.minecraft.commands.CommandSourceStack source) {
+        try {
+            return commands.execute(text, source);
+        } catch (CommandSyntaxException e) {
+            return -1;
+        }
+    }
+
+    private static String regionLine(AirflowRegions.Region r, ServerLevel level) {
+        return AirflowCommand.regionLine(r, level.getGameTime());
+    }
+
+    /**
+     * b4: the switch. A campfire's legacy region warms a point next to it; with the engine set to AIRFLOW (its own
+     * batch, so no other test runs meanwhile) the legacy regions stand down and {@code roomAt} reads 0; set back to
+     * LEGACY, they warm it again.
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_switch", timeoutTicks = 40_000)
+    public static void airflowModeStandsTheLegacyRegionsDown(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        var world = dev.brights0ng.meteodyne.heat.world.HeatWorld.of(level);
+        BlockPos low = helper.absolutePos(BlockPos.ZERO), high = helper.absolutePos(new BlockPos(6, 6, 6));
+        BlockPos fire = new BlockPos(3, 1, 3);
+        Vec3 body = Vec3.atCenterOf(helper.absolutePos(fire)).add(1, 1, 0);
+        world.setTestArea(new int[] {low.getX(), low.getY(), low.getZ(), high.getX(), high.getY(), high.getZ()});
+        world.forgetRegions();
+        helper.setBlock(fire, Blocks.CAMPFIRE);
+        Runnable cleanup = () -> {
+            Airflow.useForTests(Airflow.Engine.LEGACY);
+            helper.setBlock(fire, Blocks.AIR);
+            world.forgetRegions();
+            world.setTestArea(null);
+        };
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(world.roomAt(body) > 0, "waiting for the legacy region to warm"))
+                .thenExecute(() -> Airflow.useForTests(Airflow.Engine.AIRFLOW))
+                .thenWaitUntil(() -> helper.assertTrue(world.regions().isEmpty() && world.roomAt(body) == 0,
+                        "waiting for the legacy regions to stand down: " + world.roomAt(body)))
+                .thenExecute(() -> Airflow.useForTests(Airflow.Engine.LEGACY))
+                .thenWaitUntil(() -> helper.assertTrue(world.roomAt(body) > 0, "waiting for legacy to warm again"))
+                .thenExecute(cleanup)
                 .thenSucceed();
     }
 

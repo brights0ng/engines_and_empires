@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b b3).
+// Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: counters).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -59,6 +59,7 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     private double backgroundT;
     private boolean followStale;
     private int desyncs;
+    private long edits, toggles;
 
     private AirflowRegionModel(CellGrid3D grid, Spec spec) {
         this.grid = grid;
@@ -126,9 +127,11 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
             if (!second.isEmpty()) {
                 region.applyEdits(second);
             }
+            edits += first.size() + second.size();
             for (AirflowBatch.DoorToggle d : batch.doors) {
                 if (grid.type(d.x(), d.y(), d.z()) == CellType.DOOR) {
                     region.setDoorOpen(d.x(), d.y(), d.z(), d.open());
+                    toggles++;
                 } else {
                     desyncs++;
                 }
@@ -263,6 +266,15 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     /** Edits skipped because their cell wasn't what they expected. */
     int desyncs() {
         return desyncs;
+    }
+
+    @Override
+    public AirflowRuntime.Counters counters() {
+        double watts = 0;
+        for (double w : applied.values()) {
+            watts += w;
+        }
+        return new AirflowRuntime.Counters(edits, toggles, desyncs, watts);
     }
 
     /** Watts set per region cell (for tests). */

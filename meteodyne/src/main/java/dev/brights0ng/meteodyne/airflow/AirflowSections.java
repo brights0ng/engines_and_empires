@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b b2); edited by Claude (b3: placed sources per section).
+// Written by Claude (GreedyFluids M7b b2); edited by Claude (b3: placed sources per section; b4: hook timing).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -165,8 +165,8 @@ public final class AirflowSections {
         }
     }
 
-    /** Server-thread counters, for status. */
-    public record Stats(int cached, int pending, long reads, long readNanos, long edits) {
+    /** Server-thread counters, for status: section reads and their time, code edits, and the block hook's time, ns. */
+    public record Stats(int cached, int pending, long reads, long readNanos, long edits, long hookNanos) {
     }
 
     private static final Map<ServerLevel, AirflowSections> LEVELS = new ConcurrentHashMap<>();
@@ -177,7 +177,7 @@ public final class AirflowSections {
     private final LongLinkedOpenHashSet pending = new LongLinkedOpenHashSet();
     private final List<Listener> listeners = new CopyOnWriteArrayList<>();
     private long generation = AirflowCells.generation();
-    private long reads, readNanos, edits;
+    private long reads, readNanos, edits, hookNanos;
 
     private AirflowSections(ServerLevel level) {
         this.level = level;
@@ -310,7 +310,7 @@ public final class AirflowSections {
     }
 
     public Stats stats() {
-        return new Stats(entries.size(), pending.size(), reads, readNanos, edits);
+        return new Stats(entries.size(), pending.size(), reads, readNanos, edits, hookNanos);
     }
 
     /** Reads one section: from the palette when every state shares a code, else cell by cell; then its sources. */
@@ -420,10 +420,12 @@ public final class AirflowSections {
 
     /** An off-thread change, rechecked against the block there now. */
     private void recheck(BlockPos pos) {
+        long start = System.nanoTime();
         LevelChunk chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
         if (chunk != null) {
             changed(pos, chunk.getBlockState(pos));
         }
+        hookNanos += System.nanoTime() - start;
     }
 
     /** A chunk unloaded: drop its cached sections; wanted ones wait for it to come back. */
@@ -460,7 +462,9 @@ public final class AirflowSections {
         }
         try {
             if (level.getServer().isSameThread()) {
+                long start = System.nanoTime();
                 sections.changed(pos, after);
+                sections.hookNanos += System.nanoTime() - start;
             } else {
                 BlockPos at = pos.immutable();
                 level.getServer().execute(() -> {

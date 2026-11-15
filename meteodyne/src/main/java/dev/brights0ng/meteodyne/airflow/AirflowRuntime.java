@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b b3).
+// Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: busy time and region counters).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -56,6 +56,16 @@ public final class AirflowRuntime {
         AirFrame publish();
 
         int boxes();
+
+        /** What the region has taken in so far (zeros for test models). */
+        default Counters counters() {
+            return Counters.NONE;
+        }
+    }
+
+    /** A region's running totals: edits applied, door toggles, events skipped as desyncs, and the watts set now. */
+    public record Counters(long edits, long toggles, long desyncs, double watts) {
+        public static final Counters NONE = new Counters(0, 0, 0, 0);
     }
 
     /** Builds a model, on the air thread. */
@@ -82,6 +92,7 @@ public final class AirflowRuntime {
         private volatile double lag, stepMs;
         private volatile int boxes;
         private volatile long steps, drops;
+        private volatile Counters counters = Counters.NONE;
         // Air thread only
         private Model model;
         private long startTick;
@@ -151,6 +162,11 @@ public final class AirflowRuntime {
         public int queued() {
             return events.size();
         }
+
+        /** The region's counters after its last step. */
+        public Counters counters() {
+            return counters;
+        }
     }
 
     private final ConcurrentLinkedQueue<Slot> builds = new ConcurrentLinkedQueue<>();
@@ -161,6 +177,7 @@ public final class AirflowRuntime {
     private volatile long tick;
     private volatile boolean stopping;
     private volatile Thread thread;
+    private volatile long busyNanos;
 
     /** {@code onFailure} hears each failure, on the air thread (slot null for an error of the runtime's own). */
     public AirflowRuntime(BiConsumer<Slot, Throwable> onFailure) {
@@ -230,6 +247,11 @@ public final class AirflowRuntime {
         return t != null && t.isAlive();
     }
 
+    /** Wall time the air thread has spent working (building, stepping, retiring), ns. */
+    public long busyNanos() {
+        return busyNanos;
+    }
+
     private Slot enqueue(Slot slot) {
         builds.add(slot);
         wake();
@@ -246,12 +268,16 @@ public final class AirflowRuntime {
     private void loop() {
         while (!stopping) {
             boolean worked;
+            long start = System.nanoTime();
             try {
                 worked = runOnce();
             } catch (Throwable e) {
                 // runOnce catches each region's own exceptions; this is anything else, kept from killing the thread
                 worked = false;
                 onFailure.accept(null, e);
+            }
+            if (worked) {
+                busyNanos += System.nanoTime() - start;
             }
             if (!worked && !stopping) {
                 LockSupport.parkNanos(this, IDLE_NANOS);
@@ -314,6 +340,7 @@ public final class AirflowRuntime {
             s.model = m;
             s.startTick = tick;
             s.boxes = m.boxes();
+            s.counters = m.counters();
             s.frame = new Frame(m.publish(), s.startTick);
             s.status = Status.RUNNING;
             running.add(s);
@@ -340,6 +367,7 @@ public final class AirflowRuntime {
             s.stepMs = s.steps == 0 ? ms : 0.9 * s.stepMs + 0.1 * ms;
             s.steps++;
             s.boxes = s.model.boxes();
+            s.counters = s.model.counters();
             s.frame = new Frame(s.model.publish(),
                     s.startTick + Math.round((s.model.time() + s.dropped) / TICK_SECONDS));
         } catch (RuntimeException | StackOverflowError e) {
