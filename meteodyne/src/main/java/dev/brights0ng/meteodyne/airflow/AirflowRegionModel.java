@@ -120,12 +120,10 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
             AirflowBatch batch = AirflowBatch.of(changes, nx, nz);
             List<CellEdit3D> first = valid(batch.first);
             if (!first.isEmpty()) {
-                unsource(first);
                 region.applyEdits(first);
             }
             List<CellEdit3D> second = valid(batch.second);
             if (!second.isEmpty()) {
-                unsource(second);
                 region.applyEdits(second);
             }
             for (AirflowBatch.DoorToggle d : batch.doors) {
@@ -173,21 +171,9 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     }
 
     /**
-     * Takes the power off cells about to become solid: GreedyFluids refuses a source in a solid cell (its edits
-     * don't clear one). {@link #distribute} gives the power back to the new neighbours after the batch.
+     * Spreads the source blocks over cells (the power rule) and sets what changed. A cell a block was placed in has
+     * already lost its power (GreedyFluids clears it with the edit) and is left alone.
      */
-    private void unsource(List<CellEdit3D> edits) {
-        for (CellEdit3D e : edits) {
-            if (e.kind() == CellEdit3D.Kind.PLACE) {
-                int cell = grid.index(e.x(), e.y(), e.z());
-                if (applied.remove(cell) != null) {
-                    set(cell, 0);
-                }
-            }
-        }
-    }
-
-    /** Spreads the source blocks over cells (the power rule) and sets what changed. */
     private void distribute() {
         Map<Integer, Double> want = new HashMap<>();
         for (Map.Entry<Integer, Double> b : blocks.entrySet()) {
@@ -208,7 +194,8 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
             }
         }
         for (Map.Entry<Integer, Double> a : applied.entrySet()) {
-            if (!want.containsKey(a.getKey())) {
+            int c = a.getKey();
+            if (!want.containsKey(c) && grid.type(c % nx, c / (nx * nz), c / nx % nz).isFluid()) {
                 set(a.getKey(), 0);
             }
         }
