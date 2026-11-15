@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7c c2).
+// Written by Claude (GreedyFluids M7c c2); edited by Claude (M7e: the generator's terrain from AirflowGround).
 package dev.brights0ng.meteodyne.airflow;
 
 import dev.brights0ng.meteodyne.climate.Climate;
@@ -6,6 +6,7 @@ import dev.brights0ng.meteodyne.climate.Underground;
 import dev.brights0ng.meteodyne.climate.UndergroundProbe;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
 
@@ -14,7 +15,9 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * ({@code Temperature.at}) on the {@link AirflowField} lattice, split so that a refresh stays cheap.
  * <ul>
  *   <li><b>Ground part</b>, read once when the tile opens, a share of the lattice per tick within a time budget:
- *       each lattice point's insulation, underground value and cave rule ({@link UndergroundProbe}).</li>
+ *       each lattice point's insulation, underground value and cave rule ({@link UndergroundProbe}). The cover's
+ *       top is the lower of the heightmap and the generator's terrain, which {@link AirflowGround} works out at
+ *       chunk corners off the server thread first (M7e: the generator's height per column cost about 1.5 ms).</li>
  *   <li><b>Outside part</b>, every refresh: the outside air ({@link Climate#sample}) every 16 blocks, interpolated to
  *       the lattice. A point's temperature is outside + insulation × (underground − outside), within its cave
  *       rule's caps, as {@code Temperature.at} works it out.</li>
@@ -29,13 +32,20 @@ final class AirflowBackground {
     static final int COARSE = 16;
 
     private final ServerLevel level;
+    private final AirflowGround ground;
+    private final boolean overworld;
     private final int x0, y0, z0, nx, ny, nz, lx, ly, lz;
+    private final int cx0, cz0, ncx, ncz;
     private final float[] insulation, underground;
     private final Underground.CaveRule[] caves;
+    /** The generator's terrain at the tile's chunk corners, once known. */
+    private int[] corners;
     private int filled;
 
-    AirflowBackground(ServerLevel level, int x0, int y0, int z0, int nx, int ny, int nz) {
+    AirflowBackground(ServerLevel level, AirflowGround ground, int x0, int y0, int z0, int nx, int ny, int nz) {
         this.level = level;
+        this.ground = ground;
+        overworld = level.dimension() == Level.OVERWORLD;
         this.x0 = x0;
         this.y0 = y0;
         this.z0 = z0;
@@ -45,6 +55,10 @@ final class AirflowBackground {
         lx = AirflowField.points(nx);
         ly = AirflowField.points(ny);
         lz = AirflowField.points(nz);
+        cx0 = AirflowGround.corner(x0);
+        cz0 = AirflowGround.corner(z0);
+        ncx = AirflowGround.span(x0, x0 + AirflowField.STEP * (lx - 1));
+        ncz = AirflowGround.span(z0, z0 + AirflowField.STEP * (lz - 1));
         insulation = new float[lx * ly * lz];
         underground = new float[insulation.length];
         caves = new Underground.CaveRule[insulation.length];
@@ -55,14 +69,24 @@ final class AirflowBackground {
         return filled == insulation.length;
     }
 
-    /** Reads ground-part points until {@code deadline} ({@link System#nanoTime}), at least one; returns whether done. */
+    /**
+     * Reads ground-part points until {@code deadline} ({@link System#nanoTime}), at least one once the corners'
+     * terrain is known (none before); returns whether done.
+     */
     boolean fill(long deadline) {
+        if (corners == null) {
+            corners = ground.corners(cx0, cz0, ncx, ncz);
+            if (corners == null) {
+                return false;
+            }
+        }
         while (filled < insulation.length) {
             int p = filled++;
             int i = p % lx, k = p / lx % lz, j = p / (lx * lz);
             BlockPos pos = new BlockPos(x0 + AirflowField.STEP * i, y0 + AirflowField.STEP * j, z0 + AirflowField.STEP * k);
             pos = new BlockPos(pos.getX(), Math.min(pos.getY(), level.getMaxBuildHeight() - 1), pos.getZ());
-            Underground.Reading r = UndergroundProbe.read(level, pos, 0);
+            Underground.Reading r = overworld ? UndergroundProbe.read(level, pos, 0, groundAbove(pos))
+                    : Underground.Reading.open(0, 0, 15);
             insulation[p] = (float) r.insulation();
             underground[p] = r.insulation() > 0 ? (float) r.underground() : 0;
             caves[p] = r.insulation() > 0 ? r.cave() : null;
@@ -71,6 +95,15 @@ final class AirflowBackground {
             }
         }
         return ready();
+    }
+
+    /** The cover's top over {@code pos}: the lower of the generator's terrain (interpolated) and the heightmap. */
+    private int groundAbove(BlockPos pos) {
+        int g = (int) Math.round(AirflowGround.at(corners, cx0, cz0, ncx, pos.getX(), pos.getZ()));
+        if (level.hasChunkAt(pos)) {
+            g = Math.min(g, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, pos.getX(), pos.getZ()));
+        }
+        return g;
     }
 
     /** The lattice now, C (ground part complete). */

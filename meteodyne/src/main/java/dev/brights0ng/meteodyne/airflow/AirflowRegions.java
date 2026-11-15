@@ -1,6 +1,6 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: ids, timing, the recorder; only assigned regions
 // stay alive); edited by Claude (M7d d1: fixed tiles replace player-centred windows; d2: saving and restoring; M7c:
-// the background field, driven sources, limits and body heat).
+// the background field, driven sources, limits and body heat; M7e: the generator's terrain off the server thread).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -15,11 +15,14 @@ import dev.brights0ng.meteodyne.heat.world.HeatShips;
 import dev.brights0ng.meteodyne.wind.WindSources;
 import dev.brights0ng.paradynelib.wind.WindColumn;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -151,6 +154,8 @@ public final class AirflowRegions implements AirflowSections.Listener {
 
     private final ServerLevel level;
     private final AirflowRuntime runtime;
+    /** The generator's terrain at chunk corners, shared by every tile (M7e). */
+    private final AirflowGround ground;
     private final List<Region> regions = new ArrayList<>();
     private final Map<Long, Region> byTile = new HashMap<>();
     private AirflowSections sections;
@@ -166,6 +171,21 @@ public final class AirflowRegions implements AirflowSections.Listener {
         this.level = level;
         this.runtime = new AirflowRuntime((slot, e) -> Meteodyne.LOGGER.warn("Airflow: region {} failed ({} so far)",
                 slot == null ? "runtime" : slot.id(), slot == null ? "-" : slot.failures(), e));
+        this.ground = new AirflowGround(terrain(level), Util.backgroundExecutor(), level.getMaxBuildHeight(),
+                e -> Meteodyne.LOGGER.warn("Airflow: the world generator's terrain height failed; the heightmap alone"
+                        + " gives the cover there", e));
+    }
+
+    /**
+     * The world generator's terrain over (x, z), as {@code UndergroundProbe.terrainHeight} takes it, without its
+     * server-thread cache: the generator and its noise are safe off the server thread (world generation runs there).
+     */
+    private static java.util.function.IntBinaryOperator terrain(ServerLevel level) {
+        var source = level.getChunkSource();
+        var generator = source.getGenerator();
+        var random = source.randomState();
+        LevelHeightAccessor heights = LevelHeightAccessor.create(level.getMinBuildHeight(), level.getHeight());
+        return (x, z) -> generator.getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, heights, random);
     }
 
     /** The running server's regions, or null when the engine isn't AIRFLOW. */
@@ -334,7 +354,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
 
     private Region open(int x0, int y0, int z0) {
         Region r = new Region(nextId++, x0, y0, z0);
-        r.background = new AirflowBackground(level, x0, y0, z0, WX, WY, WZ);
+        r.background = new AirflowBackground(level, ground, x0, y0, z0, WX, WY, WZ);
         for (long s : r.sections) {
             sections.want(s);
         }
