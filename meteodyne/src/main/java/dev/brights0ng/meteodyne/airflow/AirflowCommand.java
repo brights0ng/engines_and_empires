@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b b4).
+// Written by Claude (GreedyFluids M7b b4); edited by Claude (M7d d1: regions are tiles).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.nio.file.Path;
@@ -22,10 +22,10 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 /**
  * {@code /meteodyne airflow} (M7b b4), operators only:
  * <ul>
- *   <li>{@code status}: the air thread, the server-thread totals, and each region's window, state, boxes, ms per
+ *   <li>{@code status}: the air thread, the server-thread totals, and each region's tile, state, boxes, ms per
  *       step, lag, queue, frame age, steps, drops, failures and desyncs;</li>
  *   <li>{@code sample [pos]}: temperature and air velocity at a point (default: where the source stands), from the
- *       nearest-centred region's latest frame;</li>
+ *       latest frame of the region whose tile holds it;</li>
  *   <li>{@code record start|stop|mark <text>}: the smoke recorder ({@link AirflowRecorder}), into
  *       {@code greedyfluids-scans/airflow/<stamp>/}.</li>
  * </ul>

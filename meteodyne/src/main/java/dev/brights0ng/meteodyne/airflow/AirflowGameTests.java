@@ -1,5 +1,5 @@
 // Written by Claude (GreedyFluids M7b); edited by Claude (b2: classifier, section cache and snapshot check; b3: a
-// region around an anchor; b4: a region around a player, the commands and recorder, the switch).
+// region around an anchor; b4: a region around a player, the commands and recorder, the switch; M7d d1: tiles).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -298,7 +298,7 @@ public final class AirflowGameTests {
     }
 
     /**
-     * A region manager of its own (the engine is LEGACY here) with one fixed anchor: its window's chunks are forced,
+     * A region manager of its own (the engine is LEGACY here) with one fixed anchor: its tile's chunks are forced,
      * its sections read, the region built on the air thread and stepped; a block placed in its air reaches the next
      * frame; stopping joins the thread and releases the sections. The game test server ticks far faster than real
      * time while the air thread works in real time, so the timeout is in the tens of thousands of ticks (seconds here).
@@ -307,9 +307,9 @@ public final class AirflowGameTests {
     public static void regionFormsAroundAnAnchorAndHearsAnEdit(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos anchor = helper.absolutePos(new BlockPos(1, 2, 1));
-        BlockPos edit = anchor.offset(3, 0, 3);
+        int[] o = AirflowRegions.tile(level, anchor.getX() + 0.5, anchor.getY() + 0.5, anchor.getZ() + 0.5);
+        BlockPos edit = inward(anchor, o, 3, 0, 3);
         helper.assertTrue(level.getBlockState(edit).isAir(), "the edit's cell should start as air");
-        int[] o = AirflowRegions.window(level, Vec3.atCenterOf(anchor));
         List<long[]> forced = new ArrayList<>();
         for (int cx = o[0] >> 4; cx < (o[0] + AirflowRegions.WX) >> 4; cx++) {
             for (int cz = o[2] >> 4; cz < (o[2] + AirflowRegions.WZ) >> 4; cz++) {
@@ -348,7 +348,9 @@ public final class AirflowGameTests {
                 .thenExecute(() -> {
                     AirflowRegions.Region r = regions.regions().get(0);
                     helper.assertTrue(regions.regions().size() == 1, "one anchor, one region: " + regions.regions().size());
-                    helper.assertTrue(r.x0() % 16 == 0 && r.y0() % 16 == 0 && r.z0() % 16 == 0, "snapped to sections");
+                    helper.assertTrue(r.x0() == o[0] && r.y0() == o[1] && r.z0() == o[2] && r.x0() % 64 == 0
+                            && r.z0() % 64 == 0 && (r.y0() - level.getMinBuildHeight()) % 32 == 0,
+                            "the region is the anchor's tile: " + regionLine(r, level));
                     helper.assertTrue(r.slot().status() == AirflowRuntime.Status.RUNNING, "running: " + r.slot().failure());
                     helper.assertTrue(r.slot().frame().frame().isAir(edit.getX() - r.x0() + 0.5,
                             edit.getY() - r.y0() + 0.5, edit.getZ() - r.z0() + 0.5), "the cell is air in the frame");
@@ -374,20 +376,20 @@ public final class AirflowGameTests {
     }
 
     /**
-     * b4: the server's region manager (installed for the test) puts a window around a player's spot, snapped so the
-     * spot is at least 24 blocks from each side; a door placed shut, then opened, and a lit campfire reach the
-     * region; {@code status}, {@code sample} and {@code record} answer and the recording's summary is written;
-     * stopping leaves no air thread.
+     * b4: the server's region manager (installed for the test) runs the tile holding a player's spot (d1); a door
+     * placed shut, then opened, and a lit campfire reach the region; {@code status}, {@code sample} and
+     * {@code record} answer and the recording's summary is written; stopping leaves no air thread.
      */
     @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_player", timeoutTicks = 40_000)
     public static void regionHearsDoorsSourcesAndCommands(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos stand = helper.absolutePos(new BlockPos(1, 2, 1));
-        BlockPos lower = stand.offset(4, 0, 2), upper = lower.above(), fire = stand.offset(2, 0, 4);
+        int[] o = AirflowRegions.tile(level, stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
+        BlockPos lower = inward(stand, o, 4, 0, 2), upper = lower.above(), fire = inward(stand, o, 2, 0, 4);
+        helper.assertTrue(upper.getY() < o[1] + AirflowRegions.WY, "the door fits under the tile's top: " + upper);
         for (BlockPos p : List.of(lower, upper, fire)) {
             helper.assertTrue(level.getBlockState(p).isAir(), "the test's cells should start as air: " + p);
         }
-        int[] o = AirflowRegions.window(level, Vec3.atBottomCenterOf(stand));
         List<long[]> forced = new ArrayList<>();
         for (int cx = o[0] >> 4; cx < (o[0] + AirflowRegions.WX) >> 4; cx++) {
             for (int cz = o[2] >> 4; cz < (o[2] + AirflowRegions.WZ) >> 4; cz++) {
@@ -437,10 +439,8 @@ public final class AirflowGameTests {
                 })
                 .thenExecute(() -> {
                     AirflowRegions.Region r = regions.regionAt(player.x, player.y, player.z);
-                    double px = player.x, pz = player.z;
-                    helper.assertTrue(px - r.x0() >= 24 && r.x0() + AirflowRegions.WX - px >= 24
-                            && pz - r.z0() >= 24 && r.z0() + AirflowRegions.WZ - pz >= 24,
-                            "the player is at least 24 blocks from each side: " + regionLine(r, level));
+                    helper.assertTrue(r.x0() == o[0] && r.y0() == o[1] && r.z0() == o[2],
+                            "the region is the player's tile: " + regionLine(r, level));
                     helper.assertTrue(command(commands, "meteodyne airflow record start", op) == 1, "record starts");
                     before[0] = r.slot().counters(); // other tests may have left blocks or sources in the window
                     level.setBlock(lower, shut, flags);
@@ -513,6 +513,18 @@ public final class AirflowGameTests {
         return AirflowCommand.regionLine(r, level.getGameTime());
     }
 
+    /** {@code from} moved by (dx, dy, dz), each step reversed where it would leave the tile at {@code o}. */
+    private static BlockPos inward(BlockPos from, int[] o, int dx, int dy, int dz) {
+        int[] size = {AirflowRegions.WX, AirflowRegions.WY, AirflowRegions.WZ};
+        int[] at = {from.getX(), from.getY(), from.getZ()}, d = {dx, dy, dz};
+        for (int i = 0; i < 3; i++) {
+            if (at[i] + d[i] < o[i] || at[i] + d[i] >= o[i] + size[i]) {
+                d[i] = -d[i];
+            }
+        }
+        return from.offset(d[0], d[1], d[2]);
+    }
+
     /**
      * b4: the switch. A campfire's legacy region warms a point next to it; with the engine set to AIRFLOW (its own
      * batch, so no other test runs meanwhile) the legacy regions stand down and {@code roomAt} reads 0; set back to
@@ -548,18 +560,17 @@ public final class AirflowGameTests {
     // ---- The container check (opt-in) ----
 
     /**
-     * After the smoke (Bright, 2026-11-14, option a): only a region a player is assigned to stays alive. An anchor
-     * moves to 24 blocks east of its region's centre, out of the inner zone though still inside the window: a second
-     * region opens around it, the first counts as empty at once and retires after the grace period.
+     * After the smoke (Bright, 2026-11-14, option a), with tiles (d1): only the tile holding a player stays alive. An
+     * anchor moves one tile east: that tile's region opens, the first counts as empty at once and retires after the
+     * grace period.
      */
     @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_assign", timeoutTicks = 40_000)
     public static void onlyTheAssignedRegionStaysAlive(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        // 24 blocks up, so the anchor sits in its window's middle section (the floor is in the world's bottom one)
-        Vec3 a = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 26, 1)));
-        int[] oa = AirflowRegions.window(level, a);
-        Vec3 b = new Vec3(oa[0] + AirflowRegions.WX / 2.0 + 24.5, a.y, a.z);
-        int[] ob = AirflowRegions.window(level, b);
+        Vec3 a = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 2, 1)));
+        int[] oa = AirflowRegions.tile(level, a.x, a.y, a.z);
+        Vec3 b = a.add(AirflowRegions.WX, 0, 0);
+        int[] ob = AirflowRegions.tile(level, b.x, b.y, b.z);
         List<long[]> forced = new ArrayList<>();
         for (int cx = Math.min(oa[0], ob[0]) >> 4; cx < (Math.max(oa[0], ob[0]) + AirflowRegions.WX) >> 4; cx++) {
             for (int cz = Math.min(oa[2], ob[2]) >> 4; cz < (Math.max(oa[2], ob[2]) + AirflowRegions.WZ) >> 4; cz++) {
@@ -587,8 +598,8 @@ public final class AirflowGameTests {
                 })
                 .thenExecute(() -> {
                     first[0] = regions.regionAt(a.x, a.y, a.z);
-                    helper.assertTrue(first[0].inner(a.x, a.y, a.z), "the anchor starts in its region's inner zone");
-                    helper.assertTrue(first[0].contains(b.x, b.y, b.z), "the new spot is still inside the first window");
+                    helper.assertTrue(first[0].x0() == oa[0] && ob[0] == oa[0] + AirflowRegions.WX && ob[1] == oa[1]
+                            && ob[2] == oa[2], "the new spot is in the next tile east");
                     at[0] = b;
                 })
                 .thenWaitUntil(() -> {
@@ -600,10 +611,10 @@ public final class AirflowGameTests {
                 .thenExecute(() -> {
                     StringBuilder seen = new StringBuilder();
                     for (AirflowRegions.Region r : regions.regions()) {
-                        seen.append("; ").append(regionLine(r, level)).append(r.inner(b.x, b.y, b.z) ? " (holds it)" : "");
+                        seen.append("; ").append(regionLine(r, level)).append(r.contains(b.x, b.y, b.z) ? " (holds it)" : "");
                     }
                     helper.assertTrue(regions.regions().size() == 1 && regions.regions().get(0).occupied()
-                            && regions.regions().get(0).inner(b.x, b.y, b.z),
+                            && regions.regions().get(0).contains(b.x, b.y, b.z),
                             "one region, around the anchor at " + b + seen);
                     stopped[0] = true;
                     regions.stop();

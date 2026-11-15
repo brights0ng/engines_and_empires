@@ -1,10 +1,12 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: ids, timing, the recorder; only assigned regions
-// stay alive).
+// stay alive); edited by Claude (M7d d1: fixed tiles replace player-centred windows).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 import dev.brights0ng.meteodyne.Meteodyne;
@@ -16,7 +18,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -26,22 +27,20 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
- * The region manager (M7b b3): GreedyFluids regions around the Overworld's players, on the server thread, when the
- * engine is {@link Airflow.Engine#AIRFLOW}.
+ * The region manager (M7b b3, tiles since M7d d1): GreedyFluids regions on the fixed tile grid of the Overworld, on
+ * the server thread, when the engine is {@link Airflow.Engine#AIRFLOW}.
  * <ul>
- *   <li><b>Windows:</b> 64×48×64, snapped to sections: horizontally the four sections across nearest the player (who
- *       is then at least 24 blocks from a side), vertically the player's section ± 1, clamped to the build
- *       height.</li>
- *   <li><b>Assignment:</b> each player is assigned one region: one whose inner zone (at least 16 blocks from each of
- *       its sides, top and bottom included) holds them, preferring a region assigned at the last match, then the
- *       nearest centre; otherwise a region of their own. Regions may overlap; queries read the one whose centre is
- *       nearest ({@link #frameAt}).</li>
- *   <li><b>Life:</b> a region wants its 48 sections from {@link AirflowSections} and is built once all are cached.
- *       It is retired after {@link #GRACE_TICKS} with no player assigned (Bright, 2026-11-14: a player merely inside
- *       a window no longer keeps it), or when one of its sections is dropped (a chunk unload, or a data-map or tag
- *       reload). A failed region is rebuilt from fresh codes after
+ *   <li><b>Tiles:</b> {@link AirflowTiles}, 64×32×64 (Bright, 2026-11-15). Tiles never overlap, so every block
+ *       belongs to at most one region and lookups go by tile.</li>
+ *   <li><b>Assignment:</b> each player keeps the tile holding them alive (only players are readers that do;
+ *       Bright, 2026-11-15). Only that tile runs: a room crossing a border sees the background past it until tiles
+ *       exchange heat (M8).</li>
+ *   <li><b>Life:</b> a region wants its 32 sections from {@link AirflowSections} and is built once all are cached.
+ *       It is retired after {@link #GRACE_TICKS} with no player in it (so stepping back and forth across a border
+ *       rebuilds nothing), or when one of its sections is dropped (a chunk unload, or a data-map or tag reload). A
+ *       failed region is rebuilt from fresh codes after
  *       {@link AirflowRuntime#backoffTicks}. No window for a player aboard a ship, or spectating.</li>
- *   <li><b>Events:</b> block edits and source changes in a built region's window go to its queue as they happen.</li>
+ *   <li><b>Events:</b> block edits and source changes in a built region's tile go to its queue as they happen.</li>
  *   <li><b>Interim inputs (until part c):</b> uniform background and surface wind from the climate at the window
  *       centre, re-sent when they move by {@link #BACKGROUND_STEP} °C or {@link #WIND_STEP} m/s (checked every
  *       {@link #WEATHER_TICKS}); placed-source powers from {@link AirflowSources}.</li>
@@ -51,12 +50,11 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 @EventBusSubscriber(modid = Meteodyne.MODID)
 public final class AirflowRegions implements AirflowSections.Listener {
 
-    public static final int WX = 64, WY = 48, WZ = 64;
-    /** Distance from the sides within which a player shares a region, blocks. */
-    public static final int INNER = 16;
+    /** A region's size: one tile. */
+    public static final int WX = AirflowTiles.TX, WY = AirflowTiles.TY, WZ = AirflowTiles.TZ;
     /** How often players are matched to regions, ticks. */
     static final int SCAN_TICKS = 10;
-    /** How long a region lives with no player inside, ticks (Claude's b3 lean: 30 s). */
+    /** How long a region lives with no player in its tile, ticks (Claude's b3 lean: 30 s). */
     public static final long GRACE_TICKS = 600;
     /** How often each region's weather is checked, ticks. */
     static final int WEATHER_TICKS = 20;
@@ -66,13 +64,13 @@ public final class AirflowRegions implements AirflowSections.Listener {
 
     private static volatile AirflowRegions running;
 
-    /** One region: its window and its slot on the air thread. Server thread. */
+    /** One region: its tile and its slot on the air thread. Server thread. */
     public static final class Region {
         private final int id;
         private final int x0, y0, z0;
         private final long[] sections;
         private AirflowRuntime.Slot slot;
-        private boolean occupied, wasOccupied;
+        private boolean occupied;
         private long emptySince = -1, retryAt = -1, built = -1;
         private double sentT = Double.NaN, sentWindX, sentWindZ;
 
@@ -114,23 +112,13 @@ public final class AirflowRegions implements AirflowSections.Listener {
             return slot;
         }
 
-        /** Whether a player was assigned to it at the last match. */
+        /** Whether a player was in its tile at the last match. */
         public boolean occupied() {
             return occupied;
         }
 
         public boolean contains(double x, double y, double z) {
             return x >= x0 && x < x0 + WX && y >= y0 && y < y0 + WY && z >= z0 && z < z0 + WZ;
-        }
-
-        boolean inner(double x, double y, double z) {
-            return x >= x0 + INNER && x < x0 + WX - INNER && y >= y0 + INNER && y < y0 + WY - INNER
-                    && z >= z0 + INNER && z < z0 + WZ - INNER;
-        }
-
-        double centreDistanceSq(double x, double y, double z) {
-            double dx = x - (x0 + WX / 2.0), dy = y - (y0 + WY / 2.0), dz = z - (z0 + WZ / 2.0);
-            return dx * dx + dy * dy + dz * dz;
         }
 
         boolean holds(long section) {
@@ -146,6 +134,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
     private final ServerLevel level;
     private final AirflowRuntime runtime;
     private final List<Region> regions = new ArrayList<>();
+    private final Map<Long, Region> byTile = new HashMap<>();
     private AirflowSections sections;
     private Function<ServerLevel, List<Vec3>> anchors = AirflowRegions::players;
     private int nextId = 1;
@@ -208,40 +197,26 @@ public final class AirflowRegions implements AirflowSections.Listener {
         return Collections.unmodifiableList(regions);
     }
 
-    /** Replaces where windows go (the players by default; game tests use fixed points). */
+    /** Replaces which points keep tiles alive (the players by default; game tests use fixed points). */
     void anchors(Function<ServerLevel, List<Vec3>> anchors) {
         this.anchors = anchors;
     }
 
-    /** The latest frame covering (x, y, z), world blocks, from the built region whose centre is nearest; or null. */
+    /** The latest frame of the region whose tile holds (x, y, z), world blocks; or null. */
     public AirflowRuntime.Frame frameAt(double x, double y, double z) {
-        AirflowRuntime.Frame best = null;
-        double bestD = Double.POSITIVE_INFINITY;
-        for (Region r : regions) {
-            if (r.slot != null && r.contains(x, y, z)) {
-                AirflowRuntime.Frame f = r.slot.frame();
-                double d = r.centreDistanceSq(x, y, z);
-                if (f != null && f.frame() != null && d < bestD) {
-                    best = f;
-                    bestD = d;
-                }
-            }
+        Region r = regionAt(x, y, z);
+        if (r == null || r.slot == null) {
+            return null;
         }
-        return best;
+        AirflowRuntime.Frame f = r.slot.frame();
+        return f == null || f.frame() == null ? null : f;
     }
 
-    /** The region holding (x, y, z) whose centre is nearest, or null. */
+    /** The region whose tile holds (x, y, z), or null (none, or the point is outside the world's height). */
     public Region regionAt(double x, double y, double z) {
-        Region best = null;
-        double bestD = Double.POSITIVE_INFINITY;
-        for (Region r : regions) {
-            double d = r.centreDistanceSq(x, y, z);
-            if (r.contains(x, y, z) && d < bestD) {
-                best = r;
-                bestD = d;
-            }
-        }
-        return best;
+        int[] o = tile(level, x, y, z);
+        Region r = byTile.get(AirflowTiles.key(o[0], o[1], o[2]));
+        return r != null && r.contains(x, y, z) ? r : null;
     }
 
     void start() {
@@ -276,57 +251,26 @@ public final class AirflowRegions implements AirflowSections.Listener {
     }
 
     /**
-     * Assigns each anchor one region, opening one where none fits. Only assigned regions count as occupied: a region an
-     * anchor is merely inside starts its grace. Among regions whose inner zone holds the anchor, one assigned at the
-     * last match wins over a closer centre, so a player between two regions doesn't keep both alive by flip-flopping.
+     * Marks the region of each anchor's tile occupied, opening it if it isn't there; every other region starts (or
+     * continues) its grace.
      */
     private void match() {
         for (Region r : regions) {
-            r.wasOccupied = r.occupied;
             r.occupied = false;
         }
         for (Vec3 p : anchors.apply(level)) {
-            Region home = null;
-            double best = Double.POSITIVE_INFINITY;
-            boolean homeWas = false;
-            for (Region r : regions) {
-                if (!r.inner(p.x, p.y, p.z)) {
-                    continue;
-                }
-                double d = r.centreDistanceSq(p.x, p.y, p.z);
-                if (home == null || (r.wasOccupied && !homeWas) || (r.wasOccupied == homeWas && d < best)) {
-                    home = r;
-                    best = d;
-                    homeWas = r.wasOccupied;
-                }
-            }
+            int[] o = tile(level, p.x, p.y, p.z);
+            Region home = byTile.get(AirflowTiles.key(o[0], o[1], o[2]));
             if (home == null) {
-                int[] o = window(level, p);
-                home = find(o[0], o[1], o[2]);
-                if (home == null) {
-                    home = open(o[0], o[1], o[2]);
-                }
+                home = open(o[0], o[1], o[2]);
             }
             home.occupied = true;
         }
     }
 
-    /** The window b3 puts around a player at {@code p}: its origin, world blocks. */
-    static int[] window(ServerLevel level, Vec3 p) {
-        int x0 = 16 * (int) Math.round((p.x - WX / 2.0) / 16);
-        int z0 = 16 * (int) Math.round((p.z - WZ / 2.0) / 16);
-        int y0 = 16 * (Math.floorDiv(Mth.floor(p.y), 16) - 1);
-        y0 = Math.max(level.getMinBuildHeight(), Math.min(y0, level.getMaxBuildHeight() - WY));
-        return new int[] {x0, y0, z0};
-    }
-
-    private Region find(int x0, int y0, int z0) {
-        for (Region r : regions) {
-            if (r.x0 == x0 && r.y0 == y0 && r.z0 == z0) {
-                return r;
-            }
-        }
-        return null;
+    /** The origin of the tile holding the point (x, y, z), world blocks. */
+    static int[] tile(ServerLevel level, double x, double y, double z) {
+        return AirflowTiles.origin(level.getMinBuildHeight(), level.getMaxBuildHeight(), x, y, z);
     }
 
     private Region open(int x0, int y0, int z0) {
@@ -335,6 +279,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
             sections.want(s);
         }
         regions.add(r);
+        byTile.put(AirflowTiles.key(x0, y0, z0), r);
         return r;
     }
 
@@ -342,6 +287,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
         if (!regions.remove(r)) {
             return;
         }
+        byTile.remove(AirflowTiles.key(r.x0, r.y0, r.z0));
         if (r.slot != null) {
             runtime.retire(r.slot);
         }
@@ -440,25 +386,20 @@ public final class AirflowRegions implements AirflowSections.Listener {
 
     @Override
     public void cellChanged(BlockPos pos, byte before, byte after) {
-        AirflowCells.Table table = null;
-        for (Region r : regions) {
-            if (r.slot != null && r.contains(pos.getX(), pos.getY(), pos.getZ())) {
-                if (table == null) {
-                    table = AirflowCells.table();
-                }
-                r.slot.post(new AirflowBatch.Change(pos.getX() - r.x0, pos.getY() - r.y0, pos.getZ() - r.z0,
-                        table.cell(before), table.cell(after)));
-            }
+        Region r = regionAt(pos.getX(), pos.getY(), pos.getZ());
+        if (r != null && r.slot != null) {
+            AirflowCells.Table table = AirflowCells.table();
+            r.slot.post(new AirflowBatch.Change(pos.getX() - r.x0, pos.getY() - r.y0, pos.getZ() - r.z0,
+                    table.cell(before), table.cell(after)));
         }
     }
 
     @Override
     public void sourceChanged(BlockPos pos, double before, double after) {
-        for (Region r : regions) {
-            if (r.slot != null && r.contains(pos.getX(), pos.getY(), pos.getZ())) {
-                r.slot.post(new AirflowRegionModel.SourceChange(pos.getX() - r.x0, pos.getY() - r.y0,
-                        pos.getZ() - r.z0, after));
-            }
+        Region r = regionAt(pos.getX(), pos.getY(), pos.getZ());
+        if (r != null && r.slot != null) {
+            r.slot.post(new AirflowRegionModel.SourceChange(pos.getX() - r.x0, pos.getY() - r.y0,
+                    pos.getZ() - r.z0, after));
         }
     }
 
@@ -471,7 +412,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
         }
     }
 
-    /** Where players want windows: non-spectators not aboard a ship. */
+    /** The players that keep tiles alive: non-spectators not aboard a ship. */
     private static List<Vec3> players(ServerLevel level) {
         List<Vec3> out = new ArrayList<>();
         HeatShips ships = HeatShips.get();
