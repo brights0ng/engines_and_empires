@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b b4); edited by Claude (M7d d1: regions are tiles; d2: save counts).
+// Written by Claude (GreedyFluids M7b b4); edited by Claude (M7d d1: regions are tiles; d2: save counts; the view).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.nio.file.Path;
@@ -28,6 +28,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *       latest frame of the region whose tile holds it;</li>
  *   <li>{@code record start|stop|mark <text>}: the smoke recorder ({@link AirflowRecorder}), into
  *       {@code greedyfluids-scans/airflow/<stamp>/}.</li>
+ *   <li>{@code show}: toggles the debug view for the player running it ({@link AirflowView}).</li>
  * </ul>
  */
 @EventBusSubscriber(modid = Meteodyne.MODID)
@@ -40,6 +41,7 @@ public final class AirflowCommand {
         event.getDispatcher().register(Commands.literal("meteodyne").requires(src -> src.hasPermission(2))
                 .then(Commands.literal("airflow")
                         .then(Commands.literal("status").executes(c -> status(c.getSource())))
+                        .then(Commands.literal("show").executes(c -> show(c.getSource())))
                         .then(Commands.literal("sample")
                                 .executes(c -> sample(c.getSource(), c.getSource().getPosition()))
                                 .then(Commands.argument("pos", Vec3Argument.vec3())
@@ -115,6 +117,22 @@ public final class AirflowCommand {
                         + "(region #%d, frame %.1f s old)",
                 f.frame().temperature(lx, ly, lz), air ? "moving" : "(solid here)", v[0], v[1], v[2], at.x, at.y, at.z,
                 g.id(), (r.level().getGameTime() - f.tick()) * AirflowRuntime.TICK_SECONDS));
+        return 1;
+    }
+
+    static int show(CommandSourceStack source) {
+        if (AirflowRegions.get() == null) {
+            fail(source, "Airflow is off: [heat] engine is " + Airflow.engine());
+            return 0;
+        }
+        net.minecraft.server.level.ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            fail(source, "Only a player can watch the airflow view");
+            return 0;
+        }
+        boolean on = AirflowView.toggle(player);
+        reply(source, on ? "Airflow view on: tiles within " + AirflowView.RANGE + " blocks, once a second"
+                : "Airflow view off");
         return 1;
     }
 

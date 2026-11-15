@@ -475,6 +475,7 @@ public final class AirflowGameTests {
                     helper.assertTrue(command(commands, "meteodyne airflow status", op) == 1, "status answers");
                     helper.assertTrue(command(commands, "meteodyne airflow sample", op) == 1, "sample answers at the player");
                     helper.assertTrue(command(commands, "meteodyne airflow record mark door open", op) == 1, "mark");
+                    viewSendsTheTile(helper, regions, r);
                 })
                 .thenIdle(40)
                 .thenExecute(() -> {
@@ -513,6 +514,29 @@ public final class AirflowGameTests {
 
     private static String regionLine(AirflowRegions.Region r, ServerLevel level) {
         return AirflowCommand.regionLine(r, level.getGameTime());
+    }
+
+    /**
+     * The debug view (2026-11-15): an update holds the running tile's outline and, near the lit campfire, cells off
+     * the background; a part survives its codec.
+     */
+    private static void viewSendsTheTile(GameTestHelper helper, AirflowRegions regions, AirflowRegions.Region r) {
+        List<AirflowView.Payload> parts = AirflowView.build(regions);
+        List<AirflowView.Payload> mine = parts.stream().filter(p -> p.id() == r.id()).toList();
+        helper.assertTrue(!mine.isEmpty(), "the view sends the player's tile");
+        AirflowView.Payload first = mine.get(0);
+        helper.assertTrue(first.kind() == AirflowView.Payload.TILE && first.state() == AirflowView.RUNNING
+                        && first.ox() == r.x0() && first.oy() == r.y0() && first.oz() == r.z0()
+                        && first.sx() == AirflowRegions.WX && first.sy() == AirflowRegions.WY,
+                "the tile's outline: " + first.state() + " at " + first.ox() + ", " + first.oy() + ", " + first.oz());
+        helper.assertTrue(mine.stream().allMatch(p -> p.count() <= AirflowView.PART_CELLS), "parts fit one message");
+        io.netty.buffer.ByteBuf buf = io.netty.buffer.Unpooled.buffer();
+        AirflowView.Payload.STREAM_CODEC.encode(buf, first);
+        AirflowView.Payload back = AirflowView.Payload.STREAM_CODEC.decode(buf);
+        helper.assertTrue(back.count() == first.count() && back.id() == first.id()
+                        && java.util.Arrays.equals(back.cells(), java.util.Arrays.copyOf(first.cells(), first.count()
+                        * AirflowView.CELL_BYTES)), "a part survives its codec");
+        buf.release();
     }
 
     /**
