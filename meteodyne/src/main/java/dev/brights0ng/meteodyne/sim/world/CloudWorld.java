@@ -1,3 +1,4 @@
+// Edited by Claude: sends through MeteodyneNetwork.sendTo, which skips clients without the channel.
 package dev.brights0ng.meteodyne.sim.world;
 
 import java.util.ArrayList;
@@ -220,7 +221,7 @@ public final class CloudWorld {
             if (!online.contains(e.getKey())) {
                 ServerPlayer gone = level.getServer().getPlayerList().getPlayer(e.getKey());
                 if (gone != null) {
-                    PacketDistributor.sendToPlayer(gone, new CloudSyncPayload(true, List.of(), List.of()));
+                    dev.brights0ng.meteodyne.MeteodyneNetwork.sendTo(gone, new CloudSyncPayload(true, List.of(), List.of()));
                 }
                 it.remove();
             }
@@ -236,7 +237,7 @@ public final class CloudWorld {
         do {
             int to = Math.min(upserts.size(), from + CloudSyncPayload.MAX_UPSERTS);
             List<SimCloud> part = new ArrayList<>(upserts.subList(from, to));
-            PacketDistributor.sendToPlayer(player, new CloudSyncPayload(first && reset, part,
+            dev.brights0ng.meteodyne.MeteodyneNetwork.sendTo(player, new CloudSyncPayload(first && reset, part,
                     first ? removed : List.of()));
             first = false;
             from = to;
@@ -335,7 +336,7 @@ public final class CloudWorld {
             sent.clear();
         }
         for (ServerPlayer p : level.players()) {
-            PacketDistributor.sendToPlayer(p, new CloudSyncPayload(true, List.of(), List.of()));
+            dev.brights0ng.meteodyne.MeteodyneNetwork.sendTo(p, new CloudSyncPayload(true, List.of(), List.of()));
         }
         serverShapesTick = Long.MIN_VALUE;
     }

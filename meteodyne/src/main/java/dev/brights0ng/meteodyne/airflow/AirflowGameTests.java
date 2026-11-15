@@ -375,9 +375,9 @@ public final class AirflowGameTests {
 
     /**
      * b4: the server's region manager (installed for the test) puts a window around a player's spot, snapped so the
-     * spot is at least 24 blocks from each side; a door placed shut, then opened, and a lit campfire reach the region;
-     * {@code status}, {@code sample} and {@code record} answer and the recording's summary is written; stopping
-     * leaves no air thread. The spot is a fixed anchor: a mock player crashes this server (see the comment inside).
+     * spot is at least 24 blocks from each side; a door placed shut, then opened, and a lit campfire reach the
+     * region; {@code status}, {@code sample} and {@code record} answer and the recording's summary is written;
+     * stopping leaves no air thread.
      */
     @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_player", timeoutTicks = 40_000)
     public static void regionHearsDoorsSourcesAndCommands(GameTestHelper helper) {
@@ -396,8 +396,8 @@ public final class AirflowGameTests {
                 }
             }
         }
-        // An anchor, not a mock ServerPlayer: one crashes the server here (WeatherNetwork sends weather_sync to its
-        // embedded connection, which never negotiated the channel). AirflowRegions' default anchors are the players.
+        // A fixed anchor, not a mock player: Meteodyne's payloads now skip a mock's embedded connection
+        // (MeteodyneNetwork), but Simulated's end_sea doesn't, which fails the test in the aggregate and core-less runs.
         Vec3 player = Vec3.atBottomCenterOf(stand);
         boolean opened = AirflowSections.get(level) == null;
         AirflowRegions regions = new AirflowRegions(level);

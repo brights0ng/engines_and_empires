@@ -1,3 +1,4 @@
+// Edited by Claude: sends through MeteodyneNetwork.sendTo, which skips clients without the channel.
 package dev.brights0ng.meteodyne.debug;
 
 import java.util.Map;
@@ -52,7 +53,7 @@ public final class WeatherDebugNetwork {
 
     /** Opens the map on {@code player}'s screen. */
     public static void open(ServerPlayer player) {
-        PacketDistributor.sendToPlayer(player, new WeatherMapPayloads.Open());
+        dev.brights0ng.meteodyne.MeteodyneNetwork.sendTo(player, new WeatherMapPayloads.Open());
     }
 
     private static void onRequest(WeatherMapPayloads.Request request, IPayloadContext context) {
@@ -91,7 +92,7 @@ public final class WeatherDebugNetwork {
             }
             if (p.job().work(deadline)) {
                 if (JOBS.remove(e.getKey(), p)) {
-                    PacketDistributor.sendToPlayer(p.player(), p.job().finish());
+                    dev.brights0ng.meteodyne.MeteodyneNetwork.sendTo(p.player(), p.job().finish());
                 }
             }
         }
