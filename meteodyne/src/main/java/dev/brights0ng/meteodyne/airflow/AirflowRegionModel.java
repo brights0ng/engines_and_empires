@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: counters).
+// Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: counters; M7d d2: saved state in and out).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -11,7 +11,9 @@ import dev.brights0ng.greedyfluids.grid.CellGrid3D;
 import dev.brights0ng.greedyfluids.grid.CellType;
 import dev.brights0ng.greedyfluids.region.AirFrame;
 import dev.brights0ng.greedyfluids.region.AirRegion;
+import dev.brights0ng.greedyfluids.region.ThermalState;
 import dev.brights0ng.greedyfluids.solve.Background3D;
+import dev.brights0ng.greedyfluids.solve.SolverConfig3D;
 
 /**
  * One GreedyFluids region on the air thread (M7b b3): an {@link AirRegion} built from cached section codes, fed the
@@ -26,6 +28,8 @@ import dev.brights0ng.greedyfluids.solve.Background3D;
  *   <li><b>Weather:</b> {@link Weather} sets a uniform background and the wind (interim, until part c). Follow
  *       weights are 1 for air with no solid or door above it inside the window, else 0, and are recomputed when the
  *       background is next set after a geometry change.</li>
+ *   <li><b>Saved state (M7d d2):</b> built from the tile's saved sections when there are any (decayed to the build
+ *       tick, {@link AirflowSaved}); {@link #save} packs the current state the same way.</li>
  * </ul>
  * Pure Java (GreedyFluids, no Minecraft).
  */
@@ -35,10 +39,18 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
      * What a region is built from, gathered on the server thread; immutable. {@code sections} holds the codes of each
      * 16³ section, ordered {@code (j * nsz + k) * nsx + i} for section i along x, j along y and k along z;
      * {@code sourceCells} are region cell indices {@code (y * nz + z) * nx + x}, parallel to {@code sourceWatts}.
+     * {@code saved} holds the saved sections in the same order (entries null where none; the array null for none at
+     * all), to be decayed to game tick {@code now}.
      */
     record Spec(int x0, int y0, int z0, int nx, int ny, int nz, AirflowSections.Codes[] sections,
                 AirflowCells.Table table, double backgroundT, double windX, double windZ, int[] sourceCells,
-                double[] sourceWatts) {
+                double[] sourceWatts, AirflowSaved.Section[] saved, long now) {
+        /** As above, with nothing saved. */
+        Spec(int x0, int y0, int z0, int nx, int ny, int nz, AirflowSections.Codes[] sections,
+             AirflowCells.Table table, double backgroundT, double windX, double windZ, int[] sourceCells,
+             double[] sourceWatts) {
+            this(x0, y0, z0, nx, ny, nz, sections, table, backgroundT, windX, windZ, sourceCells, sourceWatts, null, 0);
+        }
     }
 
     /** A block's source power, W (0: none), region cells. */
@@ -53,7 +65,9 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
 
     private final AirRegion region;
     private final CellGrid3D grid;
+    private final int x0, y0, z0;
     private final int nx, ny, nz;
+    private final boolean restored;
     private final Map<Integer, Double> blocks = new HashMap<>();
     private Map<Integer, Double> applied = new HashMap<>();
     private double backgroundT;
@@ -63,12 +77,20 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
 
     private AirflowRegionModel(CellGrid3D grid, Spec spec) {
         this.grid = grid;
+        this.x0 = spec.x0();
+        this.y0 = spec.y0();
+        this.z0 = spec.z0();
         this.nx = spec.nx();
         this.ny = spec.ny();
         this.nz = spec.nz();
         this.backgroundT = spec.backgroundT();
         Background3D background = Background3D.uniform(nx, ny, nz, backgroundT).withFollow(follow());
-        region = new AirRegion(grid, background, spec.windX(), spec.windZ());
+        ThermalState initial = spec.saved() == null ? null
+                : AirflowSaved.unpack(spec.saved(), nx, ny, nz, background::cell, spec.now());
+        restored = initial != null;
+        region = initial == null ? new AirRegion(grid, background, spec.windX(), spec.windZ())
+                : AirRegion.restore(grid, background, initial, spec.windX(), spec.windZ(),
+                        SolverConfig3D.DEFAULT.withAmbientT(background.reference()));
         for (int i = 0; i < spec.sourceCells().length; i++) {
             blocks.merge(spec.sourceCells()[i], spec.sourceWatts()[i], Double::sum);
         }
@@ -275,6 +297,18 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
             watts += w;
         }
         return new AirflowRuntime.Counters(edits, toggles, desyncs, watts);
+    }
+
+    @Override
+    public AirflowSaved.Tile save(long tick) {
+        Background3D background = region.background();
+        return new AirflowSaved.Tile(x0, y0, z0, nx / 16, ny / 16, nz / 16,
+                AirflowSaved.pack(region.thermalState(), background::cell, tick));
+    }
+
+    /** Whether the region started from saved state. */
+    boolean restored() {
+        return restored;
     }
 
     /** Watts set per region cell (for tests). */

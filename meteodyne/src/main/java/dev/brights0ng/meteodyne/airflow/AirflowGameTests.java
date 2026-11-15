@@ -1,5 +1,6 @@
 // Written by Claude (GreedyFluids M7b); edited by Claude (b2: classifier, section cache and snapshot check; b3: a
-// region around an anchor; b4: a region around a player, the commands and recorder, the switch; M7d d1: tiles).
+// region around an anchor; b4: a region around a player, the commands and recorder, the switch; M7d d1: tiles; d2:
+// saving and restoring).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -42,6 +43,7 @@ import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -307,8 +309,10 @@ public final class AirflowGameTests {
     public static void regionFormsAroundAnAnchorAndHearsAnEdit(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos anchor = helper.absolutePos(new BlockPos(1, 2, 1));
-        int[] o = AirflowRegions.tile(level, anchor.getX() + 0.5, anchor.getY() + 0.5, anchor.getZ() + 0.5);
-        BlockPos edit = inward(anchor, o, 3, 0, 3);
+        AirflowRegions regions = new AirflowRegions(level);
+        regions.alignForTests(helper.absolutePos(BlockPos.ZERO));
+        int[] o = regions.tileOf(anchor.getX() + 0.5, anchor.getY() + 0.5, anchor.getZ() + 0.5);
+        BlockPos edit = anchor.offset(3, 0, 3);
         helper.assertTrue(level.getBlockState(edit).isAir(), "the edit's cell should start as air");
         List<long[]> forced = new ArrayList<>();
         for (int cx = o[0] >> 4; cx < (o[0] + AirflowRegions.WX) >> 4; cx++) {
@@ -319,7 +323,6 @@ public final class AirflowGameTests {
             }
         }
         boolean opened = AirflowSections.get(level) == null;
-        AirflowRegions regions = new AirflowRegions(level);
         regions.anchors(l -> List.of(Vec3.atCenterOf(anchor)));
         regions.start();
         boolean[] stopped = {false};
@@ -348,8 +351,7 @@ public final class AirflowGameTests {
                 .thenExecute(() -> {
                     AirflowRegions.Region r = regions.regions().get(0);
                     helper.assertTrue(regions.regions().size() == 1, "one anchor, one region: " + regions.regions().size());
-                    helper.assertTrue(r.x0() == o[0] && r.y0() == o[1] && r.z0() == o[2] && r.x0() % 64 == 0
-                            && r.z0() % 64 == 0 && (r.y0() - level.getMinBuildHeight()) % 32 == 0,
+                    helper.assertTrue(r.x0() == o[0] && r.y0() == o[1] && r.z0() == o[2],
                             "the region is the anchor's tile: " + regionLine(r, level));
                     helper.assertTrue(r.slot().status() == AirflowRuntime.Status.RUNNING, "running: " + r.slot().failure());
                     helper.assertTrue(r.slot().frame().frame().isAir(edit.getX() - r.x0() + 0.5,
@@ -384,9 +386,10 @@ public final class AirflowGameTests {
     public static void regionHearsDoorsSourcesAndCommands(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos stand = helper.absolutePos(new BlockPos(1, 2, 1));
-        int[] o = AirflowRegions.tile(level, stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
-        BlockPos lower = inward(stand, o, 4, 0, 2), upper = lower.above(), fire = inward(stand, o, 2, 0, 4);
-        helper.assertTrue(upper.getY() < o[1] + AirflowRegions.WY, "the door fits under the tile's top: " + upper);
+        AirflowRegions regions = new AirflowRegions(level);
+        regions.alignForTests(helper.absolutePos(BlockPos.ZERO));
+        int[] o = regions.tileOf(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
+        BlockPos lower = stand.offset(4, 0, 2), upper = lower.above(), fire = stand.offset(2, 0, 4);
         for (BlockPos p : List.of(lower, upper, fire)) {
             helper.assertTrue(level.getBlockState(p).isAir(), "the test's cells should start as air: " + p);
         }
@@ -402,7 +405,6 @@ public final class AirflowGameTests {
         // (MeteodyneNetwork), but Simulated's end_sea doesn't, which fails the test in the aggregate and core-less runs.
         Vec3 player = Vec3.atBottomCenterOf(stand);
         boolean opened = AirflowSections.get(level) == null;
-        AirflowRegions regions = new AirflowRegions(level);
         regions.anchors(l -> List.of(player));
         regions.start();
         AirflowRegions.useForTests(regions);
@@ -513,18 +515,6 @@ public final class AirflowGameTests {
         return AirflowCommand.regionLine(r, level.getGameTime());
     }
 
-    /** {@code from} moved by (dx, dy, dz), each step reversed where it would leave the tile at {@code o}. */
-    private static BlockPos inward(BlockPos from, int[] o, int dx, int dy, int dz) {
-        int[] size = {AirflowRegions.WX, AirflowRegions.WY, AirflowRegions.WZ};
-        int[] at = {from.getX(), from.getY(), from.getZ()}, d = {dx, dy, dz};
-        for (int i = 0; i < 3; i++) {
-            if (at[i] + d[i] < o[i] || at[i] + d[i] >= o[i] + size[i]) {
-                d[i] = -d[i];
-            }
-        }
-        return from.offset(d[0], d[1], d[2]);
-    }
-
     /**
      * b4: the switch. A campfire's legacy region warms a point next to it; with the engine set to AIRFLOW (its own
      * batch, so no other test runs meanwhile) the legacy regions stand down and {@code roomAt} reads 0; set back to
@@ -568,9 +558,11 @@ public final class AirflowGameTests {
     public static void onlyTheAssignedRegionStaysAlive(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Vec3 a = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 2, 1)));
-        int[] oa = AirflowRegions.tile(level, a.x, a.y, a.z);
+        AirflowRegions regions = new AirflowRegions(level);
+        regions.alignForTests(helper.absolutePos(BlockPos.ZERO));
+        int[] oa = regions.tileOf(a.x, a.y, a.z);
         Vec3 b = a.add(AirflowRegions.WX, 0, 0);
-        int[] ob = AirflowRegions.tile(level, b.x, b.y, b.z);
+        int[] ob = regions.tileOf(b.x, b.y, b.z);
         List<long[]> forced = new ArrayList<>();
         for (int cx = Math.min(oa[0], ob[0]) >> 4; cx < (Math.max(oa[0], ob[0]) + AirflowRegions.WX) >> 4; cx++) {
             for (int cz = Math.min(oa[2], ob[2]) >> 4; cz < (Math.max(oa[2], ob[2]) + AirflowRegions.WZ) >> 4; cz++) {
@@ -581,7 +573,6 @@ public final class AirflowGameTests {
         }
         boolean opened = AirflowSections.get(level) == null;
         Vec3[] at = {a};
-        AirflowRegions regions = new AirflowRegions(level);
         regions.anchors(l -> List.of(at[0]));
         regions.start();
         boolean[] stopped = {false};
@@ -630,6 +621,143 @@ public final class AirflowGameTests {
 
     /** Window size of part b3: four sections across, three tall. */
     private static final int WX = 64, WY = 48, WZ = 64;
+
+    /**
+     * d2: a campfire warms a closed stone room (closed, so the warmth stays in a few small boxes rather than mixing
+     * into the open tile's big ones); stopping the manager saves the tile into its chunks; with the fire put out, a
+     * new manager builds the tile from what was saved, so its very first frame is still warm in the room.
+     * d3: the temperature lookup reads the live frame while the tile runs, the save while none does, and the
+     * background once the save is gone.
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_save", timeoutTicks = 40_000)
+    public static void aTileComesBackWarmFromItsSave(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos stand = helper.absolutePos(new BlockPos(1, 2, 1));
+        AirflowRegions[] regions = {new AirflowRegions(level)};
+        BlockPos origin = helper.absolutePos(BlockPos.ZERO);
+        regions[0].alignForTests(origin);
+        int[] o = regions[0].tileOf(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
+        // the room fills the test structure above its floor: outer 7×6×7, interior 5×4×5
+        BlockPos low = origin.above(), fire = low.offset(3, 1, 3), probe = low.offset(3, 3, 3);
+        java.util.Map<BlockPos, BlockState> prior = new HashMap<>();
+        for (BlockPos p : BlockPos.betweenClosed(low, low.offset(6, 5, 6))) {
+            prior.put(p.immutable(), level.getBlockState(p));
+        }
+        Vec3 anchor = Vec3.atBottomCenterOf(stand);
+        List<long[]> forced = new ArrayList<>();
+        for (int cx = o[0] >> 4; cx < (o[0] + AirflowRegions.WX) >> 4; cx++) {
+            for (int cz = o[2] >> 4; cz < (o[2] + AirflowRegions.WZ) >> 4; cz++) {
+                if (level.setChunkForced(cx, cz, true)) {
+                    forced.add(new long[] {cx, cz});
+                }
+            }
+        }
+        Runnable forget = () -> { // other tests' saves, and this one's, stay out of later runs
+            for (int cx = o[0] >> 4; cx < (o[0] + AirflowRegions.WX) >> 4; cx++) {
+                for (int cz = o[2] >> 4; cz < (o[2] + AirflowRegions.WZ) >> 4; cz++) {
+                    LevelChunk c = level.getChunkSource().getChunkNow(cx, cz);
+                    if (c != null && c.hasData(AirflowContent.CHUNK_DATA)) {
+                        c.removeData(AirflowContent.CHUNK_DATA);
+                    }
+                }
+            }
+        };
+        forget.run();
+        for (BlockPos p : prior.keySet()) {
+            boolean shell = p.getX() == low.getX() || p.getX() == low.getX() + 6 || p.getY() == low.getY()
+                    || p.getY() == low.getY() + 5 || p.getZ() == low.getZ() || p.getZ() == low.getZ() + 6;
+            level.setBlock(p, (shell ? Blocks.STONE : Blocks.AIR).defaultBlockState(), Block.UPDATE_CLIENTS);
+        }
+        level.setBlock(fire, Blocks.CAMPFIRE.defaultBlockState(), Block.UPDATE_CLIENTS);
+        boolean opened = AirflowSections.get(level) == null;
+        regions[0].anchors(l -> List.of(anchor));
+        regions[0].start();
+        boolean[] stopped = {false};
+        helper.onEachTick(() -> {
+            if (!stopped[0]) {
+                regions[0].tick();
+            }
+        });
+        double[] warm = {Double.NaN};
+        Runnable cleanup = () -> {
+            stopped[0] = true;
+            regions[0].stop();
+            for (java.util.Map.Entry<BlockPos, BlockState> e : prior.entrySet()) {
+                level.setBlock(e.getKey(), e.getValue(), Block.UPDATE_CLIENTS);
+            }
+            forget.run();
+            for (long[] c : forced) {
+                level.setChunkForced((int) c[0], (int) c[1], false);
+            }
+            if (opened) {
+                AirflowSections.close(level);
+            }
+        };
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region r = regions[0].regionAt(anchor.x, anchor.y, anchor.z);
+                    helper.assertTrue(r != null && r.slot() != null && r.slot().steps() >= 2,
+                            "waiting for the tile to be built and stepped");
+                })
+                .thenExecute(() -> helper.assertTrue(regions[0].restores() == 0, "nothing saved yet"))
+                .thenWaitUntil(() -> {
+                    double[] t = sampleAt(regions[0], probe);
+                    helper.assertTrue(t != null && t[0] > t[1] + 3, "waiting for the room to warm: "
+                            + (t == null ? "no frame" : t[0] + " C against " + t[1]));
+                    warm[0] = t[0] - t[1];
+                })
+                .thenExecute(() -> {
+                    AirflowTemperatures.Reading live = AirflowTemperatures.at(regions[0], probe.getX() + 0.5,
+                            probe.getY() + 0.5, probe.getZ() + 0.5);
+                    helper.assertTrue(live.source() == AirflowTemperatures.Source.LIVE, "live while running: " + live);
+                })
+                .thenExecute(() -> {
+                    regions[0].stop();
+                    helper.assertTrue(regions[0].savesWritten() >= 1, "stopping saves the tile");
+                    LevelChunk c = level.getChunkSource().getChunkNow(probe.getX() >> 4, probe.getZ() >> 4);
+                    helper.assertTrue(c != null && c.hasData(AirflowContent.CHUNK_DATA)
+                            && c.getData(AirflowContent.CHUNK_DATA).section(probe.getY() >> 4) != null,
+                            "the warm section is in its chunk's data");
+                    AirflowTemperatures.Reading saved = AirflowTemperatures.at(regions[0], probe.getX() + 0.5,
+                            probe.getY() + 0.5, probe.getZ() + 0.5);
+                    helper.assertTrue(saved.source() == AirflowTemperatures.Source.SAVED, "saved when stopped: " + saved);
+                    level.setBlock(fire, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    regions[0] = new AirflowRegions(level);
+                    regions[0].alignForTests(origin);
+                    regions[0].anchors(l -> List.of(anchor));
+                    regions[0].start();
+                })
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region r = regions[0].regionAt(anchor.x, anchor.y, anchor.z);
+                    helper.assertTrue(r != null && r.slot() != null && r.slot().frame() != null,
+                            "waiting for the tile to be rebuilt");
+                })
+                .thenExecute(() -> {
+                    helper.assertTrue(regions[0].restores() == 1, "the tile is built from its save");
+                    double[] t = sampleAt(regions[0], probe);
+                    helper.assertTrue(t != null && t[0] - t[1] > 1,
+                            "the rebuilt room is still warm: " + (t == null ? "no frame" : t[0] + " C against " + t[1])
+                                    + " (saved " + warm[0] + " above)");
+                    AirflowRegions last = regions[0];
+                    cleanup.run();
+                    AirflowTemperatures.Reading none = AirflowTemperatures.at(last, probe.getX() + 0.5,
+                            probe.getY() + 0.5, probe.getZ() + 0.5);
+                    helper.assertTrue(none.source() == AirflowTemperatures.Source.BACKGROUND,
+                            "the background once the save is gone: " + none);
+                })
+                .thenSucceed();
+    }
+
+    /** The latest frame's temperature at {@code at} and its background, C; or null before a frame. */
+    private static double[] sampleAt(AirflowRegions regions, BlockPos at) {
+        AirflowRegions.Region r = regions.regionAt(at.getX(), at.getY(), at.getZ());
+        AirflowRuntime.Frame f = r == null || r.slot() == null ? null : r.slot().frame();
+        if (f == null || f.frame() == null) {
+            return null;
+        }
+        return new double[] {f.frame().temperature(at.getX() - r.x0() + 0.5, at.getY() - r.y0() + 0.5,
+                at.getZ() - r.z0() + 0.5), f.frame().background().reference()};
+    }
 
     /**
      * Re-classifies every snapshot in {@code -Pmeteodyne.airflowSnapshots} with the in-game rule and compares it with

@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b b4); edited by Claude (M7d d1: regions are tiles).
+// Written by Claude (GreedyFluids M7b b4); edited by Claude (M7d d1: regions are tiles; d2: save counts).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.nio.file.Path;
@@ -64,9 +64,11 @@ public final class AirflowCommand {
         AirflowRecorder rec = r.recorder();
         reply(source, String.format(Locale.ROOT,
                 "Airflow: %d regions; air thread %s, %.1f s busy in all; server thread in all: hook %.1f ms, "
-                        + "reads %.1f ms (%d sections), manager %.1f ms; %d sections cached, %d pending%s",
+                        + "reads %.1f ms (%d sections), manager %.1f ms; %d sections cached, %d pending; "
+                        + "%d saves written, %d saved sections lost to unloads, %d regions restored%s",
                 r.regions().size(), r.runtime().alive() ? "up" : "DOWN", r.runtime().busyNanos() / 1e9,
                 s.hookNanos() / 1e6, s.readNanos() / 1e6, s.reads(), r.managerNanos() / 1e6, s.cached(), s.pending(),
+                r.savesWritten(), r.sectionsLost(), r.restores(),
                 rec == null ? "" : "; recording " + rec.seconds() + " s into " + rec.dir().toAbsolutePath()));
         for (AirflowRegions.Region g : r.regions()) {
             reply(source, regionLine(g, now));

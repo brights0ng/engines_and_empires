@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b b3).
+// Written by Claude (GreedyFluids M7b b3); edited by Claude (M7d d2: saves).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 class AirflowRuntimeTest {
 
     /** A region that only counts: 0.5 s steps, a log of what happened, and a step on which it throws or goes bad. */
-    static final class Fake implements AirflowRuntime.Model {
+    static class Fake implements AirflowRuntime.Model {
         final String name;
         final List<String> log;
         int steps;
@@ -70,6 +70,22 @@ class AirflowRuntimeTest {
         @Override
         public int boxes() {
             return 7;
+        }
+    }
+
+    /** A fake that can be saved: its tile is empty, and it counts its saves. */
+    static final class Saving extends Fake {
+        int saves;
+
+        Saving(String name, List<String> log) {
+            super(name, log);
+        }
+
+        @Override
+        public AirflowSaved.Tile save(long tick) {
+            saves++;
+            return new AirflowSaved.Tile(0, 0, 0, 1, 1, 1, new AirflowSaved.Section[] {
+                    new AirflowSaved.Section(tick, new int[0], new float[0])});
         }
     }
 
@@ -247,6 +263,53 @@ class AirflowRuntimeTest {
         assertEquals(800, AirflowRuntime.backoffTicks(4));
         assertEquals(1200, AirflowRuntime.backoffTicks(5));
         assertEquals(1200, AirflowRuntime.backoffTicks(40));
+    }
+
+    @Test
+    void aRequestedSaveComesAfterTheNextStepAtItsFramesTick() {
+        Saving a = new Saving("a", log);
+        runtime.tick(0);
+        Slot s = runtime.create(() -> a);
+        runtime.runOnce();
+        s.requestSave();
+        assertNull(runtime.pollSave(), "nothing before a step");
+        runtime.tick(10);
+        runtime.runOnce();
+        AirflowRuntime.Save save = runtime.pollSave();
+        assertSame(s, save.slot());
+        assertEquals(10, save.tick(), "one 0.5 s step stands for tick 10");
+        assertEquals(10, save.tile().sections()[0].tick());
+        assertNull(runtime.pollSave(), "one request, one save");
+        runtime.tick(20);
+        runtime.runOnce();
+        assertNull(runtime.pollSave(), "no save unasked");
+    }
+
+    @Test
+    void retiringOrStoppingSavesARunningRegion() throws InterruptedException {
+        Saving a = new Saving("a", log), b = new Saving("b", log);
+        runtime.tick(0);
+        Slot sa = runtime.create(() -> a);
+        runtime.runOnce();
+        runtime.retire(sa);
+        drain();
+        assertSame(sa, runtime.pollSave().slot(), "retiring saves");
+        Slot failed = runtime.create(() -> {
+            throw new IllegalStateException("never built");
+        });
+        drain();
+        runtime.retire(failed);
+        drain();
+        assertNull(runtime.pollSave(), "a failed region has nothing to save");
+        runtime.start();
+        Slot sb = runtime.create(() -> b);
+        long until = System.nanoTime() + 5_000_000_000L;
+        while (sb.status() != Status.RUNNING && System.nanoTime() < until) {
+            Thread.sleep(5);
+        }
+        assertTrue(runtime.stop());
+        assertSame(sb, runtime.pollSave().slot(), "stopping saves what was running");
+        assertEquals(1, b.saves);
     }
 
     @Test

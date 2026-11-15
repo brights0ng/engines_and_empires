@@ -1,10 +1,12 @@
-// Edited by ChatGPT: registered weather instruments and their assets; creative tab registration added by Claude.
+// Edited by ChatGPT: registered weather instruments and their assets; creative tab registration added by Claude;
+// airflow's chunk data registration added by Claude (GreedyFluids M7d d2).
 package dev.brights0ng.meteodyne;
 
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
+import dev.brights0ng.meteodyne.airflow.AirflowContent;
 import dev.brights0ng.meteodyne.climate.ClimateDataMaps;
 import dev.brights0ng.meteodyne.climate.MeteodyneTemperature;
 import dev.brights0ng.meteodyne.gametest.GameTestCalendar;
@@ -57,6 +59,8 @@ public final class Meteodyne {
         modEventBus.addListener(HeatField::register);
         // The heat simulation (rooms and air warmed by fires, furnaces, lava): its data maps and chunk data
         HeatContent.register(modEventBus);
+        // Airflow (GreedyFluids): the chunk data that keeps tiles' temperatures
+        AirflowContent.register(modEventBus);
         modContainer.registerConfig(ModConfig.Type.SERVER, WeatherConfig.SPEC, WeatherConfig.FILE_NAME);
         // The game test server keeps the built-in calendar off, even when the config is reloaded from its file
         modEventBus.addListener(GameTestCalendar::onConfigReload);

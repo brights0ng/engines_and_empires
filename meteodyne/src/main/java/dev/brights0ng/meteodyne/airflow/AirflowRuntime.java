@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: busy time and region counters).
+// Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: busy time and region counters; M7d d2: saves).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -24,6 +24,9 @@ import dev.brights0ng.greedyfluids.region.AirFrame;
  *       volatile {@link Slot#frame}.</li>
  *   <li><b>Failure.</b> A region that throws, or whose values go non-finite, is {@link Status#FAILED} and dropped;
  *       its owner rebuilds it after {@link #backoffTicks} with {@link #replace}.</li>
+ *   <li><b>Saves (M7d d2).</b> A running region's state is packed ({@link Model#save}) after the step that follows
+ *       {@link Slot#requestSave}, when it is retired, and when the thread stops; the saves wait in
+ *       {@link #pollSave} for the owner, who writes them on its own thread.</li>
  * </ul>
  * Pure Java (GreedyFluids, no Minecraft), so the unit tests drive it with fake models through {@link #runOnce}.
  */
@@ -61,6 +64,11 @@ public final class AirflowRuntime {
         default Counters counters() {
             return Counters.NONE;
         }
+
+        /** The region's state packed for saving, as of game tick {@code tick} (null: nothing to save). */
+        default AirflowSaved.Tile save(long tick) {
+            return null;
+        }
     }
 
     /** A region's running totals: edits applied, door toggles, events skipped as desyncs, and the watts set now. */
@@ -80,6 +88,10 @@ public final class AirflowRuntime {
     public record Frame(AirFrame frame, long tick) {
     }
 
+    /** A region's packed state, the game tick it stands for, and the slot it came from. */
+    public record Save(Slot slot, AirflowSaved.Tile tile, long tick) {
+    }
+
     /** One region's place on the air thread: its queue, latest frame and counters. */
     public static final class Slot {
         private final long id;
@@ -93,6 +105,7 @@ public final class AirflowRuntime {
         private volatile int boxes;
         private volatile long steps, drops;
         private volatile Counters counters = Counters.NONE;
+        private volatile boolean saveWanted;
         // Air thread only
         private Model model;
         private long startTick;
@@ -110,6 +123,11 @@ public final class AirflowRuntime {
             if (s == Status.PENDING || s == Status.RUNNING) {
                 events.add(event);
             }
+        }
+
+        /** Asks for the region's state to be saved after its next step. */
+        public void requestSave() {
+            saveWanted = true;
         }
 
         public long id() {
@@ -171,6 +189,7 @@ public final class AirflowRuntime {
 
     private final ConcurrentLinkedQueue<Slot> builds = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<Slot> retires = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<Save> saves = new ConcurrentLinkedQueue<>();
     private final List<Slot> running = new ArrayList<>();
     private final AtomicLong ids = new AtomicLong();
     private static final AtomicLong RUNTIMES = new AtomicLong();
@@ -259,6 +278,11 @@ public final class AirflowRuntime {
         return threadName;
     }
 
+    /** The oldest save not yet taken, or null. */
+    public Save pollSave() {
+        return saves.poll();
+    }
+
     private Slot enqueue(Slot slot) {
         builds.add(slot);
         wake();
@@ -291,6 +315,7 @@ public final class AirflowRuntime {
             }
         }
         for (Slot s : running) {
+            save(s);
             s.model = null;
             s.status = Status.RETIRED;
         }
@@ -305,6 +330,9 @@ public final class AirflowRuntime {
         boolean worked = false;
         for (Slot s; (s = retires.poll()) != null; ) {
             running.remove(s);
+            if (s.model != null && s.status == Status.RUNNING) {
+                save(s);
+            }
             s.model = null;
             s.events.clear();
             if (s.status != Status.FAILED) {
@@ -377,8 +405,25 @@ public final class AirflowRuntime {
             s.counters = s.model.counters();
             s.frame = new Frame(s.model.publish(),
                     s.startTick + Math.round((s.model.time() + s.dropped) / TICK_SECONDS));
+            if (s.saveWanted) {
+                s.saveWanted = false;
+                save(s);
+            }
         } catch (RuntimeException | StackOverflowError e) {
             fail(s, e);
+        }
+    }
+
+    /** Packs a running region's state into the save queue; a failure to pack is reported, not fatal to the region. */
+    private void save(Slot s) {
+        try {
+            long at = s.frame == null ? s.startTick : s.frame.tick();
+            AirflowSaved.Tile tile = s.model.save(at);
+            if (tile != null) {
+                saves.add(new Save(s, tile, at));
+            }
+        } catch (RuntimeException e) {
+            onFailure.accept(s, e);
         }
     }
 

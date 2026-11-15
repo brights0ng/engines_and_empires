@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b b3).
+// Written by Claude (GreedyFluids M7b b3); edited by Claude (M7d d2: save and restore).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,10 +28,24 @@ class AirflowRegionModelTest {
 
     /** One 16³ section: a stone floor at y 0, air above; sources as region cell index → W. */
     private static AirflowRegionModel model(Map<Integer, Double> sources) {
+        return model(sources, false, null, 0);
+    }
+
+    /**
+     * As above, or (with {@code room}) solid stone but for a closed 4×4×4 room at x, z 6..9, y 1..4; built from saved
+     * sections decayed to tick {@code now}.
+     */
+    private static AirflowRegionModel model(Map<Integer, Double> sources, boolean room, AirflowSaved.Section[] saved,
+            long now) {
         byte[] cells = new byte[AirflowSections.SECTION_CELLS];
-        for (int z = 0; z < 16; z++) {
-            for (int x = 0; x < 16; x++) {
-                cells[AirflowSections.Codes.index(x, 0, z)] = 1;
+        for (int y = 0; y < 16; y++) {
+            for (int z = 0; z < 16; z++) {
+                for (int x = 0; x < 16; x++) {
+                    boolean inside = x >= 6 && x <= 9 && y >= 1 && y <= 4 && z >= 6 && z <= 9;
+                    if (y == 0 || (room && !inside)) {
+                        cells[AirflowSections.Codes.index(x, y, z)] = 1;
+                    }
+                }
             }
         }
         AirflowSections.Codes codes = new AirflowSections.Codes(0, 1, AirflowCells.AIR, cells);
@@ -42,7 +56,7 @@ class AirflowRegionModelTest {
             w[i] = sources.get(at[i]);
         }
         return AirflowRegionModel.build(new AirflowRegionModel.Spec(0, 0, 0, 16, 16, 16,
-                new AirflowSections.Codes[] {codes}, table, 10, 0, 0, at, w));
+                new AirflowSections.Codes[] {codes}, table, 10, 0, 0, at, w, saved, now));
     }
 
     private static int cell(int x, int y, int z) {
@@ -75,6 +89,29 @@ class AirflowRegionModelTest {
         assertEquals(1, m.desyncs(), "placing into a solid cell is skipped");
         m.step();
         assertTrue(m.healthy());
+    }
+
+    @Test
+    void aSavedRegionComesBackWarmAndDecays() {
+        AirflowRegionModel warm = model(Map.of(cell(8, 1, 8), 20_000.0), true, null, 0);
+        for (int i = 0; i < 40; i++) {
+            warm.step();
+        }
+        double hot = warm.region().sampleT(7.5, 3.5, 7.5);
+        assertTrue(hot > 11, "the source warms the closed room: " + hot);
+        AirflowSaved.Tile tile = warm.save(500);
+        assertEquals(1, tile.sections().length);
+        assertTrue(tile.sections()[0].cells().length > 0, "something kept");
+        assertTrue(java.util.Arrays.stream(tile.sections()[0].cells()).anyMatch(c -> (c & AirflowSaved.WALL) != 0),
+                "the warmed floor's wall stores are kept too");
+
+        AirflowRegionModel back = model(Map.of(), true, tile.sections(), 500);
+        assertTrue(back.restored());
+        double again = back.region().sampleT(7.5, 3.5, 7.5);
+        assertTrue(again > 10 + 0.5 * (hot - 10), "restored without the source, still warm: " + again + " (was " + hot + ")");
+        AirflowRegionModel later = model(Map.of(), true, tile.sections(), 500 + 10 * (long) AirflowSaved.TAU_TICKS);
+        assertEquals(10, later.region().sampleT(7.5, 3.5, 7.5), 0.01, "ten days later it is the background");
+        assertFalse(model(Map.of()).restored());
     }
 
     @Test
