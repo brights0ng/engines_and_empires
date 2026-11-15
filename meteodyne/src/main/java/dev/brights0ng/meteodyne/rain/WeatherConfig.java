@@ -1,5 +1,6 @@
 // Updated by ChatGPT: added reloadable thermal response speed without changing weather time or wind units.
 // Updated by Claude: [heat] engine, the airflow/legacy switch (GreedyFluids M7b).
+// Updated by Claude: [seasons] obliquity and sunLatitude, the sun's strength through the year.
 package dev.brights0ng.meteodyne.rain;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -118,9 +119,10 @@ public final class WeatherConfig {
             .defineInRange("cap", 15.0, 0.0, 60.0);
 
     public static final ModConfigSpec.DoubleValue SUN_WARMTH_MAX = BUILDER
-            .comment("How much warmer it feels in full sun at noon under a clear sky, C (the NWS's figure for the",
-                    "heat index is up to 8). Smaller when the sun is low, a quarter behind glass or leaves, less",
-                    "through cloud, none in shade or at night. 0 turns sun warmth off.")
+            .comment("How much warmer it feels in full sun at noon under a clear sky at midsummer, C (the NWS's figure",
+                    "for the heat index is up to 8). Smaller when the sun is low, through the year as [seasons]",
+                    "obliquity and sunLatitude set it (half at midwinter by default), a quarter behind glass or",
+                    "leaves, less through cloud, none in shade or at night. 0 turns sun warmth off.")
             .defineInRange("sunWarmth", 8.0, 0.0, 30.0);
 
     public static final ModConfigSpec.IntValue SUN_BLOCK_REACH = BUILDER
@@ -184,6 +186,24 @@ public final class WeatherConfig {
                     "Serene Seasons' default year. The year starts (early spring) at day time 0.")
             .defineInRange("yearTicks", dev.brights0ng.meteodyne.climate.BuiltinCalendar.DEFAULT_YEAR_TICKS, 24000L,
                     24000L * 10000);
+
+    /** Earth's axial tilt, degrees. */
+    public static final double DEFAULT_OBLIQUITY = 23.44;
+    /** The latitude where Earth's tilt halves the noon sun from midsummer to midwinter, degrees. */
+    public static final double DEFAULT_SUN_LATITUDE = 37.55;
+
+    public static final ModConfigSpec.DoubleValue OBLIQUITY = BUILDER
+            .comment("The world's axial tilt, degrees (Earth's is 23.44). Through the year the noon sun stands this",
+                    "much higher at midsummer and lower at midwinter than at the equinoxes, so it sets how much",
+                    "weaker the sun's warmth is in winter (half with the defaults). 0: the same sun all year. A",
+                    "tilted sky will follow it later; for now the sun's path in the sky doesn't change.")
+            .defineInRange("obliquity", DEFAULT_OBLIQUITY, 0.0, 90.0);
+
+    public static final ModConfigSpec.DoubleValue SUN_LATITUDE = BUILDER
+            .comment("How far from the equator the world sits, degrees, for the noon sun's height: 90 - sunLatitude",
+                    "at the equinoxes, plus or minus obliquity at the solstices. 37.55 is where Earth's tilt halves",
+                    "the sun's warmth from midsummer to midwinter. A tilted sky will follow it later.")
+            .defineInRange("sunLatitude", DEFAULT_SUN_LATITUDE, 0.0, 90.0);
 
     static {
         BUILDER.pop().comment("Weather systems: the jet, lows (storms), highs and their fronts.").push("systems");
@@ -445,6 +465,16 @@ public final class WeatherConfig {
     /** How far toward the sun blocks and ships can shade a person, blocks. */
     public static int sunBlockReach() {
         return SPEC.isLoaded() ? SUN_BLOCK_REACH.get() : 96;
+    }
+
+    /** The world's axial tilt, degrees. */
+    public static double obliquity() {
+        return SPEC.isLoaded() ? OBLIQUITY.get() : DEFAULT_OBLIQUITY;
+    }
+
+    /** The world's latitude for the noon sun's height, degrees. */
+    public static double sunLatitude() {
+        return SPEC.isLoaded() ? SUN_LATITUDE.get() : DEFAULT_SUN_LATITUDE;
     }
 
     /** The height cooling as a multiple of the standard atmosphere's (what {@code Temperature.heightCorrection} takes). */

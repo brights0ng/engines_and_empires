@@ -1,3 +1,4 @@
+// Edited by Claude: the season's strength (SunLight.season; Bright, 2026-11-15).
 package dev.brights0ng.meteodyne.climate;
 
 import dev.brights0ng.meteodyne.WeatherOwnership;
@@ -24,18 +25,19 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>Clouds:</b> the optical depth along the whole ray ({@link StormShade#opticalDepthAlong}), the same model
  *       as the sky's own shade.</li>
  * </ul>
- * Only where the pack owns the weather (the Overworld); 0 elsewhere.
+ * The most it can be follows the season ({@link SunLight#season}: full at midsummer, half at midwinter with the
+ * default obliquity and latitude). Only where the pack owns the weather (the Overworld); 0 elsewhere.
  */
 public final class SunWarmth {
 
     private static final double STEP = 0.5;
 
-    /** The warmth, C, on {@code entity} now, from its eye. */
+    /** The warmth, C, on {@code entity} now, from its eye, at the season's strength. */
     public static double on(ServerLevel level, Entity entity) {
         if (!WeatherOwnership.owns(level)) {
             return 0;
         }
-        double max = WeatherConfig.sunWarmthMax();
+        double max = WeatherConfig.sunWarmthMax() * seasonNow(level);
         if (max <= 0) {
             return 0;
         }
@@ -50,6 +52,12 @@ public final class SunWarmth {
             feet = BlockPos.containing(w);
         }
         return at(level, eye, feet, level.getTimeOfDay(1f), max, WeatherConfig.sunBlockReach());
+    }
+
+    /** The season's share of the sun's strength in {@code level} now, 0-1 (the equinox's without seasons). */
+    public static double seasonNow(ServerLevel level) {
+        return SunLight.season(WeatherConfig.obliquity(), WeatherConfig.sunLatitude(),
+                ClimateCurves.sun(SeasonSource.yearFraction(level)));
     }
 
     /** The warmth at a world point (the person's eye), with their own blocks {@code feet} and the eye's skipped. */
