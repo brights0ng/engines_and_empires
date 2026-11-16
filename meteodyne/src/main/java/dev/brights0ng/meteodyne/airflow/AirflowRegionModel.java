@@ -1,5 +1,6 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: counters; M7d d2: saved state in and out; M7c: the
-// background field, fixed walls, thermostats and body heat).
+// background field, fixed walls, thermostats and body heat; M7f: sources on the grid before the region is built, the
+// heat diffusivity from the spec).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -45,6 +46,11 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     static final int THERMOSTAT_STEPS = 4;
     /** A thermostat's way back, C. */
     static final double HYSTERESIS = 1;
+    /**
+     * The air's heat diffusivity where a spec doesn't give one, m²/s (M7f; Bright, 2026-11-15: set from Meteodyne,
+     * not GreedyFluids' 1 m²/s, which mixes a heated room faster than its plume can layer it).
+     */
+    static final double DEFAULT_KAPPA = 0.05;
 
     /**
      * What a region is built from, gathered on the server thread; immutable. {@code sections} holds the codes of each
@@ -53,12 +59,21 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
      * {@code sourceLimits} (C, NaN for none; the array null for none at all). {@code saved} holds the saved sections in
      * the same order (entries null where none; the array null for none at all), to be decayed to game tick
      * {@code now}. {@code lattice} and {@code tops} are the background's ({@link Weather}); null for the uniform
-     * {@code backgroundT}.
+     * {@code backgroundT}. {@code kappa} is the air's heat diffusivity, m²/s ({@code [heat] airflowHeatDiffusivity}).
      */
     record Spec(int x0, int y0, int z0, int nx, int ny, int nz, AirflowSections.Codes[] sections,
                 AirflowCells.Table table, double backgroundT, double windX, double windZ, int[] sourceCells,
                 double[] sourceWatts, double[] sourceLimits, AirflowSaved.Section[] saved, long now, float[] lattice,
-                int[] tops) {
+                int[] tops, double kappa) {
+        /** As above, with {@link #DEFAULT_KAPPA}. */
+        Spec(int x0, int y0, int z0, int nx, int ny, int nz, AirflowSections.Codes[] sections,
+             AirflowCells.Table table, double backgroundT, double windX, double windZ, int[] sourceCells,
+             double[] sourceWatts, double[] sourceLimits, AirflowSaved.Section[] saved, long now, float[] lattice,
+             int[] tops) {
+            this(x0, y0, z0, nx, ny, nz, sections, table, backgroundT, windX, windZ, sourceCells, sourceWatts,
+                    sourceLimits, saved, now, lattice, tops, DEFAULT_KAPPA);
+        }
+
         /** As above, with nothing saved, no limits and a uniform background. */
         Spec(int x0, int y0, int z0, int nx, int ny, int nz, AirflowSections.Codes[] sections,
              AirflowCells.Table table, double backgroundT, double windX, double windZ, int[] sourceCells,
@@ -139,9 +154,7 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         ThermalState initial = spec.saved() == null ? null
                 : AirflowSaved.unpack(spec.saved(), nx, ny, nz, background::cell, spec.now());
         restored = initial != null;
-        SolverConfig3D config = SolverConfig3D.DEFAULT.withAmbientT(background.reference());
-        region = initial == null ? new AirRegion(grid, background, null, spec.windX(), spec.windZ(), config)
-                : AirRegion.restore(grid, background, initial, spec.windX(), spec.windZ(), config);
+        SolverConfig3D config = SolverConfig3D.DEFAULT.withKappa(spec.kappa()).withAmbientT(background.reference());
         for (int i = 0; i < spec.sourceCells().length; i++) {
             double limit = spec.sourceLimits() == null ? Double.NaN : spec.sourceLimits()[i];
             blocks.merge(spec.sourceCells()[i], new Block(spec.sourceWatts()[i], limit), (a, b) -> {
@@ -149,6 +162,14 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
                 return a;
             });
         }
+        // M7f: the sources go on the grid before the region is built, so its keep-fine cubes hold them, as every
+        // GreedyFluids bench builds a scene (sources set afterwards get none: an open fire meshed into a few huge boxes)
+        for (Map.Entry<Integer, Double> w : wanted().entrySet()) {
+            int c = w.getKey();
+            grid.setSource(c % nx, c / (nx * nz), c / nx % nz, w.getValue());
+        }
+        region = initial == null ? new AirRegion(grid, background, null, spec.windX(), spec.windZ(), config)
+                : AirRegion.restore(grid, background, initial, spec.windX(), spec.windZ(), config);
         distribute();
     }
 
@@ -299,16 +320,7 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
      * placed in has already lost its power (GreedyFluids clears it with the edit) and is left alone.
      */
     private void distribute() {
-        Map<Integer, Double> want = new HashMap<>();
-        for (Map.Entry<Integer, Block> b : blocks.entrySet()) {
-            if (!b.getValue().on) {
-                continue;
-            }
-            List<Integer> into = targets(b.getKey());
-            for (int c : into) {
-                want.merge(c, b.getValue().watts / into.size(), Double::sum);
-            }
-        }
+        Map<Integer, Double> want = wanted();
         for (Map.Entry<Integer, Double> a : applied.entrySet()) {
             int c = a.getKey();
             if (!want.containsKey(c) && grid.type(c % nx, c / (nx * nz), c / nx % nz).isFluid()) {
@@ -322,6 +334,21 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
             }
         }
         applied = want;
+    }
+
+    /** The watts each cell should get from the source blocks that are on (the power rule). */
+    private Map<Integer, Double> wanted() {
+        Map<Integer, Double> want = new HashMap<>();
+        for (Map.Entry<Integer, Block> b : blocks.entrySet()) {
+            if (!b.getValue().on) {
+                continue;
+            }
+            List<Integer> into = targets(b.getKey());
+            for (int c : into) {
+                want.merge(c, b.getValue().watts / into.size(), Double::sum);
+            }
+        }
+        return want;
     }
 
     /** Switches limited sources by the air they work on; returns whether any changed. */

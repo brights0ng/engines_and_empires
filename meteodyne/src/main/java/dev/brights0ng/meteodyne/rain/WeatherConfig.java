@@ -2,6 +2,7 @@
 // Updated by Claude: [heat] engine, the airflow/legacy switch (GreedyFluids M7b).
 // Updated by Claude: [seasons] obliquity and sunLatitude, the sun's strength through the year.
 // Updated by Claude: [heat] airflow speed limit and tile cap (GreedyFluids M7e).
+// Updated by Claude: [heat] airflow stone conductivity and heat capacity, and heat diffusivity (GreedyFluids M7f).
 package dev.brights0ng.meteodyne.rain;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -402,6 +403,24 @@ public final class WeatherConfig {
                     "longest close early; a tile with a player in it always runs.")
             .defineInRange("airflowTileCap", 12, 1, 1024);
 
+    public static final ModConfigSpec.DoubleValue AIRFLOW_STONE_CONDUCTIVITY = BUILDER
+            .comment("AIRFLOW: stone's thermal conductivity, W/(m·K) (real rock is about 2-3); the insulation table's",
+                    "values are relative to it, a block a metre thick. Lower keeps rooms warm longer. The old game",
+                    "scale was 42. Applies from the next /reload or restart.")
+            .defineInRange("airflowStoneConductivity", 2.5, 0.01, 1000.0);
+
+    public static final ModConfigSpec.DoubleValue AIRFLOW_STONE_HEAT_CAPACITY = BUILDER
+            .comment("AIRFLOW: stone's heat capacity, MJ/(m³·K) (real rock is about 2; air's is 0.0012); the insulation",
+                    "table's values are relative to it. Higher makes walls slower to warm and to cool. The old game",
+                    "scale was 0.0042. Applies from the next /reload or restart.")
+            .defineInRange("airflowStoneHeatCapacity", 2.0, 0.0001, 100.0);
+
+    public static final ModConfigSpec.DoubleValue AIRFLOW_HEAT_DIFFUSIVITY = BUILDER
+            .comment("AIRFLOW: how fast heat spreads through the air by mixing alone, m²/s (indoor air mixes at about",
+                    "0.01-0.1). Lower lets warm air rise and gather under ceilings and fires draw up chimneys; higher",
+                    "evens a room out. GreedyFluids' own default is 1. Applies to tiles built after the change.")
+            .defineInRange("airflowHeatDiffusivity", 0.05, 0.001, 10.0);
+
     public static final ModConfigSpec.DoubleValue HEAT_BUDGET = BUILDER
             .comment("CPU cores the simulation may use on average (its own threads, not the server thread). When it",
                     "needs more, rooms are stepped less often in longer steps: warming stays on time, a little coarser.")
@@ -474,6 +493,21 @@ public final class WeatherConfig {
     /** AIRFLOW: the most tiles that run at once. */
     public static int airflowTileCap() {
         return SPEC.isLoaded() ? AIRFLOW_TILE_CAP.get() : 12;
+    }
+
+    /** AIRFLOW: stone's thermal conductivity, W/(m·K). */
+    public static double airflowStoneConductivity() {
+        return SPEC.isLoaded() ? AIRFLOW_STONE_CONDUCTIVITY.get() : 2.5;
+    }
+
+    /** AIRFLOW: stone's heat capacity, MJ/(m³·K). */
+    public static double airflowStoneHeatCapacity() {
+        return SPEC.isLoaded() ? AIRFLOW_STONE_HEAT_CAPACITY.get() : 2.0;
+    }
+
+    /** AIRFLOW: the air's heat diffusivity, m²/s. */
+    public static double airflowHeatDiffusivity() {
+        return SPEC.isLoaded() ? AIRFLOW_HEAT_DIFFUSIVITY.get() : 0.05;
     }
 
     /** The height cooling, C per 100 blocks. */

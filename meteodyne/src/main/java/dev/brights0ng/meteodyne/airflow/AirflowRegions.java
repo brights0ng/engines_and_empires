@@ -1,7 +1,7 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: ids, timing, the recorder; only assigned regions
 // stay alive); edited by Claude (M7d d1: fixed tiles replace player-centred windows; d2: saving and restoring; M7c:
 // the background field, driven sources, limits and body heat; M7e: the generator's terrain off the server thread,
-// the speed limit and tile cap).
+// the speed limit and tile cap; M7f: the heat diffusivity from the config).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -546,7 +546,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
                 AirflowCells.table(), lattice[0], w[0], w[1], cells.stream().mapToInt(Integer::intValue).toArray(),
                 watts.stream().mapToDouble(Double::doubleValue).toArray(),
                 limits.stream().mapToDouble(Double::doubleValue).toArray(), any ? saved : null, level.getGameTime(),
-                lattice, tops);
+                lattice, tops, WeatherConfig.airflowHeatDiffusivity());
         return () -> AirflowRegionModel.build(spec);
     }
 

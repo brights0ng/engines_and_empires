@@ -1,6 +1,7 @@
 // Written by Claude (GreedyFluids M7b); edited by Claude (b2: classifier, section cache and snapshot check; b3: a
 // region around an anchor; b4: a region around a player, the commands and recorder, the switch; M7d d1: tiles; d2:
-// saving and restoring; M7c: watts and hot walls from the heat tables; M7e: the speed limit).
+// saving and restoring; M7c: watts and hot walls from the heat tables; M7e: the speed limit; M7f: stone from the
+// config).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -26,6 +27,7 @@ import dev.brights0ng.meteodyne.airflow.AirflowCells.Cell;
 import dev.brights0ng.meteodyne.airflow.AirflowCells.Kind;
 import dev.brights0ng.meteodyne.heat.scan.ScanFormat;
 import dev.brights0ng.meteodyne.heat.world.HeatTables;
+import dev.brights0ng.meteodyne.rain.WeatherConfig;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.core.BlockPos;
@@ -134,8 +136,14 @@ public final class AirflowGameTests {
 
         Cell stone = AirflowCells.classify(Blocks.STONE.defaultBlockState());
         HeatTables.Cell stoneHeat = HeatTables.cell(Blocks.STONE.defaultBlockState());
-        helper.assertTrue(stoneHeat.conductance() != 1 || stoneHeat.capacity() != 1 || stone.material() == Material.STONE,
-                "stone's insulation should give the bench's Material.STONE, got " + stone.material());
+        helper.assertTrue(stoneHeat.conductance() != 1 || stoneHeat.capacity() != 1
+                        || stone.material().conductancePerBlock() == AirflowCells.stoneConductance()
+                        && stone.material().relHeatCapacity() == AirflowCells.stoneCapacity(),
+                "stone's insulation should give the configured stone, got " + stone.material());
+        double rhoCp = dev.brights0ng.greedyfluids.solve.SolverConfig3D.DEFAULT.rhoCp();
+        helper.assertTrue(Math.abs(AirflowCells.stoneConductance() * rhoCp - WeatherConfig.airflowStoneConductivity()) < 1e-9
+                        && Math.abs(AirflowCells.stoneCapacity() * rhoCp - 1e6 * WeatherConfig.airflowStoneHeatCapacity()) < 1e-3,
+                "stone is the config's: " + AirflowCells.stoneConductance() + " m/s, " + AirflowCells.stoneCapacity());
         byte lower = AirflowCells.code(door), upper = AirflowCells.code(door.setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER));
         helper.assertTrue(lower == upper, "both halves of a shut door should share a code: " + lower + ", " + upper);
         helper.assertTrue(AirflowCells.code(Blocks.CAVE_AIR.defaultBlockState()) == AirflowCells.AIR, "cave air is code 0");
@@ -161,8 +169,8 @@ public final class AirflowGameTests {
             return;
         }
         HeatTables.Cell heat = HeatTables.cell(state);
-        double conductance = Material.STONE_CONDUCTANCE_PER_BLOCK * heat.conductance();
-        double capacity = Material.STONE.relHeatCapacity() * Math.max(AirflowCells.MIN_CAPACITY, heat.capacity());
+        double conductance = AirflowCells.stoneConductance() * heat.conductance();
+        double capacity = AirflowCells.stoneCapacity() * Math.max(AirflowCells.MIN_CAPACITY, heat.capacity());
         if (Math.abs(cell.material().conductancePerBlock() - conductance) > 1e-9
                 || Math.abs(cell.material().relHeatCapacity() - capacity) > 1e-9) {
             wrong.add(name + " has " + cell.material() + ", expected conductance " + conductance + " and capacity " + capacity);
@@ -849,7 +857,11 @@ public final class AirflowGameTests {
                     double room = provider.room(level, Vec3.atCenterOf(probe));
                     helper.assertTrue(room > 2, "the readers' room offset in the warm room: " + room);
                     double wall = provider.room(level, Vec3.atCenterOf(low.offset(0, 3, 3)));
-                    helper.assertTrue(wall > 0.5, "a block in the wall reads the air beside it: " + wall);
+                    // M7f: the mean of the air beside it, whatever it is (with κ 0.05 the air along a cold wall
+                    // stays near the outside air, so a magnitude says nothing)
+                    double beside = airBeside(regions[0], low.offset(0, 3, 3));
+                    helper.assertTrue(Double.isFinite(beside) && Math.abs(wall - beside) < 0.1,
+                            "a block in the wall reads the air beside it: " + wall + " against " + beside);
                 })
                 .thenExecute(() -> {
                     regions[0].stop();
@@ -879,7 +891,10 @@ public final class AirflowGameTests {
                 .thenExecute(() -> {
                     helper.assertTrue(regions[0].restores() == 1, "the tile is built from its save");
                     double[] t = sampleAt(regions[0], probe);
-                    helper.assertTrue(t != null && t[0] - t[1] > 1,
+                    // M7f: > 0.2, not > 1. A rebuild keeps the room's heat but meshes it afresh, so the layering of
+                    // a still room (κ 0.05) averages out: the probe near the ceiling reads about the room's mean. A
+                    // tile built without its save reads about 0 here.
+                    helper.assertTrue(t != null && t[0] - t[1] > 0.2,
                             "the rebuilt room is still warm: " + (t == null ? "no frame" : t[0] + " C against " + t[1])
                                     + " (saved " + warm[0] + " above)");
                     AirflowRegions last = regions[0];
@@ -901,6 +916,26 @@ public final class AirflowGameTests {
         }
         int lx = at.getX() - r.x0(), ly = at.getY() - r.y0(), lz = at.getZ() - r.z0();
         return new double[] {f.frame().temperature(lx + 0.5, ly + 0.5, lz + 0.5), f.frame().background().at(lx, ly, lz)};
+    }
+
+    /** The mean offset of the air beside a solid block in the latest frame (what a reader inside it gets), or NaN. */
+    private static double airBeside(AirflowRegions regions, BlockPos at) {
+        AirflowRegions.Region r = regions.regionAt(at.getX(), at.getY(), at.getZ());
+        AirflowRuntime.Frame f = r == null || r.slot() == null ? null : r.slot().frame();
+        if (f == null || f.frame() == null) {
+            return Double.NaN;
+        }
+        double sum = 0;
+        int n = 0;
+        for (net.minecraft.core.Direction d : net.minecraft.core.Direction.values()) {
+            int lx = at.getX() + d.getStepX() - r.x0(), ly = at.getY() + d.getStepY() - r.y0();
+            int lz = at.getZ() + d.getStepZ() - r.z0();
+            if (f.frame().isAir(lx + 0.5, ly + 0.5, lz + 0.5)) {
+                sum += f.frame().temperature(lx + 0.5, ly + 0.5, lz + 0.5) - f.frame().background().at(lx, ly, lz);
+                n++;
+            }
+        }
+        return n == 0 ? Double.NaN : sum / n;
     }
 
     /**
@@ -1011,8 +1046,8 @@ public final class AirflowGameTests {
                 } else if (bench[i].kind() != Kind.AIR && !sameValues(bench[i].material(), game[i].material())) {
                     materials += count[i];
                     changes.merge(block + ": " + bench[i].kind() + " material → " + game[i].material().name()
-                            + " (" + fmt(game[i].material().conductancePerBlock() / Material.STONE_CONDUCTANCE_PER_BLOCK)
-                            + ", " + fmt(game[i].material().relHeatCapacity() / Material.STONE.relHeatCapacity()) + ")",
+                            + " (" + fmt(game[i].material().conductancePerBlock() / AirflowCells.stoneConductance())
+                            + ", " + fmt(game[i].material().relHeatCapacity() / AirflowCells.stoneCapacity()) + ")",
                             count[i], Long::sum);
                 }
             }
@@ -1060,8 +1095,12 @@ public final class AirflowGameTests {
         return new Cell(Kind.SOLID, Material.STONE);
     }
 
-    private static boolean sameValues(Material a, Material b) {
-        return a.conductancePerBlock() == b.conductancePerBlock() && a.relHeatCapacity() == b.relHeatCapacity();
+    /** Whether the bench's and the game's materials are the same relative to each one's stone (M7f: the game's is real). */
+    private static boolean sameValues(Material bench, Material game) {
+        return Math.abs(bench.conductancePerBlock() / Material.STONE_CONDUCTANCE_PER_BLOCK
+                - game.conductancePerBlock() / AirflowCells.stoneConductance()) < 1e-9
+                && Math.abs(bench.relHeatCapacity() / Material.STONE.relHeatCapacity()
+                - game.relHeatCapacity() / AirflowCells.stoneCapacity()) < 1e-9;
     }
 
     private static String boxes(CellGrid3D grid) {

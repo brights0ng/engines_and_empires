@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b); edited by Claude (M7c: hot walls).
+// Written by Claude (GreedyFluids M7b); edited by Claude (M7c: hot walls; M7f: real stone from the config).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -10,10 +10,12 @@ import java.util.Map;
 
 import dev.brights0ng.greedyfluids.grid.CellGrid3D;
 import dev.brights0ng.greedyfluids.grid.Material;
+import dev.brights0ng.greedyfluids.solve.SolverConfig3D;
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.heat.scan.ScanFormat;
 import dev.brights0ng.meteodyne.heat.world.HeatTables;
 import dev.brights0ng.meteodyne.heat.world.InsulationData;
+import dev.brights0ng.meteodyne.rain.WeatherConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.BlockTags;
@@ -45,9 +47,11 @@ import net.neoforged.neoforge.registries.datamaps.DataMapsUpdatedEvent;
  *       {@link AirflowShapeRule}; SOLID is solid.</li>
  * </ol>
  * A solid's or door's material comes from {@code meteodyne:insulation} through {@link HeatTables#cell} (so a
- * waterlogged block is water's material): conductance 0.035 m/s and heat capacity 3.5 × air's per unit of the
- * table's stone-relative values, with capacity floored at 0.01 of stone's (GreedyFluids needs it positive).
- * Stone's own values give {@link Material#STONE}, the bench's material.
+ * waterlogged block is water's material): the table's stone-relative values times stone's own, with capacity floored
+ * at 0.01 of stone's (GreedyFluids needs it positive). Stone's own (M7f; Bright, 2026-11-15: real stone by default)
+ * come from {@code [heat] airflowStoneConductivity} (2.5 W/(m·K)) and {@code airflowStoneHeatCapacity}
+ * (2.0 MJ/(m³·K)), read when a generation starts. GreedyFluids' benches keep their own {@link Material#STONE}
+ * (42 W/(m·K) and 3.5 × air's heat capacity, legacy Meteodyne's game scale).
  *
  * <p>{@link #code} classifies on the server thread (it reads the heat tables). Codes keep their meaning for one
  * generation; a server-side data-map or tag reload starts a new one, empty, and sections cached before must be read
@@ -133,6 +137,8 @@ public final class AirflowCells {
     private static long generation = 1;
     private static boolean overflowLogged;
     private static volatile Table table;
+    /** Stone's per-block conductance, m/s, and heat capacity relative to air's, for this generation. */
+    private static double stoneConductance, stoneCapacity;
 
     static {
         reset(1);
@@ -206,13 +212,21 @@ public final class AirflowCells {
         long key = (long) Float.floatToIntBits(conductance) << 32 | (Float.floatToIntBits(capacity) & 0xFFFFFFFFL);
         Material m = MATERIALS.get(key);
         if (m == null) {
-            m = conductance == 1f && capacity == 1f ? Material.STONE
-                    : new Material(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString(),
-                            Material.STONE_CONDUCTANCE_PER_BLOCK * conductance,
-                            Material.STONE.relHeatCapacity() * Math.max(MIN_CAPACITY, capacity));
+            m = new Material(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString(),
+                    stoneConductance * conductance, stoneCapacity * Math.max(MIN_CAPACITY, capacity));
             MATERIALS.put(key, m);
         }
         return m;
+    }
+
+    /** Stone's per-block conductance in this generation, m/s (conductivity over air's heat capacity, a block a metre). */
+    static double stoneConductance() {
+        return stoneConductance;
+    }
+
+    /** Stone's heat capacity in this generation, relative to air's. */
+    static double stoneCapacity() {
+        return stoneCapacity;
     }
 
     private static byte intern(Cell cell) {
@@ -225,13 +239,31 @@ public final class AirflowCells {
                 overflowLogged = true;
                 Meteodyne.LOGGER.warn("Airflow: more than {} distinct cells; further ones use stone's", MAX_CODES);
             }
-            return cell.kind() == Kind.AIR ? AIR : intern(new Cell(Kind.SOLID, Material.STONE));
+            return cell.kind() == Kind.AIR ? AIR : stoneCode();
         }
         code = (byte) CELLS.size();
         CELLS.add(cell);
         INTERNED.put(cell, code);
         table = new Table(generation, CELLS.toArray(Cell[]::new));
         return code;
+    }
+
+    /** A code already in the table for a plain solid: stone's if there is one, else the first plain solid's, else air. */
+    private static byte stoneCode() {
+        byte fallback = AIR;
+        for (int i = 0; i < CELLS.size(); i++) {
+            Cell c = CELLS.get(i);
+            if (c.kind() == Kind.SOLID && Double.isNaN(c.wall())) {
+                if (c.material().conductancePerBlock() == stoneConductance
+                        && c.material().relHeatCapacity() == stoneCapacity) {
+                    return (byte) i;
+                }
+                if (fallback == AIR) {
+                    fallback = (byte) i;
+                }
+            }
+        }
+        return fallback;
     }
 
     /** Starts generation {@code next}, empty but for AIR. */
@@ -242,6 +274,9 @@ public final class AirflowCells {
         MATERIALS.clear();
         CELLS.clear();
         overflowLogged = false;
+        double rhoCp = SolverConfig3D.DEFAULT.rhoCp();
+        stoneConductance = WeatherConfig.airflowStoneConductivity() / rhoCp;
+        stoneCapacity = WeatherConfig.airflowStoneHeatCapacity() * 1e6 / rhoCp;
         CELLS.add(AIR_CELL);
         INTERNED.put(AIR_CELL, AIR);
         table = new Table(generation, CELLS.toArray(Cell[]::new));
