@@ -1,6 +1,6 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: counters; M7d d2: saved state in and out; M7c: the
 // background field, fixed walls, thermostats and body heat; M7f: sources on the grid before the region is built, the
-// heat diffusivity from the spec).
+// heat diffusivity from the spec; held steps and edit-batch time for the profile).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -138,6 +138,7 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     private boolean followStale;
     private int desyncs, sinceCheck;
     private long edits, toggles;
+    private long editBatches, editNanos;
 
     private AirflowRegionModel(CellGrid3D grid, Spec spec) {
         this.grid = grid;
@@ -234,6 +235,7 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         }
         if (!changes.isEmpty()) {
             AirflowBatch batch = AirflowBatch.of(changes, nx, nz);
+            long started = System.nanoTime();
             List<CellEdit3D> first = valid(batch.first);
             if (!first.isEmpty()) {
                 region.applyEdits(first);
@@ -241,6 +243,10 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
             List<CellEdit3D> second = valid(batch.second);
             if (!second.isEmpty()) {
                 region.applyEdits(second);
+            }
+            if (!first.isEmpty() || !second.isEmpty()) {
+                editBatches++;
+                editNanos += System.nanoTime() - started;
             }
             edits += first.size() + second.size();
             for (AirflowBatch.DoorToggle d : batch.doors) {
@@ -448,7 +454,8 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         for (double w : applied.values()) {
             watts += w;
         }
-        return new AirflowRuntime.Counters(edits, toggles, desyncs, watts);
+        return new AirflowRuntime.Counters(edits, toggles, desyncs, watts, region.mesh().heldSteps(), editBatches,
+                editNanos);
     }
 
     @Override

@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: busy time and region counters; M7d d2: saves).
+// Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: busy time and region counters; M7d d2: saves; M7f:
+// per-region busy time, held steps and edit-batch time for the profile).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -71,9 +72,13 @@ public final class AirflowRuntime {
         }
     }
 
-    /** A region's running totals: edits applied, door toggles, events skipped as desyncs, and the watts set now. */
-    public record Counters(long edits, long toggles, long desyncs, double watts) {
-        public static final Counters NONE = new Counters(0, 0, 0, 0);
+    /**
+     * A region's running totals: edits applied, door toggles, events skipped as desyncs, and the watts set now; for the
+     * profile (M7f), the steps the velocity hold kept heat-only, and the edit batches applied with their wall time, ns.
+     */
+    public record Counters(long edits, long toggles, long desyncs, double watts, long held, long editBatches,
+            long editNanos) {
+        public static final Counters NONE = new Counters(0, 0, 0, 0, 0, 0, 0);
     }
 
     /** Builds a model, on the air thread. */
@@ -104,6 +109,7 @@ public final class AirflowRuntime {
         private volatile double lag, stepMs;
         private volatile int boxes;
         private volatile long steps, drops;
+        private volatile long busyNanos;
         private volatile Counters counters = Counters.NONE;
         private volatile boolean saveWanted;
         // Air thread only
@@ -169,6 +175,11 @@ public final class AirflowRuntime {
 
         public long steps() {
             return steps;
+        }
+
+        /** Wall time the air thread has spent on this region's turns (events, step, frame and saves), ns. */
+        public long busyNanos() {
+            return busyNanos;
         }
 
         /** Backlogs dropped by the lag cap. */
@@ -409,6 +420,7 @@ public final class AirflowRuntime {
                 s.saveWanted = false;
                 save(s);
             }
+            s.busyNanos += System.nanoTime() - start; // one writer: the air thread
         } catch (RuntimeException | StackOverflowError e) {
             fail(s, e);
         }

@@ -301,7 +301,7 @@ public final class AirflowScenarios {
     }
 
     /** Outside air swinging over one day (20 min) about 10 C, and the underground rule below the ground's top. */
-    private static AirflowScene.Outside day(int groundTop) {
+    static AirflowScene.Outside day(int groundTop) {
         Underground.Settings s = WeatherConfig.underground();
         return (x, y, z, t) -> {
             double outside = 10 + 8 * Math.sin(2 * Math.PI * t / 1200);

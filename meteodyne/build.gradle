@@ -8,6 +8,10 @@ plugins {
 requireMod(':paradyne-lib')
 def airSceneEnabled = providers.gradleProperty('meteodyne.airScene').map { it.toBoolean() }.getOrElse(false)
 def airWeatherSceneEnabled = providers.gradleProperty('meteodyne.airWeatherScene').map { it.toBoolean() }.getOrElse(false)
+// GreedyFluids M7f f2 (Claude): the opt-in airflow soaks (AirflowSoaks); either property runs only them.
+def airflowSoakDays = providers.gradleProperty('meteodyne.airflowSoakDays').getOrElse('')
+def airflowSoakMinutes = providers.gradleProperty('meteodyne.airflowSoakMinutes').getOrElse('')
+def airflowSoakEnabled = !airflowSoakDays.isEmpty() || !airflowSoakMinutes.isEmpty()
 
 configurations {
     // Outside libraries Meteodyne needs at runtime: GreedyFluids. implementation, so Meteodyne and its tests compile
@@ -68,6 +72,19 @@ neoForge {
                 systemProperty 'meteodyne.airWeatherScene', airWeatherSceneEnabled.toString()
                 systemProperty 'meteodyne.airSceneOutput', layout.buildDirectory.dir('reports/air-scene').get().asFile.absolutePath
             }
+            // GreedyFluids M7f f2 (Claude): -Pmeteodyne.airflowSoakDays=<days> (the model soak) and/or
+            // -Pmeteodyne.airflowSoakMinutes=<minutes> (the runtime soak) run only AirflowSoaks; reports in
+            // build/reports/airflow-soak.
+            if (airflowSoakEnabled) {
+                systemProperty 'neoforge.enabledGameTestNamespaces', 'meteodyne_airflow_soak'
+                if (!airflowSoakDays.isEmpty()) {
+                    systemProperty 'meteodyne.airflowSoakDays', airflowSoakDays
+                }
+                if (!airflowSoakMinutes.isEmpty()) {
+                    systemProperty 'meteodyne.airflowSoakMinutes', airflowSoakMinutes
+                }
+                systemProperty 'meteodyne.airflowSoakOutput', layout.buildDirectory.dir('reports/airflow-soak').get().asFile.absolutePath
+            }
             // GreedyFluids M7b b2 (Claude): -Pmeteodyne.airflowSnapshots=<scans folder> runs the opt-in airflow mapping
             // check (AirflowGameTests.snapshotMappingCheck).
             ['meteodyne.climatologyDays', 'meteodyne.climatologyX', 'meteodyne.climatologyZ',
@@ -86,6 +103,13 @@ if (airSceneEnabled || airWeatherSceneEnabled) {
     tasks.named('processResources') {
         from('src/generated/resources/data/meteodyne/structure/gametest/empty.nbt') {
             into('data/meteodyne_air_scene/structure/gametest')
+        }
+    }
+}
+if (airflowSoakEnabled) {
+    tasks.named('processResources') {
+        from('src/generated/resources/data/meteodyne/structure/gametest/empty.nbt') {
+            into('data/meteodyne_airflow_soak/structure/gametest')
         }
     }
 }

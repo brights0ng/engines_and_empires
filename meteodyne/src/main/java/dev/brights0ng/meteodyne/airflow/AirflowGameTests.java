@@ -1,7 +1,7 @@
 // Written by Claude (GreedyFluids M7b); edited by Claude (b2: classifier, section cache and snapshot check; b3: a
 // region around an anchor; b4: a region around a player, the commands and recorder, the switch; M7d d1: tiles; d2:
 // saving and restoring; M7c: watts and hot walls from the heat tables; M7e: the speed limit; M7f: stone from the
-// config).
+// config, the recorder's profile).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -495,6 +495,8 @@ public final class AirflowGameTests {
                         String text = Files.readString(summary);
                         helper.assertTrue(text.contains("Server thread, p99 per tick") && text.contains("door open"),
                                 "the summary has the measures and the mark");
+                        helper.assertTrue(text.contains("Profile (M7f)") && text.contains("Profile by segment"),
+                                "the summary has the profile and its segments");
                         helper.assertTrue(Files.readAllLines(rec.dir().resolve("ticks.csv")).size() > 20,
                                 "ticks were recorded");
                     } catch (IOException e) {

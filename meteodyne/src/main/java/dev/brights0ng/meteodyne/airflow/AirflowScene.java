@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7f: the acceptance scenarios).
+// Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f f2: saving and rebuilding a
+// running scene, for the model soak).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -120,6 +121,16 @@ final class AirflowScene {
 
     /** As above with the air's heat diffusivity {@code kappa}, m²/s. */
     Run build(Outside outside, double windX, double windZ, double kappa) {
+        return new Run(this, AirflowRegionModel.build(spec(outside, 0, windX, windZ, kappa, null, 0)), outside, tops(),
+                windX, windZ, kappa);
+    }
+
+    /**
+     * The spec the region manager would send for this scene: codes, table, sources, the outside air at time {@code t},
+     * and the saved sections to start from (null: none), decayed to game tick {@code now}.
+     */
+    private AirflowRegionModel.Spec spec(Outside outside, double t, double windX, double windZ, double kappa,
+                                         AirflowSaved.Section[] saved, long now) {
         int nsx = nx / 16, nsy = ny / 16, nsz = nz / 16;
         AirflowSections.Codes[] codes = new AirflowSections.Codes[nsx * nsy * nsz];
         for (int j = 0; j < nsy; j++) {
@@ -140,13 +151,12 @@ final class AirflowScene {
                 limits.add(p.limit());
             }
         }
-        float[] lattice = lattice(outside, 0);
+        float[] lattice = lattice(outside, t);
         int[] tops = tops();
-        AirflowRegionModel.Spec spec = new AirflowRegionModel.Spec(0, 0, 0, nx, ny, nz, codes, table, lattice[0],
+        return new AirflowRegionModel.Spec(0, 0, 0, nx, ny, nz, codes, table, lattice[0],
                 windX, windZ, cells.stream().mapToInt(Integer::intValue).toArray(),
                 watts.stream().mapToDouble(Double::doubleValue).toArray(),
-                limits.stream().mapToDouble(Double::doubleValue).toArray(), null, 0, lattice, tops, kappa);
-        return new Run(this, AirflowRegionModel.build(spec), outside, tops, windX, windZ);
+                limits.stream().mapToDouble(Double::doubleValue).toArray(), saved, now, lattice, tops, kappa);
     }
 
     private AirflowSections.Codes section(int si, int sj, int sk) {
@@ -168,21 +178,25 @@ final class AirflowScene {
     /** A built scene being stepped, with what the test does to it. */
     static final class Run {
         final AirflowScene scene;
-        final AirflowRegionModel model;
+        AirflowRegionModel model;
         private final Outside outside;
         private final int[] tops;
+        private final double kappa;
         private double windX, windZ, weatherEvery = Double.POSITIVE_INFINITY, lastWeather;
+        /** Simulated time before the current model was built (restarts), s. */
+        private double before;
         private long stepNanos;
         private int steps;
 
         private Run(AirflowScene scene, AirflowRegionModel model, Outside outside, int[] tops, double windX,
-                    double windZ) {
+                    double windZ, double kappa) {
             this.scene = scene;
             this.model = model;
             this.outside = outside;
             this.tops = tops;
             this.windX = windX;
             this.windZ = windZ;
+            this.kappa = kappa;
         }
 
         /** Re-sends the outside air every {@code seconds} (an outside air that changes with time). */
@@ -201,22 +215,52 @@ final class AirflowScene {
 
         /** Steps until simulated time {@code seconds}. */
         Run until(double seconds) {
-            while (model.time() < seconds - 1e-9) {
-                if (model.time() - lastWeather >= weatherEvery - 1e-9) {
+            while (time() < seconds - 1e-9) {
+                if (time() - lastWeather >= weatherEvery - 1e-9) {
                     sendWeather();
                 }
                 long t0 = System.nanoTime();
                 model.step();
                 stepNanos += System.nanoTime() - t0;
                 steps++;
+                if (!model.healthy()) {
+                    throw new IllegalStateException("non-finite values at " + time() + " s");
+                }
             }
             return this;
         }
 
         private void sendWeather() {
-            lastWeather = model.time();
-            float[] lattice = scene.lattice(outside, model.time());
+            lastWeather = time();
+            float[] lattice = scene.lattice(outside, time());
             model.apply(List.of(new AirflowRegionModel.Weather(lattice[0], windX, windZ, lattice, tops)));
+        }
+
+        /** Sends the outside air as it is now (the manager's update when the background moves). */
+        Run weatherNow() {
+            sendWeather();
+            return this;
+        }
+
+        /**
+         * Saves the region as the manager does when a tile retires, at game tick {@code tick}, and builds a new one from
+         * the save and the scene's blocks now, as a tile reopening at once does (M7f f2, the soak). The outside air and
+         * the wind carry over; simulated time runs on.
+         */
+        Run restart(long tick) {
+            sendWeather(); // the save's background is then the rebuild's, as at a reopen within the same weather
+            AirflowSaved.Tile tile = model.save(tick);
+            double now = time();
+            model = AirflowRegionModel.build(scene.spec(outside, now, windX, windZ, kappa, tile.sections(), tick));
+            before = now;
+            lastWeather = now;
+            return this;
+        }
+
+        /** The block at (x, y, z) becomes {@code state}, a source block whose power changes (a fire lit or put out). */
+        Run light(int x, int y, int z, BlockState state) {
+            scene.set(x, y, z, state);
+            return power(x, y, z, state);
         }
 
         /** Applies events now (source changes, cell changes, bodies). */
@@ -239,7 +283,7 @@ final class AirflowScene {
         }
 
         double time() {
-            return model.time();
+            return before + model.time();
         }
 
         AirFrame frame() {
@@ -351,6 +395,11 @@ final class AirflowScene {
         /** Mean step time so far, ms. */
         double stepMs() {
             return steps == 0 ? 0 : stepNanos / 1e6 / steps;
+        }
+
+        /** Wall time of every step so far, ns. */
+        long stepNanos() {
+            return stepNanos;
         }
 
         int steps() {
