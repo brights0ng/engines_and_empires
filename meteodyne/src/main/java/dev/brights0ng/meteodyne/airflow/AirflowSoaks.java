@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.locks.LockSupport;
 
 import dev.brights0ng.meteodyne.Meteodyne;
 import net.minecraft.core.BlockPos;
@@ -60,7 +62,9 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
  *       lost; each region's share of a core in the last 5 min at most 1.5 times (plus 0.5 points) that of minutes
  *       2–7; heap after a collection at most 64 MB more than at minute 2.</li>
  * </ul>
- * The walkers are fake anchors, not players, so no body heat there; the world is the throwaway game-test world.
+ * The walkers are fake anchors, not players, so no body heat there; the world is the throwaway game-test world. The
+ * game-test server ticks as fast as it can, so the runtime soak paces its ticks to 20 a second itself (the wait
+ * isn't airflow work, so the recorder doesn't count it).
  */
 @GameTestHolder(Meteodyne.MODID)
 public final class AirflowSoaks {
@@ -106,6 +110,12 @@ public final class AirflowSoaks {
 
     private static String f(double v) {
         return String.format(Locale.ROOT, "%.2f", v);
+    }
+
+    /** The first few failures for the test's message (the full list is in the report). */
+    private static String brief(List<String> failures) {
+        List<String> head = failures.subList(0, Math.min(3, failures.size()));
+        return String.join("; ", head) + (failures.size() > 3 ? "; and " + (failures.size() - 3) + " more" : "");
     }
 
     // ------------------------------------------------------------------------------------------------ model soak
@@ -303,7 +313,7 @@ public final class AirflowSoaks {
         if (failures.isEmpty()) {
             helper.succeed();
         } else {
-            helper.fail("model soak: " + String.join("; ", failures));
+            helper.fail("model soak: " + brief(failures));
         }
     }
 
@@ -350,6 +360,7 @@ public final class AirflowSoaks {
         }
         boolean opened = AirflowSections.get(level) == null;
         long start = level.getGameTime();
+        long startNanos = System.nanoTime();
         regions.anchors(l -> {
             double tau = (l.getGameTime() - start) * AirflowRuntime.TICK_SECONDS;
             List<Vec3> out = new ArrayList<>(3);
@@ -393,6 +404,10 @@ public final class AirflowSoaks {
             }
             try {
                 long ticks = level.getGameTime() - start;
+                long wait = startNanos + ticks * 50_000_000L - System.nanoTime();
+                if (wait > 0) {
+                    LockSupport.parkNanos(wait); // 20 ticks a second, as a real server runs
+                }
                 double tau = ticks * AirflowRuntime.TICK_SECONDS;
                 if (ticks > 0 && ticks % (20L * JUMP_SECONDS) == 0) {
                     jumps.add(rec.seconds());
@@ -539,7 +554,7 @@ public final class AirflowSoaks {
         long restores = regions.restores(), lost = regions.sectionsLost(), saves = regions.savesWritten();
         regions.stopRecording(); // closes the CSVs and writes summary.md
         AirflowRecorder.Measures m = rec.measures();
-        List<Integer> drops = rec.dropSeconds();
+        Set<Integer> drops = new TreeSet<>(rec.dropSeconds());
         cleanup.run();
         List<String> failures = new ArrayList<>();
         if (m.serverMeanMs() > 0.2) {
@@ -597,7 +612,7 @@ public final class AirflowSoaks {
         if (failures.isEmpty()) {
             helper.succeed();
         } else {
-            helper.fail("runtime soak: " + String.join("; ", failures));
+            helper.fail("runtime soak: " + brief(failures));
         }
     }
 
