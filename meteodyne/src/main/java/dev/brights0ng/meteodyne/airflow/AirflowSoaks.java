@@ -142,14 +142,48 @@ public final class AirflowSoaks {
     /** One day's numbers in the model soak. */
     private record Day(int day, double lowerMin, double lowerMax, double lowerEnd, double upperEnd, int boxesMax,
                        double msPerStep, double heapMb, double worstRebuild, double rebuildAirMj,
-                       double rebuildWallMj, double eventAirMj, double eventWallMj) {
+                       double rebuildWallMj, double eventAirMj, double eventWallMj, double[] budgetMj) {
     }
+
+    /** The day's budget, MJ: sources, loss to ambient, advected out, steps' change, shifts, rebuilds, total change. */
+    private static final String[] BUDGET = {"sources", "loss to ambient", "advected out", "steps' change",
+            "background shifts", "rebuilds", "total change"};
 
     /** The region's heat content now: air, then wall stores, J (from the solver's own zero). */
     private static double[] energy(AirflowScene.Run run) {
         var solver = run.model.region().mesh().solver();
         double walls = solver.wallStore().energy();
         return new double[] {solver.totalEnergy() - walls, walls};
+    }
+
+    private static double sum(double[] v) {
+        double s = 0;
+        for (double x : v) {
+            s += x;
+        }
+        return s;
+    }
+
+    /** The day's total change less what the steps, shifts, rebuilds and events account for, MJ. */
+    private static double unexplained(Day d) {
+        double[] b = d.budgetMj();
+        return b[6] - b[3] - b[4] - b[5] - d.eventAirMj() - d.eventWallMj();
+    }
+
+    private static String budgetLine(double[] b) {
+        List<String> parts = new ArrayList<>();
+        for (int i = 0; i < BUDGET.length; i++) {
+            parts.add(BUDGET[i] + " " + f(b[i]));
+        }
+        return String.join(", ", parts);
+    }
+
+    private static String budgetCells(double[] b) {
+        List<String> parts = new ArrayList<>();
+        for (double v : b) {
+            parts.add(f(v));
+        }
+        return String.join(" | ", parts);
     }
 
     static void model(GameTestHelper helper, int days) {
@@ -166,6 +200,8 @@ public final class AirflowSoaks {
         double[] dayMin = {Double.POSITIVE_INFINITY}, dayMax = {Double.NEGATIVE_INFINITY}, worstRebuild = {0};
         double[] rebuildEnergy = new double[2];
         double[] eventEnergy = new double[2];
+        double[] rebuildSigned = {0};
+        double[][] dayStart = {run.budget(), {sum(energy(run))}};
         int[] boxesMax = {0};
         long[] dayNanos = {0}, daySteps = {0};
         boolean[] over = {false};
@@ -177,10 +213,17 @@ public final class AirflowSoaks {
                 int t = (int) Math.round(run.time());
                 int p = t % DAY, day = t / DAY;
                 if (p == 0 && t > 0) {
+                    double[] b = run.budget(), b0 = dayStart[0];
+                    double total = sum(energy(run)) - dayStart[1][0];
+                    double[] budget = {(b[0] - b0[0]) / 1e6, (b[1] - b0[1]) / 1e6, (b[2] - b0[2]) / 1e6,
+                            (b[3] - b0[3]) / 1e6, (b[4] - b0[4]) / 1e6, rebuildSigned[0] / 1e6, total / 1e6};
+                    dayStart[0] = b;
+                    dayStart[1] = new double[] {sum(energy(run))};
+                    rebuildSigned[0] = 0;
                     done.add(new Day(day, dayMin[0], dayMax[0], mean(run, LOWER), mean(run, UPPER), boxesMax[0],
                             (run.stepNanos() - dayNanos[0]) / 1e6 / Math.max(1, run.steps() - daySteps[0]),
                             usedHeapAfterGc(), worstRebuild[0], rebuildEnergy[0] / 1e6, rebuildEnergy[1] / 1e6,
-                            eventEnergy[0] / 1e6, eventEnergy[1] / 1e6));
+                            eventEnergy[0] / 1e6, eventEnergy[1] / 1e6, budget));
                     Day d = done.get(done.size() - 1);
                     Meteodyne.LOGGER.info("Airflow soak (model): day {}: lower {} to {}, end {} / upper {}; {} boxes at "
                                     + "most; {} ms/step; heap {} MB; worst rebuild change {} C, {} MJ in the air and {} MJ "
@@ -189,6 +232,8 @@ public final class AirflowSoaks {
                             f(d.lowerMax()), f(d.lowerEnd()), f(d.upperEnd()), d.boxesMax(), f(d.msPerStep()),
                             f(d.heapMb()), f(d.worstRebuild()), f(d.rebuildAirMj()), f(d.rebuildWallMj()),
                             f(d.eventAirMj()), f(d.eventWallMj()));
+                    Meteodyne.LOGGER.info("Airflow soak (model): day {} budget, MJ: {}; unexplained {}", d.day(),
+                            budgetLine(budget), f(unexplained(d)));
                     dayMin[0] = Double.POSITIVE_INFINITY;
                     dayMax[0] = Double.NEGATIVE_INFINITY;
                     boxesMax[0] = 0;
@@ -211,10 +256,14 @@ public final class AirflowSoaks {
                     double[] e0 = energy(run);
                     run.restart(20L * t);
                     double[] e1 = energy(run);
+                    rebuildSigned[0] += e1[0] + e1[1] - e0[0] - e0[1];
                     rebuildEnergy[0] = Math.max(rebuildEnergy[0], Math.abs(e1[0] - e0[0]));
                     rebuildEnergy[1] = Math.max(rebuildEnergy[1], Math.abs(e1[1] - e0[1]));
                     worstRebuild[0] = Math.max(worstRebuild[0],
                             Math.max(Math.abs(mean(run, LOWER) - lower), Math.abs(mean(run, UPPER) - upper)));
+                }
+                if (p == 0 || p == 160 || p == 220 || p == 460 || p == 600 || p == 760) {
+                    run.ahead(); // the outside air sent ahead of the edits is a shift, not the events' own energy
                 }
                 double[] ev0 = energy(run); // what the day's events themselves add (edits rebuild the wall stores)
                 switch (p) {
@@ -283,6 +332,17 @@ public final class AirflowSoaks {
                 failures.add("day " + d.day() + ": a rebuild moved " + f(d.rebuildAirMj()) + " MJ in the air and "
                         + f(d.rebuildWallMj()) + " MJ in the walls");
             }
+        }
+        out.add("");
+        out.add("Energy budget per day, MJ (unexplained: the total change less the steps' change, shifts, rebuilds and "
+                + "events; the steps' own residual: their change less sources, loss and advection):");
+        out.add("");
+        out.add("| Day | " + String.join(" | ", BUDGET) + " | events | unexplained | steps' residual |");
+        out.add("|---|---|---|---|---|---|---|---|---|---|---|");
+        for (Day d : done) {
+            double[] b = d.budgetMj();
+            out.add("| " + d.day() + " | " + budgetCells(b) + " | " + f(d.eventAirMj() + d.eventWallMj()) + " | "
+                    + f(unexplained(d)) + " | " + f(b[3] - (b[0] - b[1] - b[2])) + " |");
         }
         if (done.size() >= 3) {
             Day second = done.get(1), last = done.get(done.size() - 1), before = done.get(done.size() - 2);

@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7c).
+// Written by Claude (GreedyFluids M7c; the outside air ahead of an edit, M7f).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -121,5 +121,40 @@ class AirflowInputsTest {
         double t = m.region().sampleT(8.5, 3.5, 8.5);
         assertTrue(t > 10.02, "a player's 500 W warms a closed 6×4×6 room in a minute: " + t);
         assertTrue(m.healthy());
+    }
+
+    /** As {@link #room} with no sources, but open air above y 5 (column tops 6): a closed room under a stone roof. */
+    private static AirflowRegionModel roofedRoom(int[] tops) {
+        byte[] cells = new byte[AirflowSections.SECTION_CELLS];
+        for (int y = 0; y < 16; y++) {
+            for (int z = 0; z < 16; z++) {
+                for (int x = 0; x < 16; x++) {
+                    boolean inside = x >= 5 && x <= 10 && y >= 1 && y <= 4 && z >= 5 && z <= 10;
+                    cells[AirflowSections.Codes.index(x, y, z)] = (byte) (inside || y >= 6 ? 0 : 1);
+                }
+            }
+        }
+        AirflowSections.Codes codes = new AirflowSections.Codes(0, 1, AirflowCells.AIR, cells);
+        AirflowCells.Table table = new AirflowCells.Table(1, new Cell[] {AIR, STONE, LAVA});
+        return AirflowRegionModel.build(new AirflowRegionModel.Spec(0, 0, 0, 16, 16, 16,
+                new AirflowSections.Codes[] {codes}, table, 10, 0, 0, new int[0], new double[0], null, null, 0,
+                lattice(10), tops));
+    }
+
+    @Test
+    void theOutsideAirSentAheadOfAnEditShiftsWithTheFollowWeightsBeforeIt() {
+        int[] tops = new int[256];
+        Arrays.fill(tops, 6);
+        double[] room = new double[2];
+        for (int order = 0; order < 2; order++) {
+            AirflowRegionModel m = roofedRoom(tops);
+            Change hole = new Change(7, 5, 7, STONE, AIR); // a hole in the roof lets the sky into the room
+            Weather warmer = new Weather(14, 0, 0, lattice(14), tops);
+            m.apply(order == 0 ? List.<Object>of(warmer, hole) : List.<Object>of(hole, warmer));
+            m.apply(List.of(warmer)); // the manager's next check: the new follow weights, nothing left to shift
+            room[order] = m.region().sampleT(7.5, 1.5, 7.5);
+        }
+        assertEquals(10, room[0], 0.25, "warmed before the hole was made: the closed room doesn't follow");
+        assertTrue(room[1] > 10.5, "the same warming applied after it would have moved the room: " + room[1]);
     }
 }

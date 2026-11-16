@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7c c2).
+// Written by Claude (GreedyFluids M7c c2; the shut-door case M7f).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,6 +54,32 @@ class AirflowFieldTest {
         float[] follow = AirflowField.follow(sky);
         assertEquals(1, follow[grid.index(0, 1, 0)], 0);
         assertEquals((13 / 15f) * (13 / 15f), follow[grid.index(5, 1, 3)], 1e-6);
+    }
+
+    @Test
+    void aShutDoorStopsTheSkyAndAnOpenOnePassesIt() {
+        int n = 12, h = 6;
+        CellGrid3D grid = new CellGrid3D(n, h, n);
+        grid.fillSolid(0, 0, 0, n - 1, 0, n - 1, Material.STONE);
+        grid.fillSolid(2, 1, 2, 8, 4, 8, Material.STONE);
+        grid.fillAir(3, 1, 3, 7, 3, 7);
+        grid.setDoor(5, 1, 2, Material.DOOR, false); // a shut door in the north wall
+        grid.setDoor(5, 2, 2, Material.DOOR, false);
+        int[] top = new int[n * n];
+        for (int z = 0; z < n; z++) {
+            for (int x = 0; x < n; x++) {
+                top[z * n + x] = x >= 2 && x <= 8 && z >= 2 && z <= 8 ? 5 : 1;
+            }
+        }
+        byte[] sky = AirflowField.sky(grid, top);
+        assertEquals(0, sky[grid.index(5, 1, 2)], "the shut door");
+        assertEquals(0, sky[grid.index(5, 1, 3)], "the room behind it");
+        assertEquals(15, sky[grid.index(5, 1, 1)], "outside");
+        grid.setDoorOpen(5, 1, 2, true);
+        grid.setDoorOpen(5, 2, 2, true);
+        sky = AirflowField.sky(grid, top);
+        assertEquals(14, sky[grid.index(5, 1, 2)], "the open door, as a doorway");
+        assertEquals(9, sky[grid.index(5, 1, 7)], "the back wall");
     }
 
     @Test

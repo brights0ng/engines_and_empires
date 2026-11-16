@@ -12,7 +12,8 @@ import dev.brights0ng.greedyfluids.grid.CellType;
  *       interpolated trilinearly to each cell's centre.</li>
  *   <li><b>Follow weights:</b> (sky / 15)², where sky is a sky light computed through the tile's air: 15 in air at or
  *       above its column's top blocking block (the world's heightmap), then one less per step through air, as the
- *       game's light spreads. Solids, glass included, stop it: what counts is air the weather can reach.</li>
+ *       game's light spreads. Solids, glass included, stop it, and so do shut doors (M7f; Bright, 2026-11-16): what
+ *       counts is air the weather can reach.</li>
  * </ul>
  */
 public final class AirflowField {
@@ -57,9 +58,9 @@ public final class AirflowField {
     }
 
     /**
-     * Sky light through the grid's air, 0–15 per cell: 15 in fluid cells whose height (region cells) is at least
+     * Sky light through the grid's air, 0–15 per cell: 15 in air cells whose height (region cells) is at least
      * {@code top[z * nx + x]} (the column's first open height; NaN-free, may lie outside the grid), then one less per
-     * face step through fluid cells. Solid cells are 0.
+     * face step through air. A door cell counts as air only while it is open; solid cells and shut doors are 0.
      */
     public static byte[] sky(CellGrid3D grid, int[] top) {
         int nx = grid.nx(), ny = grid.ny(), nz = grid.nz(), n = nx * ny * nz;
@@ -73,7 +74,7 @@ public final class AirflowField {
             for (int x = 0; x < nx; x++) {
                 for (int y = Math.max(0, top[z * nx + x]); y < ny; y++) {
                     int c = (y * nz + z) * nx + x;
-                    if (grid.type(x, y, z).isFluid()) {
+                    if (passes(grid, x, y, z)) {
                         sky[c] = 15;
                         queue[tail++] = c;
                     }
@@ -95,13 +96,19 @@ public final class AirflowField {
                     continue;
                 }
                 int a = (ay * nz + az) * nx + ax;
-                if (sky[a] < level && grid.type(ax, ay, az) != CellType.SOLID) {
+                if (sky[a] < level && passes(grid, ax, ay, az)) {
                     sky[a] = (byte) level;
                     queue[tail++] = a;
                 }
             }
         }
         return sky;
+    }
+
+    /** Whether sky light passes the cell: air, or a door while it is open (a shut door stops the weather). */
+    private static boolean passes(CellGrid3D grid, int x, int y, int z) {
+        CellType t = grid.type(x, y, z);
+        return t == CellType.AIR || t == CellType.DOOR && grid.doorOpen(x, y, z);
     }
 
     /** Follow weights from sky light: (sky / 15)² per cell. */

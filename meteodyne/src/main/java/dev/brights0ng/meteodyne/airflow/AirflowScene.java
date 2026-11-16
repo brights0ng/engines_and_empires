@@ -1,5 +1,5 @@
 // Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f f2: saving and rebuilding a
-// running scene, for the model soak).
+// running scene, for the model soak; the outside air sent ahead of an edit, as the manager does).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -183,10 +183,16 @@ final class AirflowScene {
         private final int[] tops;
         private final double kappa;
         private double windX, windZ, weatherEvery = Double.POSITIVE_INFINITY, lastWeather;
+        /** When the outside air last went ahead of an edit, s (once per instant). */
+        private double aheadAt = Double.NaN;
         /** Simulated time before the current model was built (restarts), s. */
         private double before;
         private long stepNanos;
         private int steps;
+        /** The steps' energy budget so far, J: sources, loss to ambient, advection out, change in stored heat. */
+        private double sourceJ, lossJ, advectedJ, deltaJ;
+        /** Background-shift energy of the models before the current one, J. */
+        private double shiftBefore;
 
         private Run(AirflowScene scene, AirflowRegionModel model, Outside outside, int[] tops, double windX,
                     double windZ, double kappa) {
@@ -223,6 +229,11 @@ final class AirflowScene {
                 model.step();
                 stepNanos += System.nanoTime() - t0;
                 steps++;
+                var st = model.region().stats();
+                sourceJ += st.sourceEnergy;
+                lossJ += st.ambientLoss;
+                advectedJ += st.advectedOut;
+                deltaJ += st.deltaEnergy;
                 if (!model.healthy()) {
                     throw new IllegalStateException("non-finite values at " + time() + " s");
                 }
@@ -232,6 +243,10 @@ final class AirflowScene {
 
         private void sendWeather() {
             lastWeather = time();
+            postWeather();
+        }
+
+        private void postWeather() {
             float[] lattice = scene.lattice(outside, time());
             model.apply(List.of(new AirflowRegionModel.Weather(lattice[0], windX, windZ, lattice, tops)));
         }
@@ -251,6 +266,7 @@ final class AirflowScene {
             sendWeather(); // the save's background is then the rebuild's, as at a reopen within the same weather
             AirflowSaved.Tile tile = model.save(tick);
             double now = time();
+            shiftBefore += model.region().mesh().backgroundShiftEnergy();
             model = AirflowRegionModel.build(scene.spec(outside, now, windX, windZ, kappa, tile.sections(), tick));
             before = now;
             lastWeather = now;
@@ -273,7 +289,20 @@ final class AirflowScene {
         Run change(int x, int y, int z, BlockState after) {
             Cell before = scene.cell(x, y, z);
             scene.set(x, y, z, after);
+            ahead();
             return post(new AirflowBatch.Change(x, y, z, before, scene.cell(x, y, z)));
+        }
+
+        /**
+         * Sends the outside air up to now, as the manager does ahead of an edit (M7f), off the schedule: once per
+         * instant, and nothing with an outside air that never changes. {@link #change} calls it.
+         */
+        Run ahead() {
+            if (weatherEvery < Double.POSITIVE_INFINITY && time() != aheadAt && time() != lastWeather) {
+                aheadAt = time();
+                postWeather();
+            }
+            return this;
         }
 
         /** The source at (x, y, z) set to {@code state}'s power (the block itself stays). */
@@ -400,6 +429,15 @@ final class AirflowScene {
         /** Wall time of every step so far, ns. */
         long stepNanos() {
             return stepNanos;
+        }
+
+        /**
+         * The energy budget so far, J: {sources, loss to ambient, advected out, Σ the steps' change in stored heat,
+         * background shifts} (M7f f2, the model soak's daily budget).
+         */
+        double[] budget() {
+            return new double[] {sourceJ, lossJ, advectedJ, deltaJ,
+                    shiftBefore + model.region().mesh().backgroundShiftEnergy()};
         }
 
         int steps() {

@@ -1,7 +1,7 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: ids, timing, the recorder; only assigned regions
 // stay alive); edited by Claude (M7d d1: fixed tiles replace player-centred windows; d2: saving and restoring; M7c:
 // the background field, driven sources, limits and body heat; M7e: the generator's terrain off the server thread,
-// the speed limit and tile cap; M7f: the heat diffusivity from the config).
+// the speed limit and tile cap; M7f: the heat diffusivity from the config; the outside air sent ahead of edits).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -57,7 +57,9 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  *   <li><b>Inputs (M7c):</b> the background field ({@link AirflowBackground}: the tile's lattice of Meteodyne's air
  *       temperature, read before the tile is built, and its column tops for the follow weights) and the surface
  *       wind at the tile's centre, re-sent when a lattice point moves by {@link #BACKGROUND_STEP} °C, the wind by
- *       {@link #WIND_STEP} m/s, or after an edit (checked every {@link #WEATHER_TICKS}); placed sources'
+ *       {@link #WIND_STEP} m/s, or after an edit (checked every {@link #WEATHER_TICKS}). An edit first sends the
+ *       lattice last read, if it hasn't gone yet, so the region shifts the air up to the edit with the follow
+ *       weights it had (M7f; Bright, 2026-11-16). Placed sources'
  *       watts and limits ({@link AirflowSources}); driven sources polled at the same cadence; each player in the
  *       tile's body heat, {@link AirflowSources#PLAYER_WATTS} W.</li>
  *   <li><b>Saving (M7d d2):</b> a running region saves its temperatures into its chunks ({@link AirflowChunkData})
@@ -102,6 +104,8 @@ public final class AirflowRegions implements AirflowSections.Listener {
         private double sentT = Double.NaN, sentWindX, sentWindZ;
         private AirflowBackground background;
         private float[] sentLattice;
+        /** The lattice read at the last weather check (M7f: sent ahead of an edit when newer than the one sent). */
+        private float[] readLattice;
         private boolean geometryChanged, hadBodies;
         /** Driven sources in the tile, with the power last sent for each. */
         private final Long2ObjectOpenHashMap<AirflowSources.Power> driven = new Long2ObjectOpenHashMap<>();
@@ -640,6 +644,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
     private void weather(Region r) {
         double[] w = windAt(r);
         float[] lattice = r.background.lattice();
+        r.readLattice = lattice;
         boolean moved = false;
         for (int i = 0; i < lattice.length && !moved; i++) {
             moved = Math.abs(lattice[i] - r.sentLattice[i]) >= BACKGROUND_STEP;
@@ -668,6 +673,14 @@ public final class AirflowRegions implements AirflowSections.Listener {
     public void cellChanged(BlockPos pos, byte before, byte after) {
         Region r = regionAt(pos.getX(), pos.getY(), pos.getZ());
         if (r != null && r.slot != null) {
+            if (r.readLattice != null && r.readLattice != r.sentLattice
+                    && !java.util.Arrays.equals(r.readLattice, r.sentLattice)) {
+                // an edit can change the follow weights: the outside air up to it goes first, with the old ones
+                r.sentLattice = r.readLattice;
+                r.sentT = r.sentLattice[0];
+                r.slot.post(new AirflowRegionModel.Weather(r.sentT, r.sentWindX, r.sentWindZ, r.sentLattice,
+                        r.background.columnTops()));
+            }
             AirflowCells.Table table = AirflowCells.table();
             r.slot.post(new AirflowBatch.Change(pos.getX() - r.x0, pos.getY() - r.y0, pos.getZ() - r.z0,
                     table.cell(before), table.cell(after)));

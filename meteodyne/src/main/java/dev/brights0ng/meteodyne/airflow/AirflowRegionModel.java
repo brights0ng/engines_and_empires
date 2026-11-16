@@ -1,6 +1,7 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: counters; M7d d2: saved state in and out; M7c: the
 // background field, fixed walls, thermostats and body heat; M7f: sources on the grid before the region is built, the
-// heat diffusivity from the spec; held steps and edit-batch time for the profile).
+// heat diffusivity from the spec; held steps and edit-batch time for the profile; a weather sent ahead of an edit
+// batch goes first, and door toggles refresh the follow weights).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -33,7 +34,10 @@ import dev.brights0ng.greedyfluids.solve.SolverConfig3D;
  *   <li><b>Weather (M7c c2):</b> {@link Weather} sets the wind and the background field: per-cell temperatures from
  *       the server's lattice ({@link AirflowField#cells}) and follow weights from the sky light through the air
  *       ({@link AirflowField#sky}). Without a lattice (tests), one temperature and the M7b follow rule (air with only
- *       air above it). Follow weights are recomputed at the next weather after a geometry change.</li>
+ *       air above it). Follow weights are recomputed at the next weather after a geometry change or a door toggle.
+ *       A weather that comes in the same batch ahead of the first edit is applied before the edits (M7f; Bright,
+ *       2026-11-16): the outside air's change up to the edit is shifted with the follow weights it had, not the new
+ *       ones (applied late, they pumped about 120 MJ a day into the model soak's house).</li>
  *   <li><b>Body heat (M7c c3):</b> {@link Bodies} replaces the moving heat sources (players).</li>
  *   <li><b>Saved state (M7d d2):</b> built from the tile's saved sections when there are any (decayed to the build
  *       tick, {@link AirflowSaved}); {@link #save} packs the current state the same way.</li>
@@ -207,9 +211,13 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     public void apply(List<Object> events) {
         List<AirflowBatch.Change> changes = new ArrayList<>();
         boolean sources = false;
-        Weather weather = null;
+        Weather ahead = null, weather = null;
         for (Object e : events) {
             if (e instanceof AirflowBatch.Change c) {
+                if (changes.isEmpty() && weather != null) {
+                    ahead = weather; // the manager's outside air up to the edits: shifted with the old follow weights
+                    weather = null;
+                }
                 changes.add(c);
             } else if (e instanceof SourceChange s) {
                 int cell = grid.index(s.x(), s.y(), s.z());
@@ -233,6 +241,9 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
                 throw new IllegalArgumentException("unknown airflow event " + e);
             }
         }
+        if (ahead != null) {
+            weather(ahead);
+        }
         if (!changes.isEmpty()) {
             AirflowBatch batch = AirflowBatch.of(changes, nx, nz);
             long started = System.nanoTime();
@@ -249,10 +260,12 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
                 editNanos += System.nanoTime() - started;
             }
             edits += first.size() + second.size();
+            boolean toggled = false;
             for (AirflowBatch.DoorToggle d : batch.doors) {
                 if (grid.type(d.x(), d.y(), d.z()) == CellType.DOOR) {
                     region.setDoorOpen(d.x(), d.y(), d.z(), d.open());
                     toggles++;
+                    toggled = true;
                 } else {
                     desyncs++;
                 }
@@ -268,22 +281,29 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
                 sources = true;
                 followStale = true;
             }
+            if (toggled) {
+                followStale = true; // a shut door stops the sky (M7f)
+            }
         }
         if (sources) {
             distribute();
         }
         if (weather != null) {
-            boolean changed = followStale || weather.backgroundT() != backgroundT || weather.lattice() != lattice
-                    || weather.tops() != tops;
-            if (changed) {
-                backgroundT = weather.backgroundT();
-                lattice = weather.lattice();
-                tops = weather.tops();
-                followStale = false;
-                region.setBackground(background());
-            }
-            region.setWind(weather.windX(), weather.windZ());
+            weather(weather);
         }
+    }
+
+    /** Sets the background (when anything in it, or the follow weights, changed) and the wind. */
+    private void weather(Weather w) {
+        boolean changed = followStale || w.backgroundT() != backgroundT || w.lattice() != lattice || w.tops() != tops;
+        if (changed) {
+            backgroundT = w.backgroundT();
+            lattice = w.lattice();
+            tops = w.tops();
+            followStale = false;
+            region.setBackground(background());
+        }
+        region.setWind(w.windX(), w.windZ());
     }
 
     /** The edits whose cells are what they expect; the rest count as desyncs. */
