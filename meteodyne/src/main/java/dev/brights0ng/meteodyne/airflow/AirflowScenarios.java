@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7f: the acceptance scenarios).
+// Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f: loose regression bars).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -22,9 +22,11 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * GreedyFluids M7f, the acceptance scenarios: Bright's must-work list (2026-10-28) run by direct stepping
  * ({@link AirflowScene}; Bright, 2026-11-15). Each builds a 32-block window from real block states, read and powered by
  * the game's own rules, under an outside air it chooses, and steps the model faster than real time.
- * <p><b>Measured first</b> (Bright, 2026-11-15): the numbers are logged as {@code Airflow scenario <name>: ...}, and the
- * only pass rules are shape checks (warmer than outside, warmer up than down, downwind beats upwind). Bright sets the
- * thresholds from the numbers.
+ * <p><b>Measured first</b> (Bright, 2026-11-15): the numbers are logged as {@code Airflow scenario <name>: ...}, with
+ * shape checks (warmer than outside, warmer up than down, downwind beats upwind) and, since Bright's option 3 the same
+ * day, loose regression bars ({@link #bar}): about 0.5 to 1.5 times the value measured with kappa 0.05, real stone
+ * walls and keep-fine following sources. They guard against a change that quietly weakens the physics; they are not
+ * design targets, and they hold for the default {@code [heat]} config only.
  * <p>The scenes stand on 8 blocks of stone (the air starts at y 8); the outside air is 5 C unless a scenario says
  * otherwise. Every step runs inside the test's first tick, so the game test clock doesn't matter.
  */
@@ -70,6 +72,15 @@ public final class AirflowScenarios {
     }
 
     /**
+     * A loose regression bar (M7f, Bright's option 3): value must lie in [lo, hi]. measured is the value the bar was set
+     * around (2026-11-15), for the message.
+     */
+    private static void bar(GameTestHelper helper, String what, double value, double measured, double lo, double hi) {
+        helper.assertTrue(value >= lo && value <= hi, what + ": " + value + " is outside its bar [" + lo + ", " + hi
+                + "] (measured " + measured + " when the bar was set)");
+    }
+
+    /**
      * a. A campfire warms a closed room; c. an open door lets cold in and shutting it stops that; e. the room holds its
      * heat after the fire goes out. One house with a shut door in its south wall: the fire burns 10 min, the door is
      * open 2 min and shut again 2 min, then the fire goes out for 10 min.
@@ -99,6 +110,8 @@ public final class AirflowScenarios {
         }
         report.add("corner reaches 90% of its 10-min value at s", ninety).log(run);
         helper.assertTrue(warmCorner > 0 && warm > 0, "the room warms: inside " + warm + ", corner " + warmCorner);
+        bar(helper, "a. inside at 10 min, C", warm, 8.61, 5, 13);
+        bar(helper, "a. corner at 10 min, C", warmCorner, 7.83, 4.5, 12);
 
         AirflowScene.Report door = new AirflowScene.Report("c open door (south wall, 2 min open, 2 min shut)");
         run.change(15, G, 20, door(false, true)).change(15, G + 1, 20, door(true, true));
@@ -115,17 +128,26 @@ public final class AirflowScenarios {
                 .add("regained C/min", (shut - open) / 2).log(run);
         helper.assertTrue(open < warm, "an open door lets cold in: " + open + " against " + warm);
         helper.assertTrue(shut > open, "shutting it stops that: " + shut + " against " + open);
+        bar(helper, "c. loss while the door is open, C/min", (warm - open) / 2, 0.303, 0.15, 0.6);
+        bar(helper, "c. regained after it shuts, C/min", (shut - open) / 2, 0.334, 0.15, 0.6);
 
         AirflowScene.Report hold = new AirflowScene.Report("e holds heat (fire out, door shut)");
         run.power(15, G, 15, FIRE.setValue(BlockStateProperties.LIT, false));
-        for (int t : new int[] {900, 1140, 1440}) {
+        int[] outAt = {900, 1140, 1440};
+        double[] kept = new double[outAt.length];
+        for (int i = 0; i < outAt.length; i++) {
+            int t = outAt[i];
             run.until(t);
             double now = inside(run);
-            hold.add("out " + (t - 840) + " s inside", now).add("kept", now / shut);
+            kept[i] = now / shut;
+            hold.add("out " + (t - 840) + " s inside", now).add("kept", kept[i]);
         }
         hold.log(run);
         double cold = inside(run);
         helper.assertTrue(cold > 0 && cold < shut, "the room cools but stays warmer than outside: " + cold);
+        bar(helper, "e. share kept 1 min after the fire goes out", kept[0], 0.825, 0.6, 0.95);
+        bar(helper, "e. share kept after 5 min", kept[1], 0.387, 0.2, 0.6);
+        bar(helper, "e. share kept after 10 min", kept[2], 0.151, 0.07, 0.3);
         helper.succeed();
     }
 
@@ -156,11 +178,14 @@ public final class AirflowScenarios {
         report.log(run);
         helper.assertTrue(top > bottom, "warmer under the ceiling than at the floor: " + top + " against " + bottom);
         helper.assertTrue(upper > 0, "the upper floor warms from below: " + upper);
+        bar(helper, "b. lower room, ceiling layer above floor layer at 10 min, C", top - bottom, 2.11, 1, 4);
+        bar(helper, "b. upper floor at 10 min, C", upper, 1.06, 0.5, 2.5);
         helper.succeed();
     }
 
     /**
-     * b. Hot air rises, diagnosis (report-only): each layer of the two-storey house's lower room and of a tall hall
+     * b. Hot air rises, by layer (barred at 10 min: the top layer above the bottom one, and the rise over the hall's
+     * fire): each layer of the two-storey house's lower room and of a tall hall
      * (8 × 8 × 8 inside, campfire in the middle of the floor), with the mean air speed, at 2 and 10 min.
      */
     @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_scenario_layers")
@@ -187,11 +212,21 @@ public final class AirflowScenarios {
                 for (int y = G; y <= top; y++) {
                     report.add("y+" + (y - G), run.meanOffset(12, y, 12, 19, y, 19));
                 }
+                int fx = hall ? 15 : 13;
+                double rise = run.meanFlow(1, fx, G + 1, fx, fx, top, fx);
                 report.add("mean speed m/s", run.meanSpeed(12, G, 12, 19, top, 19))
-                        .add("mean rise over the fire m/s", run.meanFlow(1, hall ? 15 : 13, G + 1, hall ? 15 : 13,
-                                hall ? 15 : 13, top, hall ? 15 : 13))
+                        .add("mean rise over the fire m/s", rise)
                         .add("boxes", run.boxesIn(12, G, 12, 19, top, 19)[0])
                         .add("tallest", run.boxesIn(12, G, 12, 19, top, 19)[1]).log(run);
+                if (t == 600) {
+                    double layering = run.meanOffset(12, top, 12, 19, top, 19) - run.meanOffset(12, G, 12, 19, G, 19);
+                    if (hall) {
+                        bar(helper, "b. tall hall, top layer above bottom layer at 10 min, C", layering, 1.68, 0.8, 3);
+                        bar(helper, "b. tall hall, rise over the fire at 10 min, m/s", rise, 0.94, 0.5, 1.5);
+                    } else {
+                        bar(helper, "b. lower room, top layer above bottom layer at 10 min, C", layering, 2.41, 1.2, 4);
+                    }
+                }
             }
         }
         helper.succeed();
@@ -209,22 +244,26 @@ public final class AirflowScenarios {
         scene.set(12, G, 15, FIRE);
         AirflowScene.Run run = scene.build(STILL, 0, 0);
         AirflowScene.Report report = new AirflowScene.Report("b chimney draws (1x1 shaft, open doorway)");
-        double rise = 0;
+        double rise = 0, inflow = 0;
         for (int t : new int[] {120, 300}) {
             run.until(t);
             rise = run.meanFlow(1, 12, G + 7, 15, 12, G + 14, 15);
+            inflow = -run.meanFlow(2, 15, G, 20, 15, G + 1, 20);
             report.add("t" + t + " shaft rise m/s", rise).add("shaft", run.meanOffset(12, G + 7, 15, 12, G + 14, 15))
-                    .add("doorway inflow m/s", -run.meanFlow(2, 15, G, 20, 15, G + 1, 20)).add("inside", inside(run));
+                    .add("doorway inflow m/s", inflow).add("inside", inside(run));
         }
         report.log(run);
         helper.assertTrue(rise > 0, "air goes up the chimney: " + rise + " m/s");
+        bar(helper, "b. chimney shaft rise at 5 min, m/s", rise, 1.53, 0.8, 2.5);
+        bar(helper, "b. doorway inflow at 5 min, m/s", inflow, 0.75, 0.4, 1.2);
         helper.succeed();
     }
 
     /** d. Wind carries heat downwind: a campfire on open ground, calm and in 5 m/s wind toward +x, 2 min each. */
     @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_scenario_wind")
     public static void windCarriesHeatDownwind(GameTestHelper helper) {
-        double[] windy = new double[4];
+        double[] windy = new double[4], calm = new double[4];
+        double calmAbove = 0;
         for (double wind : new double[] {0, 5}) {
             AirflowScene scene = ground(G).set(16, G, 16, FIRE);
             AirflowScene.Run run = scene.build(STILL, wind, 0);
@@ -246,10 +285,18 @@ public final class AirflowScenarios {
                     .add("over the fire", run.offset(16, G + 2, 16)).log(run);
             if (wind > 0) {
                 windy = sum;
+            } else {
+                calm = sum;
+                calmAbove = run.offset(16, G + 2, 16);
             }
         }
         helper.assertTrue(windy[2] > windy[3], "4 blocks downwind is warmer than 4 upwind: " + windy[2] + " against "
                 + windy[3]);
+        bar(helper, "d. calm, 2 blocks out on +x, C", calm[0], 0.246, 0.12, 0.5);
+        bar(helper, "d. calm, 2 blocks out on -x, C", calm[1], 0.231, 0.12, 0.5);
+        bar(helper, "d. calm, over the fire, C", calmAbove, 6.51, 3.5, 10);
+        bar(helper, "d. 5 m/s, 4 blocks downwind, C", windy[2], 0.073, 0.035, 0.15);
+        bar(helper, "d. 5 m/s, 4 blocks upwind, C", windy[3], 0, -0.02, 0.02);
         helper.succeed();
     }
 
@@ -295,6 +342,8 @@ public final class AirflowScenarios {
         }
         helper.assertTrue(swing[1] < swing[0], "the cellar swings less than the house: " + swing[1] + " against "
                 + swing[0]);
+        bar(helper, "e. house swing over a 16 C day, C", swing[0], 4.35, 2.5, 7);
+        bar(helper, "e. cellar swing over the same day, C", swing[1], 0.11, 0, 0.3);
         helper.succeed();
     }
 
@@ -323,6 +372,8 @@ public final class AirflowScenarios {
         }
         helper.assertTrue(warm[0] > 0, "a lit furnace warms the room: " + warm[0]);
         helper.assertTrue(warm[1] > 0, "lava warms the room: " + warm[1]);
+        bar(helper, "h. lit furnace, inside at 10 min, C", warm[0], 4.29, 2.5, 6.5);
+        bar(helper, "h. lava pool, inside at 10 min, C", warm[1], 2.13, 1.2, 3.2);
         helper.succeed();
     }
 
@@ -344,6 +395,7 @@ public final class AirflowScenarios {
         }
         report.log(run);
         helper.assertTrue(last > 0 && last > first, "body heat warms the room: " + first + " then " + last);
+        bar(helper, "i. body heat, inside at 10 min, C", last, 2.99, 1.8, 4.5);
         helper.succeed();
     }
 
