@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7b b3); edited by Claude (M7d d2: save and restore).
+// Written by Claude (GreedyFluids M7b b3); edited by Claude (M7d d2: save and restore; M7f: stores one by one).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -102,8 +102,8 @@ class AirflowRegionModelTest {
         AirflowSaved.Tile tile = warm.save(500);
         assertEquals(1, tile.sections().length);
         assertTrue(tile.sections()[0].cells().length > 0, "something kept");
-        assertTrue(java.util.Arrays.stream(tile.sections()[0].cells()).anyMatch(c -> (c & AirflowSaved.WALL) != 0),
-                "the warmed floor's wall stores are kept too");
+        assertTrue(java.util.Arrays.stream(tile.sections()[0].cells()).anyMatch(c -> (c & AirflowSaved.STORE) != 0),
+                "the warmed floor's wall stores are kept too, one by one (M7f)");
 
         AirflowRegionModel back = model(Map.of(), true, tile.sections(), 500);
         assertTrue(back.restored());

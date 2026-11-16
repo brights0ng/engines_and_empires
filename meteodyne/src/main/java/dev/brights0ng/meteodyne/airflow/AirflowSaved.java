@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7d d2).
+// Written by Claude (GreedyFluids M7d d2); edited by Claude (M7f: wall stores saved one by one).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.Arrays;
@@ -10,8 +10,9 @@ import dev.brights0ng.greedyfluids.region.ThermalState;
  * A tile's saved temperatures (M7d d2; Bright, 2026-11-15), one {@link Section} per 16³ section, kept in chunk data
  * ({@link AirflowChunkData}).
  * <ul>
- *   <li><b>What:</b> each air cell's temperature and each wall-store block's wall temperature, as offsets from the
- *       background when saved; offsets nearer 0 than {@link #KEEP} are left out (they read as the background).</li>
+ *   <li><b>What:</b> each air cell's temperature and each wall store's temperature (M7f; before, each wall block's
+ *       mean over the stores holding it, which mixed them), as offsets from the background when saved; offsets
+ *       nearer 0 than {@link #KEEP} are left out (they read as the background).</li>
  *   <li><b>Decay:</b> read back, an offset shrinks by e^(−Δt / {@link #TAU_TICKS}) over the game ticks since it was
  *       saved and is added to the background <i>now</i>, so an area left alone drifts to today's weather.</li>
  * </ul>
@@ -25,6 +26,15 @@ public final class AirflowSaved {
     public static final float KEEP = 0.02f;
     /** Flags a wall entry in {@link Section#cells}; air entries have it clear. */
     public static final int WALL = 1 << 12;
+    /**
+     * Flags a wall-store entry (M7f): {@code local | STORE | dir << DIR_SHIFT}, the store whose ray leaves the air cell
+     * at {@code local} in direction {@code dir} (0..5, 6 a door panel). A state that keeps its stores one by one is
+     * saved as these instead of per-block {@link #WALL} entries; saves holding {@link #WALL} entries still load, as
+     * block means.
+     */
+    public static final int STORE = 1 << 13, DIR_SHIFT = 14;
+    /** Every entry key is below this. */
+    public static final int KEY_LIMIT = 7 << DIR_SHIFT;
 
     /**
      * One section's saved values at game tick {@code tick}: {@code cells} holds, in ascending order, each entry's
@@ -64,8 +74,26 @@ public final class AirflowSaved {
         check(nx, ny, nz);
         int nsx = nx / 16, nsy = ny / 16, nsz = nz / 16;
         Section[] out = new Section[nsx * nsy * nsz];
-        int[] cells = new int[2 * 4096];
-        float[] offsets = new float[2 * 4096];
+        // M7f: the stores kept one by one, sorted by section and key: (section << 44) | (key << 24) | store
+        long[] stores = new long[state.stores()];
+        int ns = 0;
+        for (int k = 0; k < state.stores(); k++) {
+            int c = state.storeCell(k);
+            float t = state.storeT(k);
+            if (!Float.isFinite(t) || Math.abs(t - background.applyAsDouble(c)) < KEEP) {
+                continue;
+            }
+            int x = c % nx, z = c / nx % nz, y = c / (nx * nz);
+            int section = ((y >> 4) * nsz + (z >> 4)) * nsx + (x >> 4);
+            int key = (((y & 15) * 16 + (z & 15)) * 16 + (x & 15)) | STORE | state.storeDir(k) << DIR_SHIFT;
+            stores[ns++] = (long) section << 44 | (long) key << 24 | k;
+        }
+        stores = Arrays.copyOf(stores, ns);
+        Arrays.sort(stores);
+        int next = 0;
+        boolean blocks = state.stores() == 0;
+        int[] cells = new int[2 * 4096 + state.stores()];
+        float[] offsets = new float[cells.length];
         for (int j = 0; j < nsy; j++) {
             for (int k = 0; k < nsz; k++) {
                 for (int i = 0; i < nsx; i++) {
@@ -85,7 +113,7 @@ public final class AirflowSaved {
                         }
                     }
                     // wall entries sort after every air entry: WALL is above any local index
-                    for (int local = 0; local < 4096; local++) {
+                    for (int local = 0; blocks && local < 4096; local++) {
                         int lx = local & 15, lz = (local >> 4) & 15, ly = local >> 8;
                         int c = ((16 * j + ly) * nz + 16 * k + lz) * nx + 16 * i + lx;
                         float s = state.solid(c);
@@ -94,6 +122,14 @@ public final class AirflowSaved {
                             cells[n] = local | WALL;
                             offsets[n++] = (float) (s - bg);
                         }
+                    }
+                    // store entries sort after both: STORE is above any wall key
+                    int section = (j * nsz + k) * nsx + i;
+                    for (; next < ns && (int) (stores[next] >>> 44) == section; next++) {
+                        int store = (int) (stores[next] & 0xFFFFFF);
+                        int c = state.storeCell(store);
+                        cells[n] = (int) (stores[next] >>> 24 & 0xFFFFF);
+                        offsets[n++] = (float) (state.storeT(store) - background.applyAsDouble(c));
                     }
                     out[(j * nsz + k) * nsx + i] = new Section(tick, Arrays.copyOf(cells, n), Arrays.copyOf(offsets, n));
                 }
@@ -118,6 +154,16 @@ public final class AirflowSaved {
         float[] air = new float[nx * ny * nz], solid = new float[air.length];
         Arrays.fill(air, Float.NaN);
         Arrays.fill(solid, Float.NaN);
+        int stores = 0;
+        for (Section s : sections) {
+            for (int e = 0; s != null && e < s.cells().length; e++) {
+                stores += (s.cells()[e] & STORE) != 0 ? 1 : 0;
+            }
+        }
+        int[] storeCell = new int[stores];
+        byte[] storeDir = new byte[stores];
+        float[] storeT = new float[stores];
+        int m = 0;
         for (int j = 0; j < nsy; j++) {
             for (int k = 0; k < nsz; k++) {
                 for (int i = 0; i < nsx; i++) {
@@ -127,11 +173,15 @@ public final class AirflowSaved {
                     }
                     any = true;
                     for (int e = 0; e < s.cells().length; e++) {
-                        int local = s.cells()[e] & (WALL - 1);
+                        int key = s.cells()[e], local = key & (WALL - 1);
                         int lx = local & 15, lz = (local >> 4) & 15, ly = local >> 8;
                         int c = ((16 * j + ly) * nz + 16 * k + lz) * nx + 16 * i + lx;
                         float t = (float) (background.applyAsDouble(c) + decay(s.offsets()[e], now - s.tick()));
-                        if ((s.cells()[e] & WALL) != 0) {
+                        if ((key & STORE) != 0) {
+                            storeCell[m] = c;
+                            storeDir[m] = (byte) (key >> DIR_SHIFT);
+                            storeT[m++] = t;
+                        } else if ((key & WALL) != 0) {
                             solid[c] = t;
                         } else {
                             air[c] = t;
@@ -140,7 +190,7 @@ public final class AirflowSaved {
                 }
             }
         }
-        return any ? new ThermalState(nx, ny, nz, air, solid) : null;
+        return any ? new ThermalState(nx, ny, nz, air, solid, storeCell, storeDir, storeT) : null;
     }
 
     private static void check(int nx, int ny, int nz) {

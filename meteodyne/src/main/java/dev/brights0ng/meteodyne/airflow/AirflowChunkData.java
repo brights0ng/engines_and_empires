@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7d d2).
+// Written by Claude (GreedyFluids M7d d2); edited by Claude (M7f: wall-store keys).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.HashMap;
@@ -84,7 +84,7 @@ public final class AirflowChunkData implements INBTSerializable<CompoundTag> {
 
     private static boolean ascending(int[] cells) {
         for (int i = 0; i < cells.length; i++) {
-            if (cells[i] < 0 || cells[i] >= 2 * AirflowSaved.WALL || (i > 0 && cells[i] <= cells[i - 1])) {
+            if (cells[i] < 0 || cells[i] >= AirflowSaved.KEY_LIMIT || (i > 0 && cells[i] <= cells[i - 1])) {
                 return false;
             }
         }

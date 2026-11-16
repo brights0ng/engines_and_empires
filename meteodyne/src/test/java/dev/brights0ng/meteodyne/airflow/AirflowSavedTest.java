@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7d d2).
+// Written by Claude (GreedyFluids M7d d2); edited by Claude (M7f: stores one by one).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -62,6 +62,51 @@ class AirflowSavedTest {
         assertNull(AirflowSaved.unpack(new AirflowSaved.Section[2], NX, NY, NZ, c -> 10, 0));
         assertThrows(IllegalArgumentException.class,
                 () -> AirflowSaved.unpack(new AirflowSaved.Section[3], NX, NY, NZ, c -> 10, 0));
+    }
+
+    @Test
+    void storesKeptOneByOneComeBackOneByOne() {
+        float[] air = new float[NX * NY * NZ], solid = new float[air.length];
+        Arrays.fill(air, 10f);
+        Arrays.fill(solid, Float.NaN);
+        solid[cell(9, 9, 9)] = 18f; // a block mean: not written when stores are kept
+        // three stores: two in the first section (one under KEEP), one in the second, out of order
+        int[] cells = {cell(20, 3, 4), cell(5, 6, 7), cell(5, 6, 7), cell(1, 1, 1)};
+        byte[] dirs = {6, 1, 3, 0};
+        float[] temps = {4f, 16f, 13f, 10.01f};
+        ThermalState state = new ThermalState(NX, NY, NZ, air, solid, cells, dirs, temps);
+        AirflowSaved.Section[] s = AirflowSaved.pack(state, c -> 10, 100);
+        for (AirflowSaved.Section section : s) {
+            for (int i = 1; i < section.cells().length; i++) {
+                assertTrue(section.cells()[i] > section.cells()[i - 1], "ascending: " + Arrays.toString(section.cells()));
+            }
+            for (int key : section.cells()) {
+                assertTrue(key < AirflowSaved.KEY_LIMIT && (key & AirflowSaved.WALL) == 0, "no block means: " + key);
+            }
+        }
+        assertEquals(2, s[0].cells().length, "two stores in the first section");
+        assertEquals(1, s[1].cells().length);
+        ThermalState back = AirflowSaved.unpack(s, NX, NY, NZ, c -> 10, 100);
+        assertEquals(3, back.stores());
+        assertTrue(Float.isNaN(back.solid(cell(9, 9, 9))), "block means are left out");
+        for (int k = 0; k < back.stores(); k++) {
+            int c = back.storeCell(k), d = back.storeDir(k);
+            float t = back.storeT(k);
+            if (c == cell(20, 3, 4)) {
+                assertEquals(6, d);
+                assertEquals(4f, t, 1e-5);
+            } else {
+                assertEquals(cell(5, 6, 7), c);
+                assertEquals(d == 1 ? 16f : 13f, t, 1e-5, "direction " + d);
+            }
+        }
+        long day = (long) AirflowSaved.TAU_TICKS;
+        ThermalState later = AirflowSaved.unpack(s, NX, NY, NZ, c -> 4, 100 + day);
+        for (int k = 0; k < later.stores(); k++) {
+            if (later.storeCell(k) == cell(20, 3, 4)) {
+                assertEquals(4 - 6 * Math.exp(-1), later.storeT(k), 1e-4, "decays toward today's background");
+            }
+        }
     }
 
     @Test
