@@ -1,7 +1,7 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: counters; M7d d2: saved state in and out; M7c: the
 // background field, fixed walls, thermostats and body heat; M7f: sources on the grid before the region is built, the
 // heat diffusivity from the spec; held steps and edit-batch time for the profile; a weather sent ahead of an edit
-// batch goes first, and door toggles refresh the follow weights).
+// batch goes first, and door toggles refresh the follow weights; M8a: the surface film from the cell table).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -188,6 +188,7 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
             throw new IllegalArgumentException("expected " + nsx * nsy * nsz + " sections, got " + spec.sections().length);
         }
         CellGrid3D grid = new CellGrid3D(spec.nx(), spec.ny(), spec.nz());
+        grid.setFilmResistance(spec.table().filmResistance()); // before the region: its stores and graph read it
         for (int j = 0; j < nsy; j++) {
             for (int k = 0; k < nsz; k++) {
                 for (int i = 0; i < nsx; i++) {

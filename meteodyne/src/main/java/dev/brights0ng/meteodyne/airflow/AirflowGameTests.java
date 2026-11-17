@@ -2,7 +2,7 @@
 // region around an anchor; b4: a region around a player, the commands and recorder, the switch; M7d d1: tiles; d2:
 // saving and restoring; M7c: watts and hot walls from the heat tables; M7e: the speed limit; M7f: stone from the
 // config, the recorder's profile; f3: AIRFLOW is the config's default, game-test servers run LEGACY; M8a: AIRFLOW
-// started by the server's own handlers).
+// started by the server's own handlers; the surface film from the config).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -839,6 +839,25 @@ public final class AirflowGameTests {
         CellGrid3D grid = new CellGrid3D(16, 16, 16);
         lava.apply(grid, 3, 3, 3);
         helper.assertTrue(grid.fixedTemperature(grid.index(3, 3, 3)) == 1000, "a lava cell is written fixed");
+        helper.succeed();
+    }
+
+    /**
+     * M8a (Bright, 2026-11-16: a realistic surface film): {@code [heat] airflowSurfaceFilm} (m²·K/W, still air's 0.13
+     * by default) reaches the cell table and every region's grid in GreedyFluids' unit, s/m (times air's rhoCp).
+     */
+    @GameTest(template = GameTestStructures.EMPTY)
+    public static void regionsUseTheConfigsSurfaceFilm(GameTestHelper helper) {
+        double rhoCp = dev.brights0ng.greedyfluids.solve.SolverConfig3D.DEFAULT.rhoCp();
+        double expected = WeatherConfig.airflowSurfaceFilm() * rhoCp;
+        helper.assertTrue(Math.abs(WeatherConfig.AIRFLOW_SURFACE_FILM.getDefault() - 0.13) < 1e-12,
+                "the default is still air's 0.13 m²·K/W: " + WeatherConfig.AIRFLOW_SURFACE_FILM.getDefault());
+        helper.assertTrue(Math.abs(AirflowCells.table().filmResistance() - expected) < 1e-9,
+                "the table's film is the config's in s/m: " + AirflowCells.table().filmResistance() + " against " + expected);
+        AirflowScene.Run run = new AirflowScene(16, 16, 16)
+                .fill(0, 0, 0, 15, 0, 15, Blocks.STONE.defaultBlockState()).build((x, y, z, t) -> 10, 0, 0);
+        double film = run.model.region().grid().filmResistance();
+        helper.assertTrue(Math.abs(film - expected) < 1e-9, "a region's grid has it: " + film + " against " + expected);
         helper.succeed();
     }
 

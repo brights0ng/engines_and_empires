@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7b); edited by Claude (M7c: hot walls; M7f: real stone from the config).
+// Written by Claude (GreedyFluids M7b); edited by Claude (M7c: hot walls; M7f: real stone from the config; M8a: the
+// surface film from the config).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -108,14 +109,21 @@ public final class AirflowCells {
     public static final class Table {
         private final long generation;
         private final Cell[] cells;
+        private final double filmResistance;
 
-        Table(long generation, Cell[] cells) {
+        Table(long generation, Cell[] cells, double filmResistance) {
             this.generation = generation;
             this.cells = cells;
+            this.filmResistance = filmResistance;
         }
 
         public long generation() {
             return generation;
+        }
+
+        /** The surface film on each face of a solid in this generation, s/m (GreedyFluids' unit; M8a). */
+        public double filmResistance() {
+            return filmResistance;
         }
 
         /** Codes in use, AIR included. */
@@ -139,6 +147,8 @@ public final class AirflowCells {
     private static volatile Table table;
     /** Stone's per-block conductance, m/s, and heat capacity relative to air's, for this generation. */
     private static double stoneConductance, stoneCapacity;
+    /** The surface film for this generation, s/m (the config's m²·K/W times air's heat capacity). */
+    private static double filmResistance;
 
     static {
         reset(1);
@@ -244,7 +254,7 @@ public final class AirflowCells {
         code = (byte) CELLS.size();
         CELLS.add(cell);
         INTERNED.put(cell, code);
-        table = new Table(generation, CELLS.toArray(Cell[]::new));
+        table = new Table(generation, CELLS.toArray(Cell[]::new), filmResistance);
         return code;
     }
 
@@ -277,9 +287,10 @@ public final class AirflowCells {
         double rhoCp = SolverConfig3D.DEFAULT.rhoCp();
         stoneConductance = WeatherConfig.airflowStoneConductivity() / rhoCp;
         stoneCapacity = WeatherConfig.airflowStoneHeatCapacity() * 1e6 / rhoCp;
+        filmResistance = WeatherConfig.airflowSurfaceFilm() * rhoCp;
         CELLS.add(AIR_CELL);
         INTERNED.put(AIR_CELL, AIR);
-        table = new Table(generation, CELLS.toArray(Cell[]::new));
+        table = new Table(generation, CELLS.toArray(Cell[]::new), filmResistance);
     }
 
     @SubscribeEvent

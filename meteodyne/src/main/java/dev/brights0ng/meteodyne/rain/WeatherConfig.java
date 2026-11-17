@@ -4,6 +4,7 @@
 // Updated by Claude: [heat] airflow speed limit and tile cap (GreedyFluids M7e).
 // Updated by Claude: [heat] airflow stone conductivity and heat capacity, and heat diffusivity (GreedyFluids M7f).
 // Updated by Claude: [heat] engine defaults to AIRFLOW (GreedyFluids M7f f3).
+// Updated by Claude: [heat] airflow surface film, a physical one (GreedyFluids M8a).
 package dev.brights0ng.meteodyne.rain;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -416,6 +417,13 @@ public final class WeatherConfig {
                     "scale was 0.0042. Applies from the next /reload or restart.")
             .defineInRange("airflowStoneHeatCapacity", 2.0, 0.0001, 100.0);
 
+    public static final ModConfigSpec.DoubleValue AIRFLOW_SURFACE_FILM = BUILDER
+            .comment("AIRFLOW: the still-air film on each face of a wall, door or floor, m²·K/W (an indoor wall's is",
+                    "about 0.13, an outside face's in wind about 0.04). It is in series with the block itself, so higher",
+                    "keeps rooms warm longer and slows walls and doors to follow the air. GreedyFluids' own default is",
+                    "0.000124. Applies from the next /reload or restart.")
+            .defineInRange("airflowSurfaceFilm", 0.13, 0.00001, 10.0);
+
     public static final ModConfigSpec.DoubleValue AIRFLOW_HEAT_DIFFUSIVITY = BUILDER
             .comment("AIRFLOW: how fast heat spreads through the air by mixing alone, m²/s (indoor air mixes at about",
                     "0.01-0.1). Lower lets warm air rise and gather under ceilings and fires draw up chimneys; higher",
@@ -504,6 +512,11 @@ public final class WeatherConfig {
     /** AIRFLOW: stone's heat capacity, MJ/(m³·K). */
     public static double airflowStoneHeatCapacity() {
         return SPEC.isLoaded() ? AIRFLOW_STONE_HEAT_CAPACITY.get() : 2.0;
+    }
+
+    /** AIRFLOW: the surface film on each face of a solid, m²·K/W. */
+    public static double airflowSurfaceFilm() {
+        return SPEC.isLoaded() ? AIRFLOW_SURFACE_FILM.get() : 0.13;
     }
 
     /** AIRFLOW: the air's heat diffusivity, m²/s. */

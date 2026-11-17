@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f: loose regression bars).
+// Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f: loose regression bars; M8a:
+// the two bars the realistic surface film moved out of, re-centred).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -27,6 +28,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * day, loose regression bars ({@link #bar}): about 0.5 to 1.5 times the value measured with kappa 0.05, real stone
  * walls and keep-fine following sources. They guard against a change that quietly weakens the physics; they are not
  * design targets, and they hold for the default {@code [heat]} config only.
+ * <p>M8a (Bright, 2026-11-16: a realistic surface film, 0.13 m²·K/W): walls and doors now hold heat better, so every
+ * value moved; the two that left their bars (the house's share kept 10 min after the fire, body heat) are re-centred at
+ * 0.5 to 1.5 times their new values, and the rest still sit inside theirs.
  * <p>The scenes stand on 8 blocks of stone (the air starts at y 8); the outside air is 5 C unless a scenario says
  * otherwise. Every step runs inside the test's first tick, so the game test clock doesn't matter.
  */
@@ -147,7 +151,7 @@ public final class AirflowScenarios {
         helper.assertTrue(cold > 0 && cold < shut, "the room cools but stays warmer than outside: " + cold);
         bar(helper, "e. share kept 1 min after the fire goes out", kept[0], 0.825, 0.6, 0.95);
         bar(helper, "e. share kept after 5 min", kept[1], 0.387, 0.2, 0.6);
-        bar(helper, "e. share kept after 10 min", kept[2], 0.151, 0.07, 0.3);
+        bar(helper, "e. share kept after 10 min", kept[2], 0.307, 0.15, 0.46);
         helper.succeed();
     }
 
@@ -395,7 +399,7 @@ public final class AirflowScenarios {
         }
         report.log(run);
         helper.assertTrue(last > 0 && last > first, "body heat warms the room: " + first + " then " + last);
-        bar(helper, "i. body heat, inside at 10 min, C", last, 2.99, 1.8, 4.5);
+        bar(helper, "i. body heat, inside at 10 min, C", last, 4.57, 2.3, 6.9);
         helper.succeed();
     }
 
