@@ -1,6 +1,10 @@
 // Written by Claude (GreedyFluids M8a: the straddle scenarios); edited by Claude (M8b: B2's cuts, alone and with the
-// neighbouring tiles running).
+// neighbouring tiles running; b4: decision 10's bars).
 package dev.brights0ng.meteodyne.airflow;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
@@ -23,7 +27,11 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  *       other's latest frame across the cut, as the air thread does when both run. The heat each side counts across
  *       the cut is the energy line: out of one, into the other, a step apart.</li>
  *   <li>A tile without the fire sees nothing of it alone; its numbers are the case for or against B3.</li>
- *   <li>Logged as {@code Airflow scenario straddle ...}; nothing is asserted beyond finite values.</li>
+ *   <li>Logged as {@code Airflow scenario straddle ...}.</li>
+ *   <li><b>Bars (M8b b4; Bright, 2026-11-17, decision 10)</b> on the four warm cuts at 10 min: with every tile of
+ *       the cut live, the fire's side 0.8–1.6× the uncut room's same cells, the far side 0.5–1.2×, and the heat out
+ *       of the fire's side within 2 % of the heat into the rest; each tile alone, finite values only. The cellar and
+ *       the flue are regression checks: finite values only.</li>
  * </ul>
  * World coordinates below; the scenes stand on 8 blocks of stone (air from y 8) unless a scenario says otherwise, the
  * outside air at 5 C.
@@ -77,6 +85,41 @@ public final class AirflowStraddleGameTests {
     }
 
     /**
+     * Decision 10's bars on one warm cut at 10 min (after its report is logged): the live fire side over the
+     * reference's, the live far side over the reference's, the energy line, and the tiles alone finite.
+     */
+    private static void bars(GameTestHelper helper, String name, double refFire, double liveFire, double refFar,
+            double liveFar, double out, double in, double... alone) {
+        List<String> wrong = new ArrayList<>();
+        ratio(wrong, "fire side", liveFire, refFire, 0.8, 1.6);
+        ratio(wrong, "far side", liveFar, refFar, 0.5, 1.2);
+        if (!(Math.abs(out - in) <= 0.02 * Math.abs(out))) {
+            wrong.add(String.format(Locale.ROOT, "energy line: %.1f kJ out, %.1f kJ in (bar: within 2 %%)", out / 1e3,
+                    in / 1e3));
+        }
+        for (double v : alone) {
+            if (!Double.isFinite(v)) {
+                wrong.add("a tile alone read " + v);
+            }
+        }
+        helper.assertTrue(wrong.isEmpty(), "straddle " + name + ": " + String.join("; ", wrong));
+    }
+
+    private static void ratio(List<String> wrong, String what, double live, double ref, double lo, double hi) {
+        double r = live / ref;
+        if (!(r >= lo && r <= hi)) {
+            wrong.add(String.format(Locale.ROOT, "%s %.2f against %.2f uncut = %.2f× (bar %.1f–%.1f×)", what, live, ref,
+                    r, lo, hi));
+        }
+    }
+
+    private static void finite(GameTestHelper helper, String name, double... values) {
+        for (double v : values) {
+            helper.assertTrue(Double.isFinite(v), "straddle " + name + ": a value read " + v);
+        }
+    }
+
+    /**
      * A house cut by the x = 32 border, inside the left tile from its west wall up to the cut ({@code near} columns of
      * its 8), the fire among them; the right tile holds the rest. The reference tile (x 16–47) holds the whole house.
      * 10 min, the fire burning.
@@ -91,6 +134,7 @@ public final class AirflowStraddleGameTests {
         AirflowScene.Run liveLeft = world.tile(0, 0, 0, 32, 32, 32).build(STILL, 0, 0);
         AirflowScene.Run liveRight = world.tile(32, 0, 0, 32, 32, 32).build(STILL, 0, 0);
         AirflowScene.Report report = new AirflowScene.Report("straddle x, " + near + " of 8 columns with the fire");
+        double[] at10 = new double[8];
         for (int t : new int[] {120, 600}) {
             ref.until(t);
             left.until(t);
@@ -98,6 +142,9 @@ public final class AirflowStraddleGameTests {
             AirflowScene.Run.together(t, liveLeft, liveRight);
             double refNear = meanOffset(ref, ix, G, 12, 31, G + 3, 19);
             double refFar = meanOffset(ref, 32, G, 12, ix + 7, G + 3, 19);
+            at10 = new double[] {refNear, meanOffset(liveLeft, ix, G, 12, 31, G + 3, 19), refFar,
+                    meanOffset(liveRight, 32, G, 12, ix + 7, G + 3, 19), liveLeft.exchanged(), -liveRight.exchanged(),
+                    meanOffset(left, ix, G, 12, 31, G + 3, 19), meanOffset(right, 32, G, 12, ix + 7, G + 3, 19)};
             report.add("t" + t + " whole room (ref)", meanOffset(ref, ix, G, 12, ix + 7, G + 3, 19))
                     .add("fire side (ref)", refNear).add("fire side (cut)", meanOffset(left, ix, G, 12, 31, G + 3, 19))
                     .add("fire side (both live)", meanOffset(liveLeft, ix, G, 12, 31, G + 3, 19))
@@ -110,6 +157,7 @@ public final class AirflowStraddleGameTests {
                     .add("into the far side", -liveRight.exchanged() / 1e3);
         }
         report.log(left);
+        bars(helper, "x, " + near + " of 8", at10[0], at10[1], at10[2], at10[3], at10[4], at10[5], at10[6], at10[7]);
         helper.succeed();
     }
 
@@ -141,11 +189,18 @@ public final class AirflowStraddleGameTests {
         AirflowScene.Run liveLower = world.tile(0, 0, 0, 32, 16, 32).build(STILL, 0, 0);
         AirflowScene.Run liveUpper = world.tile(0, 16, 0, 32, 16, 32).build(STILL, 0, 0);
         AirflowScene.Report report = new AirflowScene.Report("straddle y, cut between the second and third layers");
+        double[] at10 = new double[8];
         for (int t : new int[] {120, 600}) {
             ref.until(t);
             lower.until(t);
             upper.until(t);
             AirflowScene.Run.together(t, liveLower, liveUpper);
+            at10 = new double[] {meanOffset(ref, 12, floor, 12, 19, floor + 1, 19),
+                    meanOffset(liveLower, 12, floor, 12, 19, floor + 1, 19),
+                    meanOffset(ref, 12, floor + 2, 12, 19, floor + 3, 19),
+                    meanOffset(liveUpper, 12, floor + 2, 12, 19, floor + 3, 19), liveLower.exchanged(),
+                    -liveUpper.exchanged(), meanOffset(lower, 12, floor, 12, 19, floor + 1, 19),
+                    meanOffset(upper, 12, floor + 2, 12, 19, floor + 3, 19)};
             report.add("t" + t + " whole room (ref)", meanOffset(ref, 12, floor, 12, 19, floor + 3, 19))
                     .add("lower two layers (ref)", meanOffset(ref, 12, floor, 12, 19, floor + 1, 19))
                     .add("lower two layers (cut)", meanOffset(lower, 12, floor, 12, 19, floor + 1, 19))
@@ -158,6 +213,7 @@ public final class AirflowStraddleGameTests {
                     .add("into the upper", -liveUpper.exchanged() / 1e3);
         }
         report.log(lower);
+        bars(helper, "y", at10[0], at10[1], at10[2], at10[3], at10[4], at10[5], at10[6], at10[7]);
         helper.succeed();
     }
 
@@ -173,10 +229,15 @@ public final class AirflowStraddleGameTests {
             live[i] = world.tile(32 * (i % 2), 0, 32 * (i / 2), 32, 32, 32).build(STILL, 0, 0);
         }
         AirflowScene.Report report = new AirflowScene.Report("straddle corner, the fire's quarter");
+        double[] at10 = new double[7];
         for (int t : new int[] {120, 600}) {
             ref.until(t);
             quarter.until(t);
             AirflowScene.Run.together(t, live);
+            at10 = new double[] {meanOffset(ref, 28, G, 28, 31, G + 3, 31), meanOffset(live[0], 28, G, 28, 31, G + 3, 31),
+                    meanOffset(ref, 32, G, 32, 35, G + 3, 35), meanOffset(live[3], 32, G, 32, 35, G + 3, 35),
+                    live[0].exchanged(), -(live[1].exchanged() + live[2].exchanged() + live[3].exchanged()),
+                    meanOffset(quarter, 28, G, 28, 31, G + 3, 31)};
             report.add("t" + t + " whole room (ref)", meanOffset(ref, 28, G, 28, 35, G + 3, 35))
                     .add("fire quarter (ref)", meanOffset(ref, 28, G, 28, 31, G + 3, 31))
                     .add("fire quarter (cut)", meanOffset(quarter, 28, G, 28, 31, G + 3, 31))
@@ -188,6 +249,7 @@ public final class AirflowStraddleGameTests {
                             / 1e3);
         }
         report.log(quarter);
+        bars(helper, "corner", at10[0], at10[1], at10[2], at10[3], at10[4], at10[5], at10[6]);
         helper.succeed();
     }
 
@@ -232,6 +294,11 @@ public final class AirflowStraddleGameTests {
                 .add("top half swing (ref)", range[2][1] - range[2][0])
                 .add("top half swing (cut)", range[3][1] - range[3][0])
                 .add("top half swing (all live)", range[5][1] - range[5][0]).log(lower);
+        double[] swings = new double[range.length];
+        for (int i = 0; i < range.length; i++) {
+            swings[i] = range[i][1] - range[i][0];
+        }
+        finite(helper, "cellar", swings);
         helper.succeed();
     }
 
@@ -252,10 +319,13 @@ public final class AirflowStraddleGameTests {
         AirflowScene.Run liveLower = world.tile(0, 0, 0, 32, 16, 32).build(STILL, 0, 0);
         AirflowScene.Run liveUpper = world.tile(0, 16, 0, 32, 16, 32).build(STILL, 0, 0);
         AirflowScene.Report report = new AirflowScene.Report("straddle flue, the shaft cut 4 blocks up");
+        double[] at5 = new double[0];
         for (int t : new int[] {120, 300}) {
             ref.until(t);
             lower.until(t);
             AirflowScene.Run.together(t, liveLower, liveUpper);
+            at5 = new double[] {meanFlow(lower, 1, 12, G + 4, 15, 12, 15, 15), meanFlow(liveLower, 1, 12, G + 4, 15, 12, 15, 15),
+                    meanOffset(lower, 12, G, 12, 19, G + 3, 19), meanOffset(liveLower, 12, G, 12, 19, G + 3, 19)};
             report.add("t" + t + " shaft rise below the cut (ref) m/s", meanFlow(ref, 1, 12, G + 4, 15, 12, 15, 15))
                     .add("same (cut) m/s", meanFlow(lower, 1, 12, G + 4, 15, 12, 15, 15))
                     .add("same (both live) m/s", meanFlow(liveLower, 1, 12, G + 4, 15, 12, 15, 15))
@@ -266,6 +336,7 @@ public final class AirflowStraddleGameTests {
                     .add("inside (both live)", meanOffset(liveLower, 12, G, 12, 19, G + 3, 19));
         }
         report.log(lower);
+        finite(helper, "flue", at5);
         helper.succeed();
     }
 
