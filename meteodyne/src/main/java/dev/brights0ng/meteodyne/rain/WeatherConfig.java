@@ -3,6 +3,7 @@
 // Updated by Claude: [seasons] obliquity and sunLatitude, the sun's strength through the year.
 // Updated by Claude: [heat] airflow speed limit and tile cap (GreedyFluids M7e).
 // Updated by Claude: [heat] airflow stone conductivity and heat capacity, and heat diffusivity (GreedyFluids M7f).
+// Updated by Claude: [heat] engine defaults to AIRFLOW (GreedyFluids M7f f3).
 package dev.brights0ng.meteodyne.rain;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -381,11 +382,11 @@ public final class WeatherConfig {
             .define("enabled", true);
 
     public static final ModConfigSpec.EnumValue<dev.brights0ng.meteodyne.airflow.Airflow.Engine> HEAT_ENGINE = BUILDER
-            .comment("Which simulation runs the air (GreedyFluids M7b). Read when the server starts: a change needs a restart.",
+            .comment("Which simulation runs the air (GreedyFluids M7). Read when the server starts: a change needs a restart.",
+                    "AIRFLOW (the default): GreedyFluids air tiles around players; ships' rooms have no room heat.",
                     "LEGACY: the heat regions around placed sources, ships' rooms included.",
-                    "AIRFLOW: GreedyFluids air tiles around players (in development); ships' rooms have no room heat.",
                     "The budget, threads and step settings below are LEGACY's.")
-            .defineEnum("engine", dev.brights0ng.meteodyne.airflow.Airflow.Engine.LEGACY);
+            .defineEnum("engine", dev.brights0ng.meteodyne.airflow.Airflow.Engine.AIRFLOW);
 
     public static final ModConfigSpec.DoubleValue AIRFLOW_SPEED_LIMIT = BUILDER
             .comment("AIRFLOW: a player moving faster than this, blocks a second over the last 2 s, opens no new air",
@@ -475,9 +476,9 @@ public final class WeatherConfig {
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 
-    /** Which simulation runs the air (GreedyFluids M7b); LEGACY before the config loads. {@code Airflow} reads it at server start. */
+    /** Which simulation runs the air (GreedyFluids M7b); AIRFLOW before the config loads. {@code Airflow} reads it at server start. */
     public static dev.brights0ng.meteodyne.airflow.Airflow.Engine heatEngine() {
-        return SPEC.isLoaded() ? HEAT_ENGINE.get() : dev.brights0ng.meteodyne.airflow.Airflow.Engine.LEGACY;
+        return SPEC.isLoaded() ? HEAT_ENGINE.get() : dev.brights0ng.meteodyne.airflow.Airflow.Engine.AIRFLOW;
     }
 
     /** AIRFLOW: the speed over which a player opens no new tile, blocks a second (0: none). */

@@ -1,7 +1,7 @@
 // Written by Claude (GreedyFluids M7b); edited by Claude (b2: classifier, section cache and snapshot check; b3: a
 // region around an anchor; b4: a region around a player, the commands and recorder, the switch; M7d d1: tiles; d2:
 // saving and restoring; M7c: watts and hot walls from the heat tables; M7e: the speed limit; M7f: stone from the
-// config, the recorder's profile).
+// config, the recorder's profile; f3: AIRFLOW is the config's default, game-test servers run LEGACY).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -53,7 +53,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /**
  * GreedyFluids M7b in the game, where the unit tests can't go (they run on Gradle's classpath, without Minecraft):
  * <ul>
- *   <li>b1: the bundled library loads and runs, and the engine switch defaults to LEGACY;</li>
+ *   <li>b1: the bundled library loads and runs; the engine switch defaults to AIRFLOW (M7f f3) and a game-test
+ *       server runs LEGACY;</li>
  *   <li>b2: the classifier's table ({@link AirflowCells}) and the section cache ({@link AirflowSections}): reading,
  *       edits, copy-on-write, dropping, and uniform sections from the palette;</li>
  *   <li>b2, opt-in: the container check, re-classifying the GreedyFluids snapshots with the in-game rule
@@ -86,7 +87,9 @@ public final class AirflowGameTests {
         double t = frame.temperature(4.5, 1.5, 4.5);
         helper.assertTrue(Math.abs(region.time() - 10) < 1e-9, "20 steps of 0.5 s should be 10 s, got " + region.time());
         helper.assertTrue(Double.isFinite(t) && t > 10, "the source's air should be warmer than the 10 C background, got " + t);
-        helper.assertTrue(Airflow.engine() == Airflow.Engine.LEGACY, "the default engine should be LEGACY, got " + Airflow.engine());
+        helper.assertTrue(WeatherConfig.HEAT_ENGINE.getDefault() == Airflow.Engine.AIRFLOW,
+                "the config's default engine should be AIRFLOW, got " + WeatherConfig.HEAT_ENGINE.getDefault());
+        helper.assertTrue(Airflow.engine() == Airflow.Engine.LEGACY, "a game-test server should run LEGACY, got " + Airflow.engine());
         helper.succeed();
     }
 

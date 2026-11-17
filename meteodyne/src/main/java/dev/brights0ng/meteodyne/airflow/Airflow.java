@@ -1,9 +1,10 @@
 // Written by Claude (GreedyFluids M7b); edited by Claude (b4: an engine override for game tests; M7e: readers; M7f f3:
-// the local-air domains are gone).
+// the local-air domains are gone; AIRFLOW is the default and game-test servers run LEGACY).
 package dev.brights0ng.meteodyne.airflow;
 
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
+import net.minecraft.gametest.framework.GameTestServer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
@@ -17,6 +18,9 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
  *
  * <p>Taken from {@code [heat] engine} when the server starts (server configs load just before
  * {@link ServerAboutToStartEvent}) and kept for the session, so a config edit needs a restart. LEGACY with no server.
+ * AIRFLOW is the config's default (M7 part f3). A game-test server runs LEGACY whatever the config says: the legacy
+ * heat tests need its regions, and the airflow game tests make their own regions ({@link #useForTests} and
+ * {@code AirflowRegions.useForTests}).
  */
 @EventBusSubscriber(modid = Meteodyne.MODID)
 public final class Airflow {
@@ -43,10 +47,11 @@ public final class Airflow {
 
     @SubscribeEvent
     static void onServerAboutToStart(ServerAboutToStartEvent event) {
-        engine = WeatherConfig.heatEngine();
+        boolean gameTests = event.getServer() instanceof GameTestServer;
+        engine = gameTests ? Engine.LEGACY : WeatherConfig.heatEngine();
         // Logged either way, so the log always shows which engine a session ran.
-        Meteodyne.LOGGER.info("[heat] engine is {}{}", engine,
-                engine == Engine.AIRFLOW ? ": the legacy heat regions are off" : "");
+        Meteodyne.LOGGER.info("[heat] engine is {}{}", engine, gameTests ? " (game-test server)"
+                : engine == Engine.AIRFLOW ? ": the legacy heat regions are off" : "");
     }
 
     @SubscribeEvent
