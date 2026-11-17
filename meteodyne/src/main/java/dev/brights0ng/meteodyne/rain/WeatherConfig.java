@@ -422,7 +422,8 @@ public final class WeatherConfig {
                     "about 0.13, an outside face's in wind about 0.04). It is in series with the block itself, so higher",
                     "keeps rooms warm longer and slows walls and doors to follow the air. GreedyFluids' own default is",
                     "0.000124. Applies from the next /reload or restart.")
-            .defineInRange("airflowSurfaceFilm", 0.13, 0.00001, 10.0);
+            .defineInRange("airflowSurfaceFilm", dev.brights0ng.meteodyne.airflow.AirflowCells.Table.DEFAULT_SURFACE_FILM,
+                    0.00001, 10.0);
 
     public static final ModConfigSpec.DoubleValue AIRFLOW_HEAT_DIFFUSIVITY = BUILDER
             .comment("AIRFLOW: how fast heat spreads through the air by mixing alone, m²/s (indoor air mixes at about",
@@ -516,7 +517,7 @@ public final class WeatherConfig {
 
     /** AIRFLOW: the surface film on each face of a solid, m²·K/W. */
     public static double airflowSurfaceFilm() {
-        return SPEC.isLoaded() ? AIRFLOW_SURFACE_FILM.get() : 0.13;
+        return SPEC.isLoaded() ? AIRFLOW_SURFACE_FILM.get() : dev.brights0ng.meteodyne.airflow.AirflowCells.Table.DEFAULT_SURFACE_FILM;
     }
 
     /** AIRFLOW: the air's heat diffusivity, m²/s. */

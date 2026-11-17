@@ -107,6 +107,8 @@ public final class AirflowCells {
 
     /** The codes of one generation so far; immutable (the array is never written after the table is made). */
     public static final class Table {
+        /** The config's default surface film, m²·K/W: still indoor air ({@code [heat] airflowSurfaceFilm}). */
+        public static final double DEFAULT_SURFACE_FILM = 0.13;
         private final long generation;
         private final Cell[] cells;
         private final double filmResistance;
@@ -115,6 +117,11 @@ public final class AirflowCells {
             this.generation = generation;
             this.cells = cells;
             this.filmResistance = filmResistance;
+        }
+
+        /** A table with the default surface film (unit tests that build their own tables, without the config). */
+        Table(long generation, Cell[] cells) {
+            this(generation, cells, DEFAULT_SURFACE_FILM * SolverConfig3D.DEFAULT.rhoCp());
         }
 
         public long generation() {

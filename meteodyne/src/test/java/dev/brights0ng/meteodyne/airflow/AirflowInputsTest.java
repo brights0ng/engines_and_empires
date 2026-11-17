@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7c; the outside air ahead of an edit, M7f).
+// Written by Claude (GreedyFluids M7c; the outside air ahead of an edit, M7f); edited by Claude (M8a: the hot wall's
+// test runs 2 min, as the realistic surface film slows its heat into the room).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -79,7 +80,8 @@ class AirflowInputsTest {
     @Test
     void aHotWallHeatsTheRoomAndGoesWhenItTurnsToStone() {
         AirflowRegionModel m = room(lattice(10), null, new int[0], new double[0], null, cell(7, 0, 7));
-        for (int i = 0; i < 60; i++) {
+        // M8a: through still-air films (0.13 m²·K/W) the 300 C block gives about 2 kW; 30 s warmed the point 0.33 C
+        for (int i = 0; i < 240; i++) {
             m.step();
         }
         double warm = m.region().sampleT(7.5, 2.5, 7.5);
