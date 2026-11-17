@@ -1,5 +1,5 @@
 // Written by Claude (GreedyFluids M7b b4); edited by Claude (M7d d1: regions are tiles; d2: save counts; the view;
-// M7e: the speed limit's and the cap's counts).
+// M7e: the speed limit's and the cap's counts; M8b: heat across a tile's borders).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.nio.file.Path;
@@ -94,9 +94,9 @@ public final class AirflowCommand {
         AirflowRuntime.Counters c = slot.counters();
         return String.format(Locale.ROOT,
                 "%s %s: %d boxes, %.1f ms/step, lag %.1f s, queue %d, %s; %d steps, %d drops, %d failures, "
-                        + "%d desyncs; %d edits, %d toggles, %.0f W%s",
+                        + "%d desyncs; %d edits, %d toggles, %.0f W; %.0f kJ out across borders%s",
                 bounds, slot.status(), slot.boxes(), slot.stepMs(), slot.lag(), slot.queued(), age, slot.steps(),
-                slot.drops(), slot.failures(), c.desyncs(), c.edits(), c.toggles(), c.watts(),
+                slot.drops(), slot.failures(), c.desyncs(), c.edits(), c.toggles(), c.watts(), c.exchangedJ() / 1e3,
                 slot.failure() == null ? "" : "; last failure: " + slot.failure());
     }
 

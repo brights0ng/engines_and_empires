@@ -1,16 +1,20 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: counters; M7d d2: saved state in and out; M7c: the
 // background field, fixed walls, thermostats and body heat; M7f: sources on the grid before the region is built, the
 // heat diffusivity from the spec; held steps and edit-batch time for the profile; a weather sent ahead of an edit
-// batch goes first, and door toggles refresh the follow weights; M8a: the surface film from the cell table).
+// batch goes first, and door toggles refresh the follow weights; M8a: the surface film from the cell table; M8b: tile
+// borders).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import dev.brights0ng.greedyfluids.grid.CellEdit3D;
 import dev.brights0ng.greedyfluids.grid.CellGrid3D;
+import dev.brights0ng.greedyfluids.grid.CellGrid3D.FaceBoundary;
+import dev.brights0ng.greedyfluids.grid.CellGrid3D.Side;
 import dev.brights0ng.greedyfluids.grid.CellType;
 import dev.brights0ng.greedyfluids.region.AirFrame;
 import dev.brights0ng.greedyfluids.region.AirRegion;
@@ -41,6 +45,10 @@ import dev.brights0ng.greedyfluids.solve.SolverConfig3D;
  *   <li><b>Body heat (M7c c3):</b> {@link Bodies} replaces the moving heat sources (players).</li>
  *   <li><b>Saved state (M7d d2):</b> built from the tile's saved sections when there are any (decayed to the build
  *       tick, {@link AirflowSaved}); {@link #save} packs the current state the same way.</li>
+ *   <li><b>Borders (M8b, B2):</b> with column tops, the tile's enclosed cut cells are EXCHANGE ({@link AirflowBorders}),
+ *       set before the region is built and changed when a weather brings new tops. Before each step their far side
+ *       (temperature and distance) is read from the running neighbours' latest frames ({@link #neighbours});
+ *       insulated with none.</li>
  * </ul>
  * Pure Java (GreedyFluids, no Minecraft).
  */
@@ -143,6 +151,17 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     private int desyncs, sinceCheck;
     private long edits, toggles;
     private long editBatches, editNanos;
+    /** M8b: the column tops the border conditions follow (null: none set). */
+    private int[] borderTops;
+    /** M8b, per side: the EXCHANGE cut cells (face-plane indices), their far temperatures and distances (the arrays
+     *  the region reads), the frame they were last read from, and whether they must be read again. */
+    private final int[][] cut = new int[6][];
+    private final float[][] far = new float[6][], reach = new float[6][];
+    private final AirFrame[] readFrom = new AirFrame[6];
+    private final boolean[] unread = new boolean[6];
+    private AirflowBorders.Neighbours neighbours = AirflowBorders.NONE;
+    /** Heat out through EXCHANGE faces so far, J (into the neighbours; negative: in from them). */
+    private double exchangedJ;
 
     private AirflowRegionModel(CellGrid3D grid, Spec spec) {
         this.grid = grid;
@@ -173,8 +192,14 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
             int c = w.getKey();
             grid.setSource(c % nx, c / (nx * nz), c / nx % nz, w.getValue());
         }
+        // M8b: the border conditions go on the grid before the region is built, so its first mesh has them
+        borderTops = spec.tops();
+        for (FaceBoundary f : AirflowBorders.conditions(nx, ny, nz, borderTops)) {
+            grid.setFaceBoundary(f.side(), f.x(), f.y(), f.z(), f.boundary());
+        }
         region = initial == null ? new AirRegion(grid, background, null, spec.windX(), spec.windZ(), config)
                 : AirRegion.restore(grid, background, initial, spec.windX(), spec.windZ(), config);
+        cuts();
         distribute();
     }
 
@@ -296,6 +321,9 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
 
     /** Sets the background (when anything in it, or the follow weights, changed) and the wind. */
     private void weather(Weather w) {
+        if (w.tops() != null) {
+            borders(w.tops());
+        }
         boolean changed = followStale || w.backgroundT() != backgroundT || w.lattice() != lattice || w.tops() != tops;
         if (changed) {
             backgroundT = w.backgroundT();
@@ -305,6 +333,68 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
             region.setBackground(background());
         }
         region.setWind(w.windX(), w.windZ());
+    }
+
+    /**
+     * M8b: new column tops change the conditions of the cut cells whose enclosure changed (a roof built or broken
+     * over a cut); the region remeshes them.
+     */
+    private void borders(int[] tops) {
+        List<FaceBoundary> changes = AirflowBorders.changes(nx, ny, nz, borderTops, tops);
+        borderTops = tops;
+        if (!changes.isEmpty()) {
+            region.setFaceBoundaries(changes);
+            cuts();
+        }
+    }
+
+    /** M8b: lists each side's EXCHANGE cells from the grid, and has their far temperatures read again. */
+    private void cuts() {
+        for (Side side : Side.values()) {
+            int s = side.ordinal();
+            cut[s] = AirflowBorders.exchangeCells(grid, side);
+            if (cut[s].length > 0 && far[s] == null) {
+                far[s] = new float[grid.faceLength(side)];
+                reach[s] = new float[far[s].length];
+                Arrays.fill(far[s], Float.NaN);
+                Arrays.fill(reach[s], Float.NaN);
+                region.setExchangeTemperatures(side, far[s]);
+                region.setExchangeDistances(side, reach[s]);
+            }
+            unread[s] = true;
+        }
+    }
+
+    /**
+     * M8b: the far side of the EXCHANGE cells, from the running neighbours' latest frames (read again only when a
+     * frame is new or the cells changed). A side with no neighbour running is insulated.
+     */
+    private void exchange() {
+        for (Side side : Side.values()) {
+            int s = side.ordinal();
+            if (cut[s].length == 0) {
+                continue;
+            }
+            AirFrame frame = neighbours.across(side);
+            if (frame == readFrom[s] && !unread[s]) {
+                continue;
+            }
+            readFrom[s] = frame;
+            unread[s] = false;
+            for (int i : cut[s]) {
+                AirflowBorders.read(frame, side, i, nx, ny, nz, far[s], reach[s]);
+            }
+        }
+    }
+
+    /** Sets where the far temperatures come from (the region manager's running tiles; none by default). */
+    void neighbours(AirflowBorders.Neighbours n) {
+        neighbours = n == null ? AirflowBorders.NONE : n;
+    }
+
+    /** Heat out through the tile's EXCHANGE faces so far, J (negative: in from the neighbours). */
+    double exchangedJoules() {
+        return exchangedJ;
     }
 
     /** The edits whose cells are what they expect; the rest count as desyncs. */
@@ -429,7 +519,9 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
 
     @Override
     public void step() {
+        exchange();
         region.step();
+        exchangedJ += region.stats().exchangeOut;
         if (++sinceCheck >= THERMOSTAT_STEPS) {
             sinceCheck = 0;
             if (thermostats()) {
@@ -476,7 +568,7 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
             watts += w;
         }
         return new AirflowRuntime.Counters(edits, toggles, desyncs, watts, region.mesh().heldSteps(), editBatches,
-                editNanos);
+                editNanos, exchangedJ);
     }
 
     @Override

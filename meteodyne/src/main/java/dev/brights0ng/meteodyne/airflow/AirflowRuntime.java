@@ -1,5 +1,5 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: busy time and region counters; M7d d2: saves; M7f:
-// per-region busy time, held steps and edit-batch time for the profile).
+// per-region busy time, held steps and edit-batch time for the profile; M8b: heat across the tile's borders).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -75,10 +75,12 @@ public final class AirflowRuntime {
     /**
      * A region's running totals: edits applied, door toggles, events skipped as desyncs, and the watts set now; for the
      * profile (M7f), the steps the velocity hold kept heat-only, and the edit batches applied with their wall time, ns.
+     * {@code exchangedJ} is the heat out through the tile's borders to its running neighbours so far, J (M8b; negative:
+     * in from them).
      */
     public record Counters(long edits, long toggles, long desyncs, double watts, long held, long editBatches,
-            long editNanos) {
-        public static final Counters NONE = new Counters(0, 0, 0, 0, 0, 0, 0);
+            long editNanos, double exchangedJ) {
+        public static final Counters NONE = new Counters(0, 0, 0, 0, 0, 0, 0, 0);
     }
 
     /** Builds a model, on the air thread. */

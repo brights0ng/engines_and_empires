@@ -1,7 +1,8 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: ids, timing, the recorder; only assigned regions
 // stay alive); edited by Claude (M7d d1: fixed tiles replace player-centred windows; d2: saving and restoring; M7c:
 // the background field, driven sources, limits and body heat; M7e: the generator's terrain off the server thread,
-// the speed limit and tile cap; M7f: the heat diffusivity from the config; the outside air sent ahead of edits).
+// the speed limit and tile cap; M7f: the heat diffusivity from the config; the outside air sent ahead of edits; M8b:
+// each region reads its running neighbours' frames for its borders).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -12,8 +13,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
+import dev.brights0ng.greedyfluids.grid.CellGrid3D.Side;
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.heat.world.HeatShips;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
@@ -43,8 +46,8 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  *   <li><b>Tiles:</b> {@link AirflowTiles}, 64×32×64 (Bright, 2026-11-15). Tiles never overlap, so every block
  *       belongs to at most one region and lookups go by tile.</li>
  *   <li><b>Assignment:</b> each player keeps the tile holding them alive (only players are readers that do;
- *       Bright, 2026-11-15). Only that tile runs: a room crossing a border sees the background past it until tiles
- *       exchange heat (M8).</li>
+ *       Bright, 2026-11-15). Only that tile runs. Where a border cuts enclosed air, no air crosses and heat goes to
+ *       the neighbouring tile's air while that tile runs, else nowhere (M8b, {@link AirflowBorders}).</li>
  *   <li><b>Limits ({@link AirflowLimits}; Bright, 2026-11-15):</b> a player moving faster than
  *       {@code airflowSpeedLimit} (5.5 blocks a second) opens no new tile, though the tile they are in keeps running;
  *       past {@code airflowTileCap} tiles (12 on the server, or per player) the tiles empty longest close early.</li>
@@ -173,6 +176,8 @@ public final class AirflowRegions implements AirflowSections.Listener {
     private final AirflowGround ground;
     private final List<Region> regions = new ArrayList<>();
     private final Map<Long, Region> byTile = new HashMap<>();
+    /** M8b: each tile's current slot, written on the server thread and read on the air thread for the borders. */
+    private final Map<Long, AirflowRuntime.Slot> live = new ConcurrentHashMap<>();
     private AirflowSections sections;
     private Function<ServerLevel, List<Anchor>> anchors = AirflowRegions::players;
     private final AirflowLimits.Speeds speeds = new AirflowLimits.Speeds(AirflowLimits.WINDOW_TICKS);
@@ -429,6 +434,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
             return;
         }
         byTile.remove(AirflowTiles.key(r.x0, r.y0, r.z0));
+        live.remove(AirflowTiles.key(r.x0, r.y0, r.z0));
         if (r.slot != null) {
             runtime.retire(r.slot);
         }
@@ -449,6 +455,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
         if (r.slot == null) {
             if (ready(r)) {
                 r.slot = runtime.create(factory(r));
+                live.put(AirflowTiles.key(r.x0, r.y0, r.z0), r.slot);
                 r.built = now;
             }
             return;
@@ -459,6 +466,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
                     r.retryAt = now + AirflowRuntime.backoffTicks(r.slot.failures());
                 } else if (now >= r.retryAt && ready(r)) {
                     r.slot = runtime.replace(r.slot, factory(r));
+                    live.put(AirflowTiles.key(r.x0, r.y0, r.z0), r.slot);
                     r.retryAt = -1;
                     r.built = now;
                 }
@@ -551,7 +559,33 @@ public final class AirflowRegions implements AirflowSections.Listener {
                 watts.stream().mapToDouble(Double::doubleValue).toArray(),
                 limits.stream().mapToDouble(Double::doubleValue).toArray(), any ? saved : null, level.getGameTime(),
                 lattice, tops, WeatherConfig.airflowHeatDiffusivity());
-        return () -> AirflowRegionModel.build(spec);
+        AirflowBorders.Neighbours neighbours = neighboursOf(r.x0, r.y0, r.z0);
+        return () -> {
+            AirflowRegionModel m = AirflowRegionModel.build(spec);
+            m.neighbours(neighbours);
+            return m;
+        };
+    }
+
+    /**
+     * M8b: the tiles beside the one at (x0, y0, z0), as its borders read them on the air thread: each side's latest
+     * frame while the tile there runs, else null.
+     */
+    private AirflowBorders.Neighbours neighboursOf(int x0, int y0, int z0) {
+        long[] keys = new long[6];
+        for (Side side : Side.values()) {
+            int a = side.axis(), d = side.high() ? 1 : -1;
+            keys[side.ordinal()] = AirflowTiles.key(x0 + (a == 0 ? d * WX : 0), y0 + (a == 1 ? d * WY : 0),
+                    z0 + (a == 2 ? d * WZ : 0));
+        }
+        return side -> {
+            AirflowRuntime.Slot s = live.get(keys[side.ordinal()]);
+            if (s == null || s.status() != AirflowRuntime.Status.RUNNING) {
+                return null;
+            }
+            AirflowRuntime.Frame f = s.frame();
+            return f == null ? null : f.frame();
+        };
     }
 
     private static boolean contains(long[] values, long v) {
