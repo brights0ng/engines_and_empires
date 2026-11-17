@@ -2,6 +2,7 @@
 // Updated by Claude: put fastutil on the unit-test runtime for the local-air capture's reader index.
 // Updated by Claude: GreedyFluids, pinned in vendor/maven, required at runtime and bundled jar-in-jar (GreedyFluids M7b).
 // Updated by Claude: the local-air scene properties are gone with the local-air domains (GreedyFluids M7f f3).
+// Updated by Claude: the airflow scenarios, soaks and their scene left out of the release jar (GreedyFluids M8a).
 plugins {
     id 'eae.mod-conventions'
 }
@@ -114,4 +115,8 @@ tasks.named('jar', Jar) {
     // Game test code only the game tests use, left out of the release jar with the game tests themselves (convention
     // plugin): the climatology year is a @GameTestHolder, and GameTestSky is the lightning tests' open-sky helper.
     exclude('**/gametest/ClimatologyDiagnosticRun.class', '**/gametest/GameTestSky.class')
+    // GreedyFluids M8a: the airflow acceptance scenarios and soaks are @GameTestHolders whose names miss the
+    // convention's *GameTests suffix (M7f), and AirflowScene is the scene builder only they use.
+    exclude('**/airflow/AirflowScene.class', '**/airflow/AirflowScene$*.class', '**/airflow/AirflowScenarios.class',
+            '**/airflow/AirflowScenarios$*.class', '**/airflow/AirflowSoaks.class', '**/airflow/AirflowSoaks$*.class')
 }
