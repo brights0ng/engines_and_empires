@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7b b4); edited by Claude (M7f: the profile by segment against M6f).
+// Written by Claude (GreedyFluids M7b b4); edited by Claude (M7f: the profile by segment against M6f; M8b b4:
+// secondaries).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.BufferedWriter;
@@ -37,6 +38,9 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
  * splits them by segment, a segment running from one mark to the next, beside M6f's offline replay of the same
  * activity when the mark names one (settling, mining, digging, building). {@code regions.csv} gains each region's
  * busy share per second and its cumulative held steps, edit batches and edit ms; {@code seconds.csv} the used heap.
+ * <p><b>Secondaries (M8b b4).</b> {@code regions.csv} gains each region's role (PLAYER, SECONDARY or GRACE) and
+ * {@code seconds.csv} the secondaries running and the tiles that would run at 2, 4 and 8 shared cells; the summary
+ * adds their tile-seconds over the recording and the secondaries' share of the regions' air-thread time.
  */
 public final class AirflowRecorder {
 
@@ -66,6 +70,10 @@ public final class AirflowRecorder {
     private final IntArrayList frameAgeSecond = new IntArrayList(); // beside frameAges
     private final IntArrayList markSeconds = new IntArrayList();
     private final List<String> markTexts = new ArrayList<>();
+    // M8b b4: the manager's tile-tick counters at the start, and the secondaries' busy time per second
+    private final long secondaryTicksAtStart;
+    private final long[] wouldTicksAtStart = new long[AirflowNeighbourTiles.REPORTED.length];
+    private final LongArrayList secSecondaryBusy = new LongArrayList();
 
     AirflowRecorder(AirflowRegions regions, Path dir) {
         this.regions = regions;
@@ -78,9 +86,9 @@ public final class AirflowRecorder {
             marks = Files.newBufferedWriter(dir.resolve("marks.csv"));
             ticks.write("tick,hook_us,read_us,manager_us,total_us\n");
             seconds.write("second,tick,players,regions,running,failed,pending_regions,cached_sections,pending_sections,"
-                    + "air_busy_pct,tick_mean_us,tick_max_us,heap_mb\n");
+                    + "air_busy_pct,tick_mean_us,tick_max_us,heap_mb,secondaries,would_2,would_4,would_8\n");
             regionRows.write("second,region,slot,x0,y0,z0,status,boxes,step_ms,lag_s,queued,frame_age_s,steps,drops,"
-                    + "failures,edits,toggles,desyncs,watts,busy_pct,held,edit_batches,edit_ms\n");
+                    + "failures,edits,toggles,desyncs,watts,busy_pct,held,edit_batches,edit_ms,role\n");
             marks.write("second,tick,text\n");
         } catch (IOException e) {
             throw new java.io.UncheckedIOException(e);
@@ -91,6 +99,10 @@ public final class AirflowRecorder {
         lastManager = regions.managerNanos();
         lastBusy = regions.runtime().busyNanos();
         lastWall = System.nanoTime();
+        secondaryTicksAtStart = regions.secondaryTicks();
+        for (int i = 0; i < wouldTicksAtStart.length; i++) {
+            wouldTicksAtStart[i] = regions.wouldTicks(i);
+        }
     }
 
     public Path dir() {
@@ -133,13 +145,14 @@ public final class AirflowRecorder {
         lastWall = now;
         busy.add(busyPct);
         int running = 0, failed = 0, pending = 0;
-        long busySum = 0, stepsSum = 0, heldSum = 0, batchSum = 0, editSum = 0, dropSum = 0;
+        long busySum = 0, stepsSum = 0, heldSum = 0, batchSum = 0, editSum = 0, dropSum = 0, secondaryBusy = 0;
         for (AirflowRegions.Region r : regions.regions()) {
             AirflowRuntime.Slot slot = r.slot();
+            String role = r.occupied() ? "PLAYER" : r.secondary() ? "SECONDARY" : "GRACE";
             if (slot == null) {
                 pending++;
                 write(regionRows, second + "," + r.id() + ",," + r.x0() + "," + r.y0() + "," + r.z0()
-                        + ",READING,,,,,,,,,,,,,,,,");
+                        + ",READING,,,,,,,,,,,,,,,," + "," + role);
                 continue;
             }
             AirflowRuntime.Status status = slot.status();
@@ -164,6 +177,7 @@ public final class AirflowRecorder {
             double regionBusy = 100.0 * (busyNanos - seen[2]) / wall;
             if (status == AirflowRuntime.Status.RUNNING) {
                 busySum += busyNanos - seen[2];
+                secondaryBusy += r.secondary() ? busyNanos - seen[2] : 0;
                 heldSum += c.held() - seen[3];
                 stepsSum += slot.steps() - seen[4];
                 batchSum += c.editBatches() - seen[5];
@@ -178,10 +192,10 @@ public final class AirflowRecorder {
             seen[6] = c.editNanos();
             failures.merge(r.id(), slot.failures(), Math::max);
             write(regionRows, String.format(Locale.ROOT,
-                    "%d,%d,%d,%d,%d,%d,%s,%d,%.3f,%.3f,%d,%.2f,%d,%d,%d,%d,%d,%d,%.0f,%.2f,%d,%d,%.1f",
+                    "%d,%d,%d,%d,%d,%d,%s,%d,%.3f,%.3f,%d,%.2f,%d,%d,%d,%d,%d,%d,%.0f,%.2f,%d,%d,%.1f,%s",
                     second, r.id(), slot.id(), r.x0(), r.y0(), r.z0(), status, slot.boxes(), slot.stepMs(), slot.lag(),
                     slot.queued(), age, slot.steps(), slot.drops(), slot.failures(), c.edits(), c.toggles(), c.desyncs(),
-                    c.watts(), regionBusy, c.held(), c.editBatches(), c.editNanos() / 1e6));
+                    c.watts(), regionBusy, c.held(), c.editBatches(), c.editNanos() / 1e6, role));
         }
         maxRegions = Math.max(maxRegions, regions.regions().size());
         Runtime jvm = Runtime.getRuntime();
@@ -194,10 +208,12 @@ public final class AirflowRecorder {
         secBatches.add(batchSum);
         secEdit.add(editSum);
         secDrops.add(dropSum);
+        secSecondaryBusy.add(secondaryBusy);
         heapMb.add(heap);
-        write(seconds, String.format(Locale.ROOT, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%.2f,%s,%s,%.0f", second, tick,
+        write(seconds, String.format(Locale.ROOT, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%.2f,%s,%s,%.0f,%d,%d,%d,%d", second, tick,
                 regions.level().players().size(), regions.regions().size(), running, failed, pending, s.cached(),
-                s.pending(), busyPct, us(sum / inSecond), us(max), heap));
+                s.pending(), busyPct, us(sum / inSecond), us(max), heap, regions.secondariesNow(), regions.wouldNow(0),
+                regions.wouldNow(1), regions.wouldNow(2)));
         inSecond = 0;
         sum = 0;
         max = 0;
@@ -279,7 +295,32 @@ public final class AirflowRecorder {
                             + "(the whole JVM, the client too in single player).", pct(all.share()), pct(all.held()),
                     all.batches(), ms(all.perBatch()), ms(all.worstBatch()), all.heapMax()));
         }
+        out.add("");
+        out.add(neighbours());
         return out;
+    }
+
+    /**
+     * M8b b4: the secondaries' tile-seconds over the recording and their share of the regions' air-thread time, and
+     * the tile-seconds that would have run at each reported threshold.
+     */
+    String neighbours() {
+        long busyAll = 0, busySecondary = 0;
+        for (int s = 0; s < secBusy.size(); s++) {
+            busyAll += secBusy.getLong(s);
+            busySecondary += secSecondaryBusy.getLong(s);
+        }
+        StringBuilder at = new StringBuilder(), would = new StringBuilder();
+        for (int i = 0; i < wouldTicksAtStart.length; i++) {
+            String sep = i == 0 ? "" : " / ";
+            at.append(i == 0 ? "" : "/").append(AirflowNeighbourTiles.REPORTED[i]);
+            would.append(sep).append(String.format(Locale.ROOT, "%.0f", (regions.wouldTicks(i) - wouldTicksAtStart[i]) / 20.0));
+        }
+        return String.format(Locale.ROOT, "Neighbour tiles (M8b b4, %s at %d cells): secondaries ran %.0f tile-s, %s of "
+                        + "the regions' air-thread time; at %s cells, %s tile-s would have run (tiles a player is in "
+                        + "left out).", regions.neighbourMode(), regions.neighbourMinCells(),
+                (regions.secondaryTicks() - secondaryTicksAtStart) / 20.0,
+                busyAll == 0 ? "—" : pct(100.0 * busySecondary / busyAll), at, would);
     }
 
     /** One segment's profile (M7f): seconds [from, to) of the recording, 0-based. */

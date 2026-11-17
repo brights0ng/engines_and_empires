@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7d, the debug view; Bright, 2026-11-15).
+// Written by Claude (GreedyFluids M7d, the debug view; Bright, 2026-11-15); edited by Claude (M8b b4: secondaries).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -53,6 +53,8 @@ public final class AirflowView {
     public static final int READING = 0, BUILDING = 1, RUNNING = 2, FAILED = 3;
     /** Added to a state when no player keeps the tile alive (it is in its grace period). */
     public static final int EMPTY = 8;
+    /** Added to a state when a player's tile keeps it running and no player is in it (M8b b4: a secondary). */
+    public static final int SECONDARY = 16;
 
     private static final Set<UUID> WATCHING = ConcurrentHashMap.newKeySet();
     private static int frames;
@@ -192,7 +194,9 @@ public final class AirflowView {
                 case FAILED -> FAILED;
                 case RETIRED -> READING; // being replaced
             };
-            if (!r.occupied()) {
+            if (r.secondary()) {
+                state |= SECONDARY;
+            } else if (!r.occupied()) {
                 state |= EMPTY;
             }
             AirflowRuntime.Frame f = slot == null ? null : slot.frame();

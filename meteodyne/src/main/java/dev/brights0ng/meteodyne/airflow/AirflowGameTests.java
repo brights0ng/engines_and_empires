@@ -2,7 +2,8 @@
 // region around an anchor; b4: a region around a player, the commands and recorder, the switch; M7d d1: tiles; d2:
 // saving and restoring; M7c: watts and hot walls from the heat tables; M7e: the speed limit; M7f: stone from the
 // config, the recorder's profile; f3: AIRFLOW is the config's default, game-test servers run LEGACY; M8a: AIRFLOW
-// started by the server's own handlers; the surface film from the config).
+// started by the server's own handlers; the surface film from the config; M8b b4: secondaries, and the tests that count
+// regions run without them).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -323,6 +324,7 @@ public final class AirflowGameTests {
         BlockPos anchor = helper.absolutePos(new BlockPos(1, 2, 1));
         AirflowRegions regions = new AirflowRegions(level);
         regions.alignForTests(helper.absolutePos(BlockPos.ZERO));
+        regions.neighbourTiles(AirflowNeighbourTiles.Mode.OFF, 0); // counts regions: no secondaries from other tests' builds
         int[] o = regions.tileOf(anchor.getX() + 0.5, anchor.getY() + 0.5, anchor.getZ() + 0.5);
         BlockPos edit = anchor.offset(3, 0, 3);
         helper.assertTrue(level.getBlockState(edit).isAir(), "the edit's cell should start as air");
@@ -674,6 +676,7 @@ public final class AirflowGameTests {
         Vec3 a = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 2, 1)));
         AirflowRegions regions = new AirflowRegions(level);
         regions.alignForTests(helper.absolutePos(BlockPos.ZERO));
+        regions.neighbourTiles(AirflowNeighbourTiles.Mode.OFF, 0); // counts regions
         int[] oa = regions.tileOf(a.x, a.y, a.z);
         Vec3 b = a.add(AirflowRegions.WX, 0, 0);
         int[] ob = regions.tileOf(b.x, b.y, b.z);
@@ -733,6 +736,119 @@ public final class AirflowGameTests {
                 .thenSucceed();
     }
 
+    /**
+     * M8b b4 (B3; Bright, 2026-11-17): a stone room cut by a tile's x border, high in the world above the test's own
+     * spot (its own batch, so nothing else builds there), with a campfire on the anchor's side. The anchor's tile
+     * opens the tile across as a secondary, the only one (the room shares 20 enclosed cells across the cut; nothing
+     * else is enclosed), and heat crosses: out of the fire's tile, into the other. With the anchor gone, both go into
+     * their grace together and retire on the same tick: the count of regions never reads 1.
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_neighbours", timeoutTicks = 40_000)
+    public static void aRoomAcrossABorderRunsTheTileAcross(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos spot = helper.absolutePos(BlockPos.ZERO);
+        int sx = SectionPos.blockToSectionCoord(spot.getX()), sz = SectionPos.blockToSectionCoord(spot.getZ());
+        int top = level.getMaxBuildHeight();
+        int border = 16 * sx, y = top - 32, z = 16 * sz + 4;
+        AirflowRegions regions = new AirflowRegions(level);
+        // the section east of the border is the second of its tile: the border runs at x = 16 sx; the top band
+        regions.alignForTests(new BlockPos(border + 16, y, z));
+        regions.neighbourTiles(AirflowNeighbourTiles.Mode.ON, 4);
+        int[] west = regions.tileOf(border - 1, y, z), east = regions.tileOf(border, y, z);
+        helper.assertTrue(east[0] == border && west[0] == border - AirflowRegions.WX && west[1] == y && east[1] == y,
+                "the border runs through the room: " + west[0] + ", " + east[0] + " at y " + west[1]);
+        // the room: outer x border-6..border+5, y..y+5, z..z+6; inside 10 × 4 × 5, the fire on the floor in the west
+        BlockPos low = new BlockPos(border - 6, y, z), fire = new BlockPos(border - 3, y + 1, z + 3);
+        Map<BlockPos, BlockState> prior = new HashMap<>();
+        for (BlockPos p : BlockPos.betweenClosed(low, low.offset(11, 5, 6))) {
+            prior.put(p.immutable(), level.getBlockState(p));
+        }
+        for (BlockPos p : prior.keySet()) {
+            boolean shell = p.getX() == low.getX() || p.getX() == low.getX() + 11 || p.getY() == y || p.getY() == y + 5
+                    || p.getZ() == z || p.getZ() == z + 6;
+            level.setBlock(p, (shell ? Blocks.STONE : Blocks.AIR).defaultBlockState(), Block.UPDATE_CLIENTS);
+        }
+        level.setBlock(fire, Blocks.CAMPFIRE.defaultBlockState(), Block.UPDATE_CLIENTS);
+        Vec3[] anchor = {new Vec3(border - 4.5, y + 1, z + 2.5)};
+        List<long[]> forced = new ArrayList<>();
+        for (int cx = west[0] >> 4; cx < (east[0] + AirflowRegions.WX) >> 4; cx++) {
+            for (int cz = west[2] >> 4; cz < (west[2] + AirflowRegions.WZ) >> 4; cz++) {
+                if (level.setChunkForced(cx, cz, true)) {
+                    forced.add(new long[] {cx, cz});
+                }
+            }
+        }
+        boolean opened = AirflowSections.get(level) == null;
+        regions.anchors(l -> anchor[0] == null ? List.of() : List.of(anchor[0]));
+        regions.start();
+        boolean[] stopped = {false}, sawOne = {false};
+        helper.onEachTick(() -> {
+            if (!stopped[0]) {
+                regions.tick();
+                if (anchor[0] == null && regions.regions().size() == 1) {
+                    sawOne[0] = true;
+                }
+            }
+        });
+        Runnable cleanup = () -> {
+            stopped[0] = true;
+            regions.stop();
+            for (Map.Entry<BlockPos, BlockState> e : prior.entrySet()) {
+                level.setBlock(e.getKey(), e.getValue(), Block.UPDATE_CLIENTS);
+            }
+            for (long[] c : forced) {
+                level.setChunkForced((int) c[0], (int) c[1], false);
+            }
+            if (opened) {
+                AirflowSections.close(level);
+            }
+        };
+        Vec3 a = anchor[0];
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region home = regions.regionAt(a.x, a.y, a.z);
+                    AirflowRegions.Region across = regions.regionAt(border + 1, y + 1, z + 1);
+                    helper.assertTrue(home != null && home.slot() != null && home.slot().steps() >= 2
+                                    && across != null && across.slot() != null && across.slot().steps() >= 2,
+                            "waiting for both tiles to be built and stepped: " + AirflowCommand.neighbourLine(regions));
+                })
+                .thenExecute(() -> {
+                    AirflowRegions.Region home = regions.regionAt(a.x, a.y, a.z);
+                    AirflowRegions.Region across = regions.regionAt(border + 1, y + 1, z + 1);
+                    helper.assertTrue(regions.regions().size() == 2, "the player's tile and one secondary: "
+                            + regions.regions().size() + "; " + AirflowCommand.neighbourLine(regions));
+                    helper.assertTrue(home.occupied() && !home.secondary() && across.secondary() && !across.occupied(),
+                            "roles: " + regionLine(home, level) + "; " + regionLine(across, level));
+                    helper.assertTrue(regions.secondariesNow() == 1 && regions.secondariesOpened() == 1,
+                            AirflowCommand.neighbourLine(regions));
+                    for (int i = 0; i < AirflowNeighbourTiles.REPORTED.length; i++) {
+                        helper.assertTrue(regions.wouldNow(i) == 1, "one tile would run at "
+                                + AirflowNeighbourTiles.REPORTED[i] + " cells: " + AirflowCommand.neighbourLine(regions));
+                    }
+                    int shared = regions.sharedCells(west[0], west[1], west[2],
+                            dev.brights0ng.greedyfluids.grid.CellGrid3D.Side.EAST, new it.unimi.dsi.fastutil.longs.LongOpenHashSet());
+                    helper.assertTrue(shared == 20, "the cut shares the room's 4 × 5 inside: " + shared);
+                    int below = regions.sharedCells(west[0], west[1], west[2],
+                            dev.brights0ng.greedyfluids.grid.CellGrid3D.Side.DOWN, new it.unimi.dsi.fastutil.longs.LongOpenHashSet());
+                    helper.assertTrue(below == 0, "the band border under the room meets its stone floor, and open air "
+                            + "elsewhere: " + below);
+                })
+                .thenWaitUntil(() -> {
+                    AirflowRuntime.Counters h = regions.regionAt(a.x, a.y, a.z).slot().counters();
+                    AirflowRuntime.Counters c = regions.regionAt(border + 1, y + 1, z + 1).slot().counters();
+                    helper.assertTrue(h.exchangedJ() > 500 && c.exchangedJ() < -500,
+                            "waiting for heat to cross: out " + h.exchangedJ() + " J, in " + -c.exchangedJ() + " J");
+                })
+                .thenExecute(() -> anchor[0] = null)
+                .thenWaitUntil(() -> helper.assertTrue(regions.regions().isEmpty(),
+                        "waiting for both tiles' grace to end: " + regions.regions().size()))
+                .thenExecute(() -> {
+                    helper.assertFalse(sawOne[0], "the secondary retired with the player's tile, not after it");
+                    cleanup.run();
+                })
+                .thenSucceed();
+    }
+
     /** Window size of part b3: four sections across, three tall. */
     private static final int WX = 64, WY = 48, WZ = 64;
 
@@ -747,6 +863,7 @@ public final class AirflowGameTests {
         Vec3 a = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 2, 1)));
         AirflowRegions regions = new AirflowRegions(level);
         regions.alignForTests(helper.absolutePos(BlockPos.ZERO));
+        regions.neighbourTiles(AirflowNeighbourTiles.Mode.OFF, 0); // counts regions
         int[] oa = regions.tileOf(a.x, a.y, a.z);
         Vec3 c = a.add(AirflowRegions.WX, 0, 0);
         int[] oc = regions.tileOf(c.x, c.y, c.z);
@@ -878,6 +995,7 @@ public final class AirflowGameTests {
         AirflowRegions[] regions = {new AirflowRegions(level)};
         BlockPos origin = helper.absolutePos(BlockPos.ZERO);
         regions[0].alignForTests(origin);
+        regions[0].neighbourTiles(AirflowNeighbourTiles.Mode.OFF, 0); // counts restores
         int[] o = regions[0].tileOf(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
         // the room fills the test structure above its floor: outer 7×6×7, interior 5×4×5
         BlockPos low = origin.above(), fire = low.offset(3, 1, 3), probe = low.offset(3, 3, 3);
@@ -981,6 +1099,7 @@ public final class AirflowGameTests {
                     level.setBlock(fire, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
                     regions[0] = new AirflowRegions(level);
                     regions[0].alignForTests(origin);
+                    regions[0].neighbourTiles(AirflowNeighbourTiles.Mode.OFF, 0);
                     regions[0].anchors(l -> List.of(anchor));
                     regions[0].start();
                 })

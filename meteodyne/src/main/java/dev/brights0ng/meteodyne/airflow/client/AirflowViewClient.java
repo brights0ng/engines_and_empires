@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7d, the debug view; Bright, 2026-11-15).
+// Written by Claude (GreedyFluids M7d, the debug view; Bright, 2026-11-15); edited by Claude (M8b b4: secondaries).
 package dev.brights0ng.meteodyne.airflow.client;
 
 import java.util.ArrayList;
@@ -21,8 +21,9 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  * Draws airflow's debug view ({@code /meteodyne airflow show}; {@link AirflowView}), from the server's latest update
  * (once a second) until the view is turned off:
  * <ul>
- *   <li><b>Tiles:</b> each tile's outline, coloured by state: green running, grey running with no player in it (its
- *       grace period), yellow reading its sections or building, red failed.</li>
+ *   <li><b>Tiles:</b> each tile's outline, coloured by state: green running, cyan running beside a player's tile (a
+ *       secondary, M8b b4), grey running with no player in it (its grace period), yellow reading its sections or
+ *       building, red failed.</li>
  *   <li><b>Air:</b> the legacy heat view's cubes ({@link HeatViewClient#colour}: pale near the background, yellow to
  *       magenta warmer, blue colder) at each cell sent, and a white arrow along the air's velocity there, 0.4 blocks
  *       at 1 m/s or more, shorter below, none under 0.02 m/s.</li>
@@ -109,10 +110,11 @@ public final class AirflowViewClient {
     }
 
     private static void outline(VertexConsumer lines, PoseStack.Pose pose, AirflowView.Payload p, Vec3 cam) {
-        int state = p.state() & ~AirflowView.EMPTY;
+        int state = p.state() & ~(AirflowView.EMPTY | AirflowView.SECONDARY);
         boolean empty = (p.state() & AirflowView.EMPTY) != 0;
+        boolean secondary = (p.state() & AirflowView.SECONDARY) != 0;
         int rgb = switch (state) {
-            case AirflowView.RUNNING -> empty ? 0x9A9A9A : 0x40E040;
+            case AirflowView.RUNNING -> empty ? 0x9A9A9A : secondary ? 0x40C8E8 : 0x40E040;
             case AirflowView.FAILED -> 0xFF3030;
             default -> 0xFFD020;
         };

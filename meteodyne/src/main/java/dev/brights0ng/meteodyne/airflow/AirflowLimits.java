@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7e: the safety limits on opening tiles).
+// Written by Claude (GreedyFluids M7e: the safety limits on opening tiles); edited by Claude (M8b b4: secondaries and
+// the cap).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayDeque;
@@ -20,6 +21,11 @@ import java.util.UUID;
  *   <li><b>Cap:</b> at most a number of tiles, server-wide (the default) or per player. Over it, the tiles that have
  *       waited longest in their grace (no player in them) close early. A tile with a player in it is never closed by
  *       the cap. Per player, a tile belongs to the player last in it.</li>
+ *   <li><b>Secondaries (M8b b4; Bright, 2026-11-17):</b> tiles kept running beside a player's
+ *       ({@link AirflowNeighbourTiles}) count toward the cap; per player, a secondary belongs to the player whose tile
+ *       keeps it. Over the cap, tiles in their grace close first, then secondaries; never a tile with a player in it.
+ *       A secondary is opened only while the tiles kept running (players' and secondaries) are under the cap
+ *       ({@link #roomFor}), so the cap never closes one it just let open.</li>
  * </ul>
  */
 public final class AirflowLimits {
@@ -84,8 +90,20 @@ public final class AirflowLimits {
         }
     }
 
-    /** One tile, as the cap sees it. */
-    record Tile<T>(T ref, UUID owner, long lastOccupied, boolean occupied) {
+    /**
+     * One tile, as the cap sees it: whether a player is in it, whether it runs as a secondary (and no player is in
+     * it), and the last time either kept it.
+     */
+    record Tile<T>(T ref, UUID owner, long lastOccupied, boolean occupied, boolean wanted) {
+        /** A tile that is no secondary. */
+        Tile(T ref, UUID owner, long lastOccupied, boolean occupied) {
+            this(ref, owner, lastOccupied, occupied, false);
+        }
+
+        /** Whether a player or a player's tile keeps it running (it is not in its grace). */
+        boolean kept() {
+            return occupied || wanted;
+        }
     }
 
     /** Whether a player at {@code speed} blocks a second may open a tile under {@code limit} (0 or less: no limit). */
@@ -93,7 +111,24 @@ public final class AirflowLimits {
         return limit <= 0 || speed <= limit;
     }
 
-    /** The tiles to close to bring {@code tiles} within {@code cap}, oldest in grace first; never an occupied one. */
+    /**
+     * Whether a secondary for {@code owner} may open beside {@code tiles}: the tiles kept running (in the whole server,
+     * or {@code owner}'s per player) are fewer than {@code cap}. Tiles in their grace don't count: the cap closes them.
+     */
+    static <T> boolean roomFor(List<Tile<T>> tiles, CapMode mode, int cap, UUID owner) {
+        int kept = 0;
+        for (Tile<T> t : tiles) {
+            if (t.kept() && (mode == CapMode.SERVER || java.util.Objects.equals(t.owner(), owner))) {
+                kept++;
+            }
+        }
+        return kept < cap;
+    }
+
+    /**
+     * The tiles to close to bring {@code tiles} within {@code cap}: those in their grace first, longest waiting
+     * first; then secondaries; never an occupied one.
+     */
     static <T> List<T> overCap(List<Tile<T>> tiles, CapMode mode, int cap) {
         List<T> out = new ArrayList<>();
         if (mode == CapMode.PER_PLAYER) {
@@ -121,7 +156,7 @@ public final class AirflowLimits {
                 waiting.add(t);
             }
         }
-        waiting.sort(Comparator.comparingLong(Tile::lastOccupied));
+        waiting.sort(Comparator.<Tile<T>, Boolean>comparing(Tile::wanted).thenComparingLong(Tile::lastOccupied));
         for (int i = 0; i < Math.min(excess, waiting.size()); i++) {
             out.add(waiting.get(i).ref());
         }

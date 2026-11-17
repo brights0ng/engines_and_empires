@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M7e: the safety limits on opening tiles).
+// Written by Claude (GreedyFluids M7e: the safety limits on opening tiles); edited by Claude (M8b b4: secondaries).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -100,5 +100,39 @@ class AirflowLimitsTest {
         List<String> closed = AirflowLimits.overCap(tiles, AirflowLimits.CapMode.PER_PLAYER, 2);
         assertEquals(Set.of("A 3", "A 2"), Set.copyOf(closed), "B's two are within their own cap");
         assertEquals(2, closed.size());
+    }
+
+    private static AirflowLimits.Tile<String> secondary(String name, UUID owner, long last) {
+        return new AirflowLimits.Tile<>(name, owner, last, false, true);
+    }
+
+    @Test
+    void theCapClosesTilesInGraceBeforeSecondariesAndNeverAPlayersTile() {
+        List<AirflowLimits.Tile<String>> tiles = List.of(
+                tile("home", A, 500, true),
+                secondary("east of home", A, 500),
+                secondary("south of home", A, 500),
+                tile("left 1 s ago", A, 480, false),
+                tile("left 20 s ago", A, 100, false));
+        assertEquals(List.of("left 20 s ago", "left 1 s ago"),
+                AirflowLimits.overCap(tiles, AirflowLimits.CapMode.SERVER, 3), "grace first, whatever its age");
+        assertEquals(List.of("left 20 s ago", "left 1 s ago", "east of home"),
+                AirflowLimits.overCap(tiles, AirflowLimits.CapMode.SERVER, 2));
+        assertEquals(4, AirflowLimits.overCap(tiles, AirflowLimits.CapMode.SERVER, 0).size(), "the player's own stays");
+    }
+
+    @Test
+    void aSecondaryOpensOnlyUnderTheCapOfKeptTiles() {
+        List<AirflowLimits.Tile<String>> tiles = List.of(
+                tile("A home", A, 500, true),
+                secondary("A east", A, 500),
+                tile("A left", A, 100, false),
+                tile("B home", B, 500, true));
+        // kept: A home, A east, B home; the tile in grace doesn't count (the cap closes it)
+        assertTrue(AirflowLimits.roomFor(tiles, AirflowLimits.CapMode.SERVER, 4, A));
+        assertFalse(AirflowLimits.roomFor(tiles, AirflowLimits.CapMode.SERVER, 3, A));
+        // per player: A keeps two, B one
+        assertFalse(AirflowLimits.roomFor(tiles, AirflowLimits.CapMode.PER_PLAYER, 2, A));
+        assertTrue(AirflowLimits.roomFor(tiles, AirflowLimits.CapMode.PER_PLAYER, 2, B));
     }
 }

@@ -1,5 +1,5 @@
 // Written by Claude (GreedyFluids M7b b4); edited by Claude (M7d d1: regions are tiles; d2: save counts; the view;
-// M7e: the speed limit's and the cap's counts; M8b: heat across a tile's borders).
+// M7e: the speed limit's and the cap's counts; M8b: heat across a tile's borders; b4: secondaries).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.nio.file.Path;
@@ -74,16 +74,37 @@ public final class AirflowCommand {
                 s.hookNanos() / 1e6, s.readNanos() / 1e6, s.reads(), r.managerNanos() / 1e6, s.cached(), s.pending(),
                 r.savesWritten(), r.sectionsLost(), r.restores(), r.heldForSpeed(), r.closedByCap(),
                 rec == null ? "" : "; recording " + rec.seconds() + " s into " + rec.dir().toAbsolutePath()));
+        reply(source, neighbourLine(r));
         for (AirflowRegions.Region g : r.regions()) {
             reply(source, regionLine(g, now));
         }
         return 1;
     }
 
+    /** M8b b4: the secondaries now and so far, and what would run at each reported threshold. */
+    static String neighbourLine(AirflowRegions r) {
+        AirflowNeighbourTiles.Mode mode = r.neighbourMode();
+        if (mode == AirflowNeighbourTiles.Mode.OFF) {
+            return "Neighbour tiles (B3): OFF";
+        }
+        StringBuilder would = new StringBuilder(), so = new StringBuilder(), at = new StringBuilder();
+        for (int i = 0; i < AirflowNeighbourTiles.REPORTED.length; i++) {
+            String sep = i == 0 ? "" : "/";
+            at.append(sep).append(AirflowNeighbourTiles.REPORTED[i]);
+            would.append(sep).append(r.wouldNow(i));
+            so.append(sep).append(String.format(Locale.ROOT, "%.0f", r.wouldTicks(i) / 20.0));
+        }
+        return String.format(Locale.ROOT,
+                "Neighbour tiles (B3): %s at %d cells; %d secondaries now, %.0f tile-s so far, %d opened, %d openings "
+                        + "refused by the cap; would run at %s cells: %s now, %s tile-s so far; %d strip sections wanted",
+                mode, r.neighbourMinCells(), r.secondariesNow(), r.secondaryTicks() / 20.0, r.secondariesOpened(),
+                r.secondariesRefused(), at, would, so, r.stripSections());
+    }
+
     static String regionLine(AirflowRegions.Region g, long now) {
         String bounds = String.format(Locale.ROOT, "#%d [%d..%d, %d..%d, %d..%d]%s", g.id(), g.x0(),
                 g.x0() + AirflowRegions.WX - 1, g.y0(), g.y0() + AirflowRegions.WY - 1, g.z0(),
-                g.z0() + AirflowRegions.WZ - 1, g.occupied() ? "" : " (empty)");
+                g.z0() + AirflowRegions.WZ - 1, g.occupied() ? "" : g.secondary() ? " (secondary)" : " (empty)");
         AirflowRuntime.Slot slot = g.slot();
         if (slot == null) {
             return bounds + " reading sections";
