@@ -2,6 +2,7 @@
 // Extended by ChatGPT: operator-only thermal response tuning with explicit status and reset.
 // Extended by ChatGPT: explicit local-air diagnostic controls and sampling.
 // Updated by Claude: raised the live capture limit to 1800 seconds.
+// Updated by Claude: the local-air diagnostic commands are gone (GreedyFluids M7f f3).
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.Locale;
@@ -41,7 +42,6 @@ public final class HeatCommand {
     @SubscribeEvent
     static void onRegisterCommands(RegisterCommandsEvent event) {
         LiteralArgumentBuilder<CommandSourceStack> heat = Commands.literal("heat")
-                .then(LocalAirCommand.tree())
                 .executes(context -> info(context.getSource()))
                 .then(Commands.literal("response")
                         .executes(context -> response(context.getSource(),null,false))

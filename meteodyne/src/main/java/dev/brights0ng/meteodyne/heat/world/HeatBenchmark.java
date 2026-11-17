@@ -3,6 +3,7 @@
 // Updated by ChatGPT: measured numerical slice counts and maximum slice wall time.
 // Updated by Claude: 1800-second captures, a per-owner local-air timeline and soak reporting.
 // Updated by Claude: timeline edit outcomes, capture re-reads, requeued coverage columns and revision sites.
+// Updated by Claude: the local-air timeline, stage timings and soak report are gone (GreedyFluids M7f f3).
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.nio.file.Files;
@@ -32,18 +33,14 @@ final class HeatBenchmark {
         final Map<String,Long> invalidations=new LinkedHashMap<>();
         final Map<String,Long> blockChanges=new LinkedHashMap<>();
         final Map<String,Long> snapshotWork=new LinkedHashMap<>();
-        final StringBuilder timeline=new StringBuilder(TIMELINE_HEADER);
-        final Map<String,long[]> availability=new LinkedHashMap<>();
         boolean recording;
-        long startedWall, recordingTick, timelineRows, timelineDropped, jobs, cells, rebuiltJobs, settleJobs;
+        long startedWall, jobs, cells, rebuiltJobs, settleJobs;
         double simulatedSeconds, gameSeconds;
         Session(CommandSourceStack source,long tick,int warmup,int seconds) {
             this.source=source;requestedTick=tick;warmupTicks=warmup*20L;durationTicks=seconds*20L;
         }
         void add(String metric,long value) { metrics.computeIfAbsent(metric,k->new ThermalTiming.Samples()).add(value); }
     }
-    static final int TIMELINE_INTERVAL=20,TIMELINE_MAX_ROWS=200_000,AVAILABLE_AGE_TICKS=40;
-    static final String TIMELINE_HEADER="tick,owner,domain_id,role,preparation,run,frame_tick,frame_age_ticks,available,restarts,topology_stages,weather_revisions,grid_rebuilds,short_steps,failures_total,edit_ignored,edit_source,edit_recapture,edit_geometry,reread_cells,requeued_columns,revision_sites\n";
     record Token(Session owner,long submitted) { }
     record JobMeasurement(Token token,long wall,long cpu,long allocated,long queue,long solve,long publication,
                           int cells,boolean rebuilt,boolean settled,double simulatedSeconds,
@@ -79,54 +76,8 @@ final class HeatBenchmark {
         Session s=session;
         if (s==null) { return; }
         long elapsed=now-s.requestedTick;
-        if (!s.recording && elapsed>=s.warmupTicks) { s.recording=true;s.startedWall=System.nanoTime();s.recordingTick=now; }
-        if (elapsed>=s.warmupTicks+s.durationTicks) { finish(false);return; }
-        if (s.recording && (now-s.recordingTick)%TIMELINE_INTERVAL==0) { timeline(s,now); }
-    }
-    /** One row per local-air owner: the manual owner when requested, then every automatic domain. */
-    private static void timeline(Session s,long now) {
-        var world=HeatWorld.of(s.source.getLevel());
-        if (world==null) { return; }
-        if (world.localAirStatus()!=LocalAirPreparation.Status.CLOSED) {
-            var r=world.localAirReport();
-            var field=world.localAirField();
-            timelineRow(s,now,"manual","manual","MANUAL",String.valueOf(r.get("preparation")),String.valueOf(r.get("run")),field==null?-1:field.throughTick,
-                    count(r,"restarts"),count(r,"topologyStages"),count(r,"weatherRevisions"),count(r,"gridRebuilds"),count(r,"shortSteps"),
-                    r.get("failureCauses") instanceof Map<?,?> causes?total(causes):0,
-                    r.get("editOutcomes") instanceof Map<?,?> edits?edits:Map.of(),count(r,"rereadCells"),count(r,"requeuedColumns"),
-                    r.get("revisionSites") instanceof Map<?,?> sites?sites:Map.of());
-        }
-        var auto=world.automaticAir();
-        if (auto==null) { return; }
-        for (var row:auto.rows()) {
-            timelineRow(s,now,"auto",Long.toString(row.id()),row.role(),row.preparation(),row.run(),row.frameTick(),row.restarts(),row.topologyStages(),
-                    row.weatherRevisions(),row.gridRebuilds(),row.shortSteps(),total(row.failureCauses()),
-                    row.editOutcomes(),row.rereadCells(),row.requeuedColumns(),row.revisionSites());
-        }
-    }
-    private static long count(Map<String,Object> report,String key) { return report.get(key) instanceof Number n?n.longValue():0; }
-    private static long total(Map<?,?> causes) { long sum=0;for(var v:causes.values()) if(v instanceof Number n) sum+=n.longValue();return sum; }
-    private static void timelineRow(Session s,long now,String owner,String domain,String role,String preparation,String run,long frameTick,
-                                    long restarts,long topologyStages,long weatherRevisions,long gridRebuilds,long shortSteps,long failures,
-                                    Map<?,?> edits,long rereadCells,long requeuedColumns,Map<?,?> sites) {
-        long age=frameTick>=0?now-frameTick:-1;
-        boolean available=frameTick>=0 && age<=AVAILABLE_AGE_TICKS;
-        var stats=s.availability.computeIfAbsent(domain,k->new long[]{0,0,-1});
-        stats[0]++;if(available) stats[1]++;stats[2]=Math.max(stats[2],age);
-        if (s.timelineRows>=TIMELINE_MAX_ROWS) { s.timelineDropped++;return; }
-        s.timelineRows++;
-        s.timeline.append(now).append(',').append(owner).append(',').append(domain).append(',').append(role).append(',').append(preparation).append(',')
-                .append(run).append(',').append(frameTick).append(',').append(age).append(',').append(available).append(',').append(restarts).append(',')
-                .append(topologyStages).append(',').append(weatherRevisions).append(',').append(gridRebuilds).append(',').append(shortSteps).append(',')
-                .append(failures).append(',');
-        for (var outcome:LocalAirPreparation.EditOutcome.values()) {
-            s.timeline.append(edits.get(outcome.name()) instanceof Number n?n.longValue():0).append(',');
-        }
-        s.timeline.append(rereadCells).append(',').append(requeuedColumns).append(',');
-        // Semicolon-separated so the cell needs no CSV quoting; site tags contain no commas or semicolons.
-        boolean first=true;
-        for (var site:sites.entrySet()) { if(!first) { s.timeline.append(';'); }first=false;s.timeline.append(site.getKey()).append('=').append(site.getValue()); }
-        s.timeline.append('\n');
+        if (!s.recording && elapsed>=s.warmupTicks) { s.recording=true;s.startedWall=System.nanoTime(); }
+        if (elapsed>=s.warmupTicks+s.durationTicks) { finish(false); }
     }
     long begin() { return session!=null && session.recording?System.nanoTime():0; }
     void end(String phase,long start) { if (start!=0 && session!=null && session.recording) { session.add(phase,System.nanoTime()-start); } }
@@ -141,16 +92,6 @@ final class HeatBenchmark {
         s.simulatedSeconds+=m.simulatedSeconds;
         s.gameSeconds+=m.gameSeconds;
         s.jobs++;s.cells+=m.cells;if(m.rebuilt){s.rebuiltJobs++;}if(m.settled){s.settleJobs++;}
-    }
-    void localAirCompleted(Token token,LocalAirMetrics.Timing timing,boolean failed) {
-        if(token==null || timing==null || session!=token.owner || !session.recording) return;
-        String prefix="local_air_"+timing.stage().name().toLowerCase(Locale.ROOT);
-        session.add(prefix+"_wall_ms",timing.wallNanos());session.add(prefix+"_queue_ms",timing.queueNanos());
-        if(timing.cpuNanos()>=0) session.add(prefix+"_cpu_ms",timing.cpuNanos());
-          session.snapshotWork.merge(prefix+"_jobs",1L,Long::sum);
-          session.snapshotWork.merge(prefix+"_slices",(long)timing.slices(),Long::sum);
-          session.add(prefix+"_max_slice_wall_ms",timing.maxSliceNanos());
-        if(failed) session.snapshotWork.merge(prefix+"_failed_jobs",1L,Long::sum);
     }
     Path lastReport() { return lastReport; }
     String status() {
@@ -179,10 +120,9 @@ final class HeatBenchmark {
             report.put("snapshotWork",s.snapshotWork);
             report.put("snapshotScope","snapshot_prepare_ms is per-tick shared preparation, outside planning_ms but inside thermal_tick_ms. snapshot_slice_ms is one region's batch of at most eight lines/columns. geometry_snapshot_ms, geometry_incremental_ms and material_snapshot_ms sum active slice time for a completed update, excluding time waiting between ticks. Completed updates can overlap capture boundaries. Live preparation targets 2 ms and caps 256 line/column units per tick across all regions; atomic units, allocation, source refresh and scheduling can exceed the soft time target.");
             report.put("invalidationScope","Region invalidations coalesce before snapshots; source changes count prepared source-list changes. Block state pairs count relevant hook events once, capped at 128 distinct pairs plus overflow. No event history is retained outside a capture.");
-            report.put("scope","Heat pipeline, including explicitly active local-air diagnostics. thermal_tick_ms contains planning_ms, legacy snapshot_prepare_ms, and local_air_snapshot_advance_ms; these timings overlap and must not be added. local_air_<stage>_wall_ms/cpu_ms/queue_ms require dispatch and collection within this capture; unfinished tail jobs are excluded. local_air_worker_ms is the broader collect-time series and may include jobs dispatched earlier. Legacy worker_* metrics and raw jobs remain legacy-only. This does not measure whole-server MSPT or client FPS.");
+            report.put("scope","Heat pipeline. thermal_tick_ms contains planning_ms and snapshot_prepare_ms; these timings overlap and must not be added. worker_* metrics and raw jobs cover the heat regions. This does not measure whole-server MSPT or client FPS.");
             var world=HeatWorld.of(s.source.getLevel());
             if (world!=null) {
-                report.put("localAirAtEnd",world.localAirReport());
                 report.put("responseScaleAtEnd",world.responseScale());
                 report.put("responseScaleMode",world.responseScaleOverride()==null?"config":"temporary_override");
             }
@@ -204,15 +144,6 @@ final class HeatBenchmark {
                 csv.append(String.format(Locale.ROOT,"%s,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f%n",entry.getKey(),summary.count(),summary.mean(),summary.p50(),summary.p95(),summary.p99(),summary.max(),summary.total()));
             }
             report.put("metrics",metrics);
-            Map<String,Object> availability=new LinkedHashMap<>();
-            s.availability.forEach((domain,stats)->{
-                Map<String,Object> row=new LinkedHashMap<>();row.put("samples",stats[0]);
-                row.put("availableFraction",stats[0]==0?0.0:(double)stats[1]/stats[0]);row.put("maxAgeTicks",stats[2]);
-                availability.put(domain,row);
-            });
-            report.put("localAirAvailability",availability);
-            report.put("localAirTimelineDroppedRows",s.timelineDropped);
-            if (LocalAirSoak.active()) { report.put("soak",LocalAirSoak.report()); }
             report.put("workerCpuCoreFraction",s.metrics.containsKey("worker_cpu_ms") && s.metrics.get("worker_cpu_ms").summary(1e6).count()>0 && seconds>0
                     ?s.metrics.get("worker_cpu_ms").summary(1e6).total()/(seconds*1000):null);
             Files.writeString(directory.resolve("summary.json"),new GsonBuilder().setPrettyPrinting().create().toJson(report));
@@ -224,7 +155,6 @@ final class HeatBenchmark {
                         job.regionId,job.geometryRevision,job.materialRevision,job.sourceRevision,job.gameSeconds,job.responseScale));
             }
             Files.writeString(directory.resolve("jobs.csv"),jobsCsv);
-            Files.writeString(directory.resolve("local_air_timeline.csv"),s.timeline);
             lastReport=directory;
             if(s.jobs==0) { s.source.sendFailure(Component.literal("No thermal jobs captured. Stand near an active heat source and repeat; this is not a solver baseline.")); }
             s.source.sendSuccess(()->Component.literal("Thermal capture saved: "+directory+" ("+s.jobs+" jobs)."),false);

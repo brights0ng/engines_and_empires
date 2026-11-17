@@ -1,5 +1,5 @@
 // Updated by ChatGPT: register the persistent coupled-field view.
-// Edited by Claude: registered airflow's debug view (GreedyFluids M7d).
+// Edited by Claude: registered airflow's debug view (GreedyFluids M7d); removed the coupled-field view (M7f f3).
 package dev.brights0ng.meteodyne;
 
 import dev.brights0ng.meteodyne.cloud.client.CloudClient;
@@ -29,9 +29,6 @@ public final class MeteodyneClient {
         CloudClient.init(modEventBus, container);
         // The heat simulation's debug view (/meteodyne heat show)
         NeoForge.EVENT_BUS.addListener(HeatViewClient::onRenderStage);
-        NeoForge.EVENT_BUS.addListener(dev.brights0ng.meteodyne.heat.world.client.LocalAirViewClient::render);
-        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event)->
-                dev.brights0ng.meteodyne.heat.world.client.LocalAirViewClient.clear());
         // Airflow's debug view (/meteodyne airflow show)
         NeoForge.EVENT_BUS.addListener(dev.brights0ng.meteodyne.airflow.client.AirflowViewClient::onRenderStage);
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) ->
