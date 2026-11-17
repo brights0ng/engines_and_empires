@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7d, the debug view; Bright, 2026-11-15); edited by Claude (M8b b4: secondaries).
+// Written by Claude (GreedyFluids M7d, the debug view; Bright, 2026-11-15); edited by Claude (M8b b4: secondaries;
+// cells drawn only near the camera).
 package dev.brights0ng.meteodyne.airflow.client;
 
 import java.util.ArrayList;
@@ -25,8 +26,9 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  *       secondary, M8b b4), grey running with no player in it (its grace period), yellow reading its sections or
  *       building, red failed.</li>
  *   <li><b>Air:</b> the legacy heat view's cubes ({@link HeatViewClient#colour}: pale near the background, yellow to
- *       magenta warmer, blue colder) at each cell sent, and a white arrow along the air's velocity there, 0.4 blocks
- *       at 1 m/s or more, shorter below, none under 0.02 m/s.</li>
+ *       magenta warmer, blue colder) at each cell sent within {@link #CELL_RANGE} blocks of the camera (Bright,
+ *       2026-11-17: whole tiles of cubes cost too much frame time), and a white arrow along the air's velocity there,
+ *       0.4 blocks at 1 m/s or more, shorter below, none under 0.02 m/s.</li>
  * </ul>
  */
 public final class AirflowViewClient {
@@ -34,6 +36,8 @@ public final class AirflowViewClient {
     private static final float ARROW = 0.4f;
     private static final float FULL_SPEED = 1f;
     private static final float CALM = 0.02f;
+    /** Cells further than this from the camera are not drawn, blocks (tile outlines always are). */
+    static final float CELL_RANGE = 10f;
 
     /** A tile on show: its latest frame's parts. */
     private record Tile(int frame, List<AirflowView.Payload> parts) {
@@ -76,27 +80,40 @@ public final class AirflowViewClient {
         }
 
         VertexConsumer quads = buffers.getBuffer(RenderType.debugQuads());
+        float r2 = CELL_RANGE * CELL_RANGE;
         for (AirflowView.Payload p : parts) {
+            if (!near(p, cam)) {
+                continue;
+            }
             for (int i = 0; i < p.count(); i++) {
+                float x = (float) (p.ox() + p.dx(i) + 0.5 - cam.x), y = (float) (p.oy() + p.dy(i) + 0.5 - cam.y);
+                float z = (float) (p.oz() + p.dz(i) + 0.5 - cam.z);
+                if (x * x + y * y + z * z > r2) {
+                    continue;
+                }
                 int rgb = HeatViewClient.colour(p.offset(i));
-                HeatViewClient.cube(quads, pose, (float) (p.ox() + p.dx(i) + 0.5 - cam.x),
-                        (float) (p.oy() + p.dy(i) + 0.5 - cam.y), (float) (p.oz() + p.dz(i) + 0.5 - cam.z),
-                        (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+                HeatViewClient.cube(quads, pose, x, y, z, (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
             }
         }
         buffers.endBatch(RenderType.debugQuads());
 
         VertexConsumer lines = buffers.getBuffer(RenderType.lines());
         for (AirflowView.Payload p : parts) {
+            if (!near(p, cam)) {
+                continue;
+            }
             for (int i = 0; i < p.count(); i++) {
+                float x = (float) (p.ox() + p.dx(i) + 0.5 - cam.x), y = (float) (p.oy() + p.dy(i) + 0.5 - cam.y);
+                float z = (float) (p.oz() + p.dz(i) + 0.5 - cam.z);
+                if (x * x + y * y + z * z > r2) {
+                    continue;
+                }
                 float u = p.velocity(i, 0), v = p.velocity(i, 1), w = p.velocity(i, 2);
                 float speed = (float) Math.sqrt(u * u + v * v + w * w);
                 if (speed < CALM) {
                     continue;
                 }
                 float length = ARROW * Math.min(1, speed / FULL_SPEED) / speed;
-                float x = (float) (p.ox() + p.dx(i) + 0.5 - cam.x), y = (float) (p.oy() + p.dy(i) + 0.5 - cam.y);
-                float z = (float) (p.oz() + p.dz(i) + 0.5 - cam.z);
                 HeatViewClient.line(lines, pose, x, y, z, x + u * length, y + v * length, z + w * length);
             }
         }
@@ -107,6 +124,14 @@ public final class AirflowViewClient {
             }
         }
         buffers.endBatch(RenderType.lines());
+    }
+
+    /** Whether any of the tile's cells could lie within {@link #CELL_RANGE} of the camera (skips far tiles whole). */
+    private static boolean near(AirflowView.Payload p, Vec3 cam) {
+        double dx = Math.max(0, Math.max(p.ox() - cam.x, cam.x - (p.ox() + p.sx())));
+        double dy = Math.max(0, Math.max(p.oy() - cam.y, cam.y - (p.oy() + p.sy())));
+        double dz = Math.max(0, Math.max(p.oz() - cam.z, cam.z - (p.oz() + p.sz())));
+        return dx * dx + dy * dy + dz * dz <= (double) CELL_RANGE * CELL_RANGE;
     }
 
     private static void outline(VertexConsumer lines, PoseStack.Pose pose, AirflowView.Payload p, Vec3 cam) {
