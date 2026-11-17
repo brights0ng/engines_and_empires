@@ -1,5 +1,6 @@
 // Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f f2: saving and rebuilding a
-// running scene, for the model soak; the outside air sent ahead of an edit, as the manager does).
+// running scene, for the model soak; the outside air sent ahead of an edit, as the manager does); edited by Claude
+// (M8a: tiles cut from a larger scene, for the straddle scenarios).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -25,7 +26,8 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 final class AirflowScene {
 
-    /** The outside air at a lattice point, region cells, at simulated time {@code t}, C. */
+    /** The outside air at a lattice point, in the whole scene's cells (a {@link #tile}'s own plus its origin), at
+     *  simulated time {@code t}, C. */
     @FunctionalInterface
     interface Outside {
         double at(int x, int y, int z, double t);
@@ -33,16 +35,58 @@ final class AirflowScene {
 
     final int nx, ny, nz;
     private final BlockState[] states;
+    /** Where this scene sits in the scene it was cut from ({@link #tile}), blocks; 0 for a whole scene. */
+    final int ox, oy, oz;
+    /** A tile's column tops from the whole scene's columns (the world's heightmap beyond the tile); null: its own. */
+    private final int[] worldTops;
 
     AirflowScene(int nx, int ny, int nz) {
+        this(nx, ny, nz, 0, 0, 0, null);
+    }
+
+    private AirflowScene(int nx, int ny, int nz, int ox, int oy, int oz, int[] worldTops) {
         if (nx % 16 != 0 || ny % 16 != 0 || nz % 16 != 0) {
             throw new IllegalArgumentException("whole sections only: " + nx + "×" + ny + "×" + nz);
         }
         this.nx = nx;
         this.ny = ny;
         this.nz = nz;
+        this.ox = ox;
+        this.oy = oy;
+        this.oz = oz;
+        this.worldTops = worldTops;
         states = new BlockState[nx * ny * nz];
         Arrays.fill(states, Blocks.AIR.defaultBlockState());
+    }
+
+    /**
+     * The tile of whole sections from (x0, y0, z0), size tnx × tny × tnz, as the region manager would cut it from this
+     * scene standing for the world (M8a): its blocks, its column tops from this scene's whole columns (a roof above the
+     * tile still roofs it), and the outside air read at its place here. Coordinates in the tile are its own; changes to
+     * it don't reach this scene.
+     */
+    AirflowScene tile(int x0, int y0, int z0, int tnx, int tny, int tnz) {
+        if (x0 % 16 != 0 || y0 % 16 != 0 || z0 % 16 != 0 || x0 < 0 || y0 < 0 || z0 < 0 || x0 + tnx > nx
+                || y0 + tny > ny || z0 + tnz > nz) {
+            throw new IllegalArgumentException("not a tile of whole sections inside the scene: " + x0 + "," + y0 + ","
+                    + z0 + " size " + tnx + "×" + tny + "×" + tnz);
+        }
+        int[] whole = tops();
+        int[] cut = new int[tnx * tnz];
+        for (int z = 0; z < tnz; z++) {
+            for (int x = 0; x < tnx; x++) {
+                cut[z * tnx + x] = whole[(z0 + z) * nx + x0 + x] - y0;
+            }
+        }
+        AirflowScene t = new AirflowScene(tnx, tny, tnz, ox + x0, oy + y0, oz + z0, cut);
+        for (int y = 0; y < tny; y++) {
+            for (int z = 0; z < tnz; z++) {
+                for (int x = 0; x < tnx; x++) {
+                    t.set(x, y, z, get(x0 + x, y0 + y, z0 + z));
+                }
+            }
+        }
+        return t;
     }
 
     int index(int x, int y, int z) {
@@ -81,8 +125,14 @@ final class AirflowScene {
         return AirflowCells.classify(get(x, y, z));
     }
 
-    /** Each column's first open height above its highest blocking cell, as the heightmap gives it (0 if none). */
+    /**
+     * Each column's first open height above its highest blocking cell, as the heightmap gives it (0 if none); for a
+     * {@link #tile}, from the whole scene's column, relative to the tile's floor (may lie outside the tile).
+     */
     int[] tops() {
+        if (worldTops != null) {
+            return worldTops.clone();
+        }
         int[] out = new int[nx * nz];
         for (int z = 0; z < nz; z++) {
             for (int x = 0; x < nx; x++) {
@@ -106,8 +156,8 @@ final class AirflowScene {
         for (int j = 0; j < ly; j++) {
             for (int k = 0; k < lz; k++) {
                 for (int i = 0; i < lx; i++) {
-                    out[(j * lz + k) * lx + i] = (float) outside.at(AirflowField.STEP * i, AirflowField.STEP * j,
-                            AirflowField.STEP * k, t);
+                    out[(j * lz + k) * lx + i] = (float) outside.at(ox + AirflowField.STEP * i,
+                            oy + AirflowField.STEP * j, oz + AirflowField.STEP * k, t);
                 }
             }
         }
