@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M8a: the straddle scenarios).
+// Written by Claude (GreedyFluids M8a: the straddle scenarios); edited by Claude (M8b: B2's cuts, alone and with the
+// neighbouring tiles running).
 package dev.brights0ng.meteodyne.airflow;
 
 import dev.brights0ng.meteodyne.Meteodyne;
@@ -13,12 +14,15 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /**
  * GreedyFluids M8a, the straddle scenarios (report-only): what a tile border does to a room it cuts. Each builds a
  * small world as an {@link AirflowScene}, cuts tiles from it as the region manager would ({@link AirflowScene#tile}),
- * and steps each tile alone, as the only live tile, beside a reference tile that holds the whole room. A tile's cut
- * faces are OPEN today (M7: every side but the floor), so a cut room leaks as if the cut were an open window to its
- * background. These scenes size that leak and are M8b's acceptance set (bars set from their numbers, Bright to approve).
+ * and steps them beside a reference tile that holds the whole room:
  * <ul>
- *   <li>A tile without the fire sees nothing of it, today and under B2 (insulated where the neighbour isn't running,
- *       Bright 2026-11-16); its numbers are the case for or against B3.</li>
+ *   <li><b>Alone:</b> each tile as the only live one. Under B2 (M8b) its enclosed cut cells are EXCHANGE and, with no
+ *       neighbour running, insulated (Bright, 2026-11-16); before, they were OPEN (every side but the floor) and the
+ *       cut leaked as if it were an open window to the background (M8a's numbers).</li>
+ *   <li><b>Both live:</b> the tiles of the cut stepped together ({@link AirflowScene.Run#together}), each reading the
+ *       other's latest frame across the cut, as the air thread does when both run. The heat each side counts across
+ *       the cut is the energy line: out of one, into the other, a step apart.</li>
+ *   <li>A tile without the fire sees nothing of it alone; its numbers are the case for or against B3.</li>
  *   <li>Logged as {@code Airflow scenario straddle ...}; nothing is asserted beyond finite values.</li>
  * </ul>
  * World coordinates below; the scenes stand on 8 blocks of stone (air from y 8) unless a scenario says otherwise, the
@@ -84,19 +88,26 @@ public final class AirflowStraddleGameTests {
         AirflowScene.Run ref = world.tile(16, 0, 0, 32, 32, 32).build(STILL, 0, 0);
         AirflowScene.Run left = world.tile(0, 0, 0, 32, 32, 32).build(STILL, 0, 0);
         AirflowScene.Run right = world.tile(32, 0, 0, 32, 32, 32).build(STILL, 0, 0);
+        AirflowScene.Run liveLeft = world.tile(0, 0, 0, 32, 32, 32).build(STILL, 0, 0);
+        AirflowScene.Run liveRight = world.tile(32, 0, 0, 32, 32, 32).build(STILL, 0, 0);
         AirflowScene.Report report = new AirflowScene.Report("straddle x, " + near + " of 8 columns with the fire");
         for (int t : new int[] {120, 600}) {
             ref.until(t);
             left.until(t);
             right.until(t);
+            AirflowScene.Run.together(t, liveLeft, liveRight);
             double refNear = meanOffset(ref, ix, G, 12, 31, G + 3, 19);
             double refFar = meanOffset(ref, 32, G, 12, ix + 7, G + 3, 19);
             report.add("t" + t + " whole room (ref)", meanOffset(ref, ix, G, 12, ix + 7, G + 3, 19))
                     .add("fire side (ref)", refNear).add("fire side (cut)", meanOffset(left, ix, G, 12, 31, G + 3, 19))
+                    .add("fire side (both live)", meanOffset(liveLeft, ix, G, 12, 31, G + 3, 19))
                     .add("far side (ref)", refFar).add("far side (cut)", meanOffset(right, 32, G, 12, ix + 7, G + 3, 19))
+                    .add("far side (both live)", meanOffset(liveRight, 32, G, 12, ix + 7, G + 3, 19))
                     .add("head height at the cut (ref)", ref.offset(31 - 16, G + 1, 15))
                     .add("same (cut)", left.offset(31, G + 1, 15))
-                    .add("flow out through the cut m/s", meanFlow(left, 0, 31, G, 12, 31, G + 3, 19));
+                    .add("flow out through the cut m/s", meanFlow(left, 0, 31, G, 12, 31, G + 3, 19))
+                    .add("across kJ: out of the fire side", liveLeft.exchanged() / 1e3)
+                    .add("into the far side", -liveRight.exchanged() / 1e3);
         }
         report.log(left);
         helper.succeed();
@@ -127,17 +138,24 @@ public final class AirflowStraddleGameTests {
         AirflowScene.Run ref = world.tile(0, 0, 0, 32, 32, 32).build(STILL, 0, 0);
         AirflowScene.Run lower = world.tile(0, 0, 0, 32, 16, 32).build(STILL, 0, 0);
         AirflowScene.Run upper = world.tile(0, 16, 0, 32, 16, 32).build(STILL, 0, 0);
+        AirflowScene.Run liveLower = world.tile(0, 0, 0, 32, 16, 32).build(STILL, 0, 0);
+        AirflowScene.Run liveUpper = world.tile(0, 16, 0, 32, 16, 32).build(STILL, 0, 0);
         AirflowScene.Report report = new AirflowScene.Report("straddle y, cut between the second and third layers");
         for (int t : new int[] {120, 600}) {
             ref.until(t);
             lower.until(t);
             upper.until(t);
+            AirflowScene.Run.together(t, liveLower, liveUpper);
             report.add("t" + t + " whole room (ref)", meanOffset(ref, 12, floor, 12, 19, floor + 3, 19))
                     .add("lower two layers (ref)", meanOffset(ref, 12, floor, 12, 19, floor + 1, 19))
                     .add("lower two layers (cut)", meanOffset(lower, 12, floor, 12, 19, floor + 1, 19))
+                    .add("lower two layers (both live)", meanOffset(liveLower, 12, floor, 12, 19, floor + 1, 19))
                     .add("upper two layers (ref)", meanOffset(ref, 12, floor + 2, 12, 19, floor + 3, 19))
                     .add("upper two layers (cut)", meanOffset(upper, 12, floor + 2, 12, 19, floor + 3, 19))
-                    .add("flow up through the cut m/s", meanFlow(lower, 1, 12, floor + 1, 12, 19, floor + 1, 19));
+                    .add("upper two layers (both live)", meanOffset(liveUpper, 12, floor + 2, 12, 19, floor + 3, 19))
+                    .add("flow up through the cut m/s", meanFlow(lower, 1, 12, floor + 1, 12, 19, floor + 1, 19))
+                    .add("across kJ: out of the lower tile", liveLower.exchanged() / 1e3)
+                    .add("into the upper", -liveUpper.exchanged() / 1e3);
         }
         report.log(lower);
         helper.succeed();
@@ -150,13 +168,24 @@ public final class AirflowStraddleGameTests {
         house(world, 28, G, 28);
         AirflowScene.Run ref = world.tile(16, 0, 16, 32, 32, 32).build(STILL, 0, 0);
         AirflowScene.Run quarter = world.tile(0, 0, 0, 32, 32, 32).build(STILL, 0, 0);
+        AirflowScene.Run[] live = new AirflowScene.Run[4];
+        for (int i = 0; i < 4; i++) {
+            live[i] = world.tile(32 * (i % 2), 0, 32 * (i / 2), 32, 32, 32).build(STILL, 0, 0);
+        }
         AirflowScene.Report report = new AirflowScene.Report("straddle corner, the fire's quarter");
         for (int t : new int[] {120, 600}) {
             ref.until(t);
             quarter.until(t);
+            AirflowScene.Run.together(t, live);
             report.add("t" + t + " whole room (ref)", meanOffset(ref, 28, G, 28, 35, G + 3, 35))
                     .add("fire quarter (ref)", meanOffset(ref, 28, G, 28, 31, G + 3, 31))
-                    .add("fire quarter (cut)", meanOffset(quarter, 28, G, 28, 31, G + 3, 31));
+                    .add("fire quarter (cut)", meanOffset(quarter, 28, G, 28, 31, G + 3, 31))
+                    .add("fire quarter (all live)", meanOffset(live[0], 28, G, 28, 31, G + 3, 31))
+                    .add("opposite quarter (ref)", meanOffset(ref, 32, G, 32, 35, G + 3, 35))
+                    .add("opposite quarter (all live)", meanOffset(live[3], 32, G, 32, 35, G + 3, 35))
+                    .add("across kJ: out of the fire quarter", live[0].exchanged() / 1e3)
+                    .add("into the other three", -(live[1].exchanged() + live[2].exchanged() + live[3].exchanged())
+                            / 1e3);
         }
         report.log(quarter);
         helper.succeed();
@@ -176,7 +205,10 @@ public final class AirflowStraddleGameTests {
         AirflowScene.Run ref = world.build(day, 0, 0).weatherEvery(30);
         AirflowScene.Run lower = world.tile(0, 0, 0, 32, 16, 32).build(day, 0, 0).weatherEvery(30);
         AirflowScene.Run middle = world.tile(0, 16, 0, 32, 16, 32).build(day, 0, 0).weatherEvery(30);
-        double[][] range = new double[4][];
+        AirflowScene.Run[] live = {world.tile(0, 0, 0, 32, 16, 32).build(day, 0, 0).weatherEvery(30),
+                world.tile(0, 16, 0, 32, 16, 32).build(day, 0, 0).weatherEvery(30),
+                world.tile(0, 32, 0, 32, 16, 32).build(day, 0, 0).weatherEvery(30)};
+        double[][] range = new double[6][];
         for (int i = 0; i < range.length; i++) {
             range[i] = new double[] {Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY};
         }
@@ -184,8 +216,10 @@ public final class AirflowStraddleGameTests {
             ref.until(t);
             lower.until(t);
             middle.until(t);
+            AirflowScene.Run.together(t, live);
             double[] m = {meanTemperature(ref, 12, 14, 12, 19, 15, 19), meanTemperature(lower, 12, 14, 12, 19, 15, 19),
-                    meanTemperature(ref, 12, 16, 12, 19, 17, 19), meanTemperature(middle, 12, 16, 12, 19, 17, 19)};
+                    meanTemperature(ref, 12, 16, 12, 19, 17, 19), meanTemperature(middle, 12, 16, 12, 19, 17, 19),
+                    meanTemperature(live[0], 12, 14, 12, 19, 15, 19), meanTemperature(live[1], 12, 16, 12, 19, 17, 19)};
             for (int i = 0; i < m.length; i++) {
                 range[i][0] = Math.min(range[i][0], m[i]);
                 range[i][1] = Math.max(range[i][1], m[i]);
@@ -194,8 +228,10 @@ public final class AirflowStraddleGameTests {
         new AirflowScene.Report("straddle cellar, cut between its second and third layers").add("outside swing", 16)
                 .add("bottom half swing (ref)", range[0][1] - range[0][0])
                 .add("bottom half swing (cut)", range[1][1] - range[1][0])
+                .add("bottom half swing (all live)", range[4][1] - range[4][0])
                 .add("top half swing (ref)", range[2][1] - range[2][0])
-                .add("top half swing (cut)", range[3][1] - range[3][0]).log(lower);
+                .add("top half swing (cut)", range[3][1] - range[3][0])
+                .add("top half swing (all live)", range[5][1] - range[5][0]).log(lower);
         helper.succeed();
     }
 
@@ -213,16 +249,21 @@ public final class AirflowStraddleGameTests {
         world.set(12, G, 15, FIRE);
         AirflowScene.Run ref = world.build(STILL, 0, 0);
         AirflowScene.Run lower = world.tile(0, 0, 0, 32, 16, 32).build(STILL, 0, 0);
+        AirflowScene.Run liveLower = world.tile(0, 0, 0, 32, 16, 32).build(STILL, 0, 0);
+        AirflowScene.Run liveUpper = world.tile(0, 16, 0, 32, 16, 32).build(STILL, 0, 0);
         AirflowScene.Report report = new AirflowScene.Report("straddle flue, the shaft cut 4 blocks up");
         for (int t : new int[] {120, 300}) {
             ref.until(t);
             lower.until(t);
+            AirflowScene.Run.together(t, liveLower, liveUpper);
             report.add("t" + t + " shaft rise below the cut (ref) m/s", meanFlow(ref, 1, 12, G + 4, 15, 12, 15, 15))
                     .add("same (cut) m/s", meanFlow(lower, 1, 12, G + 4, 15, 12, 15, 15))
+                    .add("same (both live) m/s", meanFlow(liveLower, 1, 12, G + 4, 15, 12, 15, 15))
                     .add("doorway inflow (ref) m/s", -meanFlow(ref, 2, 15, G, 20, 15, G + 1, 20))
                     .add("same (cut) m/s", -meanFlow(lower, 2, 15, G, 20, 15, G + 1, 20))
                     .add("inside (ref)", meanOffset(ref, 12, G, 12, 19, G + 3, 19))
-                    .add("inside (cut)", meanOffset(lower, 12, G, 12, 19, G + 3, 19));
+                    .add("inside (cut)", meanOffset(lower, 12, G, 12, 19, G + 3, 19))
+                    .add("inside (both live)", meanOffset(liveLower, 12, G, 12, 19, G + 3, 19));
         }
         report.log(lower);
         helper.succeed();

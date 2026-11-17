@@ -1,6 +1,6 @@
 // Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f f2: saving and rebuilding a
 // running scene, for the model soak; the outside air sent ahead of an edit, as the manager does); edited by Claude
-// (M8a: tiles cut from a larger scene, for the straddle scenarios).
+// (M8a: tiles cut from a larger scene, for the straddle scenarios; M8b: neighbouring tiles stepped together).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
+import dev.brights0ng.greedyfluids.grid.CellGrid3D.Side;
 import dev.brights0ng.greedyfluids.region.AirFrame;
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.airflow.AirflowCells.Cell;
@@ -241,6 +242,12 @@ final class AirflowScene {
         private int steps;
         /** The steps' energy budget so far, J: sources, loss to ambient, advection out, change in stored heat. */
         private double sourceJ, lossJ, advectedJ, deltaJ;
+        /** Heat out through the tile's EXCHANGE faces so far, J (M8b; negative: in from its neighbours). */
+        private double exchangedJ;
+        /** Where the borders read their far temperatures (M8b), carried over a restart. */
+        private AirflowBorders.Neighbours neighbours = AirflowBorders.NONE;
+        /** The frame published after the last step, while stepped {@link #together}. */
+        private AirFrame latest;
         /** Background-shift energy of the models before the current one, J. */
         private double shiftBefore;
 
@@ -284,6 +291,7 @@ final class AirflowScene {
                 lossJ += st.ambientLoss;
                 advectedJ += st.advectedOut;
                 deltaJ += st.deltaEnergy;
+                exchangedJ += st.exchangeOut;
                 if (!model.healthy()) {
                     throw new IllegalStateException("non-finite values at " + time() + " s");
                 }
@@ -318,6 +326,7 @@ final class AirflowScene {
             double now = time();
             shiftBefore += model.region().mesh().backgroundShiftEnergy();
             model = AirflowRegionModel.build(scene.spec(outside, now, windX, windZ, kappa, tile.sections(), tick));
+            model.neighbours(neighbours);
             before = now;
             lastWeather = now;
             return this;
@@ -492,6 +501,52 @@ final class AirflowScene {
 
         int steps() {
             return steps;
+        }
+
+        /** Heat out through the tile's EXCHANGE faces so far, J (M8b; negative: in from its neighbours). */
+        double exchanged() {
+            return exchangedJ;
+        }
+
+        /**
+         * Steps runs of same-sized tiles cut from one scene ({@link AirflowScene#tile}) until simulated time
+         * {@code seconds}, one step each in turn, each reading the latest frame of the run beside it across each border
+         * as the air thread does (M8b): a run reads its neighbour's frame from that neighbour's last step.
+         */
+        static void together(double seconds, Run... runs) {
+            for (Run r : runs) {
+                r.latest = r.frame();
+                r.neighbours = side -> {
+                    Run n = beside(r, side, runs);
+                    return n == null ? null : n.latest;
+                };
+                r.model.neighbours(r.neighbours);
+            }
+            boolean behind = true;
+            while (behind) {
+                behind = false;
+                for (Run r : runs) {
+                    if (r.time() < seconds - 1e-9) {
+                        r.until(r.time() + r.model.dt());
+                        r.latest = r.frame();
+                        behind = true;
+                    }
+                }
+            }
+        }
+
+        /** The run whose tile lies across {@code side} of {@code r}'s, or null. */
+        private static Run beside(Run r, Side side, Run[] runs) {
+            AirflowScene s = r.scene;
+            int a = side.axis(), d = side.high() ? 1 : -1;
+            int x = s.ox + (a == 0 ? d * s.nx : 0), y = s.oy + (a == 1 ? d * s.ny : 0), z = s.oz + (a == 2 ? d * s.nz : 0);
+            for (Run n : runs) {
+                if (n != r && n.scene.ox == x && n.scene.oy == y && n.scene.oz == z && n.scene.nx == s.nx
+                        && n.scene.ny == s.ny && n.scene.nz == s.nz) {
+                    return n;
+                }
+            }
+            return null;
         }
     }
 
