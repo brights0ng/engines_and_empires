@@ -1,7 +1,8 @@
 // Written by Claude (GreedyFluids M7b); edited by Claude (b2: classifier, section cache and snapshot check; b3: a
 // region around an anchor; b4: a region around a player, the commands and recorder, the switch; M7d d1: tiles; d2:
 // saving and restoring; M7c: watts and hot walls from the heat tables; M7e: the speed limit; M7f: stone from the
-// config, the recorder's profile; f3: AIRFLOW is the config's default, game-test servers run LEGACY).
+// config, the recorder's profile; f3: AIRFLOW is the config's default, game-test servers run LEGACY; M8a: AIRFLOW
+// started by the server's own handlers).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -581,6 +582,82 @@ public final class AirflowGameTests {
                 .thenExecute(() -> Airflow.useForTests(Airflow.Engine.LEGACY))
                 .thenWaitUntil(() -> helper.assertTrue(world.roomAt(body) > 0, "waiting for legacy to warm again"))
                 .thenExecute(cleanup)
+                .thenSucceed();
+    }
+
+    /**
+     * M8a (Bright, 2026-11-16: game-test servers keep running LEGACY, and a test covers the start they skip): what a
+     * server with {@code [heat] engine = AIRFLOW} does at start. The engine rule picks AIRFLOW off a game-test server;
+     * the manager is made by the real {@code ServerStartedEvent} handler, on the overworld, and ticked by the real
+     * level-tick handler (nothing here ticks it); the real {@code ServerStoppingEvent} handler stops it and joins its
+     * air thread. Its own batch, as the switch's. The anchor is a fixed spot set after the start, not a mock player
+     * (see {@link #regionHearsDoorsSourcesAndCommands}).
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_server_start", timeoutTicks = 40_000)
+    public static void airflowStartsWithTheServer(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        var server = level.getServer();
+        helper.assertTrue(Airflow.choose(false, Airflow.Engine.AIRFLOW) == Airflow.Engine.AIRFLOW
+                && Airflow.choose(false, Airflow.Engine.LEGACY) == Airflow.Engine.LEGACY,
+                "off a game-test server the configured engine runs");
+        helper.assertTrue(Airflow.choose(true, Airflow.Engine.AIRFLOW) == Airflow.Engine.LEGACY,
+                "a game-test server runs LEGACY whatever the config says");
+        helper.assertTrue(!Airflow.active() && AirflowRegions.get() == null,
+                "this game-test server started without the airflow manager");
+        helper.assertTrue(level == server.overworld(), "game tests run in the overworld");
+        Vec3 anchor = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(1, 2, 1)));
+        boolean opened = AirflowSections.get(level) == null;
+        Airflow.useForTests(Airflow.Engine.AIRFLOW);
+        AirflowRegions.onServerStarted(new net.neoforged.neoforge.event.server.ServerStartedEvent(server));
+        AirflowRegions regions = AirflowRegions.get();
+        if (regions == null) {
+            Airflow.useForTests(Airflow.Engine.LEGACY);
+            helper.fail("the ServerStartedEvent handler made no manager under AIRFLOW");
+            return;
+        }
+        regions.anchors(l -> List.of(anchor));
+        int[] o = regions.tileOf(anchor.x, anchor.y, anchor.z);
+        List<long[]> forced = new ArrayList<>();
+        for (int cx = o[0] >> 4; cx < (o[0] + AirflowRegions.WX) >> 4; cx++) {
+            for (int cz = o[2] >> 4; cz < (o[2] + AirflowRegions.WZ) >> 4; cz++) {
+                if (level.setChunkForced(cx, cz, true)) {
+                    forced.add(new long[] {cx, cz});
+                }
+            }
+        }
+        AirflowRuntime runtime = regions.runtime();
+        boolean[] done = {false};
+        Runnable cleanup = () -> {
+            if (done[0]) {
+                return;
+            }
+            done[0] = true;
+            AirflowRegions.onServerStopping(new net.neoforged.neoforge.event.server.ServerStoppingEvent(server));
+            Airflow.useForTests(Airflow.Engine.LEGACY);
+            for (long[] c : forced) {
+                level.setChunkForced((int) c[0], (int) c[1], false);
+            }
+            if (opened) {
+                AirflowSections.close(level);
+            }
+        };
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region r = regions.regionAt(anchor.x, anchor.y, anchor.z);
+                    helper.assertTrue(r != null && r.slot() != null && r.slot().steps() >= 2,
+                            "waiting for the anchor's tile to be built and stepped under the level tick");
+                })
+                .thenExecute(() -> {
+                    AirflowRegions.Region r = regions.regionAt(anchor.x, anchor.y, anchor.z);
+                    helper.assertTrue(regions.level() == server.overworld(), "the manager runs the overworld");
+                    helper.assertTrue(r.x0() == o[0] && r.y0() == o[1] && r.z0() == o[2],
+                            "the region is the anchor's tile: " + regionLine(r, level));
+                    helper.assertTrue(r.slot().status() == AirflowRuntime.Status.RUNNING && r.slot().failures() == 0,
+                            "running: " + r.slot().failure());
+                    cleanup.run();
+                    helper.assertTrue(AirflowRegions.get() == null, "the stopping handler clears the manager");
+                    helper.assertFalse(runtime.alive(), "stopping joins the air thread");
+                })
                 .thenSucceed();
     }
 

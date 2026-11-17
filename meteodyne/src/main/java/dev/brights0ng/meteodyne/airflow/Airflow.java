@@ -1,5 +1,6 @@
 // Written by Claude (GreedyFluids M7b); edited by Claude (b4: an engine override for game tests; M7e: readers; M7f f3:
-// the local-air domains are gone; AIRFLOW is the default and game-test servers run LEGACY).
+// the local-air domains are gone; AIRFLOW is the default and game-test servers run LEGACY; M8a: the rule on its own,
+// for the server-start game test).
 package dev.brights0ng.meteodyne.airflow;
 
 import dev.brights0ng.meteodyne.Meteodyne;
@@ -48,10 +49,15 @@ public final class Airflow {
     @SubscribeEvent
     static void onServerAboutToStart(ServerAboutToStartEvent event) {
         boolean gameTests = event.getServer() instanceof GameTestServer;
-        engine = gameTests ? Engine.LEGACY : WeatherConfig.heatEngine();
+        engine = choose(gameTests, WeatherConfig.heatEngine());
         // Logged either way, so the log always shows which engine a session ran.
         Meteodyne.LOGGER.info("[heat] engine is {}{}", engine, gameTests ? " (game-test server)"
                 : engine == Engine.AIRFLOW ? ": the legacy heat regions are off" : "");
+    }
+
+    /** The engine a server runs: LEGACY on a game-test server, else the configured one. */
+    static Engine choose(boolean gameTestServer, Engine configured) {
+        return gameTestServer ? Engine.LEGACY : configured;
     }
 
     @SubscribeEvent
