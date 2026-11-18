@@ -4,7 +4,7 @@
 // Updated by Claude: [heat] airflow speed limit and tile cap (GreedyFluids M7e).
 // Updated by Claude: [heat] airflow stone conductivity and heat capacity, and heat diffusivity (GreedyFluids M7f).
 // Updated by Claude: [heat] engine defaults to AIRFLOW (GreedyFluids M7f f3).
-// Updated by Claude: [heat] airflow neighbour tiles and their threshold (GreedyFluids M8b b4).
+// Updated by Claude: [heat] airflow neighbour tiles, their threshold and reach (GreedyFluids M8b b4).
 // Updated by Claude: [heat] airflow surface film, a physical one (GreedyFluids M8a).
 package dev.brights0ng.meteodyne.rain;
 
@@ -408,16 +408,20 @@ public final class WeatherConfig {
 
     public static final ModConfigSpec.EnumValue<dev.brights0ng.meteodyne.airflow.AirflowNeighbourTiles.Mode>
             AIRFLOW_NEIGHBOUR_TILES = BUILDER
-            .comment("AIRFLOW: tiles that run beside a player's tile where a room crosses a tile border (B3), so the",
-                    "room is simulated on both sides of the border. ON: they run. REPORT: /meteodyne airflow status and",
-                    "the recorder count which would, at 2, 4 and 8 shared cells, without running them. OFF: neither.",
-                    "They count toward airflowTileCap.")
+            .comment("AIRFLOW: tiles that run beside a player's tile where the enclosed air the player stands in (a",
+                    "room, a cave) crosses a tile border, so it is simulated on both sides of the border. A player",
+                    "outdoors keeps none. ON: they run. REPORT: /meteodyne airflow status and the recorder count which",
+                    "would, at 2, 4 and 8 cells, without running them. OFF: neither. They count toward airflowTileCap.")
             .defineEnum("airflowNeighbourTiles", dev.brights0ng.meteodyne.airflow.AirflowNeighbourTiles.Mode.ON);
 
     public static final ModConfigSpec.IntValue AIRFLOW_NEIGHBOUR_MIN_CELLS = BUILDER
-            .comment("AIRFLOW: how many block faces of enclosed air (under a roof, open on both sides) a tile border",
-                    "must cut before the tile across runs beside a player's.")
+            .comment("AIRFLOW: how many block faces of the player's enclosed air a tile border must cut before the",
+                    "tile across runs beside the player's.")
             .defineInRange("airflowNeighbourMinCells", 4, 1, 4096);
+
+    public static final ModConfigSpec.IntValue AIRFLOW_NEIGHBOUR_REACH = BUILDER
+            .comment("AIRFLOW: how far the player's enclosed air is followed, blocks walked (shut doors stop it).")
+            .defineInRange("airflowNeighbourReach", 32, 1, 64);
 
     public static final ModConfigSpec.DoubleValue AIRFLOW_STONE_CONDUCTIVITY = BUILDER
             .comment("AIRFLOW: stone's thermal conductivity, W/(m·K) (real rock is about 2-3); the insulation table's",
@@ -527,6 +531,11 @@ public final class WeatherConfig {
     /** AIRFLOW: the enclosed cells a border must cut before the tile across runs (M8b b4). */
     public static int airflowNeighbourMinCells() {
         return SPEC.isLoaded() ? AIRFLOW_NEIGHBOUR_MIN_CELLS.get() : 4;
+    }
+
+    /** AIRFLOW: how far the player's enclosed air is followed, blocks (M8b b4, G2). */
+    public static int airflowNeighbourReach() {
+        return SPEC.isLoaded() ? AIRFLOW_NEIGHBOUR_REACH.get() : 32;
     }
 
     /** AIRFLOW: stone's thermal conductivity, W/(m·K). */

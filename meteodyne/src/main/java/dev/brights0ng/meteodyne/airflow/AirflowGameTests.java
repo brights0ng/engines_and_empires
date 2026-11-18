@@ -737,11 +737,12 @@ public final class AirflowGameTests {
     }
 
     /**
-     * M8b b4 (B3; Bright, 2026-11-17): a stone room cut by a tile's x border, high in the world above the test's own
-     * spot (its own batch, so nothing else builds there), with a campfire on the anchor's side. The anchor's tile
-     * opens the tile across as a secondary, the only one (the room shares 20 enclosed cells across the cut; nothing
-     * else is enclosed), and heat crosses: out of the fire's tile, into the other. With the anchor gone, both go into
-     * their grace together and retire on the same tick: the count of regions never reads 1.
+     * M8b b4 (B3 with G2; Bright, 2026-11-17): a stone room cut by a tile's x border, high in the world above the
+     * test's own spot (its own batch, so nothing else builds there), with a campfire on the anchor's side. The
+     * anchor stands in the room's enclosed air, whose trace crosses the cut through the room's 4 × 5 section and
+     * nothing else, so the tile across opens as the only secondary; a trace from the open air above the roof walks
+     * nothing. Heat crosses: out of the fire's tile, into the other. With the anchor gone, both go into their grace
+     * together and retire on the same tick: the count of regions never reads 1.
      */
     @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_neighbours", timeoutTicks = 40_000)
     public static void aRoomAcrossABorderRunsTheTileAcross(GameTestHelper helper) {
@@ -825,13 +826,18 @@ public final class AirflowGameTests {
                         helper.assertTrue(regions.wouldNow(i) == 1, "one tile would run at "
                                 + AirflowNeighbourTiles.REPORTED[i] + " cells: " + AirflowCommand.neighbourLine(regions));
                     }
-                    int shared = regions.sharedCells(west[0], west[1], west[2],
-                            dev.brights0ng.greedyfluids.grid.CellGrid3D.Side.EAST, new it.unimi.dsi.fastutil.longs.LongOpenHashSet());
-                    helper.assertTrue(shared == 20, "the cut shares the room's 4 × 5 inside: " + shared);
-                    int below = regions.sharedCells(west[0], west[1], west[2],
-                            dev.brights0ng.greedyfluids.grid.CellGrid3D.Side.DOWN, new it.unimi.dsi.fastutil.longs.LongOpenHashSet());
-                    helper.assertTrue(below == 0, "the band border under the room meets its stone floor, and open air "
-                            + "elsewhere: " + below);
+                    AirflowTrace inside = regions.traceFrom(a.x, a.y, a.z);
+                    int cut = inside.crossings(AirflowNeighbourTiles.faceKey(0, 0, 0,
+                            dev.brights0ng.greedyfluids.grid.CellGrid3D.Side.EAST));
+                    int below = inside.crossings(AirflowNeighbourTiles.faceKey(0, 0, 0,
+                            dev.brights0ng.greedyfluids.grid.CellGrid3D.Side.DOWN));
+                    helper.assertTrue(inside.enclosed() && inside.complete() && inside.walked() == 10 * 4 * 5,
+                            "the trace walks the room's inside: " + inside.walked() + ", complete " + inside.complete());
+                    helper.assertTrue(cut == 20 && below == 0, "it crosses the cut through the room's 4 × 5 section "
+                            + "and nowhere else: " + cut + " east, " + below + " down");
+                    AirflowTrace outside = regions.traceFrom(a.x, y + 7, a.z);
+                    helper.assertTrue(!outside.enclosed() && outside.walked() == 0,
+                            "the open air above the roof walks nothing: " + outside.walked());
                 })
                 .thenWaitUntil(() -> {
                     AirflowRuntime.Counters h = regions.regionAt(a.x, a.y, a.z).slot().counters();

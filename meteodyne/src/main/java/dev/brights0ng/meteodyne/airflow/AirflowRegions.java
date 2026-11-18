@@ -51,13 +51,14 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  *   <li><b>Assignment:</b> each player keeps the tile holding them alive (only players are readers that do;
  *       Bright, 2026-11-15). Where a border cuts enclosed air, no air crosses and heat goes to the neighbouring
  *       tile's air while that tile runs, else nowhere (M8b, {@link AirflowBorders}).</li>
- *   <li><b>Secondaries (M8b b4, B3; Bright, 2026-11-17):</b> a player's tile also keeps running the tiles of the
- *       3×3×3 block around it that enclosed air connects to it across borders ({@link AirflowNeighbourTiles}): at
- *       least {@code airflowNeighbourMinCells} enclosed cell pairs across a face, counted from the one-section strip
- *       on each side of it, which the manager wants from the section cache. The counts are refreshed every
- *       {@link #FLOOD_TICKS} (sooner while a strip is still being read). A tile in its grace keeps no secondaries, so
- *       a secondary goes into its grace with the player's tile. {@code airflowNeighbourTiles} REPORT counts what
- *       would run (at 2, 4 and 8 cells, in every mode but OFF) without running it.</li>
+ *   <li><b>Secondaries (M8b b4, B3 with G2; Bright, 2026-11-17):</b> a player standing in enclosed air also keeps
+ *       running the tiles that air reaches across a border, at least {@code airflowNeighbourMinCells} cell pairs
+ *       across a face, within {@code airflowNeighbourReach} steps of them ({@link AirflowTrace}, walked on the
+ *       server thread within {@link #TRACE_BUDGET_NANOS} a tick, from the section cache; sections it misses are
+ *       wanted and it is walked again). Shut doors stop it; a player outdoors keeps none. Traces are refreshed every
+ *       {@link #FLOOD_TICKS}. A tile in its grace keeps no secondaries, so a secondary goes into its grace with the
+ *       player's tile. {@code airflowNeighbourTiles} REPORT counts what would run (at 2, 4 and 8 cells, in every
+ *       mode but OFF) without running it.</li>
  *   <li><b>Limits ({@link AirflowLimits}; Bright, 2026-11-15):</b> a player moving faster than
  *       {@code airflowSpeedLimit} (5.5 blocks a second) opens no new tile, though the tile they are in keeps running;
  *       past {@code airflowTileCap} tiles (12 on the server, or per player) the tiles empty longest close early, then
@@ -103,6 +104,10 @@ public final class AirflowRegions implements AirflowSections.Listener {
     static final double ABOARD_MARGIN = 1;
     /** How often a player's tile's secondaries are worked out again, ticks (M8b b4). */
     static final int FLOOD_TICKS = 40;
+    /** Server-thread time per tick for walking traces, ns (M8b b4). */
+    static final long TRACE_BUDGET_NANOS = 200_000L;
+    /** Secondaries opened per match at most, so a corner's tiles don't all build at once (M8b b4). */
+    static final int MAX_OPENS_PER_MATCH = 1;
 
     private static volatile AirflowRegions running;
 
@@ -213,9 +218,10 @@ public final class AirflowRegions implements AirflowSections.Listener {
     /** M8b b4: the mode and threshold game tests set (null and 0: the config's). */
     private AirflowNeighbourTiles.Mode neighbourMode;
     private int neighbourMin;
-    /** M8b b4: each player's tile's latest flood, by tile key. */
-    private final Map<Long, Flood> floods = new HashMap<>();
-    /** M8b b4: the border strips' sections this manager wants (one want each). */
+    /** M8b b4: each player's latest finished trace, and the traces under way, by player. */
+    private final Map<UUID, Flood> floods = new HashMap<>();
+    private final Map<UUID, Job> jobs = new java.util.LinkedHashMap<>();
+    /** M8b b4: the sections traces found missing, which this manager wants (one want each). */
     private final LongOpenHashSet stripWanted = new LongOpenHashSet();
     /** M8b b4: secondaries now, and their tile-ticks so far; the same for what would run at each reported threshold. */
     private int secondariesNow;
@@ -305,6 +311,11 @@ public final class AirflowRegions implements AirflowSections.Listener {
         return neighbourMin > 0 ? neighbourMin : WeatherConfig.airflowNeighbourMinCells();
     }
 
+    /** How far a trace walks from the player, steps (M8b b4, G2). */
+    public int neighbourReach() {
+        return WeatherConfig.airflowNeighbourReach();
+    }
+
     /** Game tests: the neighbour-tile mode and threshold, instead of the config's (null, 0: the config's again). */
     void neighbourTiles(AirflowNeighbourTiles.Mode mode, int minCells) {
         this.neighbourMode = mode;
@@ -340,7 +351,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
         return wouldTicks[i];
     }
 
-    /** Border strip sections wanted now. */
+    /** Sections wanted now for traces. */
     public int stripSections() {
         return stripWanted.size();
     }
@@ -440,6 +451,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
             retire(r);
         }
         floods.clear();
+        jobs.clear();
         wantStrips(new LongOpenHashSet());
         sections.removeListener(this);
     }
@@ -454,6 +466,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
         if (now % SCAN_TICKS == 0) {
             match();
         }
+        advanceTraces(System.nanoTime() + TRACE_BUDGET_NANOS);
         for (Region r : List.copyOf(regions)) {
             service(r, now);
         }
@@ -492,7 +505,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
             home.occupied = true;
             home.owner = a.id();
             home.lastOccupied = now;
-            sponsors.add(new Sponsor(a.id(), home, slow));
+            sponsors.add(new Sponsor(a.id(), home, p, slow));
         }
         speeds.keep(seen);
         neighbours(now, sponsors);
@@ -511,68 +524,91 @@ public final class AirflowRegions implements AirflowSections.Listener {
         return tiles;
     }
 
-    /** A player's tile at this match, whether they may open tiles, and its flood once worked out (M8b b4). */
+    /** A player at this match: their tile, where they stand, and whether they may open tiles (M8b b4). */
     private static final class Sponsor {
         final UUID id;
         final Region home;
+        final Vec3 pos;
         final boolean slow;
         Flood flood;
 
-        Sponsor(UUID id, Region home, boolean slow) {
+        Sponsor(UUID id, Region home, Vec3 pos, boolean slow) {
             this.id = id;
             this.home = home;
+            this.pos = pos;
             this.slow = slow;
         }
     }
 
     /**
-     * One player's tile's flood (M8b b4): the tiles reached at each reported threshold and at the one in force, the
-     * strip sections it read, and whether every face it asked could be counted.
+     * One player's latest finished trace (M8b b4, G2): the tile it started in (origin), the tiles reached at each
+     * reported threshold and at the one in force (relative to that tile), whether the player stood in enclosed air and
+     * every cell was known, the cells walked, and the sections it found missing (wanted until a trace needs them no
+     * more).
      */
-    private record Flood(long tick, int min, boolean complete, List<List<AirflowNeighbourTiles.Reached>> reported,
-            List<AirflowNeighbourTiles.Reached> reached, LongOpenHashSet sections) {
+    private record Flood(long tick, int[] home, int min, int reach, boolean enclosed, boolean complete, int walked,
+            List<List<AirflowNeighbourTiles.Reached>> reported, List<AirflowNeighbourTiles.Reached> reached,
+            LongOpenHashSet sections) {
+    }
+
+    /** A trace under way for one player (M8b b4). */
+    private record Job(AirflowTrace trace, LiveSpace space, int[] home, int min, int reach, long started) {
     }
 
     /**
-     * M8b b4: works out each player's tile's secondaries (refreshed every {@link #FLOOD_TICKS}, or at once while
-     * incomplete), wants the strips they read and releases the rest, counts what would run, and under ON marks
-     * existing secondaries then opens missing ones within the cap and the speed limit.
+     * M8b b4 (G2): starts a trace for each player whose flood is missing, incomplete, stale ({@link #FLOOD_TICKS}),
+     * from another tile or other settings; wants the sections traces found missing and releases the rest; counts what
+     * would run; and under ON marks existing secondaries, then opens missing ones within the cap, the speed limit and
+     * {@link #MAX_OPENS_PER_MATCH}. A player's latest flood stays in force until the next one finishes.
      */
     private void neighbours(long now, List<Sponsor> sponsors) {
         AirflowNeighbourTiles.Mode mode = neighbourMode();
         if (mode == AirflowNeighbourTiles.Mode.OFF) {
+            jobs.clear();
             floods.clear();
             wantStrips(new LongOpenHashSet());
             java.util.Arrays.fill(wouldNow, 0);
             secondariesNow = 0;
             return;
         }
-        int min = neighbourMinCells();
-        Map<Long, Flood> next = new HashMap<>();
+        int min = neighbourMinCells(), reach = neighbourReach();
+        Set<UUID> present = new HashSet<>();
         LongOpenHashSet needed = new LongOpenHashSet();
         LongOpenHashSet homes = new LongOpenHashSet();
         for (Sponsor s : sponsors) {
-            long key = AirflowTiles.key(s.home.x0, s.home.y0, s.home.z0);
-            homes.add(key);
-            Flood f = next.get(key); // two players in one tile share its flood
-            if (f == null) {
-                f = floods.get(key);
-                if (f == null || f.min() != min || !f.complete() || now - f.tick() >= FLOOD_TICKS) {
-                    f = flood(s.home, min, now);
-                }
-                next.put(key, f);
+            present.add(s.id);
+            int[] home = {s.home.x0, s.home.y0, s.home.z0};
+            homes.add(AirflowTiles.key(home[0], home[1], home[2]));
+            Flood f = floods.get(s.id);
+            Job j = jobs.get(s.id);
+            if (j != null && (!java.util.Arrays.equals(j.home(), home) || j.min() != min || j.reach() != reach)) {
+                jobs.remove(s.id); // moved to another tile, or the settings changed: start again
+                j = null;
+            }
+            if (j == null && (f == null || !f.complete() || now - f.tick() >= FLOOD_TICKS
+                    || !java.util.Arrays.equals(f.home(), home) || f.min() != min || f.reach() != reach)) {
+                j = startTrace(s.pos, home, min, reach, now);
+                jobs.put(s.id, j);
+            }
+            if (j != null) {
+                needed.addAll(j.space().missing);
+            }
+            if (f != null) {
                 needed.addAll(f.sections());
             }
             s.flood = f;
         }
-        floods.clear();
-        floods.putAll(next);
+        jobs.keySet().retainAll(present);
+        floods.keySet().retainAll(present);
         wantStrips(needed);
         for (int i = 0; i < AirflowNeighbourTiles.REPORTED.length; i++) {
             LongOpenHashSet would = new LongOpenHashSet();
             for (Sponsor s : sponsors) {
+                if (s.flood == null) {
+                    continue;
+                }
                 for (AirflowNeighbourTiles.Reached r : s.flood.reported().get(i)) {
-                    long k = keyAt(s.home, r);
+                    long k = keyAt(s.flood.home(), r);
                     if (!homes.contains(k)) {
                         would.add(k);
                     }
@@ -584,8 +620,11 @@ public final class AirflowRegions implements AirflowSections.Listener {
         if (mode == AirflowNeighbourTiles.Mode.ON) {
             List<Object[]> missing = new ArrayList<>(); // {sponsor, reached}: tiles to open once the existing are marked
             for (Sponsor s : sponsors) {
+                if (s.flood == null) {
+                    continue;
+                }
                 for (AirflowNeighbourTiles.Reached r : s.flood.reached()) {
-                    long k = keyAt(s.home, r);
+                    long k = keyAt(s.flood.home(), r);
                     if (homes.contains(k)) {
                         continue; // a player's own tile runs anyway
                     }
@@ -598,21 +637,23 @@ public final class AirflowRegions implements AirflowSections.Listener {
                 }
             }
             AirflowLimits.CapMode capMode = WeatherConfig.airflowCapMode();
-            int cap = WeatherConfig.airflowTileCap();
+            int cap = WeatherConfig.airflowTileCap(), opened = 0;
             for (Object[] m : missing) {
                 Sponsor s = (Sponsor) m[0];
                 AirflowNeighbourTiles.Reached r = (AirflowNeighbourTiles.Reached) m[1];
-                Region g = byTile.get(keyAt(s.home, r)); // another player's flood may have opened it just now
+                int[] h = s.flood.home();
+                Region g = byTile.get(keyAt(h, r)); // another player's flood may have opened it just now
                 if (g == null) {
-                    if (!s.slow) {
+                    if (!s.slow || opened >= MAX_OPENS_PER_MATCH) {
                         continue;
                     }
                     if (!AirflowLimits.roomFor(capView(), capMode, cap, s.id)) {
                         secondariesRefused++;
                         continue;
                     }
-                    g = open(s.home.x0 + r.dx() * WX, s.home.y0 + r.dy() * WY, s.home.z0 + r.dz() * WZ);
+                    g = open(h[0] + r.dx() * WX, h[1] + r.dy() * WY, h[2] + r.dz() * WZ);
                     secondariesOpened++;
+                    opened++;
                 }
                 keep(g, s, r, now);
             }
@@ -635,31 +676,57 @@ public final class AirflowRegions implements AirflowSections.Listener {
         g.link = Math.max(g.link, r.link());
     }
 
-    /** The key of the tile {@code r} reaches from {@code home}. */
-    private static long keyAt(Region home, AirflowNeighbourTiles.Reached r) {
-        return AirflowTiles.key(home.x0 + r.dx() * WX, home.y0 + r.dy() * WY, home.z0 + r.dz() * WZ);
+    /** The key of the tile {@code r} reaches from the tile at {@code home} (origin). */
+    private static long keyAt(int[] home, AirflowNeighbourTiles.Reached r) {
+        return AirflowTiles.key(home[0] + r.dx() * WX, home[1] + r.dy() * WY, home[2] + r.dz() * WZ);
     }
 
-    /** Floods the block around {@code home} at every reported threshold and at {@code min}, one count per face. */
-    private Flood flood(Region home, int min, long now) {
-        LongOpenHashSet read = new LongOpenHashSet();
-        boolean[] complete = {true};
-        AirflowNeighbourTiles.Faces faces = AirflowNeighbourTiles.memo((dx, dy, dz, side) -> {
-            int c = sharedCells(home.x0 + dx * WX, home.y0 + dy * WY, home.z0 + dz * WZ, side, read);
-            if (c < 0) {
-                complete[0] = false;
+    /**
+     * A trace from where a player stands: their feet's cell, or their head's when the feet are in a block the cells
+     * call solid (a slab, a carpet over snow) and the head's is open.
+     */
+    private Job startTrace(Vec3 pos, int[] home, int min, int reach, long now) {
+        LiveSpace space = new LiveSpace();
+        int x = (int) Math.floor(pos.x), y = (int) Math.floor(pos.y), z = (int) Math.floor(pos.z);
+        if (space.at(x, y, z) == AirflowTrace.BLOCKED && space.at(x, y + 1, z) == AirflowTrace.OPEN) {
+            y++;
+        }
+        return new Job(new AirflowTrace(x, y, z, reach, home, new int[] {WX, WY, WZ}, space), space, home, min, reach,
+                now);
+    }
+
+    /** Walks the traces under way until {@code deadline}; a finished one becomes its player's flood. */
+    private void advanceTraces(long deadline) {
+        for (var it = jobs.entrySet().iterator(); it.hasNext() && System.nanoTime() < deadline; ) {
+            var e = it.next();
+            Job j = e.getValue();
+            if (j.trace().advance(j.space(), deadline)) {
+                it.remove();
+                floods.put(e.getKey(), flood(j));
             }
-            return c;
-        });
+        }
+    }
+
+    /** A finished trace's flood: the tiles its crossings reach at each threshold. */
+    private static Flood flood(Job j) {
+        AirflowNeighbourTiles.Faces faces = j.trace().faces();
         List<List<AirflowNeighbourTiles.Reached>> reported = new ArrayList<>();
         for (int n : AirflowNeighbourTiles.REPORTED) {
             reported.add(AirflowNeighbourTiles.reach(faces, n));
         }
-        List<AirflowNeighbourTiles.Reached> reached = AirflowNeighbourTiles.reach(faces, min);
-        return new Flood(now, min, complete[0], reported, reached, read);
+        return new Flood(j.started(), j.home(), j.min(), j.reach(), j.trace().enclosed(), j.trace().complete(),
+                j.trace().walked(), reported, AirflowNeighbourTiles.reach(faces, j.min()), j.space().missing);
     }
 
-    /** Wants the sections in {@code needed} not wanted yet, and releases the strips no longer needed. */
+    /** Game tests: a whole trace from (x, y, z), as a player standing there would start one, with no deadline. */
+    AirflowTrace traceFrom(double x, double y, double z) {
+        int[] home = tileOf(x, y, z);
+        Job j = startTrace(new Vec3(x, y, z), home, neighbourMinCells(), neighbourReach(), 0);
+        j.trace().advance(j.space(), Long.MAX_VALUE);
+        return j.trace();
+    }
+
+    /** Wants the sections in {@code needed} not wanted yet, and releases those no longer needed. */
     private void wantStrips(LongOpenHashSet needed) {
         for (LongIterator it = needed.iterator(); it.hasNext(); ) {
             long s = it.nextLong();
@@ -678,120 +745,62 @@ public final class AirflowRegions implements AirflowSections.Listener {
     }
 
     /**
-     * M8b b4 (T1; Bright, 2026-11-17): the enclosed cell pairs across {@code side} of the tile at (x0, y0, z0), one
-     * cell each side of the border, both air (doors count) and both below their own column's open height (the
-     * heightmap, as {@link AirflowBackground#columnTops} takes it). 0 where no tile of the world lies across; −1 while
-     * a strip section isn't read or a column's chunk isn't loaded. Adds the strip's sections, the one-section layer
-     * each side of the face, to {@code read}.
+     * The live world as a trace sees it (M8b b4, server thread): a cell is {@link AirflowTrace#OPEN} when it is air
+     * or an open door (shut doors stop the trace; Bright, 2026-11-17) below its column's open height (the
+     * heightmap's {@code MOTION_BLOCKING_NO_LEAVES} plus 1, as {@link AirflowBackground#columnTops} takes it);
+     * {@link AirflowTrace#UNKNOWN} while its section isn't in the cache (it is added to {@link #missing}) or its chunk
+     * isn't loaded. Section views and column heights are kept for the trace's life.
      */
-    int sharedCells(int x0, int y0, int z0, Side side, LongOpenHashSet read) {
-        int a = side.axis(), d = side.high() ? 1 : -1;
-        int[] size = {WX, WY, WZ}, o = {x0, y0, z0}, n = {x0, y0, z0};
-        n[a] += d * size[a];
-        int[] check = tileOf(n[0] + 0.5, n[1] + 0.5, n[2] + 0.5);
-        if (check[0] != n[0] || check[1] != n[1] || check[2] != n[2]) {
-            return 0; // above or below the world
-        }
-        int edge = side.high() ? o[a] + size[a] - 1 : o[a], across = edge + d;
-        int u = a == 0 ? 2 : 0, v = a == 1 ? 2 : 1; // the face's own axes: (z, y), (x, z) or (x, y)
-        int nu = size[u], nv = size[v], su = nu >> 4, sv = nv >> 4;
-        AirflowSections.Codes[] mine = new AirflowSections.Codes[su * sv], theirs = new AirflowSections.Codes[su * sv];
-        boolean ready = true;
-        int[] p = new int[3];
-        for (int i = 0; i < su; i++) {
-            for (int j = 0; j < sv; j++) {
-                p[u] = o[u] + 16 * i;
-                p[v] = o[v] + 16 * j;
-                p[a] = edge;
-                long sm = SectionPos.asLong(p[0] >> 4, p[1] >> 4, p[2] >> 4);
-                p[a] = across;
-                long st = SectionPos.asLong(p[0] >> 4, p[1] >> 4, p[2] >> 4);
-                read.add(sm);
-                read.add(st);
-                mine[i * sv + j] = sections.codes(sm);
-                theirs[i * sv + j] = sections.codes(st);
-                ready &= mine[i * sv + j] != null && theirs[i * sv + j] != null;
-            }
-        }
-        if (!ready) {
-            return -1;
-        }
-        AirflowCells.Table table = AirflowCells.table(); // after the codes: it holds every code they use
-        boolean[] fluid = new boolean[table.size()];
-        for (int c = 0; c < fluid.length; c++) {
-            fluid[c] = table.cell((byte) c).fluid();
-        }
-        for (AirflowSections.Codes c : mine) {
-            if (c.generation() != table.generation()) {
-                return -1;
-            }
-        }
-        // column tops, world y: per (x, z) over the face for a band border, per column along it for a side border
-        int[] topMine, topTheirs;
-        if (a == 1) {
-            topMine = new int[nu * nv];
-            if (!tops(o[0], o[2], nu, nv, topMine)) {
-                return -1;
-            }
-            topTheirs = topMine;
-        } else {
-            topMine = new int[nu];
-            topTheirs = new int[nu];
-            boolean ok = a == 0 ? tops(edge, o[2], 1, nu, topMine) && tops(across, o[2], 1, nu, topTheirs)
-                    : tops(o[0], edge, nu, 1, topMine) && tops(o[0], across, nu, 1, topTheirs);
-            if (!ok) {
-                return -1;
-            }
-        }
-        int count = 0;
-        for (int i = 0; i < nu; i++) {
-            for (int j = 0; j < nv; j++) {
-                p[u] = o[u] + i;
-                p[v] = o[v] + j;
-                int s = (i >> 4) * sv + (j >> 4);
-                p[a] = edge;
-                int ym = p[1];
-                byte cm = mine[s].code(AirflowSections.Codes.index(p[0] & 15, p[1] & 15, p[2] & 15));
-                if ((cm & 0xFF) >= fluid.length || !fluid[cm & 0xFF]) {
-                    continue;
-                }
-                p[a] = across;
-                int yt = p[1];
-                byte ct = theirs[s].code(AirflowSections.Codes.index(p[0] & 15, p[1] & 15, p[2] & 15));
-                if ((ct & 0xFF) >= fluid.length || !fluid[ct & 0xFF]) {
-                    continue;
-                }
-                int column = a == 1 ? i * nv + j : i;
-                if (ym < topMine[column] && yt < topTheirs[column]) {
-                    count++;
-                }
-            }
-        }
-        return count;
-    }
+    private final class LiveSpace implements AirflowTrace.Space {
+        final LongOpenHashSet missing = new LongOpenHashSet();
+        private final Long2ObjectOpenHashMap<AirflowSections.Codes> codes = new Long2ObjectOpenHashMap<>();
+        private final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap tops =
+                new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+        private final int minY = level.getMinBuildHeight(), maxY = level.getMaxBuildHeight();
 
-    /**
-     * Each column's first open height, world y (the heightmap's {@code MOTION_BLOCKING_NO_LEAVES} plus 1), over x in
-     * [x0, x0 + nx) and z in [z0, z0 + nz), into {@code out[(x - x0) * nz + (z - z0)]}; false if a chunk isn't loaded.
-     */
-    private boolean tops(int x0, int z0, int nx, int nz, int[] out) {
-        for (int cx = x0 >> 4; cx <= (x0 + nx - 1) >> 4; cx++) {
-            for (int cz = z0 >> 4; cz <= (z0 + nz - 1) >> 4; cz++) {
-                LevelChunk chunk = level.getChunkSource().getChunkNow(cx, cz);
-                if (chunk == null) {
-                    return false;
-                }
-                int xa = Math.max(x0, cx << 4), xb = Math.min(x0 + nx - 1, (cx << 4) + 15);
-                int za = Math.max(z0, cz << 4), zb = Math.min(z0 + nz - 1, (cz << 4) + 15);
-                for (int x = xa; x <= xb; x++) {
-                    for (int z = za; z <= zb; z++) {
-                        out[(x - x0) * nz + (z - z0)] = chunk.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                                x & 15, z & 15) + 1;
-                    }
-                }
-            }
+        LiveSpace() {
+            tops.defaultReturnValue(Integer.MIN_VALUE);
         }
-        return true;
+
+        @Override
+        public int at(int x, int y, int z) {
+            if (y < minY || y >= maxY) {
+                return AirflowTrace.BLOCKED;
+            }
+            long s = SectionPos.asLong(x >> 4, y >> 4, z >> 4);
+            AirflowSections.Codes c = codes.get(s);
+            if (c == null) {
+                if (missing.contains(s)) {
+                    return AirflowTrace.UNKNOWN;
+                }
+                c = sections.codes(s);
+                if (c == null) {
+                    missing.add(s);
+                    return AirflowTrace.UNKNOWN;
+                }
+                codes.put(s, c);
+            }
+            AirflowCells.Table table = AirflowCells.table();
+            int code = c.code(AirflowSections.Codes.index(x & 15, y & 15, z & 15)) & 0xFF;
+            if (c.generation() != table.generation() || code >= table.size()) {
+                return AirflowTrace.UNKNOWN;
+            }
+            AirflowCells.Kind kind = table.cell((byte) code).kind();
+            if (kind == AirflowCells.Kind.SOLID || kind == AirflowCells.Kind.DOOR_SHUT) {
+                return AirflowTrace.BLOCKED;
+            }
+            long column = ((long) x << 32) | (z & 0xFFFFFFFFL);
+            int top = tops.get(column);
+            if (top == Integer.MIN_VALUE) {
+                LevelChunk chunk = level.getChunkSource().getChunkNow(x >> 4, z >> 4);
+                if (chunk == null) {
+                    return AirflowTrace.UNKNOWN;
+                }
+                top = chunk.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x & 15, z & 15) + 1;
+                tops.put(column, top);
+            }
+            return y < top ? AirflowTrace.OPEN : AirflowTrace.BLOCKED;
+        }
     }
 
     /** The origin of the tile holding the point (x, y, z), world blocks. */

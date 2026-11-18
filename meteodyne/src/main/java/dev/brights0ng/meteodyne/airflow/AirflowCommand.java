@@ -95,10 +95,11 @@ public final class AirflowCommand {
             so.append(sep).append(String.format(Locale.ROOT, "%.0f", r.wouldTicks(i) / 20.0));
         }
         return String.format(Locale.ROOT,
-                "Neighbour tiles (B3): %s at %d cells; %d secondaries now, %.0f tile-s so far, %d opened, %d openings "
-                        + "refused by the cap; would run at %s cells: %s now, %s tile-s so far; %d strip sections wanted",
-                mode, r.neighbourMinCells(), r.secondariesNow(), r.secondaryTicks() / 20.0, r.secondariesOpened(),
-                r.secondariesRefused(), at, would, so, r.stripSections());
+                "Neighbour tiles (B3): %s at %d cells within %d blocks of a player in enclosed air; %d secondaries now, "
+                        + "%.0f tile-s so far, %d opened, %d openings refused by the cap; would run at %s cells: %s "
+                        + "now, %s tile-s so far; %d sections wanted for traces",
+                mode, r.neighbourMinCells(), r.neighbourReach(), r.secondariesNow(), r.secondaryTicks() / 20.0,
+                r.secondariesOpened(), r.secondariesRefused(), at, would, so, r.stripSections());
     }
 
     static String regionLine(AirflowRegions.Region g, long now) {
