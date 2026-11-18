@@ -1,5 +1,6 @@
 // Updated by ChatGPT: added reloadable thermal response speed without changing weather time or wind units.
 // Updated by Claude: [heat] engine, the airflow/legacy switch (GreedyFluids M7b).
+// Updated by Claude: [heat] airflowMergeTiles and airflowMergeSettleSeconds, tiles run as one region (GreedyFluids M8b5b).
 // Updated by Claude: [seasons] obliquity and sunLatitude, the sun's strength through the year.
 // Updated by Claude: [heat] airflow speed limit and tile cap (GreedyFluids M7e).
 // Updated by Claude: [heat] airflow stone conductivity and heat capacity, and heat diffusivity (GreedyFluids M7f).
@@ -423,6 +424,19 @@ public final class WeatherConfig {
             .comment("AIRFLOW: how far the player's enclosed air is followed, blocks walked (shut doors stop it).")
             .defineInRange("airflowNeighbourReach", 32, 1, 64);
 
+    public static final ModConfigSpec.EnumValue<dev.brights0ng.meteodyne.airflow.AirflowMerge.Mode> AIRFLOW_MERGE_TILES =
+            BUILDER.comment("AIRFLOW: tiles run as one region, so air crosses the borders between them (a room or cave",
+                            "cut by a border; at most 4 tiles, in a box). LINKED: the tiles the enclosed air a player",
+                            "stands in reaches (see airflowNeighbourTiles). ADJACENT: also any running tiles joined to",
+                            "a player's face to face. OFF: every tile runs alone.")
+                    .defineEnum("airflowMergeTiles", dev.brights0ng.meteodyne.airflow.AirflowMerge.Mode.LINKED);
+
+    public static final ModConfigSpec.DoubleValue AIRFLOW_MERGE_SETTLE = BUILDER
+            .comment("AIRFLOW: how long tiles must call for merging (or no longer call for it) before they merge (or",
+                    "split), seconds. Each merge or split rebuilds the region: the heat carries over, the air's motion",
+                    "starts again from still.")
+            .defineInRange("airflowMergeSettleSeconds", 5.0, 0.0, 600.0);
+
     public static final ModConfigSpec.DoubleValue AIRFLOW_STONE_CONDUCTIVITY = BUILDER
             .comment("AIRFLOW: stone's thermal conductivity, W/(m·K) (real rock is about 2-3); the insulation table's",
                     "values are relative to it, a block a metre thick. Lower keeps rooms warm longer. The old game",
@@ -536,6 +550,16 @@ public final class WeatherConfig {
     /** AIRFLOW: how far the player's enclosed air is followed, blocks (M8b b4, G2). */
     public static int airflowNeighbourReach() {
         return SPEC.isLoaded() ? AIRFLOW_NEIGHBOUR_REACH.get() : 32;
+    }
+
+    /** AIRFLOW: which tiles run as one region (M8b5b). */
+    public static dev.brights0ng.meteodyne.airflow.AirflowMerge.Mode airflowMergeTiles() {
+        return SPEC.isLoaded() ? AIRFLOW_MERGE_TILES.get() : dev.brights0ng.meteodyne.airflow.AirflowMerge.Mode.LINKED;
+    }
+
+    /** AIRFLOW: how long a merge or split waits, seconds (M8b5b). */
+    public static double airflowMergeSettleSeconds() {
+        return SPEC.isLoaded() ? AIRFLOW_MERGE_SETTLE.get() : 5.0;
     }
 
     /** AIRFLOW: stone's thermal conductivity, W/(m·K). */

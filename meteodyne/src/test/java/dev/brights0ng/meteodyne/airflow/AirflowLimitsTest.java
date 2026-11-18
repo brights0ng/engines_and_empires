@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7e: the safety limits on opening tiles); edited by Claude (M8b b4: secondaries).
+// Written by Claude (GreedyFluids M7e: the safety limits on opening tiles); edited by Claude (M8b b4: secondaries;
+// M8b5b: merged regions).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -134,5 +135,20 @@ class AirflowLimitsTest {
         // per player: A keeps two, B one
         assertFalse(AirflowLimits.roomFor(tiles, AirflowLimits.CapMode.PER_PLAYER, 2, A));
         assertTrue(AirflowLimits.roomFor(tiles, AirflowLimits.CapMode.PER_PLAYER, 2, B));
+    }
+
+    /** M8b5b: a merged region counts as its tiles, and the cap closes it whole. */
+    @Test
+    void aMergedRegionCountsAsItsTilesAndClosesWhole() {
+        List<AirflowLimits.Tile<String>> tiles = List.of(
+                new AirflowLimits.Tile<>("A home, merged with 2 more", A, 500, true, false, 3),
+                new AirflowLimits.Tile<>("left, merged pair", A, 100, false, false, 2),
+                tile("left 1 s ago", A, 480, false));
+        assertTrue(AirflowLimits.roomFor(tiles, AirflowLimits.CapMode.SERVER, 4, A), "kept: 3 tiles");
+        assertFalse(AirflowLimits.roomFor(tiles, AirflowLimits.CapMode.SERVER, 3, A));
+        assertEquals(List.of("left, merged pair"), AirflowLimits.overCap(tiles, AirflowLimits.CapMode.SERVER, 4),
+                "6 tiles over a cap of 4: the pair waited longest, and closing it is enough");
+        assertEquals(List.of("left, merged pair", "left 1 s ago"),
+                AirflowLimits.overCap(tiles, AirflowLimits.CapMode.SERVER, 3));
     }
 }

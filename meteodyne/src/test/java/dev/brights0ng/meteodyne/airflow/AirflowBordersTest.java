@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M8b b2).
+// Written by Claude (GreedyFluids M8b b2); edited by Claude (M8b5b: the far side by position, regions of any size).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -83,16 +83,20 @@ class AirflowBordersTest {
         // from the east tile's WEST side: the west tile's cells at x 15; index y * nz + z
         float[] t = new float[16 * 16], d = new float[16 * 16];
         int i = 4 * 16 + 7;
-        AirflowBorders.read(f, Side.WEST, i, 16, 16, 16, t, d);
+        List<AirflowBorders.Beside> across = List.of(new AirflowBorders.Beside(f, -16, 0, 0));
+        AirflowBorders.read(across, Side.WEST, i, 16, 16, 16, t, d);
         assertEquals(f.temperature(15.5, 4.5, 7.5), t[i], 1e-6);
         assertEquals(0.5 * f.extent(15.5, 4.5, 7.5, 0), d[i], 0, "half the far box's depth");
-        AirflowBorders.read(f, Side.WEST, 7, 16, 16, 16, t, d);
+        AirflowBorders.read(across, Side.WEST, 7, 16, 16, 16, t, d);
         assertTrue(Float.isNaN(t[7]) && Float.isNaN(d[7]), "stone across: insulated");
-        AirflowBorders.read(null, Side.WEST, i, 16, 16, 16, t, d);
+        AirflowBorders.read(List.of(), Side.WEST, i, 16, 16, 16, t, d);
         assertTrue(Float.isNaN(t[i]), "none running");
+        // M8b5b: regions of any size, found by position
+        AirflowBorders.read(List.of(new AirflowBorders.Beside(f, -16, 16, 0)), Side.WEST, i, 16, 16, 16, t, d);
+        assertTrue(Float.isNaN(t[i]), "a region across that doesn't hold the cell: insulated");
         float[] big = new float[32 * 16], bigD = new float[32 * 16];
-        AirflowBorders.read(f, Side.WEST, i, 32, 16, 32, big, bigD);
-        assertTrue(Float.isNaN(big[i]), "another size");
+        AirflowBorders.read(across, Side.WEST, i, 32, 16, 32, big, bigD); // index 71 on a 32-deep side: y 2, z 7
+        assertEquals(f.temperature(15.5, 2.5, 7.5), big[i], 1e-6, "a region of another size reads by position");
     }
 
     /** Two tiles of one long room, cut between them: the heated one warms the other only while they run together. */
@@ -101,8 +105,8 @@ class AirflowBordersTest {
         AirflowRegionModel west = tile(20000, true), east = tile(0, true);
         AirflowRegionModel westAlone = tile(20000, true), eastAlone = tile(0, true);
         AirFrame[] latest = {west.publish(), east.publish()};
-        west.neighbours(side -> side == Side.EAST ? latest[1] : null);
-        east.neighbours(side -> side == Side.WEST ? latest[0] : null);
+        west.neighbours(side -> side == Side.EAST ? List.of(new AirflowBorders.Beside(latest[1], 16, 0, 0)) : List.of());
+        east.neighbours(side -> side == Side.WEST ? List.of(new AirflowBorders.Beside(latest[0], -16, 0, 0)) : List.of());
         for (int i = 0; i < 480; i++) {
             west.step();
             latest[0] = west.publish();

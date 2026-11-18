@@ -1,6 +1,7 @@
 // Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f f2: saving and rebuilding a
 // running scene, for the model soak; the outside air sent ahead of an edit, as the manager does); edited by Claude
-// (M8a: tiles cut from a larger scene, for the straddle scenarios; M8b: neighbouring tiles stepped together).
+// (M8a: tiles cut from a larger scene, for the straddle scenarios; M8b: neighbouring tiles stepped together; M8b5b:
+// neighbours of any size).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -509,17 +510,15 @@ final class AirflowScene {
         }
 
         /**
-         * Steps runs of same-sized tiles cut from one scene ({@link AirflowScene#tile}) until simulated time
-         * {@code seconds}, one step each in turn, each reading the latest frame of the run beside it across each border
-         * as the air thread does (M8b): a run reads its neighbour's frame from that neighbour's last step.
+         * Steps runs of tiles cut from one scene ({@link AirflowScene#tile}), of any sizes that don't overlap, until
+         * simulated time {@code seconds}, one step each in turn, each reading the latest frames of the runs beside it
+         * across each border as the air thread does (M8b; any size since M8b5b, for merged regions): a run reads its
+         * neighbours' frames from their last steps.
          */
         static void together(double seconds, Run... runs) {
             for (Run r : runs) {
                 r.latest = r.frame();
-                r.neighbours = side -> {
-                    Run n = beside(r, side, runs);
-                    return n == null ? null : n.latest;
-                };
+                r.neighbours = side -> beside(r, side, runs);
                 r.model.neighbours(r.neighbours);
             }
             boolean behind = true;
@@ -535,18 +534,27 @@ final class AirflowScene {
             }
         }
 
-        /** The run whose tile lies across {@code side} of {@code r}'s, or null. */
-        private static Run beside(Run r, Side side, Run[] runs) {
+        /** The runs whose tiles touch {@code side} of {@code r}'s from across it, with their origins relative to it. */
+        private static List<AirflowBorders.Beside> beside(Run r, Side side, Run[] runs) {
             AirflowScene s = r.scene;
-            int a = side.axis(), d = side.high() ? 1 : -1;
-            int x = s.ox + (a == 0 ? d * s.nx : 0), y = s.oy + (a == 1 ? d * s.ny : 0), z = s.oz + (a == 2 ? d * s.nz : 0);
+            int a = side.axis();
+            int[] lo = {s.ox, s.oy, s.oz}, size = {s.nx, s.ny, s.nz};
+            List<AirflowBorders.Beside> out = new ArrayList<>();
             for (Run n : runs) {
-                if (n != r && n.scene.ox == x && n.scene.oy == y && n.scene.oz == z && n.scene.nx == s.nx
-                        && n.scene.ny == s.ny && n.scene.nz == s.nz) {
-                    return n;
+                if (n == r || n.latest == null) {
+                    continue;
+                }
+                AirflowScene t = n.scene;
+                int[] tlo = {t.ox, t.oy, t.oz}, tn = {t.nx, t.ny, t.nz};
+                boolean touches = side.high() ? tlo[a] == lo[a] + size[a] : tlo[a] + tn[a] == lo[a];
+                for (int b = 0; b < 3 && touches; b++) {
+                    touches = b == a || tlo[b] < lo[b] + size[b] && lo[b] < tlo[b] + tn[b];
+                }
+                if (touches) {
+                    out.add(new AirflowBorders.Beside(n.latest, t.ox - s.ox, t.oy - s.oy, t.oz - s.oz));
                 }
             }
-            return null;
+            return out;
         }
     }
 

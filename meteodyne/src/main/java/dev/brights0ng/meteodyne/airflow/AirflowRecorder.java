@@ -1,5 +1,5 @@
 // Written by Claude (GreedyFluids M7b b4); edited by Claude (M7f: the profile by segment against M6f; M8b b4:
-// secondaries).
+// secondaries; M8b5b: merges and splits).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.BufferedWriter;
@@ -72,6 +72,8 @@ public final class AirflowRecorder {
     private final List<String> markTexts = new ArrayList<>();
     // M8b b4: the manager's tile-tick counters at the start, and the secondaries' busy time per second
     private final long secondaryTicksAtStart;
+    /** M8b5b: the manager's merge, split and given-up counts at the start. */
+    private final long mergesAtStart, splitsAtStart, abandonedAtStart;
     private final long[] wouldTicksAtStart = new long[AirflowNeighbourTiles.REPORTED.length];
     private final LongArrayList secSecondaryBusy = new LongArrayList();
 
@@ -100,6 +102,9 @@ public final class AirflowRecorder {
         lastBusy = regions.runtime().busyNanos();
         lastWall = System.nanoTime();
         secondaryTicksAtStart = regions.secondaryTicks();
+        mergesAtStart = regions.merges();
+        splitsAtStart = regions.splits();
+        abandonedAtStart = regions.transitionsAbandoned();
         for (int i = 0; i < wouldTicksAtStart.length; i++) {
             wouldTicksAtStart[i] = regions.wouldTicks(i);
         }
@@ -149,6 +154,9 @@ public final class AirflowRecorder {
         for (AirflowRegions.Region r : regions.regions()) {
             AirflowRuntime.Slot slot = r.slot();
             String role = r.occupied() ? "PLAYER" : r.secondary() ? "SECONDARY" : "GRACE";
+            if (r.tiles() > 1) {
+                role += "_MERGED" + r.tiles(); // M8b5b
+            }
             if (slot == null) {
                 pending++;
                 write(regionRows, second + "," + r.id() + ",," + r.x0() + "," + r.y0() + "," + r.z0()
@@ -297,6 +305,11 @@ public final class AirflowRecorder {
         }
         out.add("");
         out.add(neighbours());
+        out.add("");
+        out.add(String.format(Locale.ROOT, "Merged regions (M8b5b, %s, settle %.1f s): %d merges, %d splits, %d given "
+                        + "up over the recording; regions.csv marks a merged region's role _MERGED<tiles>.",
+                regions.mergeMode(), regions.mergeSettleSeconds(), regions.merges() - mergesAtStart,
+                regions.splits() - splitsAtStart, regions.transitionsAbandoned() - abandonedAtStart));
         return out;
     }
 

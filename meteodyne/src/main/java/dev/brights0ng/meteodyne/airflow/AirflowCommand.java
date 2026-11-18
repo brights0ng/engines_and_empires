@@ -1,5 +1,6 @@
 // Written by Claude (GreedyFluids M7b b4); edited by Claude (M7d d1: regions are tiles; d2: save counts; the view;
-// M7e: the speed limit's and the cap's counts; M8b: heat across a tile's borders; b4: secondaries).
+// M7e: the speed limit's and the cap's counts; M8b: heat across a tile's borders; b4: secondaries; M8b5b: merged
+// regions).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.nio.file.Path;
@@ -75,6 +76,7 @@ public final class AirflowCommand {
                 r.savesWritten(), r.sectionsLost(), r.restores(), r.heldForSpeed(), r.closedByCap(),
                 rec == null ? "" : "; recording " + rec.seconds() + " s into " + rec.dir().toAbsolutePath()));
         reply(source, neighbourLine(r));
+        reply(source, mergeLine(r));
         for (AirflowRegions.Region g : r.regions()) {
             reply(source, regionLine(g, now));
         }
@@ -102,10 +104,27 @@ public final class AirflowCommand {
                 r.secondariesOpened(), r.secondariesRefused(), at, would, so, r.stripSections());
     }
 
+    /** M8b5b: merged regions now, merges and splits so far, those under way and those given up. */
+    static String mergeLine(AirflowRegions r) {
+        int merged = 0, tiles = 0;
+        for (AirflowRegions.Region g : r.regions()) {
+            if (g.tiles() > 1) {
+                merged++;
+                tiles += g.tiles();
+            }
+        }
+        return String.format(Locale.ROOT,
+                "Merged regions (M1): %s, settle %.1f s; %d now (%d tiles); %d merges and %d splits so far, %d under "
+                        + "way, %d given up",
+                r.mergeMode(), r.mergeSettleSeconds(), merged, tiles, r.merges(), r.splits(), r.transitionsNow(),
+                r.transitionsAbandoned());
+    }
+
     static String regionLine(AirflowRegions.Region g, long now) {
-        String bounds = String.format(Locale.ROOT, "#%d [%d..%d, %d..%d, %d..%d]%s", g.id(), g.x0(),
-                g.x0() + AirflowRegions.WX - 1, g.y0(), g.y0() + AirflowRegions.WY - 1, g.z0(),
-                g.z0() + AirflowRegions.WZ - 1, g.occupied() ? "" : g.secondary() ? " (secondary)" : " (empty)");
+        String bounds = String.format(Locale.ROOT, "#%d [%d..%d, %d..%d, %d..%d]%s%s", g.id(), g.x0(),
+                g.x0() + g.nx() - 1, g.y0(), g.y0() + g.ny() - 1, g.z0(), g.z0() + g.nz() - 1,
+                g.tiles() > 1 ? " (" + g.tiles() + " tiles merged)" : "",
+                g.occupied() ? "" : g.secondary() ? " (secondary)" : " (empty)");
         AirflowRuntime.Slot slot = g.slot();
         if (slot == null) {
             return bounds + " reading sections";

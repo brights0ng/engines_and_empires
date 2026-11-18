@@ -3,7 +3,7 @@
 // the background field, driven sources, limits and body heat; M7e: the generator's terrain off the server thread,
 // the speed limit and tile cap; M7f: the heat diffusivity from the config; the outside air sent ahead of edits; M8b:
 // each region reads its running neighbours' frames for its borders; M8b b4: secondaries, the tiles that run beside a
-// player's where enclosed air crosses a border).
+// player's where enclosed air crosses a border; M8b5b: tiles merged into one region, and split again).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -77,6 +77,14 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  *       weights it had (M7f; Bright, 2026-11-16). Placed sources'
  *       watts and limits ({@link AirflowSources}); driven sources polled at the same cadence; each player in the
  *       tile's body heat, {@link AirflowSources#PLAYER_WATTS} W.</li>
+ *   <li><b>Merging (M8b5b, M1; Bright, 2026-11-17 and 11-18):</b> a box of 2 to 4 tiles can run as one region, so
+ *       air crosses the borders inside it ({@link AirflowMerge}: the tiles the enclosed air a player is in links,
+ *       under {@code airflowMergeTiles} LINKED; any running neighbours under ADJACENT). A box merges once chosen for
+ *       {@code airflowMergeSettleSeconds} with every tile running, and a merged region splits into the tiles still
+ *       kept once its box hasn't been chosen for as long. Either way the regions running ask for a save, the new
+ *       ones are built from it (heat kept, motion from still) while the old keep running, and they swap when the new
+ *       are running ({@link Transition}). Edits and sources reach both meanwhile. A merged region counts as its tiles
+ *       toward the cap, keeps its tiles' keys, and retires whole.</li>
  *   <li><b>Saving (M7d d2):</b> a running region saves its temperatures into its chunks ({@link AirflowChunkData})
  *       every {@link #SAVE_TICKS}, when it retires and when the server stops; a region is built from what its
  *       chunks hold, decayed toward the background ({@link AirflowSaved}). A save that arrives after its chunk
@@ -87,7 +95,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 @EventBusSubscriber(modid = Meteodyne.MODID)
 public final class AirflowRegions implements AirflowSections.Listener {
 
-    /** A region's size: one tile. */
+    /** One tile's size; a merged region is a box of them (M8b5b). */
     public static final int WX = AirflowTiles.TX, WY = AirflowTiles.TY, WZ = AirflowTiles.TZ;
     /** How often players are matched to regions, ticks. */
     static final int SCAN_TICKS = 10;
@@ -108,13 +116,19 @@ public final class AirflowRegions implements AirflowSections.Listener {
     static final long TRACE_BUDGET_NANOS = 200_000L;
     /** Secondaries opened per match at most, so a corner's tiles don't all build at once (M8b b4). */
     static final int MAX_OPENS_PER_MATCH = 1;
+    /** Merges and splits under way at once, at most (M8b5b). */
+    static final int MAX_TRANSITIONS = 2;
+    /** A merge or split not done in this long is given up, ticks (M8b5b; 2 min). */
+    static final long TRANSITION_TIMEOUT_TICKS = 2400;
 
     private static volatile AirflowRegions running;
 
-    /** One region: its tile and its slot on the air thread. Server thread. */
+    /** One region: its box of tiles (one, or a merged box) and its slot on the air thread. Server thread. */
     public static final class Region {
         private final int id;
         private final int x0, y0, z0;
+        /** M8b5b: its size in tiles along each axis (1, 1, 1: one tile), and in cells. */
+        private final int tx, ty, tz, nx, ny, nz;
         private final long[] sections;
         private AirflowRuntime.Slot slot;
         private boolean occupied;
@@ -133,17 +147,29 @@ public final class AirflowRegions implements AirflowSections.Listener {
         private boolean geometryChanged, hadBodies;
         /** Driven sources in the tile, with the power last sent for each. */
         private final Long2ObjectOpenHashMap<AirflowSources.Power> driven = new Long2ObjectOpenHashMap<>();
+        /** M8b5b: its tiles that a player or a player's tile kept at the last match (a split keeps these). */
+        private final LongOpenHashSet keptTiles = new LongOpenHashSet();
+        /** M8b5b: when a merged region's box stopped being chosen (-1: chosen); when its last save was written. */
+        private long unchosenSince = -1, savedAt = -1;
+        /** M8b5b: the merge or split it is being replaced in, or null. */
+        private Transition transition;
 
-        private Region(int id, int x0, int y0, int z0) {
+        private Region(int id, int x0, int y0, int z0, int tx, int ty, int tz) {
             this.id = id;
             this.x0 = x0;
             this.y0 = y0;
             this.z0 = z0;
-            sections = new long[(WX / 16) * (WY / 16) * (WZ / 16)];
+            this.tx = tx;
+            this.ty = ty;
+            this.tz = tz;
+            nx = tx * WX;
+            ny = ty * WY;
+            nz = tz * WZ;
+            sections = new long[(nx / 16) * (ny / 16) * (nz / 16)];
             int n = 0;
-            for (int j = 0; j < WY / 16; j++) {
-                for (int k = 0; k < WZ / 16; k++) {
-                    for (int i = 0; i < WX / 16; i++) {
+            for (int j = 0; j < ny / 16; j++) {
+                for (int k = 0; k < nz / 16; k++) {
+                    for (int i = 0; i < nx / 16; i++) {
                         sections[n++] = SectionPos.asLong((x0 >> 4) + i, (y0 >> 4) + j, (z0 >> 4) + k);
                     }
                 }
@@ -167,6 +193,29 @@ public final class AirflowRegions implements AirflowSections.Listener {
             return z0;
         }
 
+        /** Its size, cells (M8b5b: a merged region's whole box). */
+        public int nx() {
+            return nx;
+        }
+
+        public int ny() {
+            return ny;
+        }
+
+        public int nz() {
+            return nz;
+        }
+
+        /** How many tiles it runs (M8b5b: more than 1 when merged). */
+        public int tiles() {
+            return tx * ty * tz;
+        }
+
+        /** Its tiles' keys ({@link AirflowTiles#key}). */
+        long[] tileKeys() {
+            return AirflowRegions.tileKeys(x0, y0, z0, tx, ty, tz);
+        }
+
         /** Its slot on the air thread, or null while its sections are being read. */
         public AirflowRuntime.Slot slot() {
             return slot;
@@ -188,7 +237,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
         }
 
         public boolean contains(double x, double y, double z) {
-            return x >= x0 && x < x0 + WX && y >= y0 && y < y0 + WY && z >= z0 && z < z0 + WZ;
+            return x >= x0 && x < x0 + nx && y >= y0 && y < y0 + ny && z >= z0 && z < z0 + nz;
         }
 
         boolean holds(long section) {
@@ -207,8 +256,11 @@ public final class AirflowRegions implements AirflowSections.Listener {
     private final AirflowGround ground;
     private final List<Region> regions = new ArrayList<>();
     private final Map<Long, Region> byTile = new HashMap<>();
-    /** M8b: each tile's current slot, written on the server thread and read on the air thread for the borders. */
-    private final Map<Long, AirflowRuntime.Slot> live = new ConcurrentHashMap<>();
+    /**
+     * M8b: each tile's current slot and its region's origin (M8b5b: a merged region's under each of its tiles), written
+     * on the server thread and read on the air thread for the borders.
+     */
+    private final Map<Long, Live> live = new ConcurrentHashMap<>();
     private AirflowSections sections;
     private Function<ServerLevel, List<Anchor>> anchors = AirflowRegions::players;
     private final AirflowLimits.Speeds speeds = new AirflowLimits.Speeds(AirflowLimits.WINDOW_TICKS);
@@ -231,6 +283,52 @@ public final class AirflowRegions implements AirflowSections.Listener {
     /** The tile grid's shift (game tests only, so a test's structure never straddles a border), blocks. */
     private int shiftX, shiftY, shiftZ;
     private AirflowRecorder recorder;
+    /** M8b5b: merges and splits under way, when each chosen box was first chosen, the settings tests set, counts. */
+    private final List<Transition> transitions = new ArrayList<>();
+    private final Map<BoxKey, Long> chosenSince = new HashMap<>();
+    private AirflowMerge.Mode mergeMode;
+    private double mergeSettle = Double.NaN;
+    private long merges, splits, transitionsAbandoned;
+
+    /** A region's slot and origin, as a neighbour's borders read it (M8b5b). */
+    private record Live(AirflowRuntime.Slot slot, int x0, int y0, int z0) {
+    }
+
+    /** A box of tiles, as a key: its origin and its size in tiles (M8b5b). */
+    private record BoxKey(int x0, int y0, int z0, int tx, int ty, int tz) {
+        BoxKey(Region r) {
+            this(r.x0, r.y0, r.z0, r.tx, r.ty, r.tz);
+        }
+    }
+
+    /**
+     * A merge or split under way (M8b5b): the regions running now ({@code from}, which asked for a save at
+     * {@code started}) and the ones that replace them once those are written and the new ones run ({@code to}).
+     */
+    private static final class Transition {
+        final List<Region> from, to;
+        final long started;
+
+        Transition(List<Region> from, List<Region> to, long started) {
+            this.from = from;
+            this.to = to;
+            this.started = started;
+        }
+    }
+
+    /** The keys of the tiles of the box at (x0, y0, z0), tx × ty × tz tiles. */
+    static long[] tileKeys(int x0, int y0, int z0, int tx, int ty, int tz) {
+        long[] out = new long[tx * ty * tz];
+        int n = 0;
+        for (int j = 0; j < ty; j++) {
+            for (int k = 0; k < tz; k++) {
+                for (int i = 0; i < tx; i++) {
+                    out[n++] = AirflowTiles.key(x0 + i * WX, y0 + j * WY, z0 + k * WZ);
+                }
+            }
+        }
+        return out;
+    }
 
     AirflowRegions(ServerLevel level) {
         this.level = level;
@@ -320,6 +418,39 @@ public final class AirflowRegions implements AirflowSections.Listener {
     void neighbourTiles(AirflowNeighbourTiles.Mode mode, int minCells) {
         this.neighbourMode = mode;
         this.neighbourMin = minCells;
+    }
+
+    /** What merges in force (M8b5b). */
+    public AirflowMerge.Mode mergeMode() {
+        return mergeMode != null ? mergeMode : WeatherConfig.airflowMergeTiles();
+    }
+
+    /** How long a merge or split waits, seconds (M8b5b). */
+    public double mergeSettleSeconds() {
+        return !Double.isNaN(mergeSettle) ? mergeSettle : WeatherConfig.airflowMergeSettleSeconds();
+    }
+
+    /** Game tests: the merge mode and settle time, instead of the config's (null, NaN: the config's again). */
+    void mergeTiles(AirflowMerge.Mode mode, double settleSeconds) {
+        this.mergeMode = mode;
+        this.mergeSettle = settleSeconds;
+    }
+
+    /** Merges and splits done, and given up, so far; and under way now (M8b5b). */
+    public long merges() {
+        return merges;
+    }
+
+    public long splits() {
+        return splits;
+    }
+
+    public long transitionsAbandoned() {
+        return transitionsAbandoned;
+    }
+
+    public int transitionsNow() {
+        return transitions.size();
     }
 
     /** Secondaries at the last match (M8b b4). */
@@ -443,6 +574,9 @@ public final class AirflowRegions implements AirflowSections.Listener {
 
     void stop() {
         stopRecording();
+        for (Transition t : List.copyOf(transitions)) {
+            abandon(t, false);
+        }
         if (!runtime.stop()) {
             Meteodyne.LOGGER.warn("Airflow: the air thread did not stop within 5 s");
         }
@@ -467,6 +601,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
             match();
         }
         advanceTraces(System.nanoTime() + TRACE_BUDGET_NANOS);
+        advanceTransitions(now);
         for (Region r : List.copyOf(regions)) {
             service(r, now);
         }
@@ -476,7 +611,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
     /**
      * Marks the region of each anchor's tile occupied, opening it if it isn't there and the anchor is slow enough;
      * then (M8b b4) marks or opens the secondaries those tiles keep; every other region starts (or continues) its
-     * grace. Then closes regions past the tile cap.
+     * grace. Then (M8b5b) starts the merges and splits due, and closes regions past the tile cap.
      */
     private void match() {
         long now = level.getGameTime();
@@ -485,6 +620,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
             r.occupied = false;
             r.wanted = false;
             r.link = 0;
+            r.keptTiles.clear();
         }
         Set<UUID> seen = new HashSet<>();
         List<Sponsor> sponsors = new ArrayList<>();
@@ -494,7 +630,8 @@ public final class AirflowRegions implements AirflowSections.Listener {
             double speed = speeds.record(a.id(), now, p.x, p.y, p.z);
             boolean slow = AirflowLimits.mayOpen(speed, limit);
             int[] o = tileOf(p.x, p.y, p.z);
-            Region home = byTile.get(AirflowTiles.key(o[0], o[1], o[2]));
+            long key = AirflowTiles.key(o[0], o[1], o[2]);
+            Region home = byTile.get(key);
             if (home == null) {
                 if (!slow) {
                     heldForSpeed++;
@@ -505,10 +642,12 @@ public final class AirflowRegions implements AirflowSections.Listener {
             home.occupied = true;
             home.owner = a.id();
             home.lastOccupied = now;
-            sponsors.add(new Sponsor(a.id(), home, p, slow));
+            home.keptTiles.add(key);
+            sponsors.add(new Sponsor(a.id(), home, o, p, slow));
         }
         speeds.keep(seen);
         neighbours(now, sponsors);
+        merges(now, sponsors);
         for (Region r : AirflowLimits.overCap(capView(), WeatherConfig.airflowCapMode(), WeatherConfig.airflowTileCap())) {
             retire(r);
             closedByCap++;
@@ -519,22 +658,27 @@ public final class AirflowRegions implements AirflowSections.Listener {
     private List<AirflowLimits.Tile<Region>> capView() {
         List<AirflowLimits.Tile<Region>> tiles = new ArrayList<>(regions.size());
         for (Region r : regions) {
-            tiles.add(new AirflowLimits.Tile<>(r, r.owner, r.lastOccupied, r.occupied, r.secondary()));
+            tiles.add(new AirflowLimits.Tile<>(r, r.owner, r.lastOccupied, r.occupied, r.secondary(), r.tiles()));
         }
         return tiles;
     }
 
-    /** A player at this match: their tile, where they stand, and whether they may open tiles (M8b b4). */
+    /**
+     * A player at this match: the region holding their tile, their tile's origin, where they stand, and whether they
+     * may open tiles (M8b b4).
+     */
     private static final class Sponsor {
         final UUID id;
         final Region home;
+        final int[] tile;
         final Vec3 pos;
         final boolean slow;
         Flood flood;
 
-        Sponsor(UUID id, Region home, Vec3 pos, boolean slow) {
+        Sponsor(UUID id, Region home, int[] tile, Vec3 pos, boolean slow) {
             this.id = id;
             this.home = home;
+            this.tile = tile;
             this.pos = pos;
             this.slow = slow;
         }
@@ -577,7 +721,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
         LongOpenHashSet homes = new LongOpenHashSet();
         for (Sponsor s : sponsors) {
             present.add(s.id);
-            int[] home = {s.home.x0, s.home.y0, s.home.z0};
+            int[] home = s.tile; // the player's own tile (M8b5b: its region may be a merged box)
             homes.add(AirflowTiles.key(home[0], home[1], home[2]));
             Flood f = floods.get(s.id);
             Job j = jobs.get(s.id);
@@ -632,7 +776,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
                     if (g == null) {
                         missing.add(new Object[] {s, r});
                     } else {
-                        keep(g, s, r, now);
+                        keep(g, k, s, r, now);
                     }
                 }
             }
@@ -655,7 +799,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
                     secondariesOpened++;
                     opened++;
                 }
-                keep(g, s, r, now);
+                keep(g, keyAt(h, r), s, r, now);
             }
         }
         int n = 0;
@@ -666,19 +810,281 @@ public final class AirflowRegions implements AirflowSections.Listener {
         secondaryTicks += (long) n * SCAN_TICKS;
     }
 
-    /** Marks {@code g} as kept by {@code s}'s tile at this match. */
-    private static void keep(Region g, Sponsor s, AirflowNeighbourTiles.Reached r, long now) {
+    /** Marks {@code g} (its tile {@code tile}) as kept by {@code s}'s tile at this match. */
+    private static void keep(Region g, long tile, Sponsor s, AirflowNeighbourTiles.Reached r, long now) {
         g.wanted = true;
         if (!g.occupied) {
             g.owner = s.id;
         }
         g.lastOccupied = now;
         g.link = Math.max(g.link, r.link());
+        g.keptTiles.add(tile);
     }
 
     /** The key of the tile {@code r} reaches from the tile at {@code home} (origin). */
     private static long keyAt(int[] home, AirflowNeighbourTiles.Reached r) {
         return AirflowTiles.key(home[0] + r.dx() * WX, home[1] + r.dy() * WY, home[2] + r.dz() * WZ);
+    }
+
+    /**
+     * M8b5b: chooses each player's box ({@link AirflowMerge}; a tile claimed by an earlier player's box is out for the
+     * later ones), splits merged regions whose box hasn't been chosen for the settle time into the tiles still kept,
+     * and merges boxes chosen for the settle time once every tile in them runs, inside the box.
+     */
+    private void merges(long now, List<Sponsor> sponsors) {
+        AirflowMerge.Mode mode = mergeMode();
+        long settle = Math.round(mergeSettleSeconds() / AirflowRuntime.TICK_SECONDS);
+        Map<BoxKey, BoxKey> chosen = new java.util.LinkedHashMap<>();
+        if (mode != AirflowMerge.Mode.OFF) {
+            LongOpenHashSet claimed = new LongOpenHashSet();
+            for (Sponsor s : sponsors) {
+                AirflowMerge.Box b = AirflowMerge.choose(candidates(s, mode, claimed), current(s));
+                if (b == null) {
+                    continue;
+                }
+                BoxKey box = new BoxKey(s.tile[0] + b.dx() * WX, s.tile[1] + b.dy() * WY, s.tile[2] + b.dz() * WZ,
+                        b.sx(), b.sy(), b.sz());
+                for (long k : tileKeys(box.x0(), box.y0(), box.z0(), box.tx(), box.ty(), box.tz())) {
+                    claimed.add(k);
+                }
+                chosen.put(box, box);
+            }
+        }
+        for (Region r : List.copyOf(regions)) {
+            if (r.tiles() < 2 || r.transition != null) {
+                continue;
+            }
+            if (chosen.containsKey(new BoxKey(r))) {
+                r.unchosenSince = -1;
+            } else if (r.unchosenSince < 0) {
+                r.unchosenSince = now;
+            } else if (now - r.unchosenSince >= settle && !r.keptTiles.isEmpty()
+                    && transitions.size() < MAX_TRANSITIONS) {
+                split(r, now); // no tile kept: it goes into its grace whole instead
+            }
+        }
+        chosenSince.keySet().retainAll(chosen.keySet());
+        for (BoxKey box : chosen.keySet()) {
+            Region g = byTile.get(AirflowTiles.key(box.x0(), box.y0(), box.z0()));
+            if (g != null && new BoxKey(g).equals(box)) {
+                chosenSince.remove(box); // already running as one
+                continue;
+            }
+            long since = chosenSince.computeIfAbsent(box, k -> now);
+            if (now - since >= settle && transitions.size() < MAX_TRANSITIONS) {
+                List<Region> from = mergeable(box);
+                if (from != null) {
+                    Region to = box(box.x0(), box.y0(), box.z0(), box.tx(), box.ty(), box.tz());
+                    start(from, List.of(to), now);
+                    merges++;
+                }
+            }
+        }
+    }
+
+    /**
+     * The tiles around {@code s}'s that may merge with it (M8b5b): those its enclosed air reaches (its latest flood,
+     * if from this tile), and under ADJACENT every tile with a region joined to it face to face inside the block; each
+     * only while its region runs and no earlier player's box claimed it.
+     */
+    private AirflowMerge.Tiles candidates(Sponsor s, AirflowMerge.Mode mode, LongOpenHashSet claimed) {
+        LongOpenHashSet in = new LongOpenHashSet();
+        it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap links = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+        in.add(AirflowTiles.key(s.tile[0], s.tile[1], s.tile[2]));
+        Flood f = s.flood;
+        if (f != null && java.util.Arrays.equals(f.home(), s.tile)) {
+            for (AirflowNeighbourTiles.Reached r : f.reached()) {
+                long k = keyAt(f.home(), r);
+                in.add(k);
+                links.put(k, r.link());
+            }
+        }
+        if (mode == AirflowMerge.Mode.ADJACENT) {
+            java.util.ArrayDeque<int[]> queue = new java.util.ArrayDeque<>();
+            boolean[] seen = new boolean[27];
+            seen[13] = true;
+            queue.add(new int[] {0, 0, 0});
+            while (!queue.isEmpty()) {
+                int[] t = queue.poll();
+                for (Side side : Side.values()) {
+                    int a = side.axis(), d = side.high() ? 1 : -1;
+                    int x = t[0] + (a == 0 ? d : 0), y = t[1] + (a == 1 ? d : 0), z = t[2] + (a == 2 ? d : 0);
+                    int i = ((y + 1) * 3 + (z + 1)) * 3 + (x + 1);
+                    if (Math.abs(x) > 1 || Math.abs(y) > 1 || Math.abs(z) > 1 || seen[i]) {
+                        continue;
+                    }
+                    seen[i] = true;
+                    long k = AirflowTiles.key(s.tile[0] + x * WX, s.tile[1] + y * WY, s.tile[2] + z * WZ);
+                    if (byTile.containsKey(k)) {
+                        in.add(k);
+                        queue.add(new int[] {x, y, z});
+                    }
+                }
+            }
+        }
+        int[] o = s.tile;
+        return new AirflowMerge.Tiles() {
+            @Override
+            public boolean in(int dx, int dy, int dz) {
+                long k = AirflowTiles.key(o[0] + dx * WX, o[1] + dy * WY, o[2] + dz * WZ);
+                if (!in.contains(k) || claimed.contains(k)) {
+                    return false;
+                }
+                Region g = byTile.get(k);
+                return g != null && g.slot != null && g.slot.status() == AirflowRuntime.Status.RUNNING;
+            }
+
+            @Override
+            public int link(int dx, int dy, int dz) {
+                return links.getOrDefault(AirflowTiles.key(o[0] + dx * WX, o[1] + dy * WY, o[2] + dz * WZ), 0);
+            }
+        };
+    }
+
+    /** The merged box {@code s}'s tile runs in now, relative to it, or null (it runs alone). */
+    private AirflowMerge.Box current(Sponsor s) {
+        Region h = s.home;
+        if (h.tiles() < 2) {
+            return null;
+        }
+        return new AirflowMerge.Box(Math.floorDiv(h.x0 - s.tile[0], WX), Math.floorDiv(h.y0 - s.tile[1], WY),
+                Math.floorDiv(h.z0 - s.tile[2], WZ), h.tx, h.ty, h.tz);
+    }
+
+    /**
+     * The regions running the tiles of {@code box}, if it can merge now: every tile's region running, inside the box,
+     * and in no other merge or split; else null.
+     */
+    private List<Region> mergeable(BoxKey box) {
+        List<Region> from = new ArrayList<>();
+        for (long k : tileKeys(box.x0(), box.y0(), box.z0(), box.tx(), box.ty(), box.tz())) {
+            Region g = byTile.get(k);
+            if (g == null || g.transition != null || g.slot == null
+                    || g.slot.status() != AirflowRuntime.Status.RUNNING || g.x0 < box.x0() || g.y0 < box.y0()
+                    || g.z0 < box.z0() || g.x0 + g.nx > box.x0() + box.tx() * WX
+                    || g.y0 + g.ny > box.y0() + box.ty() * WY || g.z0 + g.nz > box.z0() + box.tz() * WZ) {
+                return null;
+            }
+            if (!from.contains(g)) {
+                from.add(g);
+            }
+        }
+        return from;
+    }
+
+    /** Splits a merged region into the tiles of it still kept (M8b5b). */
+    private void split(Region r, long now) {
+        List<Region> to = new ArrayList<>();
+        for (int j = 0; j < r.ty; j++) {
+            for (int k = 0; k < r.tz; k++) {
+                for (int i = 0; i < r.tx; i++) {
+                    int x = r.x0 + i * WX, y = r.y0 + j * WY, z = r.z0 + k * WZ;
+                    if (r.keptTiles.contains(AirflowTiles.key(x, y, z))) {
+                        to.add(box(x, y, z, 1, 1, 1));
+                    }
+                }
+            }
+        }
+        start(List.of(r), to, now);
+        splits++;
+    }
+
+    /** Begins replacing {@code from} with {@code to}: the regions running now ask for a save. */
+    private void start(List<Region> from, List<Region> to, long now) {
+        Transition t = new Transition(from, to, now);
+        for (Region f : from) {
+            f.transition = t;
+            f.slot.requestSave();
+        }
+        transitions.add(t);
+    }
+
+    /**
+     * M8b5b: moves each merge or split on: once the regions running now have written a save asked for at its start,
+     * builds the new ones (from that save, as a tile reopening is); once they run, swaps them in. Gives up (the regions
+     * running now carry on) when one of those stops running, a new one fails, or it takes longer than
+     * {@link #TRANSITION_TIMEOUT_TICKS}.
+     */
+    private void advanceTransitions(long now) {
+        for (Transition t : List.copyOf(transitions)) {
+            boolean gone = false, saved = true;
+            for (Region f : t.from) {
+                gone |= !regions.contains(f) || f.slot == null || f.slot.status() != AirflowRuntime.Status.RUNNING;
+                saved &= f.savedAt >= t.started;
+            }
+            if (gone || now - t.started > TRANSITION_TIMEOUT_TICKS) {
+                abandon(t, true);
+                continue;
+            }
+            if (!saved) {
+                continue;
+            }
+            boolean running = true, failed = false;
+            for (Region n : t.to) {
+                if (n.slot == null) {
+                    running = false;
+                    if (ready(n)) {
+                        n.slot = runtime.create(factory(n));
+                        n.built = now;
+                    }
+                } else if (n.slot.status() == AirflowRuntime.Status.FAILED) {
+                    failed = true;
+                } else {
+                    running &= n.slot.status() == AirflowRuntime.Status.RUNNING;
+                }
+            }
+            if (failed) {
+                abandon(t, true);
+            } else if (running) {
+                swap(t);
+            }
+        }
+    }
+
+    /** Gives up a merge or split: the new regions go, the ones running now carry on. */
+    private void abandon(Transition t, boolean count) {
+        transitions.remove(t);
+        for (Region f : t.from) {
+            if (f.transition == t) {
+                f.transition = null;
+            }
+        }
+        for (Region n : t.to) {
+            if (n.slot != null) {
+                runtime.retire(n.slot);
+            }
+            for (long s : n.sections) {
+                sections.release(s);
+            }
+        }
+        if (count) {
+            transitionsAbandoned++;
+        }
+    }
+
+    /** Swaps a finished merge or split in: the old regions retire, the new take their tiles. */
+    private void swap(Transition t) {
+        transitions.remove(t);
+        UUID owner = null;
+        long last = 0;
+        for (Region f : t.from) {
+            if (owner == null || f.occupied) {
+                owner = f.owner;
+            }
+            last = Math.max(last, f.lastOccupied);
+            f.transition = null;
+            retire(f);
+        }
+        for (Region n : t.to) {
+            n.owner = owner;
+            n.lastOccupied = last;
+            n.wanted = true; // until the next match says otherwise, so no grace starts in between
+            regions.add(n);
+            for (long k : n.tileKeys()) {
+                byTile.put(k, n);
+                live.put(k, new Live(n.slot, n.x0, n.y0, n.z0));
+            }
+        }
     }
 
     /**
@@ -812,14 +1218,21 @@ public final class AirflowRegions implements AirflowSections.Listener {
         return o;
     }
 
+    /** Opens a one-tile region and gives it its tile. */
     private Region open(int x0, int y0, int z0) {
-        Region r = new Region(nextId++, x0, y0, z0);
-        r.background = new AirflowBackground(level, ground, x0, y0, z0, WX, WY, WZ);
+        Region r = box(x0, y0, z0, 1, 1, 1);
+        regions.add(r);
+        byTile.put(AirflowTiles.key(x0, y0, z0), r);
+        return r;
+    }
+
+    /** A new region over a box of tiles, wanting its sections and reading its ground; not yet given its tiles. */
+    private Region box(int x0, int y0, int z0, int tx, int ty, int tz) {
+        Region r = new Region(nextId++, x0, y0, z0, tx, ty, tz);
+        r.background = new AirflowBackground(level, ground, x0, y0, z0, r.nx, r.ny, r.nz);
         for (long s : r.sections) {
             sections.want(s);
         }
-        regions.add(r);
-        byTile.put(AirflowTiles.key(x0, y0, z0), r);
         return r;
     }
 
@@ -827,8 +1240,13 @@ public final class AirflowRegions implements AirflowSections.Listener {
         if (!regions.remove(r)) {
             return;
         }
-        byTile.remove(AirflowTiles.key(r.x0, r.y0, r.z0));
-        live.remove(AirflowTiles.key(r.x0, r.y0, r.z0));
+        if (r.transition != null) {
+            abandon(r.transition, true); // a region being replaced closed first
+        }
+        for (long k : r.tileKeys()) {
+            byTile.remove(k, r);
+            live.computeIfPresent(k, (key, l) -> l.slot() == r.slot ? null : l);
+        }
         if (r.slot != null) {
             runtime.retire(r.slot);
         }
@@ -849,7 +1267,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
         if (r.slot == null) {
             if (ready(r)) {
                 r.slot = runtime.create(factory(r));
-                live.put(AirflowTiles.key(r.x0, r.y0, r.z0), r.slot);
+                putLive(r);
                 r.built = now;
             }
             return;
@@ -860,7 +1278,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
                     r.retryAt = now + AirflowRuntime.backoffTicks(r.slot.failures());
                 } else if (now >= r.retryAt && ready(r)) {
                     r.slot = runtime.replace(r.slot, factory(r));
-                    live.put(AirflowTiles.key(r.x0, r.y0, r.z0), r.slot);
+                    putLive(r);
                     r.retryAt = -1;
                     r.built = now;
                 }
@@ -880,6 +1298,13 @@ public final class AirflowRegions implements AirflowSections.Listener {
         }
     }
 
+    /** Puts a region's slot under each of its tiles for its neighbours' borders. */
+    private void putLive(Region r) {
+        for (long k : r.tileKeys()) {
+            live.put(k, new Live(r.slot, r.x0, r.y0, r.z0));
+        }
+    }
+
     private boolean ready(Region r) {
         if (!r.background.ready()) {
             return false;
@@ -892,9 +1317,13 @@ public final class AirflowRegions implements AirflowSections.Listener {
         return true;
     }
 
-    /** Reads new tiles' ground samples until {@code deadline}, in the order the tiles opened. */
+    /** Reads new regions' ground samples until {@code deadline}, in the order they opened (merges' and splits' last). */
     private void fillBackgrounds(long deadline) {
-        for (Region r : regions) {
+        List<Region> all = new ArrayList<>(regions);
+        for (Transition t : transitions) {
+            all.addAll(t.to);
+        }
+        for (Region r : all) {
             if (!r.background.ready()) {
                 r.background.fill(deadline);
                 if (System.nanoTime() >= deadline) {
@@ -922,7 +1351,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
                     continue; // a driven block's whole power comes from the poll
                 }
                 BlockPos p = BlockPos.of(src.positions()[s]);
-                cells.add(((p.getY() - r.y0) * WZ + p.getZ() - r.z0) * WX + p.getX() - r.x0);
+                cells.add(((p.getY() - r.y0) * r.nz + p.getZ() - r.z0) * r.nx + p.getX() - r.x0);
                 watts.add(src.watts()[s]);
                 limits.add(src.limits()[s]);
             }
@@ -931,7 +1360,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
                 AirflowSources.Power power = drivenPower(p);
                 r.driven.put(d, power);
                 if (!power.isNone()) {
-                    cells.add(((p.getY() - r.y0) * WZ + p.getZ() - r.z0) * WX + p.getX() - r.x0);
+                    cells.add(((p.getY() - r.y0) * r.nz + p.getZ() - r.z0) * r.nx + p.getX() - r.x0);
                     watts.add(power.watts());
                     limits.add(power.limit());
                 }
@@ -948,12 +1377,12 @@ public final class AirflowRegions implements AirflowSections.Listener {
         if (any) {
             restores++;
         }
-        AirflowRegionModel.Spec spec = new AirflowRegionModel.Spec(r.x0, r.y0, r.z0, WX, WY, WZ, codes,
+        AirflowRegionModel.Spec spec = new AirflowRegionModel.Spec(r.x0, r.y0, r.z0, r.nx, r.ny, r.nz, codes,
                 AirflowCells.table(), lattice[0], w[0], w[1], cells.stream().mapToInt(Integer::intValue).toArray(),
                 watts.stream().mapToDouble(Double::doubleValue).toArray(),
                 limits.stream().mapToDouble(Double::doubleValue).toArray(), any ? saved : null, level.getGameTime(),
                 lattice, tops, WeatherConfig.airflowHeatDiffusivity());
-        AirflowBorders.Neighbours neighbours = neighboursOf(r.x0, r.y0, r.z0);
+        AirflowBorders.Neighbours neighbours = neighboursOf(r);
         return () -> {
             AirflowRegionModel m = AirflowRegionModel.build(spec);
             m.neighbours(neighbours);
@@ -962,23 +1391,51 @@ public final class AirflowRegions implements AirflowSections.Listener {
     }
 
     /**
-     * M8b: the tiles beside the one at (x0, y0, z0), as its borders read them on the air thread: each side's latest
-     * frame while the tile there runs, else null.
+     * M8b: the regions beside {@code r}, as its borders read them on the air thread: on each side, the latest frame of
+     * each running region holding a tile across it (M8b5b: one region may hold several, and a merged region's side
+     * may face several), with its origin relative to {@code r}'s.
      */
-    private AirflowBorders.Neighbours neighboursOf(int x0, int y0, int z0) {
-        long[] keys = new long[6];
+    private AirflowBorders.Neighbours neighboursOf(Region r) {
+        long[][] keys = new long[6][];
+        int[] o = {r.x0, r.y0, r.z0}, t = {r.tx, r.ty, r.tz}, w = {WX, WY, WZ};
         for (Side side : Side.values()) {
-            int a = side.axis(), d = side.high() ? 1 : -1;
-            keys[side.ordinal()] = AirflowTiles.key(x0 + (a == 0 ? d * WX : 0), y0 + (a == 1 ? d * WY : 0),
-                    z0 + (a == 2 ? d * WZ : 0));
-        }
-        return side -> {
-            AirflowRuntime.Slot s = live.get(keys[side.ordinal()]);
-            if (s == null || s.status() != AirflowRuntime.Status.RUNNING) {
-                return null;
+            int a = side.axis();
+            int[] n = t.clone();
+            n[a] = 1;
+            long[] ks = new long[n[0] * n[1] * n[2]];
+            int m = 0;
+            for (int j = 0; j < n[1]; j++) {
+                for (int k = 0; k < n[2]; k++) {
+                    for (int i = 0; i < n[0]; i++) {
+                        int[] c = {o[0] + i * WX, o[1] + j * WY, o[2] + k * WZ};
+                        c[a] = side.high() ? o[a] + t[a] * w[a] : o[a] - w[a];
+                        ks[m++] = AirflowTiles.key(c[0], c[1], c[2]);
+                    }
+                }
             }
-            AirflowRuntime.Frame f = s.frame();
-            return f == null ? null : f.frame();
+            keys[side.ordinal()] = ks;
+        }
+        int x0 = r.x0, y0 = r.y0, z0 = r.z0;
+        return side -> {
+            List<AirflowBorders.Beside> out = new ArrayList<>(1);
+            for (long k : keys[side.ordinal()]) {
+                Live l = live.get(k);
+                if (l == null || l.slot().status() != AirflowRuntime.Status.RUNNING) {
+                    continue;
+                }
+                AirflowRuntime.Frame f = l.slot().frame();
+                if (f == null || f.frame() == null) {
+                    continue;
+                }
+                boolean seen = false;
+                for (AirflowBorders.Beside b : out) {
+                    seen |= b.frame() == f.frame();
+                }
+                if (!seen) {
+                    out.add(new AirflowBorders.Beside(f.frame(), l.x0() - x0, l.y0() - y0, l.z0() - z0));
+                }
+            }
+            return out;
         };
     }
 
@@ -1040,10 +1497,19 @@ public final class AirflowRegions implements AirflowSections.Listener {
         return chunk.getData(AirflowContent.CHUNK_DATA).section(SectionPos.y(section));
     }
 
-    /** Writes every save the air thread has packed into the chunks it covers (server thread). */
+    /**
+     * Writes every save the air thread has packed into the chunks it covers (server thread), and notes when each
+     * running region's was written (M8b5b: a merge or split waits for it).
+     */
     private void writeSaves() {
+        long now = level.getGameTime();
         for (AirflowRuntime.Save s; (s = runtime.pollSave()) != null; ) {
             write(s.tile());
+            for (Region r : regions) {
+                if (r.slot == s.slot()) {
+                    r.savedAt = now;
+                }
+            }
         }
     }
 
@@ -1090,17 +1556,36 @@ public final class AirflowRegions implements AirflowSections.Listener {
         }
     }
 
-    /** The surface wind at the tile's centre: x, z, m/s. */
+    /** The surface wind at the region's centre: x, z, m/s. */
     private double[] windAt(Region r) {
-        double x = r.x0 + WX / 2.0, z = r.z0 + WZ / 2.0;
+        double x = r.x0 + r.nx / 2.0, z = r.z0 + r.nz / 2.0;
         WindColumn wind = WindSources.column(level, x, z);
         return new double[] {wind == null ? 0 : wind.surfaceX(), wind == null ? 0 : wind.surfaceZ()};
     }
 
-    @Override
-    public void cellChanged(BlockPos pos, byte before, byte after) {
+    /**
+     * The regions an event at {@code pos} goes to: the one running there and (M8b5b) any built to replace it, so the
+     * new one misses nothing between its build and the swap.
+     */
+    private List<Region> receivers(BlockPos pos) {
+        List<Region> out = new ArrayList<>(1);
         Region r = regionAt(pos.getX(), pos.getY(), pos.getZ());
         if (r != null && r.slot != null) {
+            out.add(r);
+        }
+        for (Transition t : transitions) {
+            for (Region n : t.to) {
+                if (n.slot != null && n.contains(pos.getX(), pos.getY(), pos.getZ())) {
+                    out.add(n);
+                }
+            }
+        }
+        return out;
+    }
+
+    @Override
+    public void cellChanged(BlockPos pos, byte before, byte after) {
+        for (Region r : receivers(pos)) {
             if (r.readLattice != null && r.readLattice != r.sentLattice
                     && !java.util.Arrays.equals(r.readLattice, r.sentLattice)) {
                 // an edit can change the follow weights: the outside air up to it goes first, with the old ones
@@ -1118,30 +1603,36 @@ public final class AirflowRegions implements AirflowSections.Listener {
 
     @Override
     public void sourceChanged(BlockPos pos, double before, double after, double limit) {
-        Region r = regionAt(pos.getX(), pos.getY(), pos.getZ());
-        if (r != null && r.slot != null && !r.driven.containsKey(pos.asLong())) {
-            r.slot.post(new AirflowRegionModel.SourceChange(pos.getX() - r.x0, pos.getY() - r.y0,
-                    pos.getZ() - r.z0, after, limit));
+        for (Region r : receivers(pos)) {
+            if (!r.driven.containsKey(pos.asLong())) {
+                r.slot.post(new AirflowRegionModel.SourceChange(pos.getX() - r.x0, pos.getY() - r.y0,
+                        pos.getZ() - r.z0, after, limit));
+            }
         }
     }
 
     @Override
     public void drivenChanged(BlockPos pos, boolean isDriven) {
-        Region r = regionAt(pos.getX(), pos.getY(), pos.getZ());
-        if (r == null || r.slot == null) {
-            return;
-        }
-        if (isDriven) {
-            r.driven.put(pos.asLong(), AirflowSources.Power.NONE); // the next poll sends its power
-        } else if (r.driven.remove(pos.asLong()) != null) {
-            AirflowSources.Power byState = AirflowSources.power(level.getBlockState(pos));
-            r.slot.post(new AirflowRegionModel.SourceChange(pos.getX() - r.x0, pos.getY() - r.y0,
-                    pos.getZ() - r.z0, byState.watts(), byState.limit()));
+        for (Region r : receivers(pos)) {
+            if (isDriven) {
+                r.driven.put(pos.asLong(), AirflowSources.Power.NONE); // the next poll sends its power
+            } else if (r.driven.remove(pos.asLong()) != null) {
+                AirflowSources.Power byState = AirflowSources.power(level.getBlockState(pos));
+                r.slot.post(new AirflowRegionModel.SourceChange(pos.getX() - r.x0, pos.getY() - r.y0,
+                        pos.getZ() - r.z0, byState.watts(), byState.limit()));
+            }
         }
     }
 
     @Override
     public void sectionDropped(long section) {
+        for (Transition t : List.copyOf(transitions)) {
+            for (Region n : t.to) {
+                if (n.holds(section) && transitions.contains(t)) {
+                    abandon(t, true);
+                }
+            }
+        }
         for (Region r : List.copyOf(regions)) {
             if (r.holds(section)) {
                 retire(r);

@@ -3,7 +3,7 @@
 // saving and restoring; M7c: watts and hot walls from the heat tables; M7e: the speed limit; M7f: stone from the
 // config, the recorder's profile; f3: AIRFLOW is the config's default, game-test servers run LEGACY; M8a: AIRFLOW
 // started by the server's own handlers; the surface film from the config; M8b b4: secondaries, and the tests that count
-// regions run without them).
+// regions run without them; M8b5b: a cut room merges into one region and splits, the B3 test with merging off).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -755,6 +755,7 @@ public final class AirflowGameTests {
         // the section east of the border is the second of its tile: the border runs at x = 16 sx; the top band
         regions.alignForTests(new BlockPos(border + 16, y, z));
         regions.neighbourTiles(AirflowNeighbourTiles.Mode.ON, 4);
+        regions.mergeTiles(AirflowMerge.Mode.OFF, Double.NaN); // B3 alone: two regions (M8b5b merges them)
         int[] west = regions.tileOf(border - 1, y, z), east = regions.tileOf(border, y, z);
         helper.assertTrue(east[0] == border && west[0] == border - AirflowRegions.WX && west[1] == y && east[1] == y,
                 "the border runs through the room: " + west[0] + ", " + east[0] + " at y " + west[1]);
@@ -853,6 +854,172 @@ public final class AirflowGameTests {
                     cleanup.run();
                 })
                 .thenSucceed();
+    }
+
+    /**
+     * M8b5b (M1; Bright, 2026-11-18): the same cut room with merging on (LINKED, settle 1 s here). Once both tiles run
+     * and the box has been chosen for the settle time, they merge into one region of 2 tiles, built from their save,
+     * and the room's far half warms through air that now crosses the old border. With the player moved out onto the
+     * roof (open air: no enclosed air, no links), the merged region splits after the settle time into the tile the
+     * player still keeps; the far tile is dropped. With the player gone, it retires.
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_merge", timeoutTicks = 40_000)
+    public static void aCutRoomMergesIntoOneRegionAndSplitsWhenThePlayerLeaves(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos spot = helper.absolutePos(BlockPos.ZERO);
+        int sx = SectionPos.blockToSectionCoord(spot.getX()), sz = SectionPos.blockToSectionCoord(spot.getZ());
+        int top = level.getMaxBuildHeight();
+        int border = 16 * sx, y = top - 32, z = 16 * sz + 4;
+        AirflowRegions regions = new AirflowRegions(level);
+        regions.alignForTests(new BlockPos(border + 16, y, z));
+        regions.neighbourTiles(AirflowNeighbourTiles.Mode.ON, 4);
+        regions.mergeTiles(AirflowMerge.Mode.LINKED, 1.0);
+        int[] west = regions.tileOf(border - 1, y, z), east = regions.tileOf(border, y, z);
+        helper.assertTrue(east[0] == border && west[0] == border - AirflowRegions.WX && west[1] == y && east[1] == y,
+                "the border runs through the room: " + west[0] + ", " + east[0] + " at y " + west[1]);
+        BlockPos low = new BlockPos(border - 6, y, z), fire = new BlockPos(border - 3, y + 1, z + 3);
+        Map<BlockPos, BlockState> prior = new HashMap<>();
+        for (BlockPos p : BlockPos.betweenClosed(low, low.offset(11, 5, 6))) {
+            prior.put(p.immutable(), level.getBlockState(p));
+        }
+        for (BlockPos p : prior.keySet()) {
+            boolean shell = p.getX() == low.getX() || p.getX() == low.getX() + 11 || p.getY() == y || p.getY() == y + 5
+                    || p.getZ() == z || p.getZ() == z + 6;
+            level.setBlock(p, (shell ? Blocks.STONE : Blocks.AIR).defaultBlockState(), Block.UPDATE_CLIENTS);
+        }
+        level.setBlock(fire, Blocks.CAMPFIRE.defaultBlockState(), Block.UPDATE_CLIENTS);
+        Vec3 inside = new Vec3(border - 4.5, y + 1, z + 2.5), roof = new Vec3(border - 4.5, y + 6, z + 2.5);
+        Vec3[] anchor = {inside};
+        List<long[]> forced = new ArrayList<>();
+        for (int cx = west[0] >> 4; cx < (east[0] + AirflowRegions.WX) >> 4; cx++) {
+            for (int cz = west[2] >> 4; cz < (west[2] + AirflowRegions.WZ) >> 4; cz++) {
+                if (level.setChunkForced(cx, cz, true)) {
+                    forced.add(new long[] {cx, cz});
+                }
+            }
+        }
+        boolean opened = AirflowSections.get(level) == null;
+        regions.anchors(l -> anchor[0] == null ? List.of() : List.of(anchor[0]));
+        regions.start();
+        boolean[] stopped = {false};
+        helper.onEachTick(() -> {
+            if (!stopped[0]) {
+                regions.tick();
+            }
+        });
+        Runnable cleanup = () -> {
+            stopped[0] = true;
+            regions.stop();
+            for (Map.Entry<BlockPos, BlockState> e : prior.entrySet()) {
+                level.setBlock(e.getKey(), e.getValue(), Block.UPDATE_CLIENTS);
+            }
+            for (long[] c : forced) {
+                level.setChunkForced((int) c[0], (int) c[1], false);
+            }
+            if (opened) {
+                AirflowSections.close(level);
+            }
+        };
+        long[] at = {level.getGameTime(), 0, 0, 0};
+        double[] seen = new double[2];
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region home = regions.regionAt(inside.x, inside.y, inside.z);
+                    helper.assertTrue(home != null && home.tiles() == 2 && home.slot() != null
+                                    && home.slot().steps() >= 2 && home == regions.regionAt(border + 1, y + 1, z + 1),
+                            "waiting for the two tiles to merge and step: " + AirflowCommand.mergeLine(regions)
+                                    + "; " + AirflowCommand.neighbourLine(regions));
+                })
+                .thenExecute(() -> {
+                    at[1] = level.getGameTime();
+                    AirflowRegions.Region home = regions.regionAt(inside.x, inside.y, inside.z);
+                    helper.assertTrue(regions.regions().size() == 1 && regions.merges() == 1 && regions.splits() == 0
+                                    && regions.transitionsNow() == 0 && regions.transitionsAbandoned() == 0,
+                            "one merged region: " + AirflowCommand.mergeLine(regions));
+                    helper.assertTrue(home.x0() == west[0] && home.nx() == 2 * AirflowRegions.WX
+                                    && home.ny() == AirflowRegions.WY && home.nz() == AirflowRegions.WZ,
+                            "the box is the two tiles: " + regionLine(home, level));
+                    helper.assertTrue(home.occupied() && !home.secondary(), "it holds the player: "
+                            + regionLine(home, level));
+                })
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region home = regions.regionAt(inside.x, inside.y, inside.z);
+                    double far = farHalfOffset(home, border, y, z), across = acrossTheBorder(home, border, y, z);
+                    helper.assertTrue(far > 0.2 && across > 0.001, "waiting for air to cross the old border "
+                            + "(two tiles apart, none can) and the room's far half to warm: " + across + " m/s across, "
+                            + far + " C over its background");
+                    seen[0] = far;
+                    seen[1] = across;
+                })
+                .thenExecute(() -> {
+                    at[2] = level.getGameTime();
+                    anchor[0] = roof;
+                })
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region home = regions.regionAt(roof.x, roof.y, roof.z);
+                    helper.assertTrue(home != null && home.tiles() == 1 && home.slot() != null
+                                    && home.slot().status() == AirflowRuntime.Status.RUNNING,
+                            "waiting for the split: " + AirflowCommand.mergeLine(regions));
+                })
+                .thenExecute(() -> {
+                    at[3] = level.getGameTime();
+                    Meteodyne.LOGGER.info("Airflow merge test: merged {} ticks after the start; far half {} C over its "
+                                    + "background with {} m/s across the old border {} ticks later; split {} ticks after "
+                                    + "the player left the room", at[1] - at[0], String.format(java.util.Locale.ROOT,
+                                    "%.2f", seen[0]), String.format(java.util.Locale.ROOT, "%.3f", seen[1]),
+                            at[2] - at[1], at[3] - at[2]);
+                    helper.assertTrue(regions.splits() == 1 && regions.regions().size() == 1
+                                    && regions.regionAt(border + 1, y + 1, z + 1) == null,
+                            "split into the player's tile alone; the far tile dropped: "
+                                    + AirflowCommand.mergeLine(regions) + ", " + regions.regions().size() + " regions");
+                    anchor[0] = null;
+                })
+                .thenWaitUntil(() -> helper.assertTrue(regions.regions().isEmpty(),
+                        "waiting for the tile's grace to end: " + regions.regions().size()))
+                .thenExecute(cleanup)
+                .thenSucceed();
+    }
+
+    /** M8b5b: the mean offset over its background of the cut room's air east of the border, in {@code r}'s frame. */
+    private static double farHalfOffset(AirflowRegions.Region r, int border, int y, int z) {
+        AirflowRuntime.Frame f = r == null || r.slot() == null ? null : r.slot().frame();
+        if (f == null || f.frame() == null) {
+            return Double.NaN;
+        }
+        double sum = 0;
+        int n = 0;
+        for (int x = border; x <= border + 4; x++) {
+            for (int yy = y + 1; yy <= y + 4; yy++) {
+                for (int zz = z + 1; zz <= z + 5; zz++) {
+                    int lx = x - r.x0(), ly = yy - r.y0(), lz = zz - r.z0();
+                    if (f.frame().isAir(lx + 0.5, ly + 0.5, lz + 0.5)) {
+                        sum += f.frame().temperature(lx + 0.5, ly + 0.5, lz + 0.5) - f.frame().background().at(lx, ly, lz);
+                        n++;
+                    }
+                }
+            }
+        }
+        return n == 0 ? Double.NaN : sum / n;
+    }
+
+    /** M8b5b: the largest air speed along x in the cut room's cells either side of the border, m/s, in {@code r}'s frame. */
+    private static double acrossTheBorder(AirflowRegions.Region r, int border, int y, int z) {
+        AirflowRuntime.Frame f = r == null || r.slot() == null ? null : r.slot().frame();
+        if (f == null || f.frame() == null) {
+            return Double.NaN;
+        }
+        double[] v = new double[3];
+        double max = 0;
+        for (int x = border - 1; x <= border; x++) {
+            for (int yy = y + 1; yy <= y + 4; yy++) {
+                for (int zz = z + 1; zz <= z + 5; zz++) {
+                    if (f.frame().velocity(x - r.x0() + 0.5, yy - r.y0() + 0.5, zz - r.z0() + 0.5, v)) {
+                        max = Math.max(max, Math.abs(v[0]));
+                    }
+                }
+            }
+        }
+        return max;
     }
 
     /** Window size of part b3: four sections across, three tall. */

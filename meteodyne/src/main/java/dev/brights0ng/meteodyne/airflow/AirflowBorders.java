@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M8b b2).
+// Written by Claude (GreedyFluids M8b b2); edited by Claude (M8b5b: the far side read by position, from regions of any
+// size across).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -20,10 +21,11 @@ import dev.brights0ng.greedyfluids.region.AirFrame;
  *   <li><b>Conditions:</b> an enclosed cut cell is EXCHANGE on every side. Elsewhere the side keeps its own: OPEN on
  *       the four side walls and UP, closed on DOWN. Every cut cell is set, solid or not, so a block edit never changes
  *       a condition; only a column's open height does.</li>
- *   <li><b>Far side:</b> the neighbouring tile's latest frame at the cell across the cut, where that is air: its
- *       box's temperature, and its distance from the border, half the box's depth along the normal, so that both
- *       tiles use one conductance between their box centres. NaN (insulated) where the cell across isn't air, and on
- *       the whole side while the neighbour isn't running. A neighbour starting or stopping changes no mesh.</li>
+ *   <li><b>Far side:</b> the latest frame of the running region holding the cell across the cut, where that is air:
+ *       its box's temperature, and its distance from the border, half the box's depth along the normal, so that both
+ *       regions use one conductance between their box centres. NaN (insulated) where the cell across isn't air or no
+ *       running region holds it. A neighbour starting or stopping changes no mesh. Since M8b5b regions may be boxes of
+ *       tiles, so a side can face several regions, each found by position ({@link Beside}).</li>
  * </ul>
  * Each tile works out its conditions from its own columns, so the two sides of a cut can disagree where a roof ends
  * exactly at a border. Cut cells are addressed by their index on the side's face plane
@@ -31,15 +33,24 @@ import dev.brights0ng.greedyfluids.region.AirFrame;
  */
 final class AirflowBorders {
 
+    /** A running region across a side: its latest frame and its origin relative to the reading region's, cells. */
+    record Beside(AirFrame frame, int ox, int oy, int oz) {
+        /** Whether the cell (x, y, z), in the reading region's cells, lies in this region. */
+        boolean holds(int x, int y, int z) {
+            int lx = x - ox, ly = y - oy, lz = z - oz;
+            return lx >= 0 && ly >= 0 && lz >= 0 && lx < frame.nx() && ly < frame.ny() && lz < frame.nz();
+        }
+    }
+
     /** The running neighbours' latest frames, read on the air thread. */
     @FunctionalInterface
     interface Neighbours {
-        /** The latest frame of the running tile across {@code side}, or null (none running, or not built yet). */
-        AirFrame across(Side side);
+        /** The running regions across {@code side} (none running, or not built yet: empty; never null). */
+        List<Beside> across(Side side);
     }
 
     /** No neighbour ever runs: every EXCHANGE face is insulated. */
-    static final Neighbours NONE = side -> null;
+    static final Neighbours NONE = side -> List.of();
 
     private AirflowBorders() {
     }
@@ -135,40 +146,43 @@ final class AirflowBorders {
     }
 
     /**
-     * Reads the far side of a side cell (by face-plane index) from the frame of the neighbour across the side (null:
-     * none running) into {@code temperatures} (C) and {@code distances} (m) at that index: the neighbour's air in its
-     * cell across the cut and half its box's depth along the normal; NaN for both where that cell is solid, or the
-     * frame isn't a tile of the same size.
+     * Reads the far side of a side cell (by face-plane index) of a region of nx × ny × nz cells, from the regions
+     * across the side, into {@code temperatures} (C) and {@code distances} (m) at that index: the air in the cell
+     * across the cut and half its box's depth along the normal; NaN for both where that cell is solid or no region
+     * across holds it.
      */
-    static void read(AirFrame frame, Side side, int index, int nx, int ny, int nz, float[] temperatures,
+    static void read(List<Beside> across, Side side, int index, int nx, int ny, int nz, float[] temperatures,
             float[] distances) {
-        if (frame == null || frame.nx() != nx || frame.ny() != ny || frame.nz() != nz) {
-            temperatures[index] = Float.NaN;
-            distances[index] = Float.NaN;
-            return;
-        }
-        // the cell across: the same plane position, on the neighbour's opposite side
+        // the cell across, in this region's cells: one step out of the side
         int x, y, z;
         switch (side.axis()) {
             case 0 -> {
-                x = side.high() ? 0 : nx - 1;
+                x = side.high() ? nx : -1;
                 y = index / nz;
                 z = index % nz;
             }
             case 1 -> {
                 x = index % nx;
-                y = side.high() ? 0 : ny - 1;
+                y = side.high() ? ny : -1;
                 z = index / nx;
             }
             default -> {
                 x = index % nx;
                 y = index / nx;
-                z = side.high() ? 0 : nz - 1;
+                z = side.high() ? nz : -1;
             }
         }
-        double px = x + 0.5, py = y + 0.5, pz = z + 0.5;
-        boolean air = frame.isAir(px, py, pz);
-        temperatures[index] = air ? (float) frame.temperature(px, py, pz) : Float.NaN;
-        distances[index] = air ? 0.5f * frame.extent(px, py, pz, side.axis()) : Float.NaN;
+        for (Beside b : across) {
+            if (b.holds(x, y, z)) {
+                AirFrame frame = b.frame();
+                double px = x - b.ox() + 0.5, py = y - b.oy() + 0.5, pz = z - b.oz() + 0.5;
+                boolean air = frame.isAir(px, py, pz);
+                temperatures[index] = air ? (float) frame.temperature(px, py, pz) : Float.NaN;
+                distances[index] = air ? 0.5f * frame.extent(px, py, pz, side.axis()) : Float.NaN;
+                return;
+            }
+        }
+        temperatures[index] = Float.NaN;
+        distances[index] = Float.NaN;
     }
 }

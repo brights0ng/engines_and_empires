@@ -1,5 +1,5 @@
 // Written by Claude (GreedyFluids M7d, the debug view; Bright, 2026-11-15); edited by Claude (M8b b4: secondaries;
-// M8b5a: the air's temperature as it is, not its offset).
+// M8b5a: the air's temperature as it is, not its offset; M8b5b: merged regions' whole boxes).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -208,7 +208,7 @@ public final class AirflowView {
     }
 
     private static void parts(List<Payload> out, int frame, AirflowRegions.Region r, int state, AirFrame air) {
-        int nx = AirflowRegions.WX, ny = AirflowRegions.WY, nz = AirflowRegions.WZ;
+        int nx = r.nx(), ny = r.ny(), nz = r.nz(); // up to 192 along an axis (a merged line of 3): a byte holds it
         byte[] cells = new byte[PART_CELLS * CELL_BYTES];
         int count = 0, sent = 0;
         double[] vel = new double[3];

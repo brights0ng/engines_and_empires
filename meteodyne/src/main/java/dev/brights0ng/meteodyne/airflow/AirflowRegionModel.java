@@ -2,7 +2,7 @@
 // background field, fixed walls, thermostats and body heat; M7f: sources on the grid before the region is built, the
 // heat diffusivity from the spec; held steps and edit-batch time for the profile; a weather sent ahead of an edit
 // batch goes first, and door toggles refresh the follow weights; M8a: the surface film from the cell table; M8b: tile
-// borders).
+// borders; M8b5b: the far side from regions of any size across).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -47,8 +47,8 @@ import dev.brights0ng.greedyfluids.solve.SolverConfig3D;
  *       tick, {@link AirflowSaved}); {@link #save} packs the current state the same way.</li>
  *   <li><b>Borders (M8b, B2):</b> with column tops, the tile's enclosed cut cells are EXCHANGE ({@link AirflowBorders}),
  *       set before the region is built and changed when a weather brings new tops. Before each step their far side
- *       (temperature and distance) is read from the running neighbours' latest frames ({@link #neighbours});
- *       insulated with none.</li>
+ *       (temperature and distance) is read from the running neighbours' latest frames ({@link #neighbours}), by
+ *       position, so a region can face several (M8b5b, merged regions); insulated where none holds the cell.</li>
  * </ul>
  * Pure Java (GreedyFluids, no Minecraft).
  */
@@ -154,10 +154,10 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     /** M8b: the column tops the border conditions follow (null: none set). */
     private int[] borderTops;
     /** M8b, per side: the EXCHANGE cut cells (face-plane indices), their far temperatures and distances (the arrays
-     *  the region reads), the frame they were last read from, and whether they must be read again. */
+     *  the region reads), the frames they were last read from, and whether they must be read again. */
     private final int[][] cut = new int[6][];
     private final float[][] far = new float[6][], reach = new float[6][];
-    private final AirFrame[] readFrom = new AirFrame[6];
+    private final List<AirflowBorders.Beside>[] readFrom = newLists();
     private final boolean[] unread = new boolean[6];
     private AirflowBorders.Neighbours neighbours = AirflowBorders.NONE;
     /** Heat out through EXCHANGE faces so far, J (into the neighbours; negative: in from them). */
@@ -367,7 +367,7 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
 
     /**
      * M8b: the far side of the EXCHANGE cells, from the running neighbours' latest frames (read again only when a
-     * frame is new or the cells changed). A side with no neighbour running is insulated.
+     * frame is new, a neighbour came or went, or the cells changed). Cells no running neighbour holds are insulated.
      */
     private void exchange() {
         for (Side side : Side.values()) {
@@ -375,16 +375,37 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
             if (cut[s].length == 0) {
                 continue;
             }
-            AirFrame frame = neighbours.across(side);
-            if (frame == readFrom[s] && !unread[s]) {
+            List<AirflowBorders.Beside> across = neighbours.across(side);
+            if (!unread[s] && sameFrames(across, readFrom[s])) {
                 continue;
             }
-            readFrom[s] = frame;
+            readFrom[s] = across;
             unread[s] = false;
             for (int i : cut[s]) {
-                AirflowBorders.read(frame, side, i, nx, ny, nz, far[s], reach[s]);
+                AirflowBorders.read(across, side, i, nx, ny, nz, far[s], reach[s]);
             }
         }
+    }
+
+    /** Whether two reads of a side found the same frames at the same places. */
+    private static boolean sameFrames(List<AirflowBorders.Beside> a, List<AirflowBorders.Beside> b) {
+        if (a.size() != b.size()) {
+            return false;
+        }
+        for (int i = 0; i < a.size(); i++) {
+            AirflowBorders.Beside x = a.get(i), y = b.get(i);
+            if (x.frame() != y.frame() || x.ox() != y.ox() || x.oy() != y.oy() || x.oz() != y.oz()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<AirflowBorders.Beside>[] newLists() {
+        List<AirflowBorders.Beside>[] out = new List[6];
+        Arrays.fill(out, List.of());
+        return out;
     }
 
     /** Sets where the far temperatures come from (the region manager's running tiles; none by default). */

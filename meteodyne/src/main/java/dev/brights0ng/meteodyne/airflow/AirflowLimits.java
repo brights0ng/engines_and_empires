@@ -1,5 +1,5 @@
 // Written by Claude (GreedyFluids M7e: the safety limits on opening tiles); edited by Claude (M8b b4: secondaries and
-// the cap).
+// the cap; M8b5b: a merged region counts as its tiles).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayDeque;
@@ -26,6 +26,8 @@ import java.util.UUID;
  *       keeps it. Over the cap, tiles in their grace close first, then secondaries; never a tile with a player in it.
  *       A secondary is opened only while the tiles kept running (players' and secondaries) are under the cap
  *       ({@link #roomFor}), so the cap never closes one it just let open.</li>
+ *   <li><b>Merged regions (M8b5b):</b> a region that runs several tiles as one counts as that many tiles, and closes
+ *       whole.</li>
  * </ul>
  */
 public final class AirflowLimits {
@@ -92,12 +94,17 @@ public final class AirflowLimits {
 
     /**
      * One tile, as the cap sees it: whether a player is in it, whether it runs as a secondary (and no player is in
-     * it), and the last time either kept it.
+     * it), the last time either kept it, and how many tiles it is (M8b5b: a merged region's tiles; 1 otherwise).
      */
-    record Tile<T>(T ref, UUID owner, long lastOccupied, boolean occupied, boolean wanted) {
+    record Tile<T>(T ref, UUID owner, long lastOccupied, boolean occupied, boolean wanted, int tiles) {
+        /** One tile. */
+        Tile(T ref, UUID owner, long lastOccupied, boolean occupied, boolean wanted) {
+            this(ref, owner, lastOccupied, occupied, wanted, 1);
+        }
+
         /** A tile that is no secondary. */
         Tile(T ref, UUID owner, long lastOccupied, boolean occupied) {
-            this(ref, owner, lastOccupied, occupied, false);
+            this(ref, owner, lastOccupied, occupied, false, 1);
         }
 
         /** Whether a player or a player's tile keeps it running (it is not in its grace). */
@@ -119,7 +126,7 @@ public final class AirflowLimits {
         int kept = 0;
         for (Tile<T> t : tiles) {
             if (t.kept() && (mode == CapMode.SERVER || java.util.Objects.equals(t.owner(), owner))) {
-                kept++;
+                kept += t.tiles();
             }
         }
         return kept < cap;
@@ -146,7 +153,11 @@ public final class AirflowLimits {
     }
 
     private static <T> void closeOldest(List<Tile<T>> tiles, int cap, List<T> out) {
-        int excess = tiles.size() - Math.max(0, cap);
+        int total = 0;
+        for (Tile<T> t : tiles) {
+            total += t.tiles();
+        }
+        int excess = total - Math.max(0, cap);
         if (excess <= 0) {
             return;
         }
@@ -157,8 +168,9 @@ public final class AirflowLimits {
             }
         }
         waiting.sort(Comparator.<Tile<T>, Boolean>comparing(Tile::wanted).thenComparingLong(Tile::lastOccupied));
-        for (int i = 0; i < Math.min(excess, waiting.size()); i++) {
+        for (int i = 0; i < waiting.size() && excess > 0; i++) {
             out.add(waiting.get(i).ref());
+            excess -= waiting.get(i).tiles();
         }
     }
 
