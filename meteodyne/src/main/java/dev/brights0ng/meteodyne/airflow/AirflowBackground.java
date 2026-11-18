@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7c c2); edited by Claude (M7e: the generator's terrain from AirflowGround).
+// Written by Claude (GreedyFluids M7c c2); edited by Claude (M7e: the generator's terrain from AirflowGround; M8b5a: the
+// outside air on the lattice, for the buoyancy reference).
 package dev.brights0ng.meteodyne.airflow;
 
 import dev.brights0ng.meteodyne.climate.Climate;
@@ -23,6 +24,8 @@ import net.minecraft.world.level.levelgen.Heightmap;
  *       rule's caps, as {@code Temperature.at} works it out.</li>
  *   <li><b>Column tops</b> for the sky light ({@link AirflowField#sky}): each column's
  *       {@code MOTION_BLOCKING_NO_LEAVES} height, from the chunks.</li>
+ *   <li><b>Outside air</b> on the lattice (M8b5a): the same interpolated outside samples without the insulation blend,
+ *       read with each {@link #lattice}, for the outside buoyancy modes ({@link AirflowBuoyancy}).</li>
  * </ul>
  * The ground part isn't read again after edits (M7: an edit changes the insulation only underground).
  */
@@ -41,6 +44,8 @@ final class AirflowBackground {
     /** The generator's terrain at the tile's chunk corners, once known. */
     private int[] corners;
     private int filled;
+    /** The outside air on the lattice at the last {@link #lattice}, C (null before one). */
+    private float[] outsideLattice;
 
     AirflowBackground(ServerLevel level, AirflowGround ground, int x0, int y0, int z0, int nx, int ny, int nz) {
         this.level = level;
@@ -119,12 +124,14 @@ final class AirflowBackground {
             }
         }
         float[] out = new float[insulation.length];
+        float[] air = new float[insulation.length];
         int ratio = COARSE / AirflowField.STEP;
         for (int j = 0; j < ly; j++) {
             for (int k = 0; k < lz; k++) {
                 for (int i = 0; i < lx; i++) {
                     double o = coarse(outside, cx, cz, (double) i / ratio, (double) j / ratio, (double) k / ratio);
                     int p = (j * lz + k) * lx + i;
+                    air[p] = (float) o;
                     double t = o + insulation[p] * (underground[p] - o);
                     if (caves[p] != null) {
                         t = caves[p].cap(t);
@@ -133,7 +140,13 @@ final class AirflowBackground {
                 }
             }
         }
+        outsideLattice = air;
         return out;
+    }
+
+    /** The outside air on the lattice as the last {@link #lattice} read it, C (null before one). */
+    float[] outsideLattice() {
+        return outsideLattice;
     }
 
     /** Each column's first open height, region cells (the heightmap; may lie below or above the tile). */

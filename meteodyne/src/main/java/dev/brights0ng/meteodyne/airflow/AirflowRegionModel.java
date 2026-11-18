@@ -2,7 +2,7 @@
 // background field, fixed walls, thermostats and body heat; M7f: sources on the grid before the region is built, the
 // heat diffusivity from the spec; held steps and edit-batch time for the profile; a weather sent ahead of an edit
 // batch goes first, and door toggles refresh the follow weights; M8a: the surface film from the cell table; M8b: tile
-// borders).
+// borders; M8b5a: the buoyancy reference).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -49,6 +49,8 @@ import dev.brights0ng.greedyfluids.solve.SolverConfig3D;
  *       set before the region is built and changed when a weather brings new tops. Before each step their far side
  *       (temperature and distance) is read from the running neighbours' latest frames ({@link #neighbours});
  *       insulated with none.</li>
+ *   <li><b>Buoyancy (M8b5a):</b> what the air rises against, by {@link AirflowBuoyancy} mode; the outside modes read
+ *       the outside-air lattice that comes with the spec and each weather (without one, the background).</li>
  * </ul>
  * Pure Java (GreedyFluids, no Minecraft).
  */
@@ -72,11 +74,22 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
      * the same order (entries null where none; the array null for none at all), to be decayed to game tick
      * {@code now}. {@code lattice} and {@code tops} are the background's ({@link Weather}); null for the uniform
      * {@code backgroundT}. {@code kappa} is the air's heat diffusivity, m²/s ({@code [heat] airflowHeatDiffusivity}).
+     * {@code buoyancy} is what the air rises against and {@code outside} the outside-air lattice it may read (null:
+     * none; M8b5a).
      */
     record Spec(int x0, int y0, int z0, int nx, int ny, int nz, AirflowSections.Codes[] sections,
                 AirflowCells.Table table, double backgroundT, double windX, double windZ, int[] sourceCells,
                 double[] sourceWatts, double[] sourceLimits, AirflowSaved.Section[] saved, long now, float[] lattice,
-                int[] tops, double kappa) {
+                int[] tops, double kappa, AirflowBuoyancy buoyancy, float[] outside) {
+        /** As above, buoying against the background. */
+        Spec(int x0, int y0, int z0, int nx, int ny, int nz, AirflowSections.Codes[] sections,
+             AirflowCells.Table table, double backgroundT, double windX, double windZ, int[] sourceCells,
+             double[] sourceWatts, double[] sourceLimits, AirflowSaved.Section[] saved, long now, float[] lattice,
+             int[] tops, double kappa) {
+            this(x0, y0, z0, nx, ny, nz, sections, table, backgroundT, windX, windZ, sourceCells, sourceWatts,
+                    sourceLimits, saved, now, lattice, tops, kappa, AirflowBuoyancy.LOCAL, null);
+        }
+
         /** As above, with {@link #DEFAULT_KAPPA}. */
         Spec(int x0, int y0, int z0, int nx, int ny, int nz, AirflowSections.Codes[] sections,
              AirflowCells.Table table, double backgroundT, double windX, double windZ, int[] sourceCells,
@@ -113,10 +126,15 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     /**
      * The outside air: wind, m/s, and the background: the lattice ({@link AirflowField}, C) and each column's first
      * open height (region cells) for the follow weights; without a lattice, {@code backgroundT} everywhere.
+     * {@code outside}: the outside-air lattice for the outside buoyancy modes (null: none; M8b5a).
      */
-    record Weather(double backgroundT, double windX, double windZ, float[] lattice, int[] tops) {
+    record Weather(double backgroundT, double windX, double windZ, float[] lattice, int[] tops, float[] outside) {
+        Weather(double backgroundT, double windX, double windZ, float[] lattice, int[] tops) {
+            this(backgroundT, windX, windZ, lattice, tops, null);
+        }
+
         Weather(double backgroundT, double windX, double windZ) {
-            this(backgroundT, windX, windZ, null, null);
+            this(backgroundT, windX, windZ, null, null, null);
         }
     }
 
@@ -147,6 +165,9 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     private double backgroundT;
     private float[] lattice;
     private int[] tops;
+    /** M8b5a: what the air rises against, and the outside-air lattice (null: none). */
+    private final AirflowBuoyancy buoyancy;
+    private float[] outside;
     private boolean followStale;
     private int desyncs, sinceCheck;
     private long edits, toggles;
@@ -174,6 +195,8 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         this.backgroundT = spec.backgroundT();
         this.lattice = spec.lattice();
         this.tops = spec.tops();
+        this.buoyancy = spec.buoyancy() == null ? AirflowBuoyancy.LOCAL : spec.buoyancy();
+        this.outside = spec.outside();
         Background3D background = background();
         ThermalState initial = spec.saved() == null ? null
                 : AirflowSaved.unpack(spec.saved(), nx, ny, nz, background::cell, spec.now());
@@ -224,13 +247,22 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         return new AirflowRegionModel(grid, spec);
     }
 
-    /** The background now: the lattice and sky follow weights, or (without a lattice) uniform with the M7b rule. */
+    /**
+     * The background now: the lattice and sky follow weights, or (without a lattice) uniform with the M7b rule; with
+     * the buoyancy reference of the mode (M8b5a).
+     */
     private Background3D background() {
+        Background3D bg;
         if (lattice == null) {
-            return Background3D.uniform(nx, ny, nz, backgroundT).withFollow(followAbove());
+            bg = Background3D.uniform(nx, ny, nz, backgroundT).withFollow(followAbove());
+        } else {
+            float[] follow = tops == null ? followAbove() : AirflowField.follow(AirflowField.sky(grid, tops));
+            bg = Background3D.of(nx, ny, nz, AirflowField.cells(lattice, nx, ny, nz), follow);
         }
-        float[] follow = tops == null ? followAbove() : AirflowField.follow(AirflowField.sky(grid, tops));
-        return Background3D.of(nx, ny, nz, AirflowField.cells(lattice, nx, ny, nz), follow);
+        if (buoyancy.outside() && outside != null) {
+            bg = bg.withBuoyancy(AirflowField.cells(outside, nx, ny, nz));
+        }
+        return buoyancy.stable() ? bg.withStableBuoyancy(true) : bg;
     }
 
     @Override
@@ -324,11 +356,16 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         if (w.tops() != null) {
             borders(w.tops());
         }
-        boolean changed = followStale || w.backgroundT() != backgroundT || w.lattice() != lattice || w.tops() != tops;
+        boolean outsideMoved = buoyancy.outside() && w.outside() != null && w.outside() != outside;
+        boolean changed = followStale || w.backgroundT() != backgroundT || w.lattice() != lattice || w.tops() != tops
+                || outsideMoved;
         if (changed) {
             backgroundT = w.backgroundT();
             lattice = w.lattice();
             tops = w.tops();
+            if (w.outside() != null) {
+                outside = w.outside();
+            }
             followStale = false;
             region.setBackground(background());
         }

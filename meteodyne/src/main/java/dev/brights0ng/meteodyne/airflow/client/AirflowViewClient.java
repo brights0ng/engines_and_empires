@@ -1,5 +1,5 @@
 // Written by Claude (GreedyFluids M7d, the debug view; Bright, 2026-11-15); edited by Claude (M8b b4: secondaries;
-// cells drawn only near the camera).
+// cells drawn only near the camera; M8b5a: coloured by the air's temperature on a fixed scale).
 package dev.brights0ng.meteodyne.airflow.client;
 
 import java.util.ArrayList;
@@ -25,8 +25,11 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  *   <li><b>Tiles:</b> each tile's outline, coloured by state: green running, cyan running beside a player's tile (a
  *       secondary, M8b b4), grey running with no player in it (its grace period), yellow reading its sections or
  *       building, red failed.</li>
- *   <li><b>Air:</b> the legacy heat view's cubes ({@link HeatViewClient#colour}: pale near the background, yellow to
- *       magenta warmer, blue colder) at each cell sent within {@link #CELL_RANGE} blocks of the camera (Bright,
+ *   <li><b>Air:</b> the legacy heat view's cubes coloured by the air's temperature on a fixed scale (M8b5a; Bright,
+ *       2026-11-17: the colours match a thermometer's reading): {@link HeatViewClient#colour} of its difference from
+ *       {@link #PIVOT}, pale at 15 C, yellow at 20, orange at 30, red at 45, magenta from 60, light blue at 10, dark
+ *       blue from -5. Cells within 0.05 C of their background aren't sent. Drawn within {@link #CELL_RANGE} blocks of
+ *       the camera (Bright,
  *       2026-11-17: whole tiles of cubes cost too much frame time), and a white arrow along the air's velocity there,
  *       0.4 blocks at 1 m/s or more, shorter below, none under 0.02 m/s.</li>
  * </ul>
@@ -38,6 +41,8 @@ public final class AirflowViewClient {
     private static final float CALM = 0.02f;
     /** Cells further than this from the camera are not drawn, blocks (tile outlines always are). */
     static final float CELL_RANGE = 10f;
+    /** The temperature the colour scale is pale at, C (M8b5a). */
+    static final float PIVOT = 15f;
 
     /** A tile on show: its latest frame's parts. */
     private record Tile(int frame, List<AirflowView.Payload> parts) {
@@ -91,7 +96,7 @@ public final class AirflowViewClient {
                 if (x * x + y * y + z * z > r2) {
                     continue;
                 }
-                int rgb = HeatViewClient.colour(p.offset(i));
+                int rgb = HeatViewClient.colour(p.celsius(i) - PIVOT);
                 HeatViewClient.cube(quads, pose, x, y, z, (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
             }
         }

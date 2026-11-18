@@ -1,5 +1,6 @@
 // Updated by ChatGPT: added reloadable thermal response speed without changing weather time or wind units.
 // Updated by Claude: [heat] engine, the airflow/legacy switch (GreedyFluids M7b).
+// Updated by Claude: [heat] airflowBuoyancy, what warm air rises against, under trial (GreedyFluids M8b5a).
 // Updated by Claude: [seasons] obliquity and sunLatitude, the sun's strength through the year.
 // Updated by Claude: [heat] airflow speed limit and tile cap (GreedyFluids M7e).
 // Updated by Claude: [heat] airflow stone conductivity and heat capacity, and heat diffusivity (GreedyFluids M7f).
@@ -449,6 +450,12 @@ public final class WeatherConfig {
                     "evens a room out. GreedyFluids' own default is 1. Applies to tiles built after the change.")
             .defineInRange("airflowHeatDiffusivity", 0.05, 0.001, 10.0);
 
+    public static final ModConfigSpec.EnumValue<dev.brights0ng.meteodyne.airflow.AirflowBuoyancy> AIRFLOW_BUOYANCY = BUILDER
+            .comment("AIRFLOW: what warm air rises against (under trial, M8b5a). LOCAL: the background, deeper is warmer",
+                    "underground. STABLE: the background made never unstable upward along each run of air. OUTSIDE: the",
+                    "outside air at the same place. OUTSIDE_STABLE: both. Applies to tiles built after the change.")
+            .defineEnum("airflowBuoyancy", dev.brights0ng.meteodyne.airflow.AirflowBuoyancy.LOCAL);
+
     public static final ModConfigSpec.DoubleValue HEAT_BUDGET = BUILDER
             .comment("CPU cores the simulation may use on average (its own threads, not the server thread). When it",
                     "needs more, rooms are stepped less often in longer steps: warming stays on time, a little coarser.")
@@ -556,6 +563,11 @@ public final class WeatherConfig {
     /** AIRFLOW: the air's heat diffusivity, m²/s. */
     public static double airflowHeatDiffusivity() {
         return SPEC.isLoaded() ? AIRFLOW_HEAT_DIFFUSIVITY.get() : 0.05;
+    }
+
+    /** AIRFLOW: what warm air rises against (M8b5a). */
+    public static dev.brights0ng.meteodyne.airflow.AirflowBuoyancy airflowBuoyancy() {
+        return SPEC.isLoaded() ? AIRFLOW_BUOYANCY.get() : dev.brights0ng.meteodyne.airflow.AirflowBuoyancy.LOCAL;
     }
 
     /** The height cooling, C per 100 blocks. */

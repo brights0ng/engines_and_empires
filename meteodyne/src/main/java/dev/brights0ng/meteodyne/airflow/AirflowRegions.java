@@ -3,7 +3,7 @@
 // the background field, driven sources, limits and body heat; M7e: the generator's terrain off the server thread,
 // the speed limit and tile cap; M7f: the heat diffusivity from the config; the outside air sent ahead of edits; M8b:
 // each region reads its running neighbours' frames for its borders; M8b b4: secondaries, the tiles that run beside a
-// player's where enclosed air crosses a border).
+// player's where enclosed air crosses a border; M8b5a: the outside air sent for the buoyancy reference).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -128,6 +128,9 @@ public final class AirflowRegions implements AirflowSections.Listener {
         private double sentT = Double.NaN, sentWindX, sentWindZ;
         private AirflowBackground background;
         private float[] sentLattice;
+        /** M8b5a: the outside-air lattice last sent, and the tile's buoyancy mode (from its build). */
+        private float[] sentOutside;
+        private AirflowBuoyancy buoyancy = AirflowBuoyancy.LOCAL;
         /** The lattice read at the last weather check (M7f: sent ahead of an edit when newer than the one sent). */
         private float[] readLattice;
         private boolean geometryChanged, hadBodies;
@@ -942,6 +945,8 @@ public final class AirflowRegions implements AirflowSections.Listener {
         int[] tops = r.background.columnTops();
         r.sentLattice = lattice;
         r.sentT = lattice[0];
+        r.buoyancy = WeatherConfig.airflowBuoyancy();
+        r.sentOutside = r.background.outsideLattice();
         r.sentWindX = w[0];
         r.sentWindZ = w[1];
         r.geometryChanged = false;
@@ -952,7 +957,8 @@ public final class AirflowRegions implements AirflowSections.Listener {
                 AirflowCells.table(), lattice[0], w[0], w[1], cells.stream().mapToInt(Integer::intValue).toArray(),
                 watts.stream().mapToDouble(Double::doubleValue).toArray(),
                 limits.stream().mapToDouble(Double::doubleValue).toArray(), any ? saved : null, level.getGameTime(),
-                lattice, tops, WeatherConfig.airflowHeatDiffusivity());
+                lattice, tops, WeatherConfig.airflowHeatDiffusivity(), r.buoyancy,
+                r.buoyancy.outside() ? r.sentOutside : null);
         AirflowBorders.Neighbours neighbours = neighboursOf(r.x0, r.y0, r.z0);
         return () -> {
             AirflowRegionModel m = AirflowRegionModel.build(spec);
@@ -1077,7 +1083,18 @@ public final class AirflowRegions implements AirflowSections.Listener {
         for (int i = 0; i < lattice.length && !moved; i++) {
             moved = Math.abs(lattice[i] - r.sentLattice[i]) >= BACKGROUND_STEP;
         }
-        if (moved || r.geometryChanged || Math.hypot(w[0] - r.sentWindX, w[1] - r.sentWindZ) >= WIND_STEP) {
+        float[] air = r.background.outsideLattice();
+        boolean airMoved = false;
+        if (r.buoyancy.outside() && air != null) {
+            for (int i = 0; i < air.length && !airMoved; i++) {
+                airMoved = r.sentOutside == null || Math.abs(air[i] - r.sentOutside[i]) >= BACKGROUND_STEP;
+            }
+        }
+        if (airMoved) {
+            r.sentOutside = air;
+        }
+        if (moved || airMoved || r.geometryChanged
+                || Math.hypot(w[0] - r.sentWindX, w[1] - r.sentWindZ) >= WIND_STEP) {
             if (moved) {
                 r.sentLattice = lattice;
                 r.sentT = lattice[0];
@@ -1086,7 +1103,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
             r.sentWindZ = w[1];
             r.geometryChanged = false;
             r.slot.post(new AirflowRegionModel.Weather(r.sentT, w[0], w[1], r.sentLattice,
-                    r.background.columnTops()));
+                    r.background.columnTops(), r.buoyancy.outside() ? r.sentOutside : null));
         }
     }
 
@@ -1107,7 +1124,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
                 r.sentLattice = r.readLattice;
                 r.sentT = r.sentLattice[0];
                 r.slot.post(new AirflowRegionModel.Weather(r.sentT, r.sentWindX, r.sentWindZ, r.sentLattice,
-                        r.background.columnTops()));
+                        r.background.columnTops(), r.buoyancy.outside() ? r.sentOutside : null));
             }
             AirflowCells.Table table = AirflowCells.table();
             r.slot.post(new AirflowBatch.Change(pos.getX() - r.x0, pos.getY() - r.y0, pos.getZ() - r.z0,

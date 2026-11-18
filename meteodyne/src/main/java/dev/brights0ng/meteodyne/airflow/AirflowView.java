@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7d, the debug view; Bright, 2026-11-15); edited by Claude (M8b b4: secondaries).
+// Written by Claude (GreedyFluids M7d, the debug view; Bright, 2026-11-15); edited by Claude (M8b b4: secondaries;
+// M8b5a: the air's temperature as it is, not its offset).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -27,8 +28,9 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
  * <ul>
  *   <li>its bounds, id and state, so the client draws its outline (tiles still reading their sections or building
  *       included);</li>
- *   <li>from its latest frame, each air cell at least {@link #MIN_OFFSET} warmer or colder than its background: the
- *       offset and the air's velocity (its box's, m/s).</li>
+ *   <li>from its latest frame, each air cell at least {@link #MIN_OFFSET} warmer or colder than its background: its
+ *       temperature as it is (M8b5a; Bright, 2026-11-17: the view's colours match what a thermometer there reads) and
+ *       the air's velocity (its box's, m/s).</li>
  * </ul>
  * A tile's cells go in parts of at most {@link #PART_CELLS} (a whole tile wouldn't fit one message), then an
  * end-of-frame message lets the client drop tiles that are gone. Operators only; debugging, so no limit on how much
@@ -37,14 +39,14 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 @EventBusSubscriber(modid = Meteodyne.MODID)
 public final class AirflowView {
 
-    private static final String VERSION = "1";
+    private static final String VERSION = "2";
     /** Ticks between updates. */
     static final int INTERVAL = 20;
     /** Tiles further than this from the player (from their bounds) are not sent, blocks. */
     static final int RANGE = 128;
     /** Offsets nearer 0 than this, C, are not sent. */
     static final float MIN_OFFSET = 0.05f;
-    /** Bytes per cell: dx, dy, dz, offset ×20 (2), velocity ×10 per axis (3). */
+    /** Bytes per cell: dx, dy, dz, temperature ×20 (2), velocity ×10 per axis (3). */
     public static final int CELL_BYTES = 8;
     /** Cells per message: 256 KiB of cells, well under the 1 MiB payload limit. */
     static final int PART_CELLS = 32_768;
@@ -111,8 +113,8 @@ public final class AirflowView {
             return cells[i * CELL_BYTES + 2] & 0xFF;
         }
 
-        /** Cell {@code i}'s offset from its background, C. */
-        public float offset(int i) {
+        /** Cell {@code i}'s air temperature, C. */
+        public float celsius(int i) {
             int b = i * CELL_BYTES;
             return (short) (((cells[b + 3] & 0xFF) << 8) | (cells[b + 4] & 0xFF)) / 20f;
         }
@@ -217,13 +219,13 @@ public final class AirflowView {
                         if (!air.velocity(x + 0.5, y + 0.5, z + 0.5, vel)) {
                             continue; // solid
                         }
-                        double offset = air.temperature(x + 0.5, y + 0.5, z + 0.5)
-                                - air.background().cell((y * nz + z) * nx + x);
+                        double t = air.temperature(x + 0.5, y + 0.5, z + 0.5);
+                        double offset = t - air.background().cell((y * nz + z) * nx + x);
                         if (!(Math.abs(offset) >= MIN_OFFSET)) {
                             continue;
                         }
                         int b = count * CELL_BYTES;
-                        short s = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, Math.round(offset * 20)));
+                        short s = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, Math.round(t * 20)));
                         cells[b] = (byte) x;
                         cells[b + 1] = (byte) y;
                         cells[b + 2] = (byte) z;

@@ -1081,10 +1081,26 @@ public final class AirflowGameTests {
                     var provider = dev.brights0ng.meteodyne.climate.MeteodyneTemperature.INSTANCE;
                     double room = provider.room(level, Vec3.atCenterOf(probe));
                     helper.assertTrue(room > 2, "the readers' room offset in the warm room: " + room);
-                    double wall = provider.room(level, Vec3.atCenterOf(low.offset(0, 3, 3)));
+                    // M8b5a: what a reader gets (its air plus the room) is the frame's air at the point, as it is;
+                    // read while one frame stands (the air thread may publish between two reads)
+                    AirflowRegions.Region held = regions[0].regionAt(probe.getX(), probe.getY(), probe.getZ());
+                    double read = Double.NaN, here = Double.NaN;
+                    for (int i = 0; i < 50 && Double.isNaN(here); i++) {
+                        AirflowRuntime.Frame f = held.slot().frame();
+                        double r = provider.air(level, probe) + provider.room(level, Vec3.atCenterOf(probe));
+                        if (held.slot().frame() == f) {
+                            read = r;
+                            here = f.frame().temperature(probe.getX() - held.x0() + 0.5, probe.getY() - held.y0() + 0.5,
+                                    probe.getZ() - held.z0() + 0.5);
+                        }
+                    }
+                    helper.assertTrue(Math.abs(read - here) < 1e-4,
+                            "a reading is the frame's air: " + read + " against " + here);
+                    BlockPos inWall = low.offset(0, 3, 3);
+                    double wall = provider.air(level, inWall) + provider.room(level, Vec3.atCenterOf(inWall));
                     // M7f: the mean of the air beside it, whatever it is (with κ 0.05 the air along a cold wall
                     // stays near the outside air, so a magnitude says nothing)
-                    double beside = airBeside(regions[0], low.offset(0, 3, 3));
+                    double beside = airBeside(regions[0], inWall);
                     helper.assertTrue(Double.isFinite(beside) && Math.abs(wall - beside) < 0.1,
                             "a block in the wall reads the air beside it: " + wall + " against " + beside);
                 })
@@ -1145,6 +1161,7 @@ public final class AirflowGameTests {
     }
 
     /** The mean offset of the air beside a solid block in the latest frame (what a reader inside it gets), or NaN. */
+    /** The mean air temperature of the frame's air cells beside {@code at}, C (M8b5a: as it is, not an offset). */
     private static double airBeside(AirflowRegions regions, BlockPos at) {
         AirflowRegions.Region r = regions.regionAt(at.getX(), at.getY(), at.getZ());
         AirflowRuntime.Frame f = r == null || r.slot() == null ? null : r.slot().frame();
@@ -1157,7 +1174,7 @@ public final class AirflowGameTests {
             int lx = at.getX() + d.getStepX() - r.x0(), ly = at.getY() + d.getStepY() - r.y0();
             int lz = at.getZ() + d.getStepZ() - r.z0();
             if (f.frame().isAir(lx + 0.5, ly + 0.5, lz + 0.5)) {
-                sum += f.frame().temperature(lx + 0.5, ly + 0.5, lz + 0.5) - f.frame().background().at(lx, ly, lz);
+                sum += f.frame().temperature(lx + 0.5, ly + 0.5, lz + 0.5);
                 n++;
             }
         }
