@@ -1,7 +1,6 @@
 // Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f f2: saving and rebuilding a
 // running scene, for the model soak; the outside air sent ahead of an edit, as the manager does); edited by Claude
-// (M8a: tiles cut from a larger scene, for the straddle scenarios; M8b: neighbouring tiles stepped together; M8b5a:
-// the outside air apart from the background, and the buoyancy mode).
+// (M8a: tiles cut from a larger scene, for the straddle scenarios; M8b: neighbouring tiles stepped together).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -173,30 +172,16 @@ final class AirflowScene {
 
     /** As above with the air's heat diffusivity {@code kappa}, m²/s. */
     Run build(Outside outside, double windX, double windZ, double kappa) {
-        return build(outside, null, AirflowBuoyancy.LOCAL, windX, windZ, kappa);
-    }
-
-    /**
-     * As above with the background {@code outside} (the lattice the manager sends: the outside air blended toward the
-     * underground), the outside air itself {@code air} (null: none) and the buoyancy mode (M8b5a), the config's κ.
-     */
-    Run build(Outside outside, Outside air, AirflowBuoyancy buoyancy, double windX, double windZ) {
-        return build(outside, air, buoyancy, windX, windZ, WeatherConfig.airflowHeatDiffusivity());
-    }
-
-    private Run build(Outside outside, Outside air, AirflowBuoyancy buoyancy, double windX, double windZ,
-                      double kappa) {
-        return new Run(this, AirflowRegionModel.build(spec(outside, air, buoyancy, 0, windX, windZ, kappa, null, 0)),
-                outside, air, buoyancy, tops(), windX, windZ, kappa);
+        return new Run(this, AirflowRegionModel.build(spec(outside, 0, windX, windZ, kappa, null, 0)), outside, tops(),
+                windX, windZ, kappa);
     }
 
     /**
      * The spec the region manager would send for this scene: codes, table, sources, the outside air at time {@code t},
      * and the saved sections to start from (null: none), decayed to game tick {@code now}.
      */
-    private AirflowRegionModel.Spec spec(Outside outside, Outside air, AirflowBuoyancy buoyancy, double t,
-                                         double windX, double windZ, double kappa, AirflowSaved.Section[] saved,
-                                         long now) {
+    private AirflowRegionModel.Spec spec(Outside outside, double t, double windX, double windZ, double kappa,
+                                         AirflowSaved.Section[] saved, long now) {
         int nsx = nx / 16, nsy = ny / 16, nsz = nz / 16;
         AirflowSections.Codes[] codes = new AirflowSections.Codes[nsx * nsy * nsz];
         for (int j = 0; j < nsy; j++) {
@@ -222,8 +207,7 @@ final class AirflowScene {
         return new AirflowRegionModel.Spec(0, 0, 0, nx, ny, nz, codes, table, lattice[0],
                 windX, windZ, cells.stream().mapToInt(Integer::intValue).toArray(),
                 watts.stream().mapToDouble(Double::doubleValue).toArray(),
-                limits.stream().mapToDouble(Double::doubleValue).toArray(), saved, now, lattice, tops, kappa,
-                buoyancy, air == null ? null : lattice(air, t));
+                limits.stream().mapToDouble(Double::doubleValue).toArray(), saved, now, lattice, tops, kappa);
     }
 
     private AirflowSections.Codes section(int si, int sj, int sk) {
@@ -247,9 +231,6 @@ final class AirflowScene {
         final AirflowScene scene;
         AirflowRegionModel model;
         private final Outside outside;
-        /** M8b5a: the outside air itself (null: none) and the buoyancy mode. */
-        private final Outside air;
-        private final AirflowBuoyancy buoyancy;
         private final int[] tops;
         private final double kappa;
         private double windX, windZ, weatherEvery = Double.POSITIVE_INFINITY, lastWeather;
@@ -270,13 +251,11 @@ final class AirflowScene {
         /** Background-shift energy of the models before the current one, J. */
         private double shiftBefore;
 
-        private Run(AirflowScene scene, AirflowRegionModel model, Outside outside, Outside air,
-                    AirflowBuoyancy buoyancy, int[] tops, double windX, double windZ, double kappa) {
+        private Run(AirflowScene scene, AirflowRegionModel model, Outside outside, int[] tops, double windX,
+                    double windZ, double kappa) {
             this.scene = scene;
             this.model = model;
             this.outside = outside;
-            this.air = air;
-            this.buoyancy = buoyancy;
             this.tops = tops;
             this.windX = windX;
             this.windZ = windZ;
@@ -327,8 +306,7 @@ final class AirflowScene {
 
         private void postWeather() {
             float[] lattice = scene.lattice(outside, time());
-            model.apply(List.of(new AirflowRegionModel.Weather(lattice[0], windX, windZ, lattice, tops,
-                    air == null ? null : scene.lattice(air, time()))));
+            model.apply(List.of(new AirflowRegionModel.Weather(lattice[0], windX, windZ, lattice, tops)));
         }
 
         /** Sends the outside air as it is now (the manager's update when the background moves). */
@@ -347,8 +325,7 @@ final class AirflowScene {
             AirflowSaved.Tile tile = model.save(tick);
             double now = time();
             shiftBefore += model.region().mesh().backgroundShiftEnergy();
-            model = AirflowRegionModel.build(scene.spec(outside, air, buoyancy, now, windX, windZ, kappa,
-                    tile.sections(), tick));
+            model = AirflowRegionModel.build(scene.spec(outside, now, windX, windZ, kappa, tile.sections(), tick));
             model.neighbours(neighbours);
             before = now;
             lastWeather = now;

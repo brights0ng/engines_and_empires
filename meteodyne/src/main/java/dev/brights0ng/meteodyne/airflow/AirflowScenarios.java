@@ -1,6 +1,6 @@
 // Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f: loose regression bars; M8a:
 // the two bars the realistic surface film moved out of, re-centred; M8b4: a block broken beside lava, with its bar
-// under F1; M8b5a: a tall cave with lava beside it, under each buoyancy reference).
+// under F1; M8b5a: a tall cave, whole and cut by a tile border).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -488,32 +488,29 @@ public final class AirflowScenarios {
      * cool at the floor, but the thermometer read about 10 C at the top and 12 C at the floor). A cave 16 × 30 × 16
      * (x 4–19, y 4–33, z 8–23) in solid stone up to y 48, its background the underground's (9 C warmer at the floor
      * than at the top), heated by a lava face 4 wide and 3 high in its west wall (x 3, z 14–17, y 4–6), by one
-     * campfire on its floor by that wall (x 5, y 4, z 15), or by nothing. Each runs as one region under every buoyancy
-     * reference ({@link AirflowBuoyancy}; the outside air {@link #OUT} everywhere), then (campfire and nothing, LOCAL)
-     * cut into tiles 16 high stepped together, as a tile border cuts a cave taller than half a tile (tiles are 32
-     * high). 20 min; logs the air temperature (what a reading gives) in the cave's top and bottom 3 layers (y 29–31,
+     * campfire on its floor by that wall (x 5, y 4, z 15), or by nothing. Each runs as one region, then cut into tiles
+     * 16 high stepped together, as a tile border cuts a cave taller than half a tile (tiles are 32 high). 20 min; logs
+     * the air temperature (what a reading gives) in the cave's top and bottom 3 layers (y 29–31,
      * y 4–6) and either side of the cut at y 16 (y 13–15, y 16–18), the top's offset over the background, the heated
      * side's against the far side's at mid height, the speed in the cave's lower half, and the cost.
-     * <p><b>Report only</b> (Bright, 2026-11-17: repro first, then P1 and P4 as variants, he picks): no bars beyond
-     * finite values.
+     * <p><b>Report only</b> (Bright, 2026-11-17): no bars beyond finite values. As one region the top ends warmer; cut,
+     * it reads colder than the floor, as Bright saw in game: b5b's merging is the fix. (Two buoyancy references, P1
+     * stable and P4 the outside air, were tried here and changed nothing measurable; dropped, Bright 2026-11-17.)
      */
     @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_scenario_cave")
     public static void aTallCaveBesideLava(GameTestHelper helper) {
         List<String> failures = new ArrayList<>();
         for (String heat : new String[] {"lava face", "campfire", "no source"}) {
-            for (AirflowBuoyancy mode : AirflowBuoyancy.values()) {
-                cave(heat, false, mode, failures);
+            for (boolean cut : new boolean[] {false, true}) {
+                cave(heat, cut, failures);
             }
-        }
-        for (String heat : new String[] {"campfire", "no source"}) {
-            cave(heat, true, AirflowBuoyancy.LOCAL, failures);
         }
         helper.assertTrue(failures.isEmpty(), "k. finite readings: " + String.join("; ", failures));
         helper.succeed();
     }
 
-    /** One run of k: the cave heated by {@code heat}, as one region or cut into tiles 16 high, under {@code mode}. */
-    private static void cave(String heat, boolean cut, AirflowBuoyancy mode, List<String> failures) {
+    /** One run of k: the cave heated by {@code heat}, as one region or cut into tiles 16 high. */
+    private static void cave(String heat, boolean cut, List<String> failures) {
         AirflowScene scene = new AirflowScene(N, K_TOP, N).fill(0, 0, 0, N - 1, K_TOP - 1, N - 1, STONE)
                 .fill(4, 4, 8, 19, 33, 23, Blocks.AIR.defaultBlockState());
         if (heat.equals("lava face")) {
@@ -525,13 +522,13 @@ public final class AirflowScenarios {
         if (cut) {
             runs = new AirflowScene.Run[K_TOP / 16];
             for (int j = 0; j < runs.length; j++) {
-                runs[j] = scene.tile(0, 16 * j, 0, N, 16, N).build(K_BACKGROUND, STILL, mode, 0, 0);
+                runs[j] = scene.tile(0, 16 * j, 0, N, 16, N).build(K_BACKGROUND, 0, 0);
             }
         } else {
-            runs = new AirflowScene.Run[] {scene.build(K_BACKGROUND, STILL, mode, 0, 0)};
+            runs = new AirflowScene.Run[] {scene.build(K_BACKGROUND, 0, 0)};
         }
         AirflowScene.Report report = new AirflowScene.Report("k tall cave, " + heat + ", "
-                + (cut ? "cut into tiles 16 high" : "one region") + ", buoyancy " + mode);
+                + (cut ? "cut into tiles 16 high" : "one region"));
         report.add("t0 top", caveMean(runs, false, 4, 29, 8, 19, 31, 23))
                 .add("bottom", caveMean(runs, false, 4, 4, 8, 19, 6, 23));
         for (int t : new int[] {120, 600, 1200}) {
@@ -550,7 +547,7 @@ public final class AirflowScenarios {
                     .add("far side mid", caveMean(runs, false, 17, 20, 8, 19, 23, 23))
                     .add("speed low half", runs[0].meanSpeed(4, 4, 8, 19, 15, 23));
             if (!Double.isFinite(top) || !Double.isFinite(bottom)) {
-                failures.add(heat + " " + mode + (cut ? " cut" : "") + " t" + t + ": " + top + ", " + bottom);
+                failures.add(heat + (cut ? " cut" : "") + " t" + t + ": " + top + ", " + bottom);
             }
         }
         report.log(runs[0]);
