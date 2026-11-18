@@ -1,5 +1,6 @@
 // Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f: loose regression bars; M8a:
-// the two bars the realistic surface film moved out of, re-centred; M8b4: a block broken beside lava, report-only).
+// the two bars the realistic surface film moved out of, re-centred; M8b4: a block broken beside lava, with its bar
+// under F1).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -408,7 +409,10 @@ public final class AirflowScenarios {
      * view). In the house, a 2-block lava stream on the floor (x 15–16, z 15) ends against a stone block (x 17); air
      * lies past it (x 18). After 2 min the stone block is broken; then a stone block away from the lava (x 13, z 18,
      * standing on the floor) as a control. Logs the broken cell's offset and the lowest and highest offset among the
-     * air cells within 2 blocks of it, 1 step, 5 s and 30 s after. Report-only.
+     * air cells within 2 blocks of it, 1 step, 5 s and 30 s after.
+     * <p><b>Bar (Bright, 2026-11-17: F1, a broken block's heat leaves with it):</b> one step after each break, the
+     * broken cell reads within the range of the air within 2 blocks before the break, ±0.5 C. Before F1 the cell by
+     * the lava read 175 C over the background against 4–11 around it, and the control 0.75 C against 6–12.
      */
     @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_scenario_break_lava")
     public static void breakingABlockBesideLava(GameTestHelper helper) {
@@ -417,21 +421,31 @@ public final class AirflowScenarios {
         AirflowScene.Run run = scene.build(STILL, 0, 0);
         run.until(120);
         AirflowScene.Report report = new AirflowScene.Report("j breaking a block beside lava");
+        List<String> breaks = new ArrayList<>();
+        boolean ok = true;
         for (int[] at : new int[][] {{17, G, 15}, {13, G, 18}}) {
             String which = at[0] == 17 ? "by lava" : "control";
-            report.add(which + " before: nearest air", around(run, at, 1)[1]).add("lowest within 2", around(run, at, 2)[0])
-                    .add("highest within 2", around(run, at, 2)[1]);
+            double[] before = around(run, at, 2);
+            report.add(which + " before: nearest air", around(run, at, 1)[1]).add("lowest within 2", before[0])
+                    .add("highest within 2", before[1]);
             run.change(at[0], at[1], at[2], Blocks.AIR.defaultBlockState());
             double t0 = run.time();
             for (double after : new double[] {run.model.dt(), 5, 30}) {
                 run.until(t0 + after);
                 double[] r = around(run, at, 2);
                 finiteCheck(helper, which, r);
-                report.add(which + " +" + after + " s: broken cell", run.offset(at[0], at[1], at[2]))
-                        .add("lowest within 2", r[0]).add("highest within 2", r[1]);
+                double cell = run.offset(at[0], at[1], at[2]);
+                report.add(which + " +" + after + " s: broken cell", cell).add("lowest within 2", r[0])
+                        .add("highest within 2", r[1]);
+                if (after == run.model.dt()) {
+                    breaks.add(which + ": " + String.format(java.util.Locale.ROOT, "%.2f in [%.2f, %.2f]", cell,
+                            before[0], before[1]));
+                    ok &= cell >= before[0] - 0.5 && cell <= before[1] + 0.5;
+                }
             }
         }
         report.log(run);
+        helper.assertTrue(ok, "j. the broken cell opens within the air around it (F1): " + String.join("; ", breaks));
         helper.succeed();
     }
 
