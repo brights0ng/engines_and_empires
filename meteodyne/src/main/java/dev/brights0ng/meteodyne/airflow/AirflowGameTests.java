@@ -3,7 +3,8 @@
 // saving and restoring; M7c: watts and hot walls from the heat tables; M7e: the speed limit; M7f: stone from the
 // config, the recorder's profile; f3: AIRFLOW is the config's default, game-test servers run LEGACY; M8a: AIRFLOW
 // started by the server's own handlers; the surface film from the config; M8b b4: secondaries, and the tests that count
-// regions run without them; M8b5b: a cut room merges into one region and splits, the B3 test with merging off).
+// regions run without them; M8b5b: a cut room merges into one region and splits, the B3 test with merging off; M8c c0:
+// the recorder's background dump read back).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -505,6 +506,21 @@ public final class AirflowGameTests {
                                 "the summary has the profile and its segments");
                         helper.assertTrue(Files.readAllLines(rec.dir().resolve("ticks.csv")).size() > 20,
                                 "ticks were recorded");
+                        // M8c c0: the region running at the start is a snapshot; the door and the campfire follow it
+                        AirflowBackgroundLog.Dump dump = AirflowBackgroundLog.read(
+                                rec.dir().resolve(AirflowRecorder.BACKGROUND_FILE));
+                        List<AirflowBackgroundLog.Entry> entries = dump.entries();
+                        helper.assertTrue(!entries.isEmpty()
+                                        && entries.get(0) instanceof AirflowBackgroundLog.Region first && first.snapshot()
+                                        && first.cells().length == first.nx() * first.ny() * first.nz()
+                                        && first.weather().lattice() != null,
+                                "the dump opens with the running region as a snapshot, with its lattice: " + entries);
+                        helper.assertTrue(entries.stream().filter(e -> e instanceof AirflowBackgroundLog.Edit).count() >= 2,
+                                "the door's two halves are in the dump");
+                        helper.assertTrue(entries.stream().anyMatch(e -> e instanceof AirflowBackgroundLog.Source s
+                                        && s.watts() > 0),
+                                "the campfire is in the dump");
+                        helper.assertTrue(text.contains("Background dump (M8c c0)"), "the summary reports the dump");
                     } catch (IOException e) {
                         helper.fail("summary: " + e);
                     }

@@ -3,7 +3,8 @@
 // the background field, driven sources, limits and body heat; M7e: the generator's terrain off the server thread,
 // the speed limit and tile cap; M7f: the heat diffusivity from the config; the outside air sent ahead of edits; M8b:
 // each region reads its running neighbours' frames for its borders; M8b b4: secondaries, the tiles that run beside a
-// player's where enclosed air crosses a border; M8b5b: tiles merged into one region, and split again).
+// player's where enclosed air crosses a border; M8b5b: tiles merged into one region, and split again; M8c c0: the
+// recorder's background dump).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -142,6 +143,8 @@ public final class AirflowRegions implements AirflowSections.Listener {
         private double sentT = Double.NaN, sentWindX, sentWindZ;
         private AirflowBackground background;
         private float[] sentLattice;
+        /** M8c c0: the spec it was last built from (the recorder's snapshot of regions already running). */
+        private AirflowRegionModel.Spec spec;
         /** The lattice read at the last weather check (M7f: sent ahead of an edit when newer than the one sent). */
         private float[] readLattice;
         private boolean geometryChanged, hadBodies;
@@ -496,6 +499,16 @@ public final class AirflowRegions implements AirflowSections.Listener {
     public AirflowRecorder record(java.nio.file.Path dir) {
         stopRecording();
         recorder = new AirflowRecorder(this, dir);
+        // M8c c0: the regions already running go into the background dump as built, then with the weather sent last
+        for (Region r : regions) {
+            if (r.spec != null && r.slot != null && r.slot.status() == AirflowRuntime.Status.RUNNING) {
+                recorder.regionBuilt(r.id, r.spec, true);
+                if (r.sentLattice != null) {
+                    recorder.weatherSent(r.id, new AirflowRegionModel.Weather(r.sentT, r.sentWindX, r.sentWindZ,
+                            r.sentLattice, r.background.columnTops()));
+                }
+            }
+        }
         return recorder;
     }
 
@@ -1240,6 +1253,9 @@ public final class AirflowRegions implements AirflowSections.Listener {
         if (!regions.remove(r)) {
             return;
         }
+        if (recorder != null) {
+            recorder.retired(r.id);
+        }
         if (r.transition != null) {
             abandon(r.transition, true); // a region being replaced closed first
         }
@@ -1382,6 +1398,10 @@ public final class AirflowRegions implements AirflowSections.Listener {
                 watts.stream().mapToDouble(Double::doubleValue).toArray(),
                 limits.stream().mapToDouble(Double::doubleValue).toArray(), any ? saved : null, level.getGameTime(),
                 lattice, tops, WeatherConfig.airflowHeatDiffusivity());
+        r.spec = spec;
+        if (recorder != null) {
+            recorder.regionBuilt(r.id, spec, false);
+        }
         AirflowBorders.Neighbours neighbours = neighboursOf(r);
         return () -> {
             AirflowRegionModel m = AirflowRegionModel.build(spec);
@@ -1466,6 +1486,10 @@ public final class AirflowRegions implements AirflowSections.Listener {
                 e.setValue(now);
                 r.slot.post(new AirflowRegionModel.SourceChange(p.getX() - r.x0, p.getY() - r.y0, p.getZ() - r.z0,
                         now.watts(), now.limit()));
+                if (recorder != null) {
+                    recorder.sourceSent(r.id, p.getX() - r.x0, p.getY() - r.y0, p.getZ() - r.z0, now.watts(),
+                            now.limit());
+                }
             }
         }
     }
@@ -1484,7 +1508,11 @@ public final class AirflowRegions implements AirflowSections.Listener {
         }
         if (!xyzw.isEmpty() || r.hadBodies) {
             r.hadBodies = !xyzw.isEmpty();
-            r.slot.post(new AirflowRegionModel.Bodies(xyzw.stream().mapToDouble(Double::doubleValue).toArray()));
+            double[] packed = xyzw.stream().mapToDouble(Double::doubleValue).toArray();
+            r.slot.post(new AirflowRegionModel.Bodies(packed));
+            if (recorder != null) {
+                recorder.bodiesSent(r.id, packed);
+            }
         }
     }
 
@@ -1551,8 +1579,12 @@ public final class AirflowRegions implements AirflowSections.Listener {
             r.sentWindX = w[0];
             r.sentWindZ = w[1];
             r.geometryChanged = false;
-            r.slot.post(new AirflowRegionModel.Weather(r.sentT, w[0], w[1], r.sentLattice,
-                    r.background.columnTops()));
+            AirflowRegionModel.Weather sent = new AirflowRegionModel.Weather(r.sentT, w[0], w[1], r.sentLattice,
+                    r.background.columnTops());
+            r.slot.post(sent);
+            if (recorder != null) {
+                recorder.weatherSent(r.id, sent);
+            }
         }
     }
 
@@ -1591,12 +1623,19 @@ public final class AirflowRegions implements AirflowSections.Listener {
                 // an edit can change the follow weights: the outside air up to it goes first, with the old ones
                 r.sentLattice = r.readLattice;
                 r.sentT = r.sentLattice[0];
-                r.slot.post(new AirflowRegionModel.Weather(r.sentT, r.sentWindX, r.sentWindZ, r.sentLattice,
-                        r.background.columnTops()));
+                AirflowRegionModel.Weather sent = new AirflowRegionModel.Weather(r.sentT, r.sentWindX, r.sentWindZ,
+                        r.sentLattice, r.background.columnTops());
+                r.slot.post(sent);
+                if (recorder != null) {
+                    recorder.weatherSent(r.id, sent);
+                }
             }
             AirflowCells.Table table = AirflowCells.table();
             r.slot.post(new AirflowBatch.Change(pos.getX() - r.x0, pos.getY() - r.y0, pos.getZ() - r.z0,
                     table.cell(before), table.cell(after)));
+            if (recorder != null) {
+                recorder.editSent(r.id, pos.getX() - r.x0, pos.getY() - r.y0, pos.getZ() - r.z0, table.cell(after));
+            }
             r.geometryChanged = true;
         }
     }
@@ -1607,6 +1646,9 @@ public final class AirflowRegions implements AirflowSections.Listener {
             if (!r.driven.containsKey(pos.asLong())) {
                 r.slot.post(new AirflowRegionModel.SourceChange(pos.getX() - r.x0, pos.getY() - r.y0,
                         pos.getZ() - r.z0, after, limit));
+                if (recorder != null) {
+                    recorder.sourceSent(r.id, pos.getX() - r.x0, pos.getY() - r.y0, pos.getZ() - r.z0, after, limit);
+                }
             }
         }
     }
@@ -1620,6 +1662,10 @@ public final class AirflowRegions implements AirflowSections.Listener {
                 AirflowSources.Power byState = AirflowSources.power(level.getBlockState(pos));
                 r.slot.post(new AirflowRegionModel.SourceChange(pos.getX() - r.x0, pos.getY() - r.y0,
                         pos.getZ() - r.z0, byState.watts(), byState.limit()));
+                if (recorder != null) {
+                    recorder.sourceSent(r.id, pos.getX() - r.x0, pos.getY() - r.y0, pos.getZ() - r.z0,
+                            byState.watts(), byState.limit());
+                }
             }
         }
     }

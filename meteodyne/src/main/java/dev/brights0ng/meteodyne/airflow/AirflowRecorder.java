@@ -1,5 +1,5 @@
 // Written by Claude (GreedyFluids M7b b4); edited by Claude (M7f: the profile by segment against M6f; M8b b4:
-// secondaries; M8b5b: merges and splits).
+// secondaries; M8b5b: merges and splits; M8c c0: the background dump).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.BufferedWriter;
@@ -41,12 +41,21 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
  * <p><b>Secondaries (M8b b4).</b> {@code regions.csv} gains each region's role (PLAYER, SECONDARY or GRACE) and
  * {@code seconds.csv} the secondaries running and the tiles that would run at 2, 4 and 8 shared cells; the summary
  * adds their tile-seconds over the recording and the secondaries' share of the regions' air-thread time.
+ * <p><b>Background dump (M8c c0; Bright, 2026-11-18).</b> {@code background.gfbg} holds what each region was built from
+ * and every weather, edit, source and body-heat input sent to it ({@link AirflowBackgroundLog}), so a GreedyFluids
+ * bench can replay the recording's night. Regions already running when the recording starts are written as snapshots
+ * (their cells as built).
  */
 public final class AirflowRecorder {
+
+    /** The background dump's file name in the recording's folder (M8c c0). */
+    public static final String BACKGROUND_FILE = "background.gfbg";
 
     private final AirflowRegions regions;
     private final Path dir;
     private final BufferedWriter ticks, seconds, regionRows, marks;
+    /** M8c c0: the background dump (null if it couldn't be opened; the error is reported). */
+    private final AirflowBackgroundLog background;
     private long firstTick = -1, lastTickSeen;
     private long lastHook, lastRead, lastManager, lastBusy, lastWall;
     private long sum, max;
@@ -95,6 +104,13 @@ public final class AirflowRecorder {
         } catch (IOException e) {
             throw new java.io.UncheckedIOException(e);
         }
+        AirflowBackgroundLog log = null;
+        try {
+            log = new AirflowBackgroundLog(dir.resolve(BACKGROUND_FILE), regions.level().getGameTime());
+        } catch (IOException e) {
+            error = e;
+        }
+        background = log;
         AirflowSections.Stats s = regions.sections().stats();
         lastHook = s.hookNanos();
         lastRead = s.readNanos();
@@ -117,6 +133,47 @@ public final class AirflowRecorder {
     /** Seconds recorded so far. */
     public int seconds() {
         return second;
+    }
+
+    // M8c c0: the inputs sent to regions, for the background dump (server thread)
+
+    /** A region built from {@code spec}, or (with {@code snapshot}) already running when the recording started. */
+    void regionBuilt(int id, AirflowRegionModel.Spec spec, boolean snapshot) {
+        if (background != null) {
+            background.region(regions.level().getGameTime(), id, spec, snapshot);
+        }
+    }
+
+    void weatherSent(int id, AirflowRegionModel.Weather w) {
+        if (background != null) {
+            background.weather(regions.level().getGameTime(), id, w);
+        }
+    }
+
+    /** A cell edit sent to a region, region cells. */
+    void editSent(int id, int x, int y, int z, AirflowCells.Cell after) {
+        if (background != null) {
+            background.edit(regions.level().getGameTime(), id, x, y, z, after);
+        }
+    }
+
+    /** A source change sent to a region, region cells. */
+    void sourceSent(int id, int x, int y, int z, double watts, double limit) {
+        if (background != null) {
+            background.source(regions.level().getGameTime(), id, x, y, z, watts, limit);
+        }
+    }
+
+    void bodiesSent(int id, double[] xyzw) {
+        if (background != null) {
+            background.bodies(regions.level().getGameTime(), id, xyzw);
+        }
+    }
+
+    void retired(int id) {
+        if (background != null) {
+            background.retire(regions.level().getGameTime(), id);
+        }
     }
 
     /** One server tick (after every level has ticked). */
@@ -248,6 +305,13 @@ public final class AirflowRecorder {
         } catch (IOException e) {
             error = error == null ? e : error;
         }
+        if (background != null) {
+            try {
+                background.close();
+            } catch (IOException e) {
+                error = error == null ? e : error;
+            }
+        }
         try {
             List<String> lines = new ArrayList<>(summary());
             lines.addAll(profile());
@@ -310,7 +374,21 @@ public final class AirflowRecorder {
                         + "up over the recording; regions.csv marks a merged region's role _MERGED<tiles>.",
                 regions.mergeMode(), regions.mergeSettleSeconds(), regions.merges() - mergesAtStart,
                 regions.splits() - splitsAtStart, regions.transitionsAbandoned() - abandonedAtStart));
+        out.add("");
+        out.add(backgroundLine());
         return out;
+    }
+
+    /** M8c c0: what the background dump holds so far. */
+    String backgroundLine() {
+        if (background == null) {
+            return "Background dump (M8c c0): not written (the file couldn't be opened).";
+        }
+        long[] c = background.counts();
+        IOException e = background.error();
+        return String.format(Locale.ROOT, "Background dump (M8c c0): %d region builds, %d weather sends, %d edits, %d "
+                        + "source changes, %d body-heat changes in `%s`%s.", c[0], c[1], c[2], c[3], c[4], BACKGROUND_FILE,
+                e == null ? "" : " (write error: " + e + ")");
     }
 
     /**
