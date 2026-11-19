@@ -110,9 +110,10 @@ tasks.named('test') {
     }
     // GreedyFluids M8c c1 (Claude): -Pmeteodyne.airflowReplay=<background.gfbg> [-Pmeteodyne.airflowReplayRegions=<ids>]
     // [-Pmeteodyne.airflowReplayVariants=<names>] replays a recording's regions (AirflowReplayTest, skipped otherwise);
-    // a merged region needs more than the default test heap.
+    // a merged region needs more than the default test heap. M8c c2: -Pmeteodyne.airflowLevers=<names> runs the wind
+    // levers in lockstep on one replayed region (AirflowLeverReplayTest).
     ['meteodyne.airflowReplay', 'meteodyne.airflowReplayRegions', 'meteodyne.airflowReplayVariants',
-     'meteodyne.airflowReplayWindSpeed'].each { key ->
+     'meteodyne.airflowReplayWindSpeed', 'meteodyne.airflowReplayFrom', 'meteodyne.airflowLevers'].each { key ->
         if (project.hasProperty(key)) {
             systemProperty key, project.property(key)
         }

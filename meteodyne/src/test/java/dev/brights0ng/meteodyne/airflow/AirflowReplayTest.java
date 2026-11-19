@@ -293,7 +293,7 @@ class AirflowReplayTest {
     }
 
     /** The model event for a dump record under the variant (null for none); edits update {@code now}. */
-    private static Object event(Entry x, int nx, int nz, Cell[] now, AirflowBackgroundLog.Region build, Variant v) {
+    static Object event(Entry x, int nx, int nz, Cell[] now, AirflowBackgroundLog.Region build, Variant v) {
         if (x instanceof AirflowBackgroundLog.Weather w) {
             AirflowBackgroundLog.Weather b = build.weather();
             double[] wind = wind(w.windX(), w.windZ(), b, v);
