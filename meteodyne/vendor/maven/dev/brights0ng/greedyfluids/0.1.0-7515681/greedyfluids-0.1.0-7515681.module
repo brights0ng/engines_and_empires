@@ -1,0 +1,80 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "dev.brights0ng",
+    "module": "greedyfluids",
+    "version": "0.1.0-7515681",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.2.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "greedyfluids-0.1.0-7515681.jar",
+          "url": "greedyfluids-0.1.0-7515681.jar",
+          "size": 192261,
+          "sha512": "c9a2e8b328b100dba2b1980614aa2e79b7e0cf20d7320ecb59731dd24fe5c96f5e72a91b51872512efb3423ca956f40481384d345a2d40b810b0978d031d4bcb",
+          "sha256": "a07b6bcebc1a52ae61071887d2943b78425755998131cfb4547816bfd64803a6",
+          "sha1": "8c6bfa07941e08b882da83c75146e4810e791548",
+          "md5": "3cbbb8f5f626577e398b19160eb13c8c"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 21,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "greedyfluids-0.1.0-7515681.jar",
+          "url": "greedyfluids-0.1.0-7515681.jar",
+          "size": 192261,
+          "sha512": "c9a2e8b328b100dba2b1980614aa2e79b7e0cf20d7320ecb59731dd24fe5c96f5e72a91b51872512efb3423ca956f40481384d345a2d40b810b0978d031d4bcb",
+          "sha256": "a07b6bcebc1a52ae61071887d2943b78425755998131cfb4547816bfd64803a6",
+          "sha1": "8c6bfa07941e08b882da83c75146e4810e791548",
+          "md5": "3cbbb8f5f626577e398b19160eb13c8c"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "greedyfluids-0.1.0-7515681-sources.jar",
+          "url": "greedyfluids-0.1.0-7515681-sources.jar",
+          "size": 126961,
+          "sha512": "c25f48dcc6d84adeaf723cb4abf4c52ed7aae4edcd44b9d425d945e6ef6d15bfa990eaa1434d382edcf476f5df6705f39d49d12491c153754f3a14d1c4ca445a",
+          "sha256": "ff27ada5ea47f6502848fd0da53fa8dba10d874524faf58361bc4f0961f10bc7",
+          "sha1": "dcf85ca73f5ffab85f60da2c078e82fbbf586e58",
+          "md5": "a4f6ed102d3cb4aa98dbd03fd22f7400"
+        }
+      ]
+    }
+  ]
+}
