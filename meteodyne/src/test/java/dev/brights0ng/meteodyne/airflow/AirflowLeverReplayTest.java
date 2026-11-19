@@ -1,5 +1,5 @@
 // Written by Claude (GreedyFluids M8c c2); edited by Claude (c2: the REF run and error against it; the hybrid gate CGD1, CGD2;
-// A': the source-velocity radius CGS2–CGS16 and CGSB4, CGSB8).
+// A': the source-velocity radius CGS2–CGS24 and CGSB4, CGSB8).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,7 +30,7 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
  *   <li>TWIN: DEFAULT with its remesh cadence shifted by 16 steps: the noise floor any lever's drift is read against;</li>
  *   <li>CG: the thermal gate counts contrast between neighbouring air instead of departure from the background (W1);</li>
  *   <li>CGD1, CGD2: CG, and also air more than 1 or 2 °C from its background (CONTRAST_OR_DEPARTURE);</li>
- *   <li>CGS2, CGS4, CGS8, CGS16 (A'): CG, and velocity always counts within 2, 4, 8 or 16 cells of a heat source
+ *   <li>CGS2, CGS4, CGS8, CGS12, CGS16, CGS24 (A'): CG, and velocity always counts within 2–24 cells of a heat source
  *       (block sources and fixed walls), lingering 5 s after a source goes; CGSB4, CGSB8: CG, and within 4 or 8 cells
  *       of a heat source the BACKGROUND gate's rule;</li>
  *   <li>GATE05, GATE10: the thermal gate at 0.5 and 1 °C instead of 0.25 (W2);</li>
@@ -54,8 +54,8 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 @EnabledIfSystemProperty(named = "meteodyne.airflowLevers", matches = ".+")
 class AirflowLeverReplayTest {
 
-    enum Lever { DEFAULT, TWIN, CG, CGD1, CGD2, CGS2, CGS4, CGS8, CGS16, CGSB4, CGSB8, GATE05, GATE10, EPSU1, EPSU2,
-        HOLDFLOW, REF }
+    enum Lever { DEFAULT, TWIN, CG, CGD1, CGD2, CGS2, CGS4, CGS8, CGS12, CGS16, CGS24, CGSB4, CGSB8, GATE05, GATE10,
+        EPSU1, EPSU2, HOLDFLOW, REF }
 
     /** A''s linger after a heat source goes, s (decision 34). */
     static final double SOURCE_LINGER = 5;
@@ -68,7 +68,7 @@ class AirflowLeverReplayTest {
                 m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST_OR_DEPARTURE);
                 m.setGateDeparture(lever == Lever.CGD1 ? 1 : 2);
             }
-            case CGS2, CGS4, CGS8, CGS16, CGSB4, CGSB8 -> {
+            case CGS2, CGS4, CGS8, CGS12, CGS16, CGS24, CGSB4, CGSB8 -> {
                 m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST);
                 String name = lever.name();
                 boolean bg = name.startsWith("CGSB");
