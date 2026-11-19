@@ -1,4 +1,4 @@
-// Written by Claude (GreedyFluids M8c c2); edited by Claude (c2: the REF run and error against it).
+// Written by Claude (GreedyFluids M8c c2); edited by Claude (c2: the REF run and error against it; the hybrid gate CGD1, CGD2).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,6 +28,7 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
  *   <li>DEFAULT: Meteodyne's region as it runs (the reference);</li>
  *   <li>TWIN: DEFAULT with its remesh cadence shifted by 16 steps: the noise floor any lever's drift is read against;</li>
  *   <li>CG: the thermal gate counts contrast between neighbouring air instead of departure from the background (W1);</li>
+ *   <li>CGD1, CGD2: CG, and also air more than 1 or 2 °C from its background (CONTRAST_OR_DEPARTURE);</li>
  *   <li>GATE05, GATE10: the thermal gate at 0.5 and 1 °C instead of 0.25 (W2);</li>
  *   <li>EPSU1, EPSU2: the velocity indicator's threshold at 1 and 2 m/s instead of 0.5 (W3);</li>
  *   <li>HOLDFLOW: the hold's flow test tolerates 50 % instead of 25 % (W4);</li>
@@ -49,12 +50,16 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 @EnabledIfSystemProperty(named = "meteodyne.airflowLevers", matches = ".+")
 class AirflowLeverReplayTest {
 
-    enum Lever { DEFAULT, TWIN, CG, GATE05, GATE10, EPSU1, EPSU2, HOLDFLOW, REF }
+    enum Lever { DEFAULT, TWIN, CG, CGD1, CGD2, GATE05, GATE10, EPSU1, EPSU2, HOLDFLOW, REF }
 
     static void apply(Lever lever, AdaptiveMesh3D m) {
         switch (lever) {
             case TWIN -> m.setCadencePhaseForTesting(16);
             case CG -> m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST);
+            case CGD1, CGD2 -> {
+                m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST_OR_DEPARTURE);
+                m.setGateDeparture(lever == Lever.CGD1 ? 1 : 2);
+            }
             case GATE05 -> m.setThermalVelocityGate(0.5);
             case GATE10 -> m.setThermalVelocityGate(1.0);
             case EPSU1 -> m.setVelocityThreshold(1.0);
