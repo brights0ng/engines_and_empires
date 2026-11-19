@@ -108,6 +108,18 @@ tasks.named('test') {
             systemProperty key, project.property(key)
         }
     }
+    // GreedyFluids M8c c1 (Claude): -Pmeteodyne.airflowReplay=<background.gfbg> [-Pmeteodyne.airflowReplayRegions=<ids>]
+    // [-Pmeteodyne.airflowReplayVariants=<names>] replays a recording's regions (AirflowReplayTest, skipped otherwise);
+    // a merged region needs more than the default test heap.
+    ['meteodyne.airflowReplay', 'meteodyne.airflowReplayRegions', 'meteodyne.airflowReplayVariants',
+     'meteodyne.airflowReplayWindSpeed'].each { key ->
+        if (project.hasProperty(key)) {
+            systemProperty key, project.property(key)
+        }
+    }
+    if (project.hasProperty('meteodyne.airflowReplay')) {
+        maxHeapSize = '4g'
+    }
 }
 
 tasks.named('jar', Jar) {
