@@ -1,5 +1,5 @@
 // Written by Claude (GreedyFluids M8c c2); edited by Claude (c2: the REF run and error against it; the hybrid gate CGD1, CGD2;
-// A': the source-velocity radius CGS2–CGS24 and CGSB4, CGSB8).
+// A': the source-velocity radius CGS2–CGS24 and CGSB4, CGSB8; its shapes, cap and band; the lone campfire).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,6 +33,15 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
  *   <li>CGS2, CGS4, CGS8, CGS12, CGS16, CGS24 (A'): CG, and velocity always counts within 2–24 cells of a heat source
  *       (block sources and fixed walls), lingering 5 s after a source goes; CGSB4, CGSB8: CG, and within 4 or 8 cells
  *       of a heat source the BACKGROUND gate's rule;</li>
+ *   <li>CGUP16, CGDN16 (diagnostic): CG, velocity counts within 4 cells of a source and in the half of its 16-cell
+ *       cube upwind (or downwind) along the wind's dominant axis;</li>
+ *   <li>CGK2, CGK4 (K): CG, velocity counts within 4 cells of a source, and boxes within 16 cells are at most 2 or 4
+ *       cells across;</li>
+ *   <li>CGG2, CGG4 (G): CG, velocity counts within 8 cells of a source at the usual threshold and out to 16 cells at
+ *       2 or 4 times it;</li>
+ *   <li>CGT4, CGT8, CGT16 (S): CG, velocity counts within 4 cells of a source and in every box whose air, followed
+ *       along the flow for 4, 8 or 16 s (at most 28 cells of path), gets there; CGT8K4: CGT8's reach under K's cap of
+ *       4, velocity counting within 4 cells only;</li>
  *   <li>GATE05, GATE10: the thermal gate at 0.5 and 1 °C instead of 0.25 (W2);</li>
  *   <li>EPSU1, EPSU2: the velocity indicator's threshold at 1 and 2 m/s instead of 0.5 (W3);</li>
  *   <li>HOLDFLOW: the hold's flow test tolerates 50 % instead of 25 % (W4);</li>
@@ -48,17 +57,20 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
  * {@code -Pmeteodyne.airflowReplay=<background.gfbg>}, {@code -Pmeteodyne.airflowReplayRegions=<one id>}; optional
  * {@code -Pmeteodyne.airflowReplayVariants=<one input variant>} (RECORDED, or WIND with
  * {@code -Pmeteodyne.airflowReplayWindSpeed}) and {@code -Pmeteodyne.airflowReplayFrom=<recording second>} (the summary
- * covers bins from it on; default 60 s after the build). Writes
- * {@code build/reports/airflow-replay/levers-<region>-<variant>.md}.
+ * covers bins from it on; default 60 s after the build). {@code -Pmeteodyne.airflowReplayCampfire=centre} (or
+ * {@code x,z}) adds a lit campfire (10 kW) on the ground of that column at the build, in every model. Writes
+ * {@code build/reports/airflow-replay/levers-<region>-<variant>[-campfire].md}.
  */
 @EnabledIfSystemProperty(named = "meteodyne.airflowLevers", matches = ".+")
 class AirflowLeverReplayTest {
 
-    enum Lever { DEFAULT, TWIN, CG, CGD1, CGD2, CGS2, CGS4, CGS8, CGS12, CGS16, CGS24, CGSB4, CGSB8, GATE05, GATE10,
-        EPSU1, EPSU2, HOLDFLOW, REF }
+    enum Lever { DEFAULT, TWIN, CG, CGD1, CGD2, CGS2, CGS4, CGS8, CGS12, CGS16, CGS24, CGSB4, CGSB8, CGUP16, CGDN16,
+        CGK2, CGK4, CGG2, CGG4, CGT4, CGT8, CGT16, CGT8K4, GATE05, GATE10, EPSU1, EPSU2, HOLDFLOW, REF }
 
     /** A''s linger after a heat source goes, s (decision 34). */
     static final double SOURCE_LINGER = 5;
+    /** The lone campfire's power, W (Meteodyne's lit campfire). */
+    static final double CAMPFIRE_WATTS = 10_000;
 
     static void apply(Lever lever, AdaptiveMesh3D m) {
         switch (lever) {
@@ -74,6 +86,33 @@ class AirflowLeverReplayTest {
                 boolean bg = name.startsWith("CGSB");
                 m.setSourceVelocityRadius(Integer.parseInt(name.substring(bg ? 4 : 3)), SOURCE_LINGER,
                         bg ? AdaptiveMesh3D.SourceVelocityRule.BACKGROUND : AdaptiveMesh3D.SourceVelocityRule.ALWAYS);
+            }
+            case CGUP16, CGDN16 -> {
+                m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST);
+                m.setSourceVelocityRadius(16, SOURCE_LINGER, AdaptiveMesh3D.SourceVelocityRule.ALWAYS);
+                m.setSourceVelocityShape(lever == Lever.CGUP16 ? AdaptiveMesh3D.SourceVelocityShape.UPWIND
+                        : AdaptiveMesh3D.SourceVelocityShape.DOWNWIND, 4, 8);
+            }
+            case CGK2, CGK4 -> {
+                m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST);
+                m.setSourceVelocityRadius(16, SOURCE_LINGER, AdaptiveMesh3D.SourceVelocityRule.ALWAYS);
+                m.setSourceVelocityShape(AdaptiveMesh3D.SourceVelocityShape.CUBE, 4, 8);
+                m.setSourceVelocityCap(lever == Lever.CGK2 ? 2 : 4);
+            }
+            case CGG2, CGG4 -> {
+                m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST);
+                m.setSourceVelocityRadius(16, SOURCE_LINGER, AdaptiveMesh3D.SourceVelocityRule.ALWAYS);
+                m.setSourceVelocityShape(AdaptiveMesh3D.SourceVelocityShape.CUBE, 8, 8);
+                m.setSourceVelocityBand(lever == Lever.CGG2 ? 2 : 4);
+            }
+            case CGT4, CGT8, CGT16, CGT8K4 -> {
+                m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST);
+                m.setSourceVelocityRadius(24, SOURCE_LINGER, AdaptiveMesh3D.SourceVelocityRule.ALWAYS);
+                m.setSourceVelocityShape(AdaptiveMesh3D.SourceVelocityShape.TRACE, 4,
+                        lever == Lever.CGT4 ? 4 : lever == Lever.CGT16 ? 16 : 8);
+                if (lever == Lever.CGT8K4) {
+                    m.setSourceVelocityCap(4);
+                }
             }
             case GATE05 -> m.setThermalVelocityGate(0.5);
             case GATE10 -> m.setThermalVelocityGate(1.0);
@@ -148,6 +187,29 @@ class AirflowLeverReplayTest {
             apply(l, m.region().mesh());
             runs.add(new Run(l, m));
         }
+        String fireTag = "";
+        String fire = System.getProperty("meteodyne.airflowReplayCampfire");
+        if (fire != null && !fire.isBlank()) {
+            int fx = nx / 2, fz = nz / 2;
+            if (!fire.trim().equals("centre")) {
+                String[] p = fire.split(",");
+                fx = Integer.parseInt(p[0].trim());
+                fz = Integer.parseInt(p[1].trim());
+            }
+            int fy = 0;
+            for (int y = ny - 1; y >= 0; y--) {
+                if (palette[build.cells()[(y * nz + fz) * nx + fx] & 0xFF].kind() != AirflowCells.Kind.AIR) {
+                    fy = y + 1;
+                    break;
+                }
+            }
+            assertTrue(fy < ny, "no air above the ground at " + fx + ", " + fz);
+            for (Run r : runs) {
+                r.model.apply(List.<Object>of(new AirflowRegionModel.SourceChange(fx, fy, fz, CAMPFIRE_WATTS, Double.NaN)));
+            }
+            fireTag = "-campfire";
+            System.out.printf(Locale.ROOT, "campfire at %d, %d, %d%n", fx, fy, fz);
+        }
         Run ref = runs.get(0);
         Cell[] now = new Cell[nx * ny * nz];
         for (int c = 0; c < now.length; c++) {
@@ -216,7 +278,8 @@ class AirflowLeverReplayTest {
         }
 
         String name = "levers-" + id + "-" + variant
-                + (variant == Variant.WIND ? String.format(Locale.ROOT, "%.0f", AirflowReplayTest.WIND_SPEED) : "");
+                + (variant == Variant.WIND ? String.format(Locale.ROOT, "%.0f", AirflowReplayTest.WIND_SPEED) : "")
+                + fireTag;
         List<String> out = new ArrayList<>();
         out.add(String.format(Locale.ROOT, "# Wind levers on a replay: region %d, %s (GreedyFluids M8c c2, report-only)",
                 id, variant == Variant.WIND ? "wind " + AirflowReplayTest.WIND_SPEED + " m/s" : variant.toString()));

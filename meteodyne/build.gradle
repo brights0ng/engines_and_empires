@@ -112,10 +112,11 @@ tasks.named('test') {
     // [-Pmeteodyne.airflowReplayVariants=<names>] replays a recording's regions (AirflowReplayTest, skipped otherwise);
     // a merged region needs more than the default test heap. M8c c2: -Pmeteodyne.airflowLevers=<names> runs the wind
     // levers in lockstep on one replayed region (AirflowLeverReplayTest); -Pmeteodyne.airflowErrorMap=<lever> maps where a
-    // lever's error against REF lives (AirflowErrorMapTest).
+    // lever's error against REF lives (AirflowErrorMapTest); -Pmeteodyne.airflowReplayCampfire=centre|x,z adds a lone
+    // campfire to the lever replay.
     ['meteodyne.airflowReplay', 'meteodyne.airflowReplayRegions', 'meteodyne.airflowReplayVariants',
      'meteodyne.airflowReplayWindSpeed', 'meteodyne.airflowReplayFrom', 'meteodyne.airflowLevers',
-     'meteodyne.airflowErrorMap'].each { key ->
+     'meteodyne.airflowErrorMap', 'meteodyne.airflowReplayCampfire'].each { key ->
         if (project.hasProperty(key)) {
             systemProperty key, project.property(key)
         }
