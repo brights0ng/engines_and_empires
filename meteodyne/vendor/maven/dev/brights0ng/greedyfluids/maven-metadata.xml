@@ -3,11 +3,11 @@
   <groupId>dev.brights0ng</groupId>
   <artifactId>greedyfluids</artifactId>
   <versioning>
-    <latest>0.1.0-7515681</latest>
-    <release>0.1.0-7515681</release>
+    <latest>0.1.0-23b0dbb</latest>
+    <release>0.1.0-23b0dbb</release>
     <versions>
-      <version>0.1.0-7515681</version>
+      <version>0.1.0-23b0dbb</version>
     </versions>
-    <lastUpdated>20261119180739</lastUpdated>
+    <lastUpdated>20261119221351</lastUpdated>
   </versioning>
 </metadata>
