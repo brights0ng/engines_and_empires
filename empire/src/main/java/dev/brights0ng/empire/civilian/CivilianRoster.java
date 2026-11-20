@@ -1,4 +1,4 @@
-// Written by Claude; extended with ability, needs and inventory persistence by ChatGPT.
+// Written by Claude; extended with ability, needs and inventory persistence by ChatGPT; extended with sleep and bed lifecycle by Gemini.
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashMap;
@@ -235,6 +235,8 @@ public final class CivilianRoster {
                 civilian.appearance().pack(), civilian.blockPosition(), civilian.chunkPosition().toLong(), level.getGameTime());
         record.setAbilities(civilian.abilities().pack());
         record.setFood(civilian.food().save());
+        record.setSleep(civilian.sleep().save());
+        record.setBed(civilian.claimedBed());
         record.setHealth(civilian.getHealth());
         record.setInventory(civilian.inventory().getItems());
         data.addCivilian(record);

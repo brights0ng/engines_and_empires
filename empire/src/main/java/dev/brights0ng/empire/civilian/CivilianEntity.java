@@ -1,8 +1,9 @@
-// Written by Claude; extended with abilities, inspection, ticking needs, inventory, eating and client eating sync by ChatGPT.
+// Written by Claude; extended with abilities, inspection, ticking needs, inventory, eating and client eating sync by ChatGPT; extended with sleep persistence and behavior by Gemini.
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.random.RandomGenerator;
@@ -13,12 +14,14 @@ import dev.brights0ng.empire.EmpireConfig;
 import dev.brights0ng.empire.civilian.CivilianNetwork.CivilianSpeechPayload;
 import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.CivilianFoodNbt;
+import dev.brights0ng.empire.data.CivilianSleepNbt;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianFood;
 import dev.brights0ng.empire.rules.CivilianLines;
 import dev.brights0ng.empire.rules.CivilianNames;
+import dev.brights0ng.empire.rules.CivilianSleep;
 import dev.brights0ng.empire.rules.TravellerWants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -139,6 +142,8 @@ public class CivilianEntity extends PathfinderMob {
     private static final String TAG_APPEARANCE = "Appearance";
     private static final String TAG_ABILITIES = "Abilities";
     private static final String TAG_FOOD = "Food";
+    private static final String TAG_SLEEP = "Sleep";
+    private static final String TAG_BED = "Bed";
     private static final String TAG_HOME = "Home";
     private static final String TAG_STATUS = "Status";
     private static final String TAG_CIVILIAN_ID = "CivilianId";
@@ -163,6 +168,9 @@ public class CivilianEntity extends PathfinderMob {
     private CivilianAbilities abilities = new CivilianAbilities(3, 3, 3, 3, 3, 3);
     private boolean abilitiesPreset;
     private CivilianFood food = new CivilianFood();
+    private CivilianSleep sleep = new CivilianSleep();
+    @Nullable
+    private BlockPos claimedBed;
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE);
     /** Only meals moved out of our pockets are returned when use ends; future tools are left alone. */
     private boolean inventoryMeal;
@@ -292,6 +300,29 @@ public class CivilianEntity extends PathfinderMob {
         return food;
     }
 
+    public CivilianSleep sleep() {
+        return sleep;
+    }
+
+    @Nullable
+    public BlockPos claimedBed() {
+        return claimedBed;
+    }
+
+    public void setClaimedBed(@Nullable BlockPos pos) {
+        this.claimedBed = pos != null ? pos.immutable() : null;
+        syncNeedsToRecord();
+    }
+
+    public void setLastNight(float value) {
+        sleep.setLastNight(value);
+        syncNeedsToRecord();
+    }
+
+    public int sleepNeedTicks() {
+        return CivilianSleep.neededTicks(abilities.endurance());
+    }
+
     public SimpleContainer inventory() {
         return inventory;
     }
@@ -299,6 +330,8 @@ public class CivilianEntity extends PathfinderMob {
     /** Applies a master snapshot without writing it back during join. */
     void restoreNeeds(CivilianRecord record) {
         food = CivilianFood.restore(record.food());
+        sleep = CivilianSleep.restore(record.sleep());
+        claimedBed = record.bed();
         for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
             inventory.setItem(slot, record.inventory().get(slot).copy());
         }
@@ -327,6 +360,7 @@ public class CivilianEntity extends PathfinderMob {
         EmpireSavedData data = EmpireSavedData.of(serverLevel);
         CivilianRecord record = ownRecord(data);
         CivilianFood.Saved saved = food.save();
+        CivilianSleep.Saved savedSleep = sleep.save();
         boolean inventoryChanged = false;
         if (record != null) {
             for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
@@ -336,8 +370,11 @@ public class CivilianEntity extends PathfinderMob {
                 }
             }
         }
-        if (record != null && (inventoryChanged || !saved.equals(record.food()) || Float.compare(getHealth(), record.health()) != 0)) {
+        if (record != null && (inventoryChanged || !saved.equals(record.food()) || !savedSleep.equals(record.sleep())
+                || !Objects.equals(claimedBed, record.bed()) || Float.compare(getHealth(), record.health()) != 0)) {
             record.setFood(saved);
+            record.setSleep(savedSleep);
+            record.setBed(claimedBed);
             record.setHealth(getHealth());
             record.setInventory(inventory.getItems());
             data.setDirty();
@@ -493,6 +530,10 @@ public class CivilianEntity extends PathfinderMob {
         super.addAdditionalSaveData(tag);
         syncNeedsToRecord();
         tag.put(TAG_FOOD, CivilianFoodNbt.save(food.save()));
+        tag.put(TAG_SLEEP, CivilianSleepNbt.save(sleep.save()));
+        if (claimedBed != null) {
+            tag.put(TAG_BED, NbtUtils.writeBlockPos(claimedBed));
+        }
         tag.put("Inventory", ContainerHelper.saveAllItems(new CompoundTag(), inventory.getItems(), level().registryAccess()));
         tag.putInt(TAG_APPEARANCE, entityData.get(APPEARANCE));
         tag.putInt(TAG_ABILITIES, abilities.pack());
@@ -514,6 +555,8 @@ public class CivilianEntity extends PathfinderMob {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         food = CivilianFood.restore(CivilianFoodNbt.load(tag.getCompound(TAG_FOOD)));
+        sleep = CivilianSleep.restore(CivilianSleepNbt.load(tag.getCompound(TAG_SLEEP)));
+        claimedBed = NbtUtils.readBlockPos(tag, TAG_BED).orElse(null);
         inventory.clearContent();
         ContainerHelper.loadAllItems(tag.getCompound("Inventory"), inventory.getItems(), level().registryAccess());
         CivilianAbilities loadedAbilities = null;
