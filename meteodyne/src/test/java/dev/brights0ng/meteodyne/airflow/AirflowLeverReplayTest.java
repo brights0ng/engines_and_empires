@@ -1,6 +1,7 @@
 // Written by Claude (GreedyFluids M8c c2); edited by Claude (c2: the REF run and error against it; the hybrid gate CGD1, CGD2;
 // A': the source-velocity radius CGS2–CGS24 and CGSB4, CGSB8; its shapes, cap and band; the lone campfire;
-// time-averaged error and REFTWIN; c3: DEFAULT is the contrast gate with R 12, BG the old default, the alternatives gone).
+// time-averaged error and REFTWIN; c3: DEFAULT is the contrast gate with R 12, BG the old default, the alternatives gone;
+// c4: the weather sent, per 10 s).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -183,9 +184,14 @@ class AirflowLeverReplayTest {
         List<String> censusRows = new ArrayList<>(), binRows = new ArrayList<>();
         int next = 1, sampleTick = 0;
         double binEnd = AirflowReplayTest.BIN;
+        // M8c c4: the weather as last sent (the lattice's range, °C, and the wind's speed, m/s), reported per 10 s
+        double[] weather = weatherOf(build.weather().lattice(), build.weather().windX(), build.weather().windZ());
         while (ref.model.time() < life) {
             List<Object> due = new ArrayList<>();
             while (next < events.size() && (events.get(next).tick() - build.tick()) / 20.0 <= ref.model.time()) {
+                if (events.get(next) instanceof AirflowBackgroundLog.Weather w) {
+                    weather = weatherOf(w.lattice(), w.windX(), w.windZ());
+                }
                 Object event = AirflowReplayTest.event(events.get(next++), nx, nz, now, build, variant);
                 if (event != null) {
                     due.add(event);
@@ -230,7 +236,8 @@ class AirflowLeverReplayTest {
             Run truth = runs.stream().filter(x -> x.lever == Lever.REF).findFirst().orElse(null);
             float[] truthAir = truth == null ? null : truth.model.region().thermalState().airArray();
             censusRows.add(census(second, ref.model, classes, refAir));
-            StringBuilder row = new StringBuilder(String.format(Locale.ROOT, "| %.0f |", second));
+            StringBuilder row = new StringBuilder(String.format(Locale.ROOT, "| %.0f | %.1f to %.1f, %.1f |", second,
+                    weather[0], weather[1], weather[2]));
             for (Run r : runs) {
                 double core = 100 * r.wall * 1e-9 / AirflowReplayTest.BIN, boxes = (double) r.boxSum / r.steps;
                 double held = 100.0 * (r.model.region().mesh().heldSteps() - r.held0) / r.steps;
@@ -310,7 +317,8 @@ class AirflowLeverReplayTest {
         out.add("");
         out.add("## Per 10 s");
         out.add("");
-        StringBuilder head = new StringBuilder("| Second |"), rule = new StringBuilder("|---|");
+        StringBuilder head = new StringBuilder("| Second | Weather sent: lattice °C, wind m/s |"),
+                rule = new StringBuilder("|---|---|");
         for (Run r : runs) {
             head.append(" ").append(r.lever).append(": core % / boxes / held % / drift mean, p99 |");
             rule.append("---|");
@@ -325,6 +333,20 @@ class AirflowLeverReplayTest {
 
     /** Seconds per window of the time-averaged error. */
     static final int AVERAGE_WINDOW = 30;
+
+    /** M8c c4: a weather send as a row reports it: the lattice's lowest and highest point, °C, and the wind, m/s. */
+    private static double[] weatherOf(float[] lattice, double windX, double windZ) {
+        double lo = Double.NaN, hi = Double.NaN;
+        if (lattice != null) {
+            lo = Double.POSITIVE_INFINITY;
+            hi = Double.NEGATIVE_INFINITY;
+            for (float v : lattice) {
+                lo = Math.min(lo, v);
+                hi = Math.max(hi, v);
+            }
+        }
+        return new double[] {lo, hi, Math.hypot(windX, windZ)};
+    }
 
     /**
      * Scores each run's time-averaged field against REF's: the current window's (keeping the worst, then clearing it),
