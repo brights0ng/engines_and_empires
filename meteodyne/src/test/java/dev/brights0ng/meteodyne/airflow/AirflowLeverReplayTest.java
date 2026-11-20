@@ -1,7 +1,8 @@
 // Written by Claude (GreedyFluids M8c c2); edited by Claude (c2: the REF run and error against it; the hybrid gate CGD1, CGD2;
 // A': the source-velocity radius CGS2–CGS24 and CGSB4, CGSB8; its shapes, cap and band; the lone campfire;
 // time-averaged error and REFTWIN; c3: DEFAULT is the contrast gate with R 12, BG the old default, the alternatives gone;
-// c4: the weather sent, per 10 s).
+// c4: the weather sent, per 10 s; M8e: the fixed walls' surface, FILM and CONV, and the air's mean and hottest at the
+// end).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -14,6 +15,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
+import dev.brights0ng.greedyfluids.grid.CellGrid3D;
 import dev.brights0ng.greedyfluids.refine.AdaptiveMesh3D;
 import dev.brights0ng.greedyfluids.region.AirRegion;
 import dev.brights0ng.greedyfluids.solve.Background3D;
@@ -37,6 +39,10 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
  *   <li>GATE05, GATE10: the thermal gate at 0.5 and 1 °C instead of 0.25 (W2);</li>
  *   <li>EPSU1, EPSU2: the velocity indicator's threshold at 1 and 2 m/s instead of 0.5 (W3);</li>
  *   <li>HOLDFLOW: the hold's flow test tolerates 50 % instead of 25 % (W4);</li>
+ *   <li>FILM, CONV (M8e): lava and magma couple to their air through the film alone, or by free convection off the hot
+ *       face ({@link CellGrid3D.FixedSurface}), against DEFAULT's RAY: a change of physics, so their drift is the
+ *       change it makes, not an error; FILMK3, CONVK1, CONVK3 as FILM and CONV with keep-fine cubes of radius 3 or 1
+ *       around the fixed walls facing air;</li>
  *   <li>REFTWIN: REF with its remesh cadence shifted by 16 steps: how far two equally fine runs drift apart, the floor
  *       under any error against REF;</li>
  *   <li>REF: no thermal gate and no velocity hold: velocity refines everywhere and steps every step (the M7a
@@ -59,7 +65,25 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 class AirflowLeverReplayTest {
 
     enum Lever { DEFAULT, TWIN, BG, CG, CGS2, CGS4, CGS8, CGS12, CGS16, CGS24, GATE05, GATE10, EPSU1, EPSU2, HOLDFLOW,
-        REFTWIN, REF }
+        FILM, CONV, FILMK3, CONVK1, CONVK3, REFTWIN, REF }
+
+    /** The fixed-wall surface a lever builds its region with (M8e); null: the recording's table (RAY). */
+    static CellGrid3D.FixedSurface surface(Lever lever) {
+        return switch (lever) {
+            case FILM, FILMK3 -> CellGrid3D.FixedSurface.FILM;
+            case CONV, CONVK1, CONVK3 -> CellGrid3D.FixedSurface.CONVECTION;
+            default -> null;
+        };
+    }
+
+    /** The keep-fine cube radius around fixed walls facing air a lever builds its region with, cells (M8e). */
+    static int keepFine(Lever lever) {
+        return switch (lever) {
+            case FILMK3, CONVK3 -> 3;
+            case CONVK1 -> 1;
+            default -> 0;
+        };
+    }
 
     /** A''s linger after a heat source goes, s (decision 34). */
     static final double SOURCE_LINGER = AdaptiveMesh3D.DEFAULT_SOURCE_VELOCITY_LINGER;
@@ -149,7 +173,11 @@ class AirflowLeverReplayTest {
         int nx = build.nx(), ny = build.ny(), nz = build.nz();
         List<Run> runs = new ArrayList<>();
         for (Lever l : levers) {
-            AirflowRegionModel m = AirflowRegionModel.build(AirflowReplayTest.spec(build, palette, variant));
+            AirflowRegionModel.Spec spec = AirflowReplayTest.spec(build, palette, variant);
+            if (surface(l) != null) {
+                spec = spec.withTable(spec.table().withFixedWalls(surface(l), keepFine(l)));
+            }
+            AirflowRegionModel m = AirflowRegionModel.build(spec);
             apply(l, m.region().mesh());
             runs.add(new Run(l, m));
         }
@@ -290,6 +318,31 @@ class AirflowLeverReplayTest {
                     core, core / (ref.coreSum / ref.bins), r.boxesSum / r.bins / 1000, r.heldSum / r.bins, r.worstMean,
                     r.worstP99, r.worstIndoor, levers.contains(Lever.REF) ? String.format(Locale.ROOT,
                             "%.3f | %.3f | %.3f", r.errMean, r.errP99, r.errIndoor) : "— | — | —"));
+        }
+        // M8e: how many cells are fixed walls, and each lever's air at the end (fluid cells: mean, hottest)
+        CellGrid3D grid0 = ref.model.region().grid();
+        int fixedCells = 0;
+        for (int c = 0; c < nx * ny * nz; c++) {
+            if (!Double.isNaN(grid0.fixedTemperature(c))) {
+                fixedCells++;
+            }
+        }
+        out.add("");
+        out.add("**Air at the end** (" + fixedCells + " fixed-wall cells; °C over fluid cells): mean / hottest");
+        out.add("");
+        byte[] endClasses = AirflowReplayTest.classes(grid0, ref.model.region().background());
+        for (Run r : runs) {
+            float[] air = r.model.region().thermalState().airArray();
+            double sum = 0, max = Double.NEGATIVE_INFINITY;
+            int n = 0;
+            for (int c = 0; c < air.length; c++) {
+                if (endClasses[c] >= 0 && !Float.isNaN(air[c])) {
+                    sum += air[c];
+                    max = Math.max(max, air[c]);
+                    n++;
+                }
+            }
+            out.add(String.format(Locale.ROOT, "- %s: %.2f / %.1f", r.lever, sum / Math.max(1, n), max));
         }
         if (levers.contains(Lever.REF)) {
             out.add("");

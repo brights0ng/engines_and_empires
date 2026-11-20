@@ -1,11 +1,12 @@
 // Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f: loose regression bars; M8a:
 // the two bars the realistic surface film moved out of, re-centred; M8b4: a block broken beside lava, with its bar
-// under F1; M8b5a: a tall cave, whole and cut by a tile border).
+// under F1; M8b5a: a tall cave, whole and cut by a tile border; M8e: lava under each fixed-wall surface).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface;
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.climate.Underground;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
@@ -551,6 +552,139 @@ public final class AirflowScenarios {
             }
         }
         report.log(runs[0]);
+    }
+
+    private static final BlockState LAVA = Blocks.LAVA.defaultBlockState();
+
+    /** One of l's fixed-wall settings: a surface and a keep-fine radius around lava facing air, cells. */
+    private record LWalls(FixedSurface surface, int keepFine) {
+        @Override
+        public String toString() {
+            return surface + (keepFine > 0 ? " K" + keepFine : "");
+        }
+    }
+
+    /** l's settings: RAY as before; FILM and CONVECTION, with and without keep-fine cubes. */
+    private static final LWalls[] L_WALLS = {new LWalls(FixedSurface.RAY, 0), new LWalls(FixedSurface.FILM, 0),
+            new LWalls(FixedSurface.CONVECTION, 0), new LWalls(FixedSurface.FILM, 3),
+            new LWalls(FixedSurface.CONVECTION, 1), new LWalls(FixedSurface.CONVECTION, 3)};
+
+    /**
+     * l (GreedyFluids M8e, Bright 2026-11-20: lava should heat its surroundings "pretty hot"; only the film (FILM) and
+     * free convection off the hot face (CONVECTION) are tried, after the fix that couples a fixed wall through its own
+     * face rather than half the stone behind it). Each case runs under RAY (as before), FILM and CONVECTION:
+     * <ul>
+     *   <li>h's house with its 2 × 2 lava pool in the floor, still outside air at 5 C, 10 min: the inside's offset, the
+     *       air over the pool, the hottest inside air;</li>
+     *   <li>k's tall cave with its lava face (4 × 3 in the west wall), one region, 20 min: top, bottom, the whole
+     *       cave's mean and its hottest air;</li>
+     *   <li>a closed cave 11 × 6 × 11 (x 10–20, y 10–15, z 10–20) under k's cover and background, a 3 × 3 lava pool in
+     *       its floor (y 9), 30 min: the cave's mean, its top layer, the air over the pool, the hottest air;</li>
+     *   <li>a 3 × 3 lava pool in open ground (x 14–16, z 14–16, the ground's top layer), outside air 5 C, still and
+     *       in a 3 m/s wind along +x, 10 min: the air just over the pool and 3 blocks up, 3–5 blocks downwind, and
+     *       the hottest.</li>
+     * </ul>
+     * Each runs as built so far, then (M8e, the lava-heated house and cave stayed one box: no plume) with keep-fine cubes
+     * around the lava faces facing air: FILM with radius 3, CONVECTION with radius 1 and 3.
+     * <b>Report only</b>: finite values, and FILM and CONVECTION at least as warm over the pool as RAY.
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_scenario_lava_surface")
+    public static void lavaUnderEachSurface(GameTestHelper helper) {
+        List<String> failures = new ArrayList<>();
+        double[] overPool = new double[L_WALLS.length];
+        for (int i = 0; i < L_WALLS.length; i++) {
+            LWalls w = L_WALLS[i];
+            overPool[i] = lavaPoolInTheHouse(w, failures);
+            lavaFaceInTheTallCave(w, failures);
+            closedLavaCave(w, failures);
+            openLavaPool(w, 0, failures);
+            openLavaPool(w, 3, failures);
+        }
+        helper.assertTrue(failures.isEmpty(), "l. finite readings: " + String.join("; ", failures));
+        boolean warmer = true;
+        for (int i = 1; i < L_WALLS.length; i++) {
+            warmer &= overPool[i] >= overPool[0];
+        }
+        helper.assertTrue(warmer, "l. FILM and CONVECTION warm the air over the house's pool at least as much as RAY: "
+                + java.util.Arrays.toString(overPool));
+        helper.succeed();
+    }
+
+    /** l's house with h's lava pool; returns the air over the pool at 10 min, C. */
+    private static double lavaPoolInTheHouse(LWalls w, List<String> failures) {
+        AirflowScene scene = house().fill(15, G - 1, 15, 16, G - 1, 16, LAVA).fixedWalls(w.surface(), w.keepFine());
+        AirflowScene.Run run = scene.build(STILL, 0, 0);
+        AirflowScene.Report report = new AirflowScene.Report("l lava pool in the house, " + w);
+        double over = Double.NaN;
+        for (int t : new int[] {60, 300, 600}) {
+            run.until(t);
+            over = run.meanTemperature(15, G, 15, 16, G, 16);
+            double max = run.maxTemperature(INSIDE[0], INSIDE[1], INSIDE[2], INSIDE[3], INSIDE[4], INSIDE[5]);
+            report.add("t" + t + " inside", inside(run)).add("corner", corner(run)).add("over pool", over)
+                    .add("hottest", max);
+            lFinite(failures, "house " + w + " t" + t, inside(run), over, max);
+        }
+        report.log(run);
+        return over;
+    }
+
+    /** l's tall cave with k's lava face, as one region. */
+    private static void lavaFaceInTheTallCave(LWalls w, List<String> failures) {
+        AirflowScene scene = new AirflowScene(N, K_TOP, N).fill(0, 0, 0, N - 1, K_TOP - 1, N - 1, STONE)
+                .fill(4, 4, 8, 19, 33, 23, Blocks.AIR.defaultBlockState()).fill(3, 4, 14, 3, 6, 17, LAVA)
+                .fixedWalls(w.surface(), w.keepFine());
+        AirflowScene.Run run = scene.build(K_BACKGROUND, 0, 0);
+        AirflowScene.Report report = new AirflowScene.Report("l lava face in the tall cave, " + w);
+        for (int t : new int[] {120, 600, 1200}) {
+            run.until(t);
+            double top = run.meanTemperature(4, 29, 8, 19, 31, 23), bottom = run.meanTemperature(4, 4, 8, 19, 6, 23);
+            double mean = run.meanTemperature(4, 4, 8, 19, 33, 23), max = run.maxTemperature(4, 4, 8, 19, 33, 23);
+            report.add("t" + t + " top", top).add("bottom", bottom).add("mean", mean)
+                    .add("by the face", run.meanTemperature(4, 4, 14, 4, 6, 17)).add("hottest", max);
+            lFinite(failures, "tall cave " + w + " t" + t, top, bottom, max);
+        }
+        report.log(run);
+    }
+
+    /** l's closed cave with a 3 × 3 lava pool in its floor. */
+    private static void closedLavaCave(LWalls w, List<String> failures) {
+        AirflowScene scene = new AirflowScene(N, K_TOP, N).fill(0, 0, 0, N - 1, K_TOP - 1, N - 1, STONE)
+                .fill(10, 10, 10, 20, 15, 20, Blocks.AIR.defaultBlockState()).fill(14, 9, 14, 16, 9, 16, LAVA)
+                .fixedWalls(w.surface(), w.keepFine());
+        AirflowScene.Run run = scene.build(K_BACKGROUND, 0, 0);
+        AirflowScene.Report report = new AirflowScene.Report("l closed cave with a 3x3 lava pool, " + w);
+        report.add("t0 mean", run.meanTemperature(10, 10, 10, 20, 15, 20));
+        for (int t : new int[] {60, 600, 1800}) {
+            run.until(t);
+            double mean = run.meanTemperature(10, 10, 10, 20, 15, 20), max = run.maxTemperature(10, 10, 10, 20, 15, 20);
+            report.add("t" + t + " mean", mean).add("top layer", run.meanTemperature(10, 15, 10, 20, 15, 20))
+                    .add("floor layer", run.meanTemperature(10, 10, 10, 20, 10, 20))
+                    .add("over pool", run.meanTemperature(14, 10, 14, 16, 10, 16)).add("hottest", max);
+            lFinite(failures, "closed cave " + w + " t" + t, mean, max, mean);
+        }
+        report.log(run);
+    }
+
+    /** l's lava pool in open ground, in still air or a wind of {@code wind} m/s along +x. */
+    private static void openLavaPool(LWalls w, double wind, List<String> failures) {
+        AirflowScene scene = ground(G).fill(14, G - 1, 14, 16, G - 1, 16, LAVA).fixedWalls(w.surface(), w.keepFine());
+        AirflowScene.Run run = scene.build(STILL, wind, 0);
+        AirflowScene.Report report = new AirflowScene.Report("l open lava pool, wind " + (int) wind + " m/s, "
+                + w);
+        for (int t : new int[] {60, 300, 600}) {
+            run.until(t);
+            double over = run.meanOffset(14, G, 14, 16, G, 16), max = run.maxTemperature(10, G, 10, 22, G + 8, 22);
+            report.add("t" + t + " over pool", over).add("3 up", run.meanOffset(14, G + 3, 14, 16, G + 3, 16))
+                    .add("downwind", run.meanOffset(19, G, 14, 21, G + 1, 16)).add("hottest", max);
+            lFinite(failures, "open pool " + w + " wind " + wind + " t" + t, over, max, over);
+        }
+        report.log(run);
+    }
+
+    private static void lFinite(List<String> failures, String what, double a, double b, double c) {
+        if (!Double.isFinite(a) || !Double.isFinite(b) || !Double.isFinite(c)) {
+            failures.add(what + ": " + a + ", " + b + ", " + c);
+        }
     }
 
     /**

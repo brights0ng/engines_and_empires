@@ -2,7 +2,8 @@
 // background field, fixed walls, thermostats and body heat; M7f: sources on the grid before the region is built, the
 // heat diffusivity from the spec; held steps and edit-batch time for the profile; a weather sent ahead of an edit
 // batch goes first, and door toggles refresh the follow weights; M8a: the surface film from the cell table; M8b: tile
-// borders; M8b5b: the far side from regions of any size across; M8c c3: the source-velocity radius from the spec).
+// borders; M8b5b: the far side from regions of any size across; M8c c3: the source-velocity radius from the spec; M8e:
+// the fixed walls' surface and keep-fine radius from the cell table).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -112,6 +113,12 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
              double[] sourceWatts, AirflowSaved.Section[] saved, long now) {
             this(x0, y0, z0, nx, ny, nz, sections, table, backgroundT, windX, windZ, sourceCells, sourceWatts, null,
                     saved, now, null, null);
+        }
+
+        /** This spec with another cell table (M8e: replays comparing fixed-wall surfaces). */
+        Spec withTable(AirflowCells.Table other) {
+            return new Spec(x0, y0, z0, nx, ny, nz, sections, other, backgroundT, windX, windZ, sourceCells,
+                    sourceWatts, sourceLimits, saved, now, lattice, tops, kappa, sourceRadius);
         }
     }
 
@@ -227,6 +234,8 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         }
         CellGrid3D grid = new CellGrid3D(spec.nx(), spec.ny(), spec.nz());
         grid.setFilmResistance(spec.table().filmResistance()); // before the region: its stores and graph read it
+        grid.setFixedSurface(spec.table().fixedSurface()); // M8e: likewise its stores
+        grid.setFixedKeepFine(spec.table().fixedKeepFine()); // and its keep-fine marks
         for (int j = 0; j < nsy; j++) {
             for (int k = 0; k < nsz; k++) {
                 for (int i = 0; i < nsx; i++) {

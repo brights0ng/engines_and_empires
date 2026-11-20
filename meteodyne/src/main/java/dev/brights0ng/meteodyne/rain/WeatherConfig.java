@@ -9,6 +9,7 @@
 // Updated by Claude: [heat] engine defaults to AIRFLOW (GreedyFluids M7f f3).
 // Updated by Claude: [heat] airflow neighbour tiles, their threshold and reach (GreedyFluids M8b b4).
 // Updated by Claude: [heat] airflow surface film, a physical one (GreedyFluids M8a).
+// Updated by Claude: [heat] airflowFixedWallSurface, how lava and magma meet their air (GreedyFluids M8e).
 package dev.brights0ng.meteodyne.rain;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -459,6 +460,15 @@ public final class WeatherConfig {
             .defineInRange("airflowSurfaceFilm", dev.brights0ng.meteodyne.airflow.AirflowCells.Table.DEFAULT_SURFACE_FILM,
                     0.00001, 10.0);
 
+    public static final ModConfigSpec.EnumValue<dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface>
+            AIRFLOW_FIXED_WALL_SURFACE = BUILDER
+            .comment("AIRFLOW: how lava and magma faces heat the air beside them (GreedyFluids M8e, on trial). RAY: as any",
+                    "wall, through the film and half the blocks behind the face (a lava pool over deep stone barely",
+                    "warms its air). FILM: through the surface film alone. CONVECTION: as FILM, with free convection",
+                    "off the hot face (about twice the film's warmth from lava). Applies from the next /reload or",
+                    "restart.")
+            .defineEnum("airflowFixedWallSurface", dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface.RAY);
+
     public static final ModConfigSpec.DoubleValue AIRFLOW_HEAT_DIFFUSIVITY = BUILDER
             .comment("AIRFLOW: how fast heat spreads through the air by mixing alone, m²/s (indoor air mixes at about",
                     "0.01-0.1). Lower lets warm air rise and gather under ceilings and fires draw up chimneys; higher",
@@ -585,6 +595,12 @@ public final class WeatherConfig {
     /** AIRFLOW: the surface film on each face of a solid, m²·K/W. */
     public static double airflowSurfaceFilm() {
         return SPEC.isLoaded() ? AIRFLOW_SURFACE_FILM.get() : dev.brights0ng.meteodyne.airflow.AirflowCells.Table.DEFAULT_SURFACE_FILM;
+    }
+
+    /** AIRFLOW: how lava and magma faces couple to their air (M8e). */
+    public static dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface airflowFixedWallSurface() {
+        return SPEC.isLoaded() ? AIRFLOW_FIXED_WALL_SURFACE.get()
+                : dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface.RAY;
     }
 
     /** AIRFLOW: the air's heat diffusivity, m²/s. */
