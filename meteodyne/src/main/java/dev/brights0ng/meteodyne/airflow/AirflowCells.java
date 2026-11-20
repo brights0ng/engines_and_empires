@@ -1,5 +1,6 @@
 // Written by Claude (GreedyFluids M7b); edited by Claude (M7c: hot walls; M7f: real stone from the config; M8a: the
-// surface film from the config; M8e: the fixed walls' surface and keep-fine radius from the config).
+// surface film from the config; M8e: the fixed walls' surface and keep-fine radius from the config; M8e e3: the dynamic
+// start's switch from the config).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -114,14 +115,26 @@ public final class AirflowCells {
         private final double filmResistance;
         private final CellGrid3D.FixedSurface fixedSurface;
         private final int fixedKeepFine;
+        /** Whether regions start from the dynamic start's estimate (M8e e3; {@code [heat] airflowDynamicStart}). */
+        private final boolean dynamicStart;
 
         Table(long generation, Cell[] cells, double filmResistance, CellGrid3D.FixedSurface fixedSurface,
-              int fixedKeepFine) {
+              int fixedKeepFine, boolean dynamicStart) {
             this.generation = generation;
             this.cells = cells;
             this.filmResistance = filmResistance;
             this.fixedSurface = fixedSurface;
             this.fixedKeepFine = fixedKeepFine;
+            this.dynamicStart = dynamicStart;
+        }
+
+        /**
+         * As above with the dynamic start off: tables built without the config (replays, unit tests) start cold, as
+         * before M8e e3; the config's table ({@link AirflowCells#table}) takes {@code [heat] airflowDynamicStart}.
+         */
+        Table(long generation, Cell[] cells, double filmResistance, CellGrid3D.FixedSurface fixedSurface,
+              int fixedKeepFine) {
+            this(generation, cells, filmResistance, fixedSurface, fixedKeepFine, false);
         }
 
         /** As above with the library's default fixed walls (replays and unit tests). */
@@ -154,12 +167,22 @@ public final class AirflowCells {
             return fixedKeepFine;
         }
 
+        /** Whether regions start from the dynamic start's estimate ({@code [heat] airflowDynamicStart}; M8e e3). */
+        public boolean dynamicStart() {
+            return dynamicStart;
+        }
+
         /**
          * This table with another fixed-wall surface and keep-fine radius (scenarios and replays that compare them;
          * M8e).
          */
         Table withFixedWalls(CellGrid3D.FixedSurface surface, int keepFine) {
-            return new Table(generation, cells, filmResistance, surface, keepFine);
+            return new Table(generation, cells, filmResistance, surface, keepFine, dynamicStart);
+        }
+
+        /** This table with the dynamic start on or off (scenarios, which start cold unless they ask; M8e e3). */
+        Table withDynamicStart(boolean on) {
+            return new Table(generation, cells, filmResistance, fixedSurface, fixedKeepFine, on);
         }
 
         /** Codes in use, AIR included. */
@@ -330,7 +353,8 @@ public final class AirflowCells {
         fixedKeepFine = WeatherConfig.airflowFixedWallKeepFine();
         CELLS.add(AIR_CELL);
         INTERNED.put(AIR_CELL, AIR);
-        table = new Table(generation, CELLS.toArray(Cell[]::new), filmResistance, fixedSurface, fixedKeepFine);
+        table = new Table(generation, CELLS.toArray(Cell[]::new), filmResistance, fixedSurface, fixedKeepFine,
+                WeatherConfig.airflowDynamicStart());
     }
 
     @SubscribeEvent

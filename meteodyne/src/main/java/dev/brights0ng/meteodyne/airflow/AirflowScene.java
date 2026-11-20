@@ -1,7 +1,8 @@
 // Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f f2: saving and rebuilding a
 // running scene, for the model soak; the outside air sent ahead of an edit, as the manager does); edited by Claude
 // (M8a: tiles cut from a larger scene, for the straddle scenarios; M8b: neighbouring tiles stepped together; M8b5b:
-// neighbours of any size; M8e: fixed walls of its own, and the hottest air in a box).
+// neighbours of any size; M8e: fixed walls of its own, and the hottest air in a box; M8e e3: the dynamic start, off
+// unless asked for, and a reopen later than the save).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -46,6 +47,11 @@ final class AirflowScene {
     private FixedSurface fixedSurface;
     /** Keep-fine cube radius around lava and magma facing air (M8e), with {@link #fixedSurface}. */
     private int fixedKeepFine;
+    /**
+     * Whether the region starts from the dynamic start's estimate (M8e e3): off, so every scenario's bar keeps its cold
+     * start, unless the scenario asks ({@link #dynamicStart}).
+     */
+    private boolean dynamicStart;
 
     AirflowScene(int nx, int ny, int nz) {
         this(nx, ny, nz, 0, 0, 0, null);
@@ -88,6 +94,7 @@ final class AirflowScene {
         AirflowScene t = new AirflowScene(tnx, tny, tnz, ox + x0, oy + y0, oz + z0, cut);
         t.fixedSurface = fixedSurface;
         t.fixedKeepFine = fixedKeepFine;
+        t.dynamicStart = dynamicStart;
         for (int y = 0; y < tny; y++) {
             for (int z = 0; z < tnz; z++) {
                 for (int x = 0; x < tnx; x++) {
@@ -105,6 +112,12 @@ final class AirflowScene {
     AirflowScene fixedWalls(FixedSurface surface, int keepFine) {
         fixedSurface = surface;
         fixedKeepFine = keepFine;
+        return this;
+    }
+
+    /** Builds this scene (and tiles cut from it, and rebuilds after a restart) with the dynamic start on or off (M8e e3). */
+    AirflowScene dynamicStart(boolean on) {
+        dynamicStart = on;
         return this;
     }
 
@@ -213,6 +226,7 @@ final class AirflowScene {
         if (fixedSurface != null) {
             table = table.withFixedWalls(fixedSurface, fixedKeepFine);
         }
+        table = table.withDynamicStart(dynamicStart);
         List<Integer> cells = new ArrayList<>();
         List<Double> watts = new ArrayList<>(), limits = new ArrayList<>();
         for (int c = 0; c < states.length; c++) {
@@ -342,11 +356,19 @@ final class AirflowScene {
          * the wind carry over; simulated time runs on.
          */
         Run restart(long tick) {
+            return restart(tick, tick);
+        }
+
+        /**
+         * As {@link #restart(long)}, saved at game tick {@code saveTick} and reopened at {@code openTick}: the save is
+         * decayed by the ticks between (M8e e3: a saved tile left alone).
+         */
+        Run restart(long saveTick, long openTick) {
             sendWeather(); // the save's background is then the rebuild's, as at a reopen within the same weather
-            AirflowSaved.Tile tile = model.save(tick);
+            AirflowSaved.Tile tile = model.save(saveTick);
             double now = time();
             shiftBefore += model.region().mesh().backgroundShiftEnergy();
-            model = AirflowRegionModel.build(scene.spec(outside, now, windX, windZ, kappa, tile.sections(), tick));
+            model = AirflowRegionModel.build(scene.spec(outside, now, windX, windZ, kappa, tile.sections(), openTick));
             model.neighbours(neighbours);
             before = now;
             lastWeather = now;

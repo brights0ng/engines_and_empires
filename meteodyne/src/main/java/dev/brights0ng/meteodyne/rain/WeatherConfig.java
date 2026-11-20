@@ -11,6 +11,8 @@
 // Updated by Claude: [heat] airflow surface film, a physical one (GreedyFluids M8a).
 // Updated by Claude: [heat] airflowFixedWallSurface and airflowFixedWallKeepFine, how lava and magma meet their air
 // (GreedyFluids M8e; CONVECTION and 1 by default, Bright 2026-11-20).
+// Updated by Claude: [heat] airflowDynamicStart, tiles opening by heat sources and lava start near where they settle
+// (GreedyFluids M8e e3).
 package dev.brights0ng.meteodyne.rain;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -476,6 +478,13 @@ public final class WeatherConfig {
                     "one coarse block of air, with no plume. Applies from the next /reload or restart.")
             .defineInRange("airflowFixedWallKeepFine", dev.brights0ng.greedyfluids.grid.CellGrid3D.DEFAULT_FIXED_KEEP_FINE, 0, 4);
 
+    public static final ModConfigSpec.BooleanValue AIRFLOW_DYNAMIC_START = BUILDER
+            .comment("AIRFLOW: a tile opening with heat sources or lava starts near where its air would settle, not at",
+                    "the outside air (GreedyFluids M8e): lava and magma as if they had always been there, fires and",
+                    "furnaces as if lit for an in-game day. A saved tile drifts toward that, not toward the outside air.",
+                    "Off: every tile starts at the outside air or its save. Applies from the next /reload or restart.")
+            .define("airflowDynamicStart", true);
+
     public static final ModConfigSpec.DoubleValue AIRFLOW_HEAT_DIFFUSIVITY = BUILDER
             .comment("AIRFLOW: how fast heat spreads through the air by mixing alone, m²/s (indoor air mixes at about",
                     "0.01-0.1). Lower lets warm air rise and gather under ceilings and fires draw up chimneys; higher",
@@ -612,6 +621,11 @@ public final class WeatherConfig {
     /** AIRFLOW: the keep-fine radius around lava and magma facing air, blocks (M8e). */
     public static int airflowFixedWallKeepFine() {
         return SPEC.isLoaded() ? AIRFLOW_FIXED_WALL_KEEP_FINE.get() : dev.brights0ng.greedyfluids.grid.CellGrid3D.DEFAULT_FIXED_KEEP_FINE;
+    }
+
+    /** AIRFLOW: whether tiles with heat sources or lava start from the dynamic start's estimate (M8e e3). */
+    public static boolean airflowDynamicStart() {
+        return !SPEC.isLoaded() || AIRFLOW_DYNAMIC_START.get();
     }
 
     /** AIRFLOW: the air's heat diffusivity, m²/s. */

@@ -1,7 +1,8 @@
 // Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f: loose regression bars; M8a:
 // the two bars the realistic surface film moved out of, re-centred; M8b4: a block broken beside lava, with its bar
 // under F1; M8b5a: a tall cave, whole and cut by a tile border; M8e: lava under each fixed-wall surface, and h's lava
-// bar re-centred on the adopted one; M8e e3b: the dynamic start's calibration).
+// bar re-centred on the adopted one; M8e e3b: the dynamic start's calibration; M8e e3c: the dynamic start in the
+// region's build).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -875,6 +876,56 @@ public final class AirflowScenarios {
                     .log(run);
             lFinite(failures, c.name() + " kappa " + kappa, est.mean(), after.mean(), after.reader());
         }
+    }
+
+    /**
+     * n (GreedyFluids M8e e3c; Bright, decisions 48–49, 53–56): the dynamic start in the region's build, on m's closed
+     * cave with a 3 × 3 lava pool (its steady state about 648 °C over the background):
+     * <ul>
+     *   <li>with the dynamic start on, the cave opens near its steady state (weight 1); off, at its background;</li>
+     *   <li>a save made after 2 min from cold and reopened one τ (24,000 ticks) later lands at estimate + (saved −
+     *       estimate)·e^(−1), within 5 % of the gap (decision 49);</li>
+     *   <li>one reopened 100 ticks later (weight under 1 %) is left as saved.</li>
+     * </ul>
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_scenario_start")
+    public static void dynamicStartOpensHotAndSavedTilesDecay(GameTestHelper helper) {
+        int[] v = {10, 10, 10, 20, 15, 20};
+        Supplier<AirflowScene> cave = M_CASES[3].scene();
+        AirflowScene.Run hot = cave.get().dynamicStart(true).build(K_BACKGROUND, 0, 0);
+        AirflowScene.Run cold = cave.get().build(K_BACKGROUND, 0, 0);
+        double est = hot.meanOffset(v[0], v[1], v[2], v[3], v[4], v[5]);
+        double start = cold.meanOffset(v[0], v[1], v[2], v[3], v[4], v[5]);
+        AirflowScene.Report report = new AirflowScene.Report("n dynamic start, closed lava cave");
+        report.add("opens at", est).add("weight", hot.model.startWeight()).add("iterations", hot.model.startIterations())
+                .add("estimate ms", hot.model.startMs()).add("off, opens at", start);
+        helper.assertTrue(hot.model.startWeight() == 1, "n. a fresh tile takes the whole estimate: " + hot.model.startWeight());
+        helper.assertTrue(est > 500 && est < 800, "n. the cave opens near its steady state (about 648 over): " + est);
+        helper.assertTrue(Math.abs(start) < 5 && cold.model.startWeight() == 0, "n. off, it opens at its background: " + start);
+
+        cold.until(120);
+        double saved = cold.meanOffset(v[0], v[1], v[2], v[3], v[4], v[5]);
+        cold.scene.dynamicStart(true);
+        cold.restart(1000, 1000 + (long) AirflowSaved.TAU_TICKS);
+        double reopened = cold.meanOffset(v[0], v[1], v[2], v[3], v[4], v[5]);
+        double expected = est + (saved - est) * Math.exp(-1);
+        report.add("saved at 2 min", saved).add("reopened a day later", reopened).add("expected", expected)
+                .add("weight", cold.model.startWeight());
+        helper.assertTrue(Math.abs(cold.model.startWeight() + Math.expm1(-1)) < 1e-9,
+                "n. a day-old save takes 1 - 1/e of the estimate: " + cold.model.startWeight());
+        helper.assertTrue(Math.abs(reopened - expected) < 0.05 * Math.abs(est - saved),
+                "n. a day-old save decays toward the estimate: " + reopened + " against " + expected);
+
+        AirflowScene.Run quick = cave.get().build(K_BACKGROUND, 0, 0);
+        quick.until(120);
+        double before = quick.meanOffset(v[0], v[1], v[2], v[3], v[4], v[5]);
+        quick.scene.dynamicStart(true);
+        quick.restart(1000, 1100);
+        double after = quick.meanOffset(v[0], v[1], v[2], v[3], v[4], v[5]);
+        report.add("quick reopen, before", before).add("after", after).add("weight", quick.model.startWeight()).log(hot);
+        helper.assertTrue(quick.model.startWeight() == 0 && Math.abs(after - before) < 0.5,
+                "n. a save reopened 100 ticks later is left as saved: " + before + " -> " + after);
+        helper.succeed();
     }
 
     /**
