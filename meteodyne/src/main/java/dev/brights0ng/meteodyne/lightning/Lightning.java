@@ -1,3 +1,4 @@
+// Edited by Claude: sends through MeteodyneNetwork.sendTo, which skips clients without the channel.
 package dev.brights0ng.meteodyne.lightning;
 
 import java.util.ArrayList;
@@ -323,7 +324,7 @@ public final class Lightning {
             double dx = p.getX() - payload.x();
             double dz = p.getZ() - payload.z();
             if (dx * dx + dz * dz <= r2) {
-                PacketDistributor.sendToPlayer(p, payload);
+                dev.brights0ng.meteodyne.MeteodyneNetwork.sendTo(p, payload);
             }
         }
     }

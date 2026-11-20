@@ -1,3 +1,4 @@
+// Edited by Claude: sends through MeteodyneNetwork.sendTo, which skips clients without the channel.
 package dev.brights0ng.meteodyne.climate;
 
 import dev.brights0ng.meteodyne.Meteodyne;
@@ -69,7 +70,7 @@ public final class ApparentSync {
             return;
         }
         for (ServerPlayer player : level.players()) {
-            PacketDistributor.sendToPlayer(player, new Payload((float) offsetOn(level, player)));
+            dev.brights0ng.meteodyne.MeteodyneNetwork.sendTo(player, new Payload((float) offsetOn(level, player)));
         }
     }
 

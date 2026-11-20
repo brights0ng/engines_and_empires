@@ -1,3 +1,4 @@
+// Edited by Claude: sends through MeteodyneNetwork.sendTo, which skips clients without the channel.
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.Set;
@@ -118,7 +119,7 @@ public final class HeatView {
     /** Turns the view on or off for {@code player}; returns whether it is now on. */
     public static boolean toggle(ServerPlayer player) {
         if (WATCHING.remove(player.getUUID())) {
-            PacketDistributor.sendToPlayer(player, Payload.OFF);
+            dev.brights0ng.meteodyne.MeteodyneNetwork.sendTo(player, Payload.OFF);
             return false;
         }
         WATCHING.add(player.getUUID());
@@ -142,7 +143,7 @@ public final class HeatView {
     private static void send(ServerPlayer player) {
         int frame = ++frames;
         if (!(player.level() instanceof ServerLevel level) || level.dimension() != Level.OVERWORLD) {
-            PacketDistributor.sendToPlayer(player, Payload.end(frame));
+            dev.brights0ng.meteodyne.MeteodyneNetwork.sendTo(player, Payload.end(frame));
             return;
         }
         Vec3 at = player.position();
@@ -167,10 +168,10 @@ public final class HeatView {
             double dy = Math.max(0, Math.max(minY - at.y, at.y - maxY));
             double dz = Math.max(0, Math.max(minZ - at.z, at.z - maxZ));
             if (dx * dx + dy * dy + dz * dz <= range2) {
-                PacketDistributor.sendToPlayer(player, build(frame, r));
+                dev.brights0ng.meteodyne.MeteodyneNetwork.sendTo(player, build(frame, r));
             }
         }
-        PacketDistributor.sendToPlayer(player, Payload.end(frame));
+        dev.brights0ng.meteodyne.MeteodyneNetwork.sendTo(player, Payload.end(frame));
     }
 
     /** A region's air cells, as one message of frame {@code frame}. */

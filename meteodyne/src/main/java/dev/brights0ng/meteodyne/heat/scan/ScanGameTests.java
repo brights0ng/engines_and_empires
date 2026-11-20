@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; edited by Claude (v2 CELLS replay test, GreedyFluids M6f).
 package dev.brights0ng.meteodyne.heat.scan;
 
 import java.io.IOException;
@@ -119,6 +119,93 @@ public final class ScanGameTests {
         }
     }
 
+    /**
+     * v2: a section 3 sections from the anchor but more than 48 blocks away is summarised with CELLS, its later edits
+     * are logged, and its CELLS plus the BLOCK records after them in the file reproduce the live section exactly.
+     * The edit made before the summary must not be applied (it is already in the cells). The door and glass may fall
+     * in a neighbouring section, depending on where the test is placed; the full-section comparison covers them when not.
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "scanCells", timeoutTicks = 200)
+    public static void recorderCellsReproduceSection(GameTestHelper helper) {
+        BlockPos p = null;
+        for (int x = 1; x <= 5 && p == null; x++) {
+            BlockPos candidate = helper.absolutePos(new BlockPos(x, 2, 3));
+            if ((candidate.getX() & 15) != 0) p = candidate;
+        }
+        BlockPos edit = p, early = p.above(), fire = p.below();
+        BlockPos door = p.offset(0, 0, -2);
+        Vec3 anchor = new Vec3(((p.getX() >> 4) - 3) * 16 + 0.5, p.getY() + 0.5, p.getZ() + 0.5);
+        helper.assertTrue(edit.getX() - (int) Math.floor(anchor.x) > 48, "edit lies beyond the v1 48-block radius");
+        var level = helper.getLevel();
+        level.setBlock(fire, Blocks.CAMPFIRE.defaultBlockState().setValue(CampfireBlock.LIT, true), 3);
+        level.setBlock(door.below(), Blocks.STONE.defaultBlockState(), 3);
+        level.setBlock(door, Blocks.OAK_DOOR.defaultBlockState().setValue(DoorBlock.HALF, DoubleBlockHalf.LOWER), 3);
+        level.setBlock(door.above(), Blocks.OAK_DOOR.defaultBlockState().setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER), 3);
+        Path file = ScanRecorder.start(tempDir(), level, () -> anchor);
+        final BlockPos target = edit;
+        try {
+            level.setBlock(early, Blocks.GLASS.defaultBlockState(), 3); // Before the section is summarised.
+            helper.runAfterDelay(80, () -> {
+                level.setBlock(target, Blocks.STONE.defaultBlockState(), 3);
+                level.setBlock(door, Blocks.OAK_DOOR.defaultBlockState().setValue(DoorBlock.HALF, DoubleBlockHalf.LOWER)
+                        .setValue(DoorBlock.OPEN, true), 3);
+                helper.runAfterDelay(2, () -> {
+                    ScanRecorder.stop();
+                    try { verifyCells(helper, ScanFormat.readRecording(file), target); }
+                    catch (IOException e) { throw new UncheckedIOException(e); }
+                });
+            });
+        } catch (RuntimeException e) {
+            ScanRecorder.stop();
+            throw e;
+        }
+    }
+
+    private static void verifyCells(GameTestHelper helper, ScanFormat.Recording recording, BlockPos target) {
+        helper.assertTrue(recording.blockRadius() == ScanFormat.BLOCK_RADIUS_SECTIONS, "v2 header marks section-range edits");
+        int sx = target.getX() >> 4, sy = target.getY() >> 4, sz = target.getZ() >> 4;
+        Map<Integer, ScanFormat.State> states = new HashMap<>();
+        int[] ids = null;
+        boolean targetLogged = false;
+        int applied = 0;
+        StringBuilder trace = new StringBuilder();
+        for (var entry : recording.entries()) {
+            if (entry instanceof ScanFormat.Cells c && c.sx() == sx && c.sy() == sy && c.sz() == sz) trace.append(" CELLS@").append(c.tick());
+            if (entry instanceof ScanFormat.Section c && c.sx() == sx && c.sy() == sy && c.sz() == sz) trace.append(" SECTION@").append(c.tick()).append("u").append(c.uniformId());
+            if (entry instanceof ScanFormat.BlockChange b && b.x() >> 4 == sx && b.y() >> 4 == sy && b.z() >> 4 == sz) trace.append(" BLOCK@").append(b.tick());
+            if (entry instanceof ScanFormat.State state) states.put(state.id(), state);
+            if (entry instanceof ScanFormat.Cells cells && cells.sx() == sx && cells.sy() == sy && cells.sz() == sz) {
+                ids = new int[4096];
+                for (int i = 0; i < 4096; i++) {
+                    ids[i] = cells.palette()[Short.toUnsignedInt(cells.cells()[i])];
+                    helper.assertTrue(states.containsKey(ids[i]), "STATE precedes CELLS reference");
+                }
+                applied = 0;
+            }
+            if (entry instanceof ScanFormat.BlockChange block && block.x() >> 4 == sx && block.y() >> 4 == sy
+                    && block.z() >> 4 == sz) {
+                if (block.x() == target.getX() && block.y() == target.getY() && block.z() == target.getZ()
+                        && states.get(block.afterId()).kind() == ScanFormat.SOLID) targetLogged = true;
+                if (ids == null) continue; // Before the summary: already contained in the cells.
+                int i = ((block.y() & 15) * 16 + (block.z() & 15)) * 16 + (block.x() & 15);
+                helper.assertTrue(ids[i] == block.beforeId(), "BLOCK before-state matches the reconstructed cell");
+                ids[i] = block.afterId();
+                if (block.x() == target.getX() && block.y() == target.getY() && block.z() == target.getZ()) applied++;
+            }
+        }
+        helper.assertTrue(ids != null, "the outer-ring section has CELLS");
+        helper.assertTrue(targetLogged, "the edit beyond 48 blocks is logged");
+        helper.assertTrue(applied == 1, "the target edit follows the summary and is applied:" + trace);
+        var level = helper.getLevel();
+        for (int y = 0; y < 16; y++) for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) {
+            String live = ScanFormat.stateString(level.getBlockState(new BlockPos(sx * 16 + x, sy * 16 + y, sz * 16 + z)));
+            String replayed = states.get(ids[(y * 16 + z) * 16 + x]).state();
+            if (!live.equals(replayed))
+                helper.fail("cell " + x + "," + y + "," + z + ": live " + live + ", replayed " + replayed);
+        }
+        helper.succeed();
+    }
+
     private static long tickOf(ScanFormat.Entry entry) {
         if (entry instanceof ScanFormat.End value) return value.tick();
         if (entry instanceof ScanFormat.Dimension value) return value.tick();
@@ -126,6 +213,7 @@ public final class ScanGameTests {
         if (entry instanceof ScanFormat.BlockChange value) return value.tick();
         if (entry instanceof ScanFormat.Action value) return value.tick();
         if (entry instanceof ScanFormat.Section value) return value.tick();
+        if (entry instanceof ScanFormat.Cells value) return value.tick();
         if (entry instanceof ScanFormat.Load value) return value.tick();
         if (entry instanceof ScanFormat.Mark value) return value.tick();
         return Long.MIN_VALUE;

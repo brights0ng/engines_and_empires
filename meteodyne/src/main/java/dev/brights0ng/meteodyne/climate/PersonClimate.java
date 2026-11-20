@@ -1,3 +1,4 @@
+// Edited by Claude: in airflow mode the room is airflow's offset; radiant warmth stays (GreedyFluids M7e).
 package dev.brights0ng.meteodyne.climate;
 
 import java.util.Collections;
@@ -5,6 +6,7 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 import dev.brights0ng.meteodyne.WeatherOwnership;
+import dev.brights0ng.meteodyne.airflow.AirflowTemperatures;
 import dev.brights0ng.meteodyne.field.AtmosphereField;
 import dev.brights0ng.meteodyne.field.FieldEnv;
 import dev.brights0ng.meteodyne.field.Moisture;
@@ -125,7 +127,9 @@ public final class PersonClimate {
             Vec3 plotBody = keptInPlot
                     ? player.position().add(0, BODY_MIDDLE, 0)
                     : Ships.get().plotPoint(level, body.x, body.y, body.z);
-            room = heat.roomAt(keptInPlot ? plotBody : body);
+            // In airflow mode the room is airflow's offset (M7e); a ship's plot has none (no ship room heat there)
+            double airflow = AirflowTemperatures.offset(level, keptInPlot ? plotBody : body);
+            room = Double.isNaN(airflow) ? heat.roomAt(keptInPlot ? plotBody : body) : airflow;
             radiant = HeatRadiant.at(level, body, plotBody);
         }
         st.sample = new Sample(wind, humidity, sun, room, radiant, now);

@@ -1,3 +1,4 @@
+// Edited by Claude: optional watts and wall_temperature for airflow (GreedyFluids M7c).
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.List;
@@ -32,13 +33,26 @@ import net.minecraft.world.level.block.state.properties.Property;
  *       a {@link HeatDrivers} driver (a hearth heating, an engine running). A block with driven variants is a source
  *       candidate in any state; for each driver the first variant that fits counts, and different drivers count at
  *       once (a hearth heats and cools)</li>
+ *   <li>{@code watts} (airflow, M7c): the heat it puts into the air, W, real-world (Bright, 2026-11-15); absent:
+ *       {@code power} × 10 kW × (1 − {@code radiant})</li>
+ *   <li>{@code wall_temperature} (airflow, M7c): the block is a wall held at this temperature, C (lava, magma)</li>
  * </ul>
  */
 public record HeatPowerData(List<Variant> variants) {
 
-    /** One state of a source. {@code maxOffset} and {@code limit} are NaN for none; {@code driver} null for none. */
+    /**
+     * One state of a source. {@code maxOffset}, {@code limit}, {@code watts} and {@code wallTemperature} are NaN for
+     * none; {@code driver} null for none.
+     */
     public record Variant(Map<String, String> state, double power, double radiant, boolean natural, boolean perFace,
-                          double maxOffset, double limit, ResourceLocation driver) {
+                          double maxOffset, double limit, ResourceLocation driver, double watts,
+                          double wallTemperature) {
+
+        /** A variant without the airflow fields. */
+        public Variant(Map<String, String> state, double power, double radiant, boolean natural, boolean perFace,
+                       double maxOffset, double limit, ResourceLocation driver) {
+            this(state, power, radiant, natural, perFace, maxOffset, limit, driver, Double.NaN, Double.NaN);
+        }
 
         public static final Codec<Variant> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("state", Map.of()).forGetter(Variant::state),
@@ -50,10 +64,14 @@ public record HeatPowerData(List<Variant> variants) {
                         .forGetter(v -> Double.isNaN(v.maxOffset) ? Optional.empty() : Optional.of(v.maxOffset)),
                 Codec.doubleRange(-273, 3000).optionalFieldOf("limit")
                         .forGetter(v -> Double.isNaN(v.limit) ? Optional.empty() : Optional.of(v.limit)),
-                ResourceLocation.CODEC.optionalFieldOf("driver").forGetter(v -> Optional.ofNullable(v.driver))
-        ).apply(i, (state, power, radiant, natural, perFace, maxOffset, limit, driver) -> new Variant(state, power,
-                radiant, natural, perFace, maxOffset.orElse(Double.NaN), limit.orElse(Double.NaN),
-                driver.orElse(null))));
+                ResourceLocation.CODEC.optionalFieldOf("driver").forGetter(v -> Optional.ofNullable(v.driver)),
+                Codec.doubleRange(-1e7, 1e7).optionalFieldOf("watts")
+                        .forGetter(v -> Double.isNaN(v.watts) ? Optional.empty() : Optional.of(v.watts)),
+                Codec.doubleRange(-273, 3000).optionalFieldOf("wall_temperature")
+                        .forGetter(v -> Double.isNaN(v.wallTemperature) ? Optional.empty() : Optional.of(v.wallTemperature))
+        ).apply(i, (state, power, radiant, natural, perFace, maxOffset, limit, driver, watts, wall) -> new Variant(state,
+                power, radiant, natural, perFace, maxOffset.orElse(Double.NaN), limit.orElse(Double.NaN),
+                driver.orElse(null), watts.orElse(Double.NaN), wall.orElse(Double.NaN))));
 
         /** Whether {@code block} is in the state this variant is for. */
         public boolean matches(BlockState block) {
@@ -79,7 +97,7 @@ public record HeatPowerData(List<Variant> variants) {
         /** The same source at {@code share} of its power (a driver's answer). */
         public Variant scaled(double share) {
             return share == 1 ? this : new Variant(state, power * share, radiant, natural, perFace, maxOffset, limit,
-                    driver);
+                    driver, watts * share, wallTemperature);
         }
 
         private static <T extends Comparable<T>> String valueName(BlockState block, Property<T> property) {

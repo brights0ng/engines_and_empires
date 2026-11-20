@@ -1,3 +1,4 @@
+// Edited by Claude: in airflow mode mobs and position checks read airflow's offset (GreedyFluids M7e).
 package dev.brights0ng.enginesandempires.weather.climate.compat;
 
 import java.util.function.Function;
@@ -48,8 +49,13 @@ public class ClimateTempModifier extends TempModifier {
             }
             mc += ColdSweatCompat.toMc(felt);
         } else if (Double.isFinite(celsius) && entity.level() instanceof ServerLevel server) {
+            // In airflow mode the room is airflow's offset (GreedyFluids M7e); a ship's grid has none there
+            double airflow = dev.brights0ng.meteodyne.airflow.AirflowTemperatures.offset(server,
+                    net.minecraft.world.phys.Vec3.atCenterOf(entity.blockPosition()));
             HeatWorld heat = HeatWorld.of(server);
-            if (heat != null) {
+            if (!Double.isNaN(airflow)) {
+                mc += ColdSweatCompat.toMc(airflow);
+            } else if (heat != null) {
                 // Its own block, in a ship's grid if it is one (8f-5)
                 mc += ColdSweatCompat.toMc(heat.roomAt(net.minecraft.world.phys.Vec3.atCenterOf(entity.blockPosition())));
             }

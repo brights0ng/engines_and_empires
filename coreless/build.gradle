@@ -50,6 +50,11 @@ neoForge {
         gameTestServer {
             systemProperty 'neoforge.enabledGameTestNamespaces',
                     project.findProperty('coreless.namespaces')?.toString() ?: (featureModIds + [mod_id]).join(',')
+            // GreedyFluids M7b b2 (Claude): Meteodyne's opt-in airflow mapping check, here with Create and the other
+            // outside mods loaded (-Pcoreless.namespaces=meteodyne -Pmeteodyne.airflowSnapshots=<scans folder>).
+            if (project.hasProperty('meteodyne.airflowSnapshots')) {
+                systemProperty 'meteodyne.airflowSnapshots', project.property('meteodyne.airflowSnapshots').toString()
+            }
         }
     }
 }

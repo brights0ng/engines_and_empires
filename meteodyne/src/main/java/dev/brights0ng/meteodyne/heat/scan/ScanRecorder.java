@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; edited by Claude (recording format v2: CELLS records and section-range edits, GreedyFluids M6f).
 package dev.brights0ng.meteodyne.heat.scan;
 
 import java.io.ByteArrayOutputStream;
@@ -39,7 +39,11 @@ import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
-/** Server-thread capture, with one daemon performing all recording file I/O and compression. */
+/**
+ * Server-thread capture, with one daemon performing all recording file I/O and compression.
+ * Format v2: a mixed section's SECTION summary is followed by its CELLS, and BLOCK/ACTION cover every in-range
+ * section, so a section's contents plus the BLOCK records after them in the file reproduce it at any later point.
+ */
 @EventBusSubscriber(modid = Meteodyne.MODID)
 public final class ScanRecorder {
     private static volatile Session active;
@@ -225,7 +229,7 @@ public final class ScanRecorder {
         int bx, by, bz;
         long elapsed, lastTick;
         final Map<BlockState, Integer> ids = new IdentityHashMap<>();
-        final long[] counts = new long[9];
+        final long[] counts = new long[10];
         final AtomicInteger dropped = new AtomicInteger();
         final Set<SectionPos> inRange = new HashSet<>();
         final ArrayDeque<SectionPos> pending = new ArrayDeque<>();
@@ -247,9 +251,9 @@ public final class ScanRecorder {
             var gzip = new GZIPOutputStream(Files.newOutputStream(file, StandardOpenOption.CREATE_NEW,
                     StandardOpenOption.WRITE), true);
             fileSize = Files.size(file);
-            out.writeInt(ScanFormat.RECORDING_MAGIC); out.writeInt(ScanFormat.VERSION);
+            out.writeInt(ScanFormat.RECORDING_MAGIC); out.writeInt(ScanFormat.RECORDING_VERSION);
             out.writeLong(lastTick); out.writeLong(System.currentTimeMillis());
-            out.writeInt(ScanFormat.BLOCK_RADIUS); out.writeInt(ScanFormat.SECTION_RADIUS);
+            out.writeInt(ScanFormat.BLOCK_RADIUS_SECTIONS); out.writeInt(ScanFormat.SECTION_RADIUS);
             out.writeInt(ScanFormat.TRAJECTORY_INTERVAL);
             writer = new Thread(() -> {
                 try (gzip) {
@@ -309,10 +313,12 @@ public final class ScanRecorder {
             bz = net.minecraft.util.Mth.floor(value.z);
         }
 
+        /** True when pos lies in a section of the current summary range (the anchor's section before the first tick). */
         boolean inRange(BlockPos pos) {
-            return Math.abs((long) pos.getX() - bx) <= ScanFormat.BLOCK_RADIUS
-                    && Math.abs((long) pos.getY() - by) <= ScanFormat.BLOCK_RADIUS
-                    && Math.abs((long) pos.getZ() - bz) <= ScanFormat.BLOCK_RADIUS;
+            int cx = centre != null ? centre.x() : bx >> 4, cy = centre != null ? centre.y() : by >> 4;
+            int cz = centre != null ? centre.z() : bz >> 4, r = ScanFormat.SECTION_RADIUS;
+            return Math.abs((pos.getX() >> 4) - cx) <= r && Math.abs((pos.getY() >> 4) - cy) <= r
+                    && Math.abs((pos.getZ() >> 4) - cz) <= r;
         }
 
         boolean updateAnchor() {
@@ -380,26 +386,52 @@ public final class ScanRecorder {
             }
         }
 
+        /** SECTION, then CELLS for a mixed section; every STATE they reference is written first. */
         void summary(SectionPos pos, LevelChunk chunk) {
             var section = chunk.getSection(level.getSectionIndexFromSectionY(pos.y()));
+            ArrayList<BlockState> local = new ArrayList<>();
+            short[] cells = new short[4096];
+            if (section.hasOnlyAir()) local.add(Blocks.AIR.defaultBlockState());
+            else {
+                Map<BlockState, Integer> index = new IdentityHashMap<>();
+                BlockState previous = null;
+                int previousIndex = -1, i = 0;
+                for (int y = 0; y < 16; y++) for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) {
+                    BlockState state = section.getBlockState(x, y, z);
+                    if (state != previous) {
+                        Integer known = index.get(state);
+                        if (known == null) { known = local.size(); index.put(state, known); local.add(state); }
+                        previous = state; previousIndex = known;
+                    }
+                    cells[i++] = (short) previousIndex;
+                }
+            }
+            int size = local.size();
+            int[] perIndex = new int[size];
+            if (size == 1) perIndex[0] = 4096;
+            else for (short cell : cells) perIndex[cell]++;
             int[] classes = new int[8];
             int sources = 0;
-            BlockState uniform = section.hasOnlyAir() ? Blocks.AIR.defaultBlockState() : section.getBlockState(0, 0, 0);
-            if (section.hasOnlyAir()) classes[ScanFormat.AIR] = 4096;
-            else for (int y = 0; y < 16; y++) for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) {
-                BlockState state = section.getBlockState(x, y, z);
-                classes[ScanFormat.classify(state)]++;
-                if ((ScanFormat.flags(state) & 1) != 0) sources++;
-                if (state != uniform) uniform = null;
+            for (int k = 0; k < size; k++) {
+                classes[ScanFormat.classify(local.get(k))] += perIndex[k];
+                if ((ScanFormat.flags(local.get(k)) & 1) != 0) sources += perIndex[k];
             }
             final int sourceCount = sources;
-            final BlockState uniformState = uniform;
             write(() -> {
-                int uniformId = uniformState == null ? -1 : id(uniformState);
-                tag(ScanFormat.SECTION); out.writeLong(tick());
+                int[] ids = new int[size];
+                for (int k = 0; k < size; k++) ids[k] = id(local.get(k));
+                long tick = tick();
+                tag(ScanFormat.SECTION); out.writeLong(tick);
                 out.writeInt(pos.x()); out.writeInt(pos.y()); out.writeInt(pos.z());
                 for (int count : classes) out.writeShort(count);
-                out.writeShort(sourceCount); out.writeInt(uniformId);
+                out.writeShort(sourceCount); out.writeInt(size == 1 ? ids[0] : -1);
+                if (size == 1) return;
+                tag(ScanFormat.CELLS); out.writeLong(tick);
+                out.writeInt(pos.x()); out.writeInt(pos.y()); out.writeInt(pos.z());
+                out.writeShort(size);
+                for (int id : ids) out.writeInt(id);
+                if (size <= 256) for (short cell : cells) out.writeByte(cell);
+                else for (short cell : cells) out.writeShort(cell);
             });
         }
 

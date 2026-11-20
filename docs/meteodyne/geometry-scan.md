@@ -1,4 +1,4 @@
-Written by Claude.
+Written by Claude; edited by Claude (recording format v2, GreedyFluids M6f).
 
 # Geometry scanner
 
@@ -20,7 +20,7 @@ Snapshot arguments are positional: label defaults to `snap`, horizontal radius `
 
 Files go in `greedyfluids-scans` under `server.getServerDirectory()`, which is the game folder in singleplayer. Snapshots are `snap-yyyyMMdd-HHmmss-label.gfsnap`; recordings are `rec-yyyyMMdd-HHmmss.gfrec`.
 
-Only one recording can run at a time. Start requires a player; the anchor follows that player, including dimension changes. Block edits are recorded within 48 blocks in each axis, positions every 10 ticks, and load/weather every 20 ticks. Section summaries cover a radius of 3 sections, including vertical sections inside build height. Up to 16 summaries are attempted each tick, nearest entries first; missing chunks remain queued. A summary describes a section when it enters the range, and block records describe subsequent edits. Stop writes END, drains the writer and closes the gzip file. Logging out of the recorded player or stopping the server also ends the recording.
+Only one recording can run at a time. Start requires a player; the anchor follows that player, including dimension changes. Section summaries cover a radius of 3 sections around the anchor's section (Chebyshev), including vertical sections inside build height. Block edits and player actions are recorded in every section of that range (version 1 used 48 blocks around the player, which missed the outer ring); positions every 10 ticks, and load/weather every 20 ticks. Up to 16 summaries are attempted each tick, nearest entries first; missing chunks remain queued. A summary describes a section when it enters the range: a mixed section's SECTION record is followed by a CELLS record holding every cell's state. Block records describe later edits, so a section's latest CELLS (or its uniform state) plus the BLOCK records that follow it in the file reproduce the section at any later point. File order, not tick, decides what follows: player actions handled between server ticks carry the same tick as the summary written at the end of that tick. Stop writes END, drains the writer and closes the gzip file. Logging out of the recorded player or stopping the server also ends the recording.
 
 Status reports duration in ticks converted to seconds at 20 ticks per second, per-tag record counts, compressed bytes written so far, off-thread drops and pending sections. Buffered data is handed to a daemon writer every 200 ticks or at 1 MiB, so the size while recording can lag behind captured records. `mark` adds free text (up to 21,000 characters).
 
@@ -31,7 +31,7 @@ Classification uses the first matching rule: AIR for the heat table's AIR cell; 
 ## Format
 
 ```text
-FORMAT (version 1; gzip of big-endian DataOutputStream; writeUTF strings; ticks are level.getGameTime()):
+FORMAT (snapshot version 1, recording version 2; gzip of big-endian DataOutputStream; writeUTF strings; ticks are level.getGameTime()):
 Snapshot .gfsnap:
   int magic 0x4746534E; int version 1; UTF label; UTF dimension id; UTF biome id at the player (or "#none");
   long gameTime; long dayTime; boolean raining; boolean thundering;
@@ -42,7 +42,7 @@ Snapshot .gfsnap:
   nx·nz × int MOTION_BLOCKING first-free y, index z·nx + x (Integer.MIN_VALUE when unloaded)
   nx·nz × int WORLD_SURFACE, same convention
 Recording .gfrec:
-  header: int magic 0x47465243; int version 1; long startGameTime; long startEpochMillis; int blockRadius 48; int sectionRadius 3; int trajectoryInterval 10
+  header: int magic 0x47465243; int version 2; long startGameTime; long startEpochMillis; int blockRadius −1 (v2: every in-range section; v1 wrote 48); int sectionRadius 3; int trajectoryInterval 10
   records, each byte tag + payload, nondecreasing tick:
     0 END      long tick; int droppedOffThread; int sectionsPending
     1 STATE    int id; UTF state; byte class; byte flags            (ids from 0)
@@ -53,4 +53,8 @@ Recording .gfrec:
     6 SECTION  long tick; int sx, sy, sz; 8 × short counts (class ids 0–7, sum 4096); short sourceCount; int uniformId (−1 if mixed)
     7 LOAD     long tick; float msptAvg; byte weather               (bit0 raining, bit1 thundering)
     8 MARK     long tick; UTF text
+    9 CELLS    long tick; int sx, sy, sz; short paletteSize (2–4096); paletteSize × int stateId;
+               4096 × palette index (byte if paletteSize ≤ 256, else short), cell (x,y,z) at (y·16 + z)·16 + x
+               (v2; directly after the SECTION record of a mixed section, every stateId's STATE written before both)
+Version 1 recordings have no CELLS and a 48-block BLOCK/ACTION radius; readers accept both versions.
 ```

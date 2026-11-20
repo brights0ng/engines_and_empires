@@ -20,6 +20,8 @@
 // Updated by Claude: tagged local-air revision bumps by call site and reported re-read and revision-site counters.
 // Updated by Claude: compared sky relevance in local air's snow buckets; reported geometry edits, edit phases, post-capture re-reads and replans.
 // Updated by Claude: compared sky relevance with fence, wall and gate collision clipped to the cell; passed player positions to the planner.
+// Updated by Claude: the legacy heat regions and local-air domains stand down while the airflow engine runs (GreedyFluids M7b).
+// Updated by Claude: the local-air domains, their demand index and their worker share are gone (GreedyFluids M7f f3).
 package dev.brights0ng.meteodyne.heat.world;
 
 import java.util.ArrayList;
@@ -34,6 +36,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import dev.brights0ng.meteodyne.Meteodyne;
+import dev.brights0ng.meteodyne.airflow.Airflow;
 import dev.brights0ng.meteodyne.climate.Temperature;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
 import dev.brights0ng.meteodyne.ships.Ships;
@@ -54,7 +57,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
@@ -107,10 +109,6 @@ public final class HeatWorld {
     private static ExecutorService pool;
     private static int poolThreads;
     /** Active diagnostic requests only. Bump before marshalling off-thread edits to the server. */
-    private static final java.util.concurrent.ConcurrentHashMap<ServerLevel,LocalAirDependencies> LOCAL_AIR_EPOCHS = new java.util.concurrent.ConcurrentHashMap<>();
-    private static final java.util.concurrent.ConcurrentHashMap<ServerLevel,List<LocalAirDependencies>> AUTOMATIC_AIR_EPOCHS = new java.util.concurrent.ConcurrentHashMap<>();
-    private static final java.util.concurrent.ConcurrentHashMap<ServerLevel,LocalAirSkyCache> LOCAL_AIR_SKY = new java.util.concurrent.ConcurrentHashMap<>();
-
     /** The simulation of {@code level} (made on first use), or null if it isn't the Overworld. */
     public static HeatWorld of(ServerLevel level) {
         if (level.dimension() != Level.OVERWORLD) {
@@ -137,15 +135,9 @@ public final class HeatWorld {
     }
 
     final ServerLevel level;
-    private final LocalAirDemands airDemands;
-    private LocalAirPlanner airPlanner;
-    private LocalAirAutomatic automaticAir;
-    private long nextAirPlanTick;
     final AirParams params = AirParams.DEFAULT;
     /** Placed sources per chunk: position ({@code BlockPos.asLong}) to state. */
     private final Long2ObjectOpenHashMap<Long2ObjectOpenHashMap<BlockState>> placed = new Long2ObjectOpenHashMap<>();
-    /** Blocks that request local-air coverage in any state, lit or not, per chunk. Kept beside {@link #placed}. */
-    private final Long2ObjectOpenHashMap<Long2ObjectOpenHashMap<BlockState>> placedAir = new Long2ObjectOpenHashMap<>();
     private final Long2ObjectOpenHashMap<Naturals> naturals = new Long2ObjectOpenHashMap<>();
     /** Loaded chunks holding saved region data. */
     private final LongOpenHashSet savedChunks = new LongOpenHashSet();
@@ -173,277 +165,9 @@ public final class HeatWorld {
     /** CPU milliseconds the jobs finished in the last plan interval took (for the debug command). */
     private double usedMs;
     private double usedMsLast;
-    private LocalAirPreparation localAirPreparation,localAirJobOwner;
-    private double localAirReservedMs;
-    private LocalAirWorldSource localAirSource;
-    private final LocalAirSkyCache localAirSky=new LocalAirSkyCache();
-    LocalAirSkyCache skyCache() { return localAirSky; }
-    private LocalAirGeometryCapture.Bounds localAirWeatherBounds;
-    private long localAirWeatherSampleTick=-1,localAirWeatherSampleNanos;
-    private LocalAirRun.Weather localAirWeather;
-    private final ConcurrentLinkedQueue<LocalAirPreparation.Result> localAirDone = new ConcurrentLinkedQueue<>();
-    private boolean localAirWorkerTurn,localAirSnapshotTurn;
-    private int localAirCaptureCursor,localAirDispatchCursor;
-    private HeatBenchmark.Token localAirProfiling;
-    private long localAirAdvanceNanos,localAirAdvanceUnits;
-
-    private static void invalidateLocalAir(ServerLevel level,ChunkPos chunk,String cause) {
-        var sky=LOCAL_AIR_SKY.get(level);if(sky!=null) sky.chunkChanged(chunk.x,chunk.z);
-        var epoch=LOCAL_AIR_EPOCHS.get(level);
-        if(epoch!=null) epoch.chunkChanged(chunk.x,chunk.z,level.getServer().isSameThread()?level.getGameTime():-1,cause);
-        for(var dependency:AUTOMATIC_AIR_EPOCHS.getOrDefault(level,List.of()))
-            dependency.chunkChanged(chunk.x,chunk.z,level.getServer().isSameThread()?level.getGameTime():-1,cause);
-    }
-
-    /** Internal, explicit diagnostic request only; replaces the previous domain. No solver activation. */
-    void requestLocalAirGeometry(LocalAirGeometryCapture.Bounds bounds,int cellLimit,int coverageLimit) {
-        requestLocalAir(bounds,cellLimit,coverageLimit,null);
-    }
-    /** Explicit cold-start diagnostic with fixed boundary weather; still isolated from production consumers. */
-    void requestLocalAirSimulation(LocalAirGeometryCapture.Bounds bounds,int cellLimit,int coverageLimit,LocalAirRun.Settings settings) {
-        requestLocalAir(bounds,cellLimit,coverageLimit,java.util.Objects.requireNonNull(settings));
-    }
-    void requestLiveLocalAirSimulation(LocalAirGeometryCapture.Bounds bounds,int cellLimit,int coverageLimit,int steps) {
-        long begin=System.nanoTime();var weather=LocalAirWeatherSource.sample(level,bounds);long nanos=System.nanoTime()-begin;
-        requestLocalAirSimulation(bounds,cellLimit,coverageLimit,new LocalAirRun.Settings(weather.ambient(),weather.windX(),weather.windZ(),steps));
-        localAirWeatherBounds=bounds;localAirWeather=weather;localAirWeatherSampleTick=level.getGameTime();localAirWeatherSampleNanos=nanos;
-    }
-    private void observeLocalAir(long tick) {
-        if(localAirPreparation==null) return;
-        if(localAirWeatherBounds!=null && tick-localAirWeatherSampleTick>=LocalAirRun.PHYSICAL_TICKS) {
-            long begin=System.nanoTime();localAirWeatherSampleTick=tick;
-            try {
-                localAirWeather=LocalAirWeatherSource.sample(level,localAirWeatherBounds);
-                localAirPreparation.changeWeather(tick,localAirWeather,responseScale());
-            } catch(RuntimeException error) { localAirPreparation.weatherUnavailable(error.toString()); }
-            finally { localAirWeatherSampleNanos+=System.nanoTime()-begin; }
-        }
-        localAirPreparation.observe(tick,responseScale());
-    }
-    private void requestLocalAir(LocalAirGeometryCapture.Bounds bounds,int cellLimit,int coverageLimit,LocalAirRun.Settings settings) {
-        if(!level.getServer().isSameThread()) throw new IllegalStateException("Local air request requires server thread");
-        if(bounds.cells()>cellLimit || coverageLimit<0) throw new IllegalArgumentException("Invalid local air admission limits");
-        clearLocalAirGeometry();
-        var epoch=new LocalAirDependencies(bounds);
-        LOCAL_AIR_EPOCHS.put(level,epoch);
-        var source=new LocalAirWorldSource(level,epoch::get,epoch,localAirSky);
-        localAirSource=source;
-        localAirPreparation=new LocalAirPreparation(source,bounds,cellLimit,coverageLimit,settings);
-        localAirPreparation.invalidationCause(epoch::lastCause);localAirPreparation.revisionSites(epoch::revisionSites);
-        localAirAdvanceNanos=0;localAirAdvanceUnits=0;
-    }
-    void clearLocalAirGeometry() {
-        if(!level.getServer().isSameThread()) throw new IllegalStateException("Local air clear requires server thread");
-        if(localAirPreparation!=null) localAirPreparation.close();
-        localAirPreparation=null;localAirSource=null;LOCAL_AIR_EPOCHS.remove(level);
-        localAirWeatherBounds=null;localAirWeather=null;localAirWeatherSampleTick=-1;localAirWeatherSampleNanos=0;
-        localAirAdvanceNanos=0;localAirAdvanceUnits=0;
-        // A retired physical job still occupies localAirJobOwner until collect() charges its time.
-    }
-    LocalAirGeometryCapture.Prepared localAirGeometry() {
-        return localAirPreparation==null?null:localAirPreparation.published();
-    }
-    LocalAirPreparation.Status localAirStatus() {
-        return localAirPreparation==null?LocalAirPreparation.Status.CLOSED:localAirPreparation.status();
-    }
-    LocalAirRun.Frame localAirField() { return localAirPreparation==null?null:localAirPreparation.field(); }
-    LocalAirPresentation localAirPresentation(boolean automatic,double x,double y,double z,int maxAge) {
-        if(!level.getServer().isSameThread()) throw new IllegalStateException("Local-air view requires the server thread");
-        long tick=level.getGameTime();LocalAirReading.validate(tick,x,y,z,maxAge);
-        if(automatic) return automaticAir==null?LocalAirPresentation.missing(LocalAirReading.Status.UNAVAILABLE,LocalAirReading.Reason.NO_REQUEST)
-                :automaticAir.presentation(tick,x,y,z,maxAge);
-        return localAirPreparation==null?LocalAirPresentation.missing(LocalAirReading.Status.UNAVAILABLE,LocalAirReading.Reason.NO_REQUEST)
-                :localAirPreparation.presentation(tick,x,y,z,maxAge);
-    }
-    /** Server-thread-only read of the explicitly requested experimental domain. Never creates a domain,
-     * loads chunks, waits for workers, or substitutes weather/legacy heat for a missing reading.
-     * The caller supplies its acceptable age in game ticks; no production freshness default is selected.
-     */
-    public LocalAirReading queryLocalAir(double x,double y,double z,long maxAgeTicks) {
-        if(!level.getServer().isSameThread()) throw new IllegalStateException("Local air queries require the server thread");
-        long tick=level.getGameTime();LocalAirReading.validate(tick,x,y,z,maxAgeTicks);
-        return localAirPreparation==null?LocalAirReading.missing(LocalAirReading.Status.UNAVAILABLE,LocalAirReading.Reason.NO_REQUEST)
-                :localAirPreparation.query(tick,x,y,z,maxAgeTicks);
-    }
-    LocalAirRun.Status localAirRunStatus() { return localAirPreparation==null?null:localAirPreparation.runStatus(); }
-    String localAirRunReason() { return localAirPreparation==null?"":localAirPreparation.runReason(); }
-    Map<LocalAirMetrics.Stage,LocalAirMetrics.Row> localAirPreparationMetrics() { return localAirPreparation==null?Map.of():localAirPreparation.metrics(); }
-    Map<String,Object> localAirReport() {
-        var report=new java.util.LinkedHashMap<String,Object>();
-        report.put("preparation",localAirStatus().name());
-        report.put("forcingMode",localAirWeatherBounds==null?"FIXED":"LIVE_CENTER");
-        report.put("weatherSampleTick",localAirWeatherSampleTick);report.put("weatherSampleMs",localAirWeatherSampleNanos/1e6);
-        if(localAirWeather!=null) report.put("sampledWeather",localAirWeather);
-        var run=localAirRunStatus();report.put("run",run==null?"UNAVAILABLE":run.name());report.put("reason",localAirRunReason());
-        report.put("physicalJobInFlight",localAirJobOwner!=null);report.put("sharedBudgetMs",budgetMs);
-        report.put("reservedLocalAirMs",localAirReservedMs);
-        report.put("snapshotAdvanceMs",localAirAdvanceNanos/1e6);report.put("snapshotChargedUnits",localAirAdvanceUnits);
-        report.put("attempts",localAirPreparation==null?0:localAirPreparation.attempts());
-        report.put("restarts",localAirPreparation==null?0:localAirPreparation.restarts());
-        report.put("startup",localAirPreparation==null?null:localAirPreparation.startup());
-        report.put("thermalReadCells",localAirPreparation==null?0:localAirPreparation.thermalReadCells());
-        report.put("thermalReusedCells",localAirPreparation==null?0:localAirPreparation.thermalReusedCells());
-        report.put("lastRestart",localAirPreparation==null?"No request":localAirPreparation.lastRestart());
-        report.put("restartCauses",localAirPreparation==null?Map.of():localAirPreparation.restartCauses());
-        report.put("failureCauses",localAirPreparation==null?Map.of():localAirPreparation.failureCauses());
-        report.put("topologyStages",localAirPreparation==null?0:localAirPreparation.topologyStages());
-        report.put("editOutcomes",localAirPreparation==null?Map.of():localAirPreparation.editOutcomes());
-        report.put("rereadCells",localAirPreparation==null?0:localAirPreparation.rereadCells());
-        report.put("postCaptureRereads",localAirPreparation==null?0:localAirPreparation.postCaptureRereads());
-        report.put("replans",localAirPreparation==null?0:localAirPreparation.replans());
-        report.put("geometryEdits",localAirPreparation==null?Map.of():localAirPreparation.geometryEdits());
-        report.put("editPhases",localAirPreparation==null?Map.of():localAirPreparation.editPhases());
-        report.put("requeuedColumns",localAirPreparation==null?0:localAirPreparation.requeuedColumns());
-        report.put("revisionSites",localAirPreparation==null?Map.of():localAirPreparation.revisionSites());
-        report.put("weatherRevisions",localAirPreparation==null?0:localAirPreparation.weatherRevisions());
-        var counted=localAirField();
-        report.put("gridRebuilds",counted==null?0:counted.gridRebuilds);report.put("shortSteps",counted==null?0:counted.shortSteps);
-        var dependencies=LOCAL_AIR_EPOCHS.get(level);
-        report.put("invalidations",dependencies==null?null:dependencies.diagnostics());
-        report.put("captureReadCells",localAirPreparation==null?0:localAirPreparation.captureReadCells());
-        report.put("drivenSourceCells",localAirPreparation==null?0:localAirPreparation.drivenSourceCells());
-        report.put("drivenReadCells",localAirPreparation==null?0:localAirPreparation.drivenReadCells());
-        report.put("captureReusedCells",localAirPreparation==null?0:localAirPreparation.captureReusedCells());
-        report.put("coverageReadCells",localAirPreparation==null?0:localAirPreparation.coverageReadCells());
-        report.put("coverageReusedCells",localAirPreparation==null?0:localAirPreparation.coverageReusedCells());
-        report.put("coverageBulkCells",localAirPreparation==null?0:localAirPreparation.coverageBulkCells());
-        report.put("skyIndex",localAirSky.report());
-        report.put("workerTimings",localAirPreparation==null?Map.of():localAirPreparation.metrics());
-        if(automaticAir!=null) report.put("automatic",Map.of("settings",automaticAir.settings,"reservedCells",automaticAir.cells(),"domains",automaticAir.rows(),"decisions",automaticAir.decisions(),"layoutState",automaticAir.transferState(),"layoutTransfers",automaticAir.transfers(),"lastLayoutTransfer",automaticAir.lastTransfer()==null?Map.of():automaticAir.lastTransfer()));
-        var frame=localAirField();report.put("fieldAvailable",frame!=null);
-        if(frame!=null) {
-            report.put("frameTick",frame.throughTick);report.put("ageTicks",LocalAirDiagnostics.age(frame,level.getGameTime()));
-            report.put("acceptedSteps",frame.acceptedSteps);report.put("airNodes",frame.flow.nodes());report.put("faces",frame.flow.faces());
-            report.put("geometryRevision",frame.geometryRevision);report.put("materialRevision",frame.materialRevision);
-            report.put("sourceRevision",frame.sourceRevision);
-            report.put("weatherRevision",frame.weatherRevision);report.put("weather",frame.weather);
-            report.put("naturalInitialization",frame.naturalInitialization);
-            report.put("geometryTransfers",frame.transfers);report.put("geometryExchangeEnergy",frame.geometryEnergy);
-            report.put("quality",frame.quality);
-        }
-        return java.util.Collections.unmodifiableMap(report);
-    }
 
     private HeatWorld(ServerLevel level) {
         this.level = level;
-        LOCAL_AIR_SKY.put(level,localAirSky);
-        airDemands=new LocalAirDemands(level);
-    }
-    /** Immutable planner input. Required sample cells only; no radius, tiles, admission or grid allocation yet. */
-    public LocalAirDemandRegistry.Snapshot localAirDemands() {
-        if(!level.getServer().isSameThread()) throw new IllegalStateException("Demand snapshots require the server thread");
-        refreshAirDemands(true);return airDemands.registry.snapshot();
-    }
-    /** Explicit experimental planning policy; does not start coupled simulations or change readings. */
-    public LocalAirPlanner.Plan planLocalAir(LocalAirPlanner.Settings settings) {
-        if(!level.getServer().isSameThread()) throw new IllegalStateException("Planning requires the server thread");
-        java.util.Objects.requireNonNull(settings);
-        if(airPlanner==null || !airPlanner.current().settings().equals(settings)) airPlanner=new LocalAirPlanner(settings);
-        refreshAirDemands(true);return refreshAirPlan();
-    }
-    public LocalAirPlanner.Plan localAirPlan() {
-        if(!level.getServer().isSameThread()) throw new IllegalStateException("Planning requires the server thread");
-        return airPlanner==null?null:airPlanner.current();
-    }
-    public void stopLocalAirPlan() {
-        if(!level.getServer().isSameThread()) throw new IllegalStateException("Planning requires the server thread");
-        stopAutomaticAir();airPlanner=null;
-    }
-    private LocalAirPlanner.Plan refreshAirPlan() {
-        nextAirPlanTick=level.getGameTime()+20;
-        var demand=airDemands.registry.snapshot();
-        if(testArea!=null) {
-            var box=testArea.clone();java.util.function.Predicate<LocalAirDemandRegistry.Cell> within=c->inside(box,c.x(),c.y(),c.z());
-            demand=new LocalAirDemandRegistry.Snapshot(demand.tick(),demand.revision(),demand.entries().stream().filter(e->within.test(e.request().cell())).toList(),demand.anchors().stream().filter(a->within.test(a.cell())).toList());
-        }
-        var players=level.players().stream().map(p->new LocalAirDemandRegistry.Cell(p.getBlockX(),p.getBlockY(),p.getBlockZ())).toList();
-        var plan=airPlanner.update(demand,level.getMinBuildHeight(),level.getMaxBuildHeight(),
-                (x,z)->level.getChunkSource().getChunkNow(x,z)!=null,players);
-        if(automaticAir!=null) {
-            automaticAir.reconcile(plan,level.getMinBuildHeight(),level.getMaxBuildHeight());publishAutomaticEpochs();
-        }
-        return plan;
-    }
-    void startAutomaticAir(LocalAirAutomatic.Settings settings) {
-        if(!level.getServer().isSameThread()) throw new IllegalStateException("Automatic domains require server thread");
-        if(airPlanner==null || !WeatherConfig.heat().enabled()) throw new IllegalStateException("Enable heat and configure air plan first");
-        if(automaticAir!=null && !automaticAir.settings.equals(settings)) throw new IllegalStateException("Use air auto off before changing runtime limits");
-        if(automaticAir==null) automaticAir=new LocalAirAutomatic(settings,new LocalAirAutomatic.Factory() {
-            public boolean loaded(LocalAirPlanner.Tile tile) { return level.getChunkSource().getChunkNow(tile.x(),tile.z())!=null; }
-            public LocalAirAutomatic.Capture capture(LocalAirGeometryCapture.Bounds bounds) {
-                var epoch=new LocalAirDependencies(bounds);
-                return new LocalAirAutomatic.Capture(new LocalAirWorldSource(level,epoch::get,epoch,localAirSky),epoch);
-            }
-            public LocalAirRun.Weather weather(LocalAirGeometryCapture.Bounds bounds) { return LocalAirWeatherSource.sample(level,bounds); }
-            public LocalAirThermalState.Provider thermal() { return HeatWorld.this::beginAirThermal; }
-            public void save(LocalAirRun.Seed seed) { persistAir(seed,null); }
-        });
-        refreshAirDemands(true);refreshAirPlan();
-    }
-    /** Legacy fields already carry the bounded thermal-only natural settling result. Never read a mutable grid. */
-    LocalAirThermalState.Reader beginAirThermal(LocalAirGeometryCapture.Snapshot snapshot) {
-        var estimates=regions.stream().filter(r->r.ship==null && !r.geometryDirty && !r.materialDirty && r.published!=null)
-                .map(r->r.published).toList();
-        var b=snapshot.bounds;
-        return c->{
-            int x=b.x()+b.cellX(c),y=b.y()+b.cellY(c),z=b.z()+b.cellZ(c);long pos=BlockPos.asLong(x,y,z);
-            var chunk=level.getChunkSource().getChunkNow(x>>4,z>>4);
-            if(chunk==null) throw new IllegalStateException("Thermal initialization chunk unloaded");
-            var data=chunk.hasData(HeatContent.CHUNK_DATA)?chunk.getData(HeatContent.CHUNK_DATA):null;
-            var saved=data==null?null:data.airValue(pos);
-            if(saved!=null && saved.material.equals(snapshot.material(c))) return new LocalAirThermalState.Value(saved,0,true,"SAVED_COUPLED");
-            float old=data==null?Float.NaN:data.value(pos);
-            if(Float.isFinite(old)) return new LocalAirThermalState.Value(null,old,true,"LEGACY_SAVE");
-            for(var p:estimates) if(p.contains(x,y,z)) {
-                double offset=p.offsets()[p.index(x-p.minX(),y-p.minY(),z-p.minZ())];
-                return new LocalAirThermalState.Value(null,offset,saved!=null,"LEGACY_THERMAL_ESTIMATE");
-            }
-            if(snapshot.natural(c) && snapshot.heat(c)!=null && snapshot.heat(c).active()) return null;
-            return new LocalAirThermalState.Value(null,0,saved!=null,"AMBIENT");
-        };
-    }
-    /** Only immutable accepted temperatures are written. Last accepted cells may survive a later invalidation,
-     * but exact shape/material checks protect restore; they cannot become a current airflow reading. */
-    void persistAir(LocalAirRun.Seed seed,LevelChunk unloading) {
-        if(seed==null || !seed.frame().persistentThermal) return;
-        var b=seed.snapshot().bounds;
-        for(int c=0;c<b.cells();c++) {
-            int x=b.x()+b.cellX(c),y=b.y()+b.cellY(c),z=b.z()+b.cellZ(c);
-            var chunk=unloading==null?level.getChunkSource().getChunkNow(x>>4,z>>4):unloading;
-            if(chunk==null || chunk.getPos().x!=(x>>4) || chunk.getPos().z!=(z>>4)) continue;
-            var data=chunk.getData(HeatContent.CHUNK_DATA);data.putAir(BlockPos.asLong(x,y,z),LocalAirThermalState.save(seed,c));chunk.setUnsaved(true);
-        }
-    }
-    void stopAutomaticAir() {
-        if(!level.getServer().isSameThread()) throw new IllegalStateException("Automatic domains require server thread");
-        if(automaticAir!=null) automaticAir.close();automaticAir=null;AUTOMATIC_AIR_EPOCHS.remove(level);
-    }
-    LocalAirAutomatic automaticAir() { return automaticAir; }
-    private void publishAutomaticEpochs() { AUTOMATIC_AIR_EPOCHS.put(level,automaticAir.domains().stream().map(d->d.capture.dependencies()).toList()); }
-    /** Separate experimental automatic query; production consumers and the manual viewer are unchanged. */
-    public LocalAirReading queryAutomaticLocalAir(double x,double y,double z,long maxAgeTicks) {
-        if(!level.getServer().isSameThread()) throw new IllegalStateException("Automatic queries require server thread");
-        long tick=level.getGameTime();LocalAirReading.validate(tick,x,y,z,maxAgeTicks);
-        return automaticAir==null?LocalAirReading.missing(LocalAirReading.Status.UNAVAILABLE,LocalAirReading.Reason.NO_REQUEST)
-                :automaticAir.query(tick,x,y,z,maxAgeTicks);
-    }
-    private void refreshAirDemands(boolean force) {
-        if(!WeatherConfig.heat().enabled()) { airDemands.clear();return; }
-        airDemands.refresh(()->{
-            var positions=new ArrayList<BlockPos>();
-            for(var map:placedAir.values()) for(long pos:map.keySet()) positions.add(BlockPos.of(pos));
-            return positions;
-        },force);
-    }
-    /** Block-entity load notification also covers sensors whose load follows the chunk event. */
-    public static void sensorDemandLoaded(ServerLevel level,BlockPos pos,BlockState state) {
-        if(!level.getServer().isSameThread()) {
-            var at=pos.immutable();level.getServer().execute(()->{
-                var chunk=level.getChunkSource().getChunkNow(at.getX()>>4,at.getZ()>>4);
-                if(chunk!=null) sensorDemandLoaded(level,at,chunk.getBlockState(at));
-            });return;
-        }
-        var world=of(level);if(world!=null) world.airDemands.sensor(pos,state);
     }
 
     // ---- events ----
@@ -457,7 +181,6 @@ public final class HeatWorld {
         if (level.getServer().isSameThread()) {
             of(level).onChunkLoad(chunk);
         } else {
-            invalidateLocalAir(level,chunk.getPos(),"CHUNK_LOAD_HOOK");
             level.getServer().execute(() -> {
                 if (level.getChunkSource().getChunkNow(chunk.getPos().x, chunk.getPos().z) == chunk) {
                     of(level).onChunkLoad(chunk);
@@ -471,12 +194,8 @@ public final class HeatWorld {
         if (!(event.getLevel() instanceof ServerLevel level) || !(event.getChunk() instanceof LevelChunk chunk)) {
             return;
         }
-        invalidateLocalAir(level,chunk.getPos(),"CHUNK_UNLOAD_HOOK");
-        if(!level.getServer().isSameThread()) {
-            var cp=chunk.getPos();level.getServer().execute(()->{
-                var world=WORLDS.get(level);
-                if(world!=null && level.getChunkSource().getChunkNow(cp.x,cp.z)==null) world.airDemands.unload(cp.x,cp.z);
-            });return;
+        if (!level.getServer().isSameThread()) {
+            return;
         }
         HeatWorld world = WORLDS.get(level);
         if (world != null) {
@@ -494,15 +213,9 @@ public final class HeatWorld {
     @SubscribeEvent
     static void onServerStopping(ServerStoppingEvent event) {
         for (HeatWorld world : WORLDS.values()) {
-            world.stopLocalAirPlan();
-            world.airDemands.clear();
-            world.clearLocalAirGeometry();
             world.persistAll();
         }
         WORLDS.clear();
-        LOCAL_AIR_EPOCHS.clear();
-        AUTOMATIC_AIR_EPOCHS.clear();
-        LOCAL_AIR_SKY.clear();
         if (pool != null) {
             pool.shutdownNow();
             pool = null;
@@ -514,38 +227,12 @@ public final class HeatWorld {
         if (!(chunk.getLevel() instanceof ServerLevel level) || level.dimension() != Level.OVERWORLD) {
             return;
         }
-        var sky=LOCAL_AIR_SKY.get(level);
         if (level.getServer().isSameThread()) {
-            if(sky!=null && (before==null || skyRelevant(before,after))) sky.blockChanged(pos.getX(),pos.getZ());
             HeatWorld world = WORLDS.get(level);
-            if(world!=null && world.automaticAir!=null) world.automaticAir.beforeEdit(pos.getX(),pos.getY(),pos.getZ());
-            if(world!=null && world.automaticAir!=null) for(var d:world.automaticAir.domains())
-                applyAutomaticEdit(d,pos,before,after,level.getGameTime(),world.responseScale());
-            if(world!=null && world.localAirSource!=null && !world.localAirSource.remember(pos,before)) {
-                var epoch=LOCAL_AIR_EPOCHS.get(level);if(epoch!=null) epoch.historyLost(pos.getX(),pos.getY(),pos.getZ(),level.getGameTime());
-            }
-            var epoch=LOCAL_AIR_EPOCHS.get(level);
-            if(epoch!=null && epoch.affectsBlock(pos.getX(),pos.getY(),pos.getZ())) {
-                var prep=world==null?null:world.localAirPreparation;
-                var outcome=prep==null?LocalAirPreparation.EditOutcome.GEOMETRY
-                        :prep.classifyEdit(pos.getX(),pos.getY(),pos.getZ(),level.getGameTime(),world.responseScale(),before,after);
-                if(outcome==LocalAirPreparation.EditOutcome.GEOMETRY) {
-                    long previous=epoch.blockRevision(pos.getX(),pos.getY(),pos.getZ(),level.getGameTime(),String.valueOf(before),String.valueOf(after),LocalAirDependencies.MANUAL);
-                    if(prep!=null && staticAirEdit(before,after)) {
-                        prep.changeGeometry(pos.getX(),pos.getY(),pos.getZ(),previous,level.getGameTime(),world.responseScale(),
-                                before.getBlock()==after.getBlock(),sameAirFluid(before,after));
-                    }
-                }
-            }
             if (world != null) {
                 world.blockChanged(pos, before, after);
             }
         } else {
-            if(sky!=null) sky.blockChanged(pos.getX(),pos.getZ());
-            for(var dependency:AUTOMATIC_AIR_EPOCHS.getOrDefault(level,List.of()))
-                dependency.blockChanged(pos.getX(),pos.getY(),pos.getZ(),-1,String.valueOf(before),String.valueOf(after),LocalAirDependencies.OFF_THREAD);
-            var dependencies=LOCAL_AIR_EPOCHS.get(level);
-            if(dependencies!=null) dependencies.blockChanged(pos.getX(),pos.getY(),pos.getZ(),-1,String.valueOf(before),String.valueOf(after),LocalAirDependencies.OFF_THREAD);
             BlockPos at = pos.immutable();
             level.getServer().execute(() -> {
                 HeatWorld world = WORLDS.get(level);
@@ -557,52 +244,15 @@ public final class HeatWorld {
     }
 
     // ---- sources ----
-    /** Driven-candidate membership changes still require a new live driver history. */
-    private static boolean staticAirEdit(BlockState before,BlockState after) {
-        return before!=null && HeatTables.driven(before).isEmpty() && HeatTables.driven(after).isEmpty();
-    }
-    /** Only these properties can change a cached sky column or empty-section classification,
-     * compared in local air's snow buckets: thin snow (1-3 layers) reads as air. */
-    private static boolean skyRelevant(BlockState before,BlockState after) {
-        before=LocalAirWorldSource.localAirState(before);after=LocalAirWorldSource.localAirState(after);
-        return before.isAir()!=after.isAir() || before.getFluidState().isEmpty()!=after.getFluidState().isEmpty()
-                || before.getBlock().hasDynamicShape() || after.getBlock().hasDynamicShape()
-                || LocalAirWorldSource.collisionShape(before,EmptyBlockGetter.INSTANCE,BlockPos.ZERO).isEmpty()
-                        !=LocalAirWorldSource.collisionShape(after,EmptyBlockGetter.INSTANCE,BlockPos.ZERO).isEmpty();
-    }
-    private static boolean sameAirFluid(BlockState before,BlockState after) {
-        return before.getFluidState().createLegacyBlock().getBlock()==after.getFluidState().createLegacyBlock().getBlock();
-    }
-    private static void applyAutomaticEdit(LocalAirAutomatic.Domain d,BlockPos pos,BlockState before,BlockState after,long tick,double scale) {
-        var epoch=d.capture.dependencies();var source=(LocalAirWorldSource)d.capture.world();var prep=d.preparation;
-        if(!source.remember(pos,before)) epoch.historyLost(pos.getX(),pos.getY(),pos.getZ(),tick);
-        if(!epoch.affectsBlock(pos.getX(),pos.getY(),pos.getZ())) return;
-        if(prep.classifyEdit(pos.getX(),pos.getY(),pos.getZ(),tick,scale,before,after)==LocalAirPreparation.EditOutcome.GEOMETRY) {
-            long previous=epoch.blockRevision(pos.getX(),pos.getY(),pos.getZ(),tick,String.valueOf(before),String.valueOf(after),LocalAirDependencies.APPLY_AUTOMATIC);
-            if(staticAirEdit(before,after))
-                prep.changeGeometry(pos.getX(),pos.getY(),pos.getZ(),previous,tick,scale,
-                        before.getBlock()==after.getBlock(),sameAirFluid(before,after));
-        }
-    }
 
     void onChunkLoad(LevelChunk chunk) {
-        airDemands.sourcesChanged();
-        for(var blockEntity:chunk.getBlockEntities().values())
-            if(blockEntity instanceof dev.brights0ng.meteodyne.instrument.SensorBlockEntity)
-                airDemands.sensor(blockEntity.getBlockPos(),blockEntity.getBlockState());
-        invalidateLocalAir(level,chunk.getPos(),"CHUNK_LOAD_APPLIED");
         long key = chunk.getPos().toLong();
-        Long2ObjectOpenHashMap<BlockState> found = new Long2ObjectOpenHashMap<>(), air = new Long2ObjectOpenHashMap<>();
-        scanPlaced(chunk, found, air);
+        Long2ObjectOpenHashMap<BlockState> found = new Long2ObjectOpenHashMap<>();
+        scanPlaced(chunk, found);
         if (found.isEmpty()) {
             placed.remove(key);
         } else {
             placed.put(key, found);
-        }
-        if (air.isEmpty()) {
-            placedAir.remove(key);
-        } else {
-            placedAir.put(key, air);
         }
         naturals.remove(key);
         if (chunk.hasData(HeatContent.CHUNK_DATA) && !chunk.getData(HeatContent.CHUNK_DATA).boxes().isEmpty()) {
@@ -612,9 +262,6 @@ public final class HeatWorld {
     }
 
     void onChunkUnload(LevelChunk chunk) {
-        if(automaticAir!=null) for(var seed:automaticAir.thermalCheckpoints()) persistAir(seed,chunk);
-        airDemands.unload(chunk.getPos().x,chunk.getPos().z);
-        invalidateLocalAir(level,chunk.getPos(),"CHUNK_UNLOAD_APPLIED");
         ChunkPos cp = chunk.getPos();
         int[] chunkBox = {cp.getMinBlockX(), level.getMinBuildHeight(), cp.getMinBlockZ(), cp.getMaxBlockX(),
                 level.getMaxBuildHeight() - 1, cp.getMaxBlockZ()};
@@ -625,7 +272,6 @@ public final class HeatWorld {
         }
         long key = cp.toLong();
         placed.remove(key);
-        placedAir.remove(key);
         naturals.remove(key);
         savedChunks.remove(key);
         touchChunk(cp, "chunk_unload");
@@ -633,12 +279,7 @@ public final class HeatWorld {
 
     private void blockChanged(BlockPos pos, BlockState before, BlockState after) {
         long key = ChunkPos.asLong(pos.getX() >> 4, pos.getZ() >> 4);
-        boolean isPlaced = placedCandidate(after), isAir = HeatTables.airSourceCandidate(after.getBlock());
-        Long2ObjectOpenHashMap<BlockState> airMap = placedAir.get(key);
-        if(isAir || airMap!=null && airMap.containsKey(pos.asLong())) airDemands.sourcesChanged();
-        airDemands.sensor(pos,after);
-        index(placed, key, pos, after, isPlaced);
-        index(placedAir, key, pos, after, isAir);
+        index(placed, key, pos, after, placedCandidate(after));
         naturals.remove(key);
         // Classify only changes relevant to existing snapshots. Source indexing above remains unconditional.
         int reach = WindConfig.params().sideReach();
@@ -693,19 +334,14 @@ public final class HeatWorld {
         }
     }
 
-    /**
-     * One pass over {@code chunk}: {@code placed} gets the legacy placed sources ({@link #placedCandidate}),
-     * {@code air} the blocks that request local-air coverage in any state ({@link HeatTables#airSourceCandidate}).
-     */
-    private static void scanPlaced(LevelChunk chunk, Long2ObjectOpenHashMap<BlockState> placed,
-            Long2ObjectOpenHashMap<BlockState> air) {
+    /** One pass over {@code chunk}: {@code placed} gets the legacy placed sources ({@link #placedCandidate}). */
+    private static void scanPlaced(LevelChunk chunk, Long2ObjectOpenHashMap<BlockState> placed) {
         LevelChunkSection[] sections = chunk.getSections();
         int baseX = chunk.getPos().getMinBlockX();
         int baseZ = chunk.getPos().getMinBlockZ();
         for (int i = 0; i < sections.length; i++) {
             LevelChunkSection section = sections[i];
-            if (section.hasOnlyAir()
-                    || !section.maybeHas(s -> placedCandidate(s) || HeatTables.airSourceCandidate(s.getBlock()))) {
+            if (section.hasOnlyAir() || !section.maybeHas(HeatWorld::placedCandidate)) {
                 continue;
             }
             int baseY = chunk.getSectionYFromSectionIndex(i) << 4;
@@ -716,9 +352,6 @@ public final class HeatWorld {
                         long pos = BlockPos.asLong(baseX + x, baseY + y, baseZ + z);
                         if (placedCandidate(state)) {
                             placed.put(pos, state);
-                        }
-                        if (HeatTables.airSourceCandidate(state.getBlock())) {
-                            air.put(pos, state);
                         }
                     }
                 }
@@ -829,9 +462,16 @@ public final class HeatWorld {
         java.util.function.LongPredicate gone = key -> Ships.get().inPlot(level, new ChunkPos(key))
                 && level.getChunkSource().getChunkNow(ChunkPos.getX(key), ChunkPos.getZ(key)) == null;
         placed.keySet().removeIf(gone);
-        placedAir.keySet().removeIf(gone);
         naturals.keySet().removeIf(gone);
         savedChunks.removeIf(gone);
+    }
+
+    /**
+     * Whether the legacy heat regions run: the heat simulation is on and the airflow engine isn't (GreedyFluids M7b).
+     * Placed sources stay indexed either way.
+     */
+    static boolean legacyEnabled() {
+        return WeatherConfig.heat().enabled() && !Airflow.active();
     }
 
     // ---- the tick ----
@@ -840,10 +480,6 @@ public final class HeatWorld {
         benchmark.tick(level.getGameTime());
         long timing=benchmark.begin();
         try {
-            long demands=benchmark.begin();refreshAirDemands(false);benchmark.end("local_air_demand_ms",demands);
-            if(airPlanner!=null && level.getGameTime()>=nextAirPlanTick) {
-                long planning=benchmark.begin();refreshAirPlan();benchmark.end("local_air_planning_ms",planning);
-            }
             tickSimulation();
         } finally { benchmark.end("thermal_tick_ms",timing); }
     }
@@ -858,9 +494,8 @@ public final class HeatWorld {
         HeatSettings s = WeatherConfig.heat();
         long now = level.getGameTime();
         collect();
-        if (!s.enabled()) {
-            stopAutomaticAir();
-            clearLocalAirGeometry();
+        // The airflow engine (GreedyFluids M7b) replaces the regions: they stand down as if the simulation were off.
+        if (!s.enabled() || Airflow.active()) {
             if (!regions.isEmpty()) {
                 persistAll();
                 for (HeatRegion r : regions) {
@@ -876,7 +511,7 @@ public final class HeatWorld {
             usedMsLast = usedMs;
             usedMs = 0;
         }
-        prepareAllSnapshots(SNAPSHOT_UNITS, System.nanoTime() + SNAPSHOT_NANOS);
+        prepareSnapshots(SNAPSHOT_UNITS, System.nanoTime() + SNAPSHOT_NANOS);
         dispatch(now, s);
         if (now - lastPersist >= PERSIST_INTERVAL) {
             persistAll();
@@ -960,11 +595,6 @@ public final class HeatWorld {
                 }
             }
         }
-        var airEstimateAreas=automaticAir==null?List.<LocalAirGeometryCapture.Bounds>of():automaticAir.domains().stream()
-                .filter(d->d.preparation.status()!=LocalAirPreparation.Status.CLOSED).map(d->d.bounds).toList();
-        for(var b:airEstimateAreas) {
-            var tiles=b.tiles();for(int t=0;t<tiles.length;t+=3) chunks.add(ChunkPos.asLong((b.x()+tiles[t])>>4,(b.z()+tiles[t+2])>>4));
-        }
         // 8f-5: every loaded ship's chunks; natural sources aboard always count (a ship is its own anchor)
         LongOpenHashSet aboard = new LongOpenHashSet();
         HeatShips.get().addLoadedChunks(level, aboard);
@@ -973,7 +603,7 @@ public final class HeatWorld {
         for (long key : chunks) {
             boolean onShip = aboard.contains(key);
             for (Found f : naturalsIn(key, now)) {
-                boolean in = onShip || airEstimateAreas.stream().anyMatch(b->b.contains(f.x+.5,f.y+.5,f.z+.5));
+                boolean in = onShip;
                 for (Vec3 a : anchors) {
                     double dx = f.x + 0.5 - a.x;
                     double dy = f.y + 0.5 - a.y;
@@ -1527,74 +1157,11 @@ public final class HeatWorld {
 
     // ---- stepping ----
 
-    /** Same soft deadline and total work allowance; alternate which capture gets first access. */
-    int prepareAllSnapshots(int maxUnits,long deadline) {
-        if(maxUnits<0) throw new IllegalArgumentException("Nonnegative snapshot allowance required");
-        if(localAirPreparation==null && automaticAir==null) return prepareSnapshots(maxUnits,deadline);
-        int reserved=maxUnits/2+maxUnits%2,used=0;
-        localAirSnapshotTurn=!localAirSnapshotTurn;
-        // Reserve half for the first path, then let both paths reclaim unused allowance.
-        // All calls retain the same deadline and the combined cap; alternate first access.
-        if(localAirSnapshotTurn) {
-            used=advanceLocalAir(reserved,deadline);
-            used+=prepareSnapshots(maxUnits-used,deadline);
-            used+=advanceLocalAir(maxUnits-used,deadline);
-        } else {
-            used=prepareSnapshots(reserved,deadline);
-            used+=advanceLocalAir(maxUnits-used,deadline);
-            used+=prepareSnapshots(maxUnits-used,deadline);
-        }
-        return used;
-    }
-    private int advanceLocalAir(int allowance,long deadline) {
-        long start=System.nanoTime();
-        var owners=localAirOwners();int used=0;
-        for(int i=0;i<owners.size() && used<allowance && System.nanoTime()<deadline;i++) {
-            int index=Math.floorMod(localAirCaptureCursor+i,owners.size());
-            int share=Math.max(1,(allowance-used)/(owners.size()-i));
-            used+=owners.get(index).advance(share,deadline);
-        }
-        localAirCaptureCursor++;long nanos=System.nanoTime()-start;
-        localAirAdvanceNanos+=nanos;localAirAdvanceUnits+=used;
-        benchmark.sample("local_air_snapshot_advance_ms",nanos);benchmark.work("local_air_charged_cell_units",used);
-        return used;
-    }
-
-    /** Worker captures only the immutable work and completion queue, never HeatWorld/ServerLevel. */
-    private boolean dispatchLocalAir() {
-        if(localAirJobOwner!=null || budgetMs<=0) return false;
-        var owners=localAirOwners();LocalAirPreparation.Work work=null;LocalAirPreparation selected=null;
-        for(int i=0;i<owners.size();i++) {
-            selected=owners.get(Math.floorMod(localAirDispatchCursor++,owners.size()));work=selected.takeWork();if(work!=null) break;
-        }
-        if(work==null) return false;
-        localAirJobOwner=selected;
-        localAirProfiling=benchmark.submit();
-        var output=localAirDone;
-          var dispatched=work;
-          localAirReservedMs=work.estimate()?Math.min(budgetMs,LocalAirBatch.MAX_NANOS/1e6):0;
-          budgetMs-=localAirReservedMs;
-          try {
-              if(work.estimate()) LocalAirBatch.submit(pool,dispatched,(long)(localAirReservedMs*1e6),output::add);
-              else pool.execute(()->output.add(dispatched.run()));
-          }
-        catch(java.util.concurrent.RejectedExecutionException error) {
-            localAirJobOwner.complete(new LocalAirPreparation.Result(work,null,null,0,error));localAirJobOwner=null;
-              localAirProfiling=null;
-              budgetMs+=localAirReservedMs;localAirReservedMs=0;
-        }
-        return true;
-    }
-    private List<LocalAirPreparation> localAirOwners() {
-        var owners=new ArrayList<LocalAirPreparation>();if(localAirPreparation!=null) owners.add(localAirPreparation);
-        if(automaticAir!=null) for(var d:automaticAir.domains()) owners.add(d.preparation);return owners;
-    }
-
     private void dispatch(long now, HeatSettings s) {
         ensurePool(s.threads());
         double cores = s.budgetCores();
         budgetMs = Math.min(budgetMs + cores * 50, cores * 1000);
-        int inFlight = localAirJobOwner==null?0:1;
+        int inFlight = 0;
         List<HeatRegion> due = new ArrayList<>();
         for (HeatRegion r : regions) {
             if (r.inFlight) {
@@ -1607,9 +1174,6 @@ public final class HeatWorld {
         // Most overdue first (in units of their own interval), so near and far regions share fairly
         due.sort((a, c) -> Double.compare(overdue(c, now, s), overdue(a, now, s)));
         int max = s.threads() * 2;
-        observeLocalAir(now);
-        localAirWorkerTurn=!localAirWorkerTurn;
-        if(localAirWorkerTurn && inFlight<max && dispatchLocalAir()) inFlight++;
         for (HeatRegion r : due) {
             if (budgetMs <= 0 || inFlight >= max) {
                 break;
@@ -1618,7 +1182,6 @@ public final class HeatWorld {
             pool.execute(() -> done.add(run(job)));
             inFlight++;
         }
-        if(!localAirWorkerTurn && inFlight<max) dispatchLocalAir();
     }
 
     private static long interval(HeatRegion r, HeatSettings s) {
@@ -1704,15 +1267,6 @@ public final class HeatWorld {
     }
 
     private void collect() {
-        LocalAirPreparation.Result air;
-        while((air=localAirDone.poll())!=null) {
-            double ms=air.nanos()/1e6;budgetMs+=localAirReservedMs-ms;localAirReservedMs=0;usedMs+=ms;
-            benchmark.sample("local_air_worker_ms",air.nanos());
-            benchmark.localAirCompleted(localAirProfiling,air.timing(),air.failed());localAirProfiling=null;
-            if(localAirJobOwner!=null) localAirJobOwner.complete(air);
-            localAirJobOwner=null;
-            if(air.error()!=null) Meteodyne.LOGGER.error("Local air geometry preparation failed",air.error());
-        }
         Done d;
         while ((d = done.poll()) != null) {
             HeatRegion r = d.region;
@@ -1748,7 +1302,6 @@ public final class HeatWorld {
 
     /** Writes every saved region into its chunks. */
     public void persistAll() {
-        long airSave=benchmark.begin();try { if(automaticAir!=null) automaticAir.persist(); } finally { benchmark.end("local_air_persist_ms",airSave); }
         for (HeatRegion r : regions) {
             persist(r);
         }
@@ -1934,8 +1487,6 @@ public final class HeatWorld {
 
     private void observeResponse(long now) {
         thermalClock.observe(now,responseScale());
-        observeLocalAir(now);
-        if(automaticAir!=null) automaticAir.observe(now,responseScale());
     }
 
     private void waitForJobs() {
@@ -1955,7 +1506,6 @@ public final class HeatWorld {
 
     /** Drops every region without saving (as if the world had just loaded; game tests). */
     public void forgetRegions() {
-        clearLocalAirGeometry();
         waitForJobs();
         for (HeatRegion r : regions) {
             r.removed = true;

@@ -1,14 +1,33 @@
 // Updated by ChatGPT: expose the explicitly paced larger local-air diagnostic.
 // Updated by Claude: put fastutil on the unit-test runtime for the local-air capture's reader index.
+// Updated by Claude: GreedyFluids, pinned in vendor/maven, required at runtime and bundled jar-in-jar (GreedyFluids M7b).
+// Updated by Claude: the local-air scene properties are gone with the local-air domains (GreedyFluids M7f f3).
+// Updated by Claude: the airflow scenarios, soaks and their scene left out of the release jar (GreedyFluids M8a).
 plugins {
     id 'eae.mod-conventions'
 }
 
 requireMod(':paradyne-lib')
-def airSceneEnabled = providers.gradleProperty('meteodyne.airScene').map { it.toBoolean() }.getOrElse(false)
-def airWeatherSceneEnabled = providers.gradleProperty('meteodyne.airWeatherScene').map { it.toBoolean() }.getOrElse(false)
+// GreedyFluids M7f f2 (Claude): the opt-in airflow soaks (AirflowSoaks); either property runs only them.
+def airflowSoakDays = providers.gradleProperty('meteodyne.airflowSoakDays').getOrElse('')
+def airflowSoakMinutes = providers.gradleProperty('meteodyne.airflowSoakMinutes').getOrElse('')
+def airflowSoakEnabled = !airflowSoakDays.isEmpty() || !airflowSoakMinutes.isEmpty()
 
 configurations {
+    // Outside libraries Meteodyne needs at runtime: GreedyFluids. implementation, so Meteodyne and its tests compile
+    // against it; offered as a consumable configuration to every project that requires Meteodyne (eae.family-base's
+    // requireMod adds it to their runtimeOnly), so the core's and the core-less runs load it too.
+    requiredRuntime {
+        canBeConsumed = false
+        canBeResolved = false
+    }
+    implementation.extendsFrom requiredRuntime
+    requiredRuntimeElements {
+        canBeConsumed = true
+        canBeResolved = false
+        extendsFrom requiredRuntime
+    }
+
     // Iris and Sodium, for testing the clouds with shader packs in the dev client (the pack ships them from Modrinth).
     // Nothing of Meteodyne's own runs uses them: the root's client run syncs them into run/mods (see the root's
     // shaderRuntime), so they are offered from here as a consumable configuration only.
@@ -19,6 +38,12 @@ configurations {
 }
 
 dependencies {
+    // GreedyFluids, at the pinned version (meteodyne/gradle.properties), from vendor/maven (the repository is in
+    // eae.family-base, so the projects that require Meteodyne resolve it too). In the release jar it is nested
+    // (jar-in-jar, META-INF/jarjar): the one jar-in-jar of the family, since it is a plain library, not a mod.
+    requiredRuntime("dev.brights0ng:greedyfluids:${greedyfluids_version}")
+    jarJar("dev.brights0ng:greedyfluids:${greedyfluids_version}")
+
     // Sable is optional (plan section 2): only the sable sub-package touches it, and only after ModList.isLoaded("sable"),
     // so it is compiled against but never on the runtime classpath of Meteodyne's own runs. Non-transitive: its pom
     // pulls in a Sable build that isn't published. Its companion library (Pose3d, bounding boxes) is inside Sable's jar
@@ -32,7 +57,7 @@ dependencies {
     shaderRuntimeElements("maven.modrinth:sodium:${sodium_version}") { transitive = false }
 
     // Minecraft's own fastutil (the version HeatWorld compiles against): unit tests run without Minecraft's libraries,
-    // and LocalAirGeometryCapture keeps its reader index in fastutil collections.
+    // and tested classes keep indexes in fastutil collections.
     testRuntimeOnly 'it.unimi.dsi:fastutil:8.5.12'
 }
 
@@ -41,13 +66,23 @@ neoForge {
         // The bare game test run (the convention plugin's): the headless climatology year
         // (gametest/ClimatologyDiagnosticRun), off unless asked for with -Pmeteodyne.climatologyDays=...
         gameTestServer {
-            if (airSceneEnabled || airWeatherSceneEnabled) {
-                systemProperty 'neoforge.enabledGameTestNamespaces', 'meteodyne_air_scene'
-                systemProperty 'meteodyne.airScene', airSceneEnabled.toString()
-                systemProperty 'meteodyne.airWeatherScene', airWeatherSceneEnabled.toString()
-                systemProperty 'meteodyne.airSceneOutput', layout.buildDirectory.dir('reports/air-scene').get().asFile.absolutePath
+            // GreedyFluids M7f f2 (Claude): -Pmeteodyne.airflowSoakDays=<days> (the model soak) and/or
+            // -Pmeteodyne.airflowSoakMinutes=<minutes> (the runtime soak) run only AirflowSoaks; reports in
+            // build/reports/airflow-soak.
+            if (airflowSoakEnabled) {
+                systemProperty 'neoforge.enabledGameTestNamespaces', 'meteodyne_airflow_soak'
+                if (!airflowSoakDays.isEmpty()) {
+                    systemProperty 'meteodyne.airflowSoakDays', airflowSoakDays
+                }
+                if (!airflowSoakMinutes.isEmpty()) {
+                    systemProperty 'meteodyne.airflowSoakMinutes', airflowSoakMinutes
+                }
+                systemProperty 'meteodyne.airflowSoakOutput', layout.buildDirectory.dir('reports/airflow-soak').get().asFile.absolutePath
             }
-            ['meteodyne.climatologyDays', 'meteodyne.climatologyX', 'meteodyne.climatologyZ'].each { key ->
+            // GreedyFluids M7b b2 (Claude): -Pmeteodyne.airflowSnapshots=<scans folder> runs the opt-in airflow mapping
+            // check (AirflowGameTests.snapshotMappingCheck).
+            ['meteodyne.climatologyDays', 'meteodyne.climatologyX', 'meteodyne.climatologyZ',
+             'meteodyne.airflowSnapshots'].each { key ->
                 if (project.hasProperty(key)) {
                     systemProperty key, project.property(key).toString()
                 }
@@ -56,12 +91,12 @@ neoForge {
     }
 }
 
-// The opt-in benchmark has its own template namespace so ordinary fixtures cannot mutate its world concurrently.
+// The opt-in soaks have their own template namespace so ordinary fixtures cannot mutate their world concurrently.
 // Copy the existing generated empty structure; preserve its original generated content.
-if (airSceneEnabled || airWeatherSceneEnabled) {
+if (airflowSoakEnabled) {
     tasks.named('processResources') {
         from('src/generated/resources/data/meteodyne/structure/gametest/empty.nbt') {
-            into('data/meteodyne_air_scene/structure/gametest')
+            into('data/meteodyne_airflow_soak/structure/gametest')
         }
     }
 }
@@ -73,11 +108,31 @@ tasks.named('test') {
             systemProperty key, project.property(key)
         }
     }
+    // GreedyFluids M8c c1 (Claude): -Pmeteodyne.airflowReplay=<background.gfbg> [-Pmeteodyne.airflowReplayRegions=<ids>]
+    // [-Pmeteodyne.airflowReplayVariants=<names>] replays a recording's regions (AirflowReplayTest, skipped otherwise);
+    // a merged region needs more than the default test heap. M8c c2: -Pmeteodyne.airflowLevers=<names> runs the wind
+    // levers in lockstep on one replayed region (AirflowLeverReplayTest); -Pmeteodyne.airflowErrorMap=<lever> maps where a
+    // lever's error against REF lives (AirflowErrorMapTest); -Pmeteodyne.airflowReplayCampfire=centre|x,z adds a lone
+    // campfire to the lever replay.
+    ['meteodyne.airflowReplay', 'meteodyne.airflowReplayRegions', 'meteodyne.airflowReplayVariants',
+     'meteodyne.airflowReplayWindSpeed', 'meteodyne.airflowReplayFrom', 'meteodyne.airflowLevers',
+     'meteodyne.airflowErrorMap', 'meteodyne.airflowReplayCampfire'].each { key ->
+        if (project.hasProperty(key)) {
+            systemProperty key, project.property(key)
+        }
+    }
+    if (project.hasProperty('meteodyne.airflowReplay')) {
+        maxHeapSize = '4g'
+    }
 }
 
 tasks.named('jar', Jar) {
-    exclude('data/meteodyne_air_scene/**')
+    exclude('data/meteodyne_airflow_soak/**')
     // Game test code only the game tests use, left out of the release jar with the game tests themselves (convention
     // plugin): the climatology year is a @GameTestHolder, and GameTestSky is the lightning tests' open-sky helper.
     exclude('**/gametest/ClimatologyDiagnosticRun.class', '**/gametest/GameTestSky.class')
+    // GreedyFluids M8a: the airflow acceptance scenarios and soaks are @GameTestHolders whose names miss the
+    // convention's *GameTests suffix (M7f), and AirflowScene is the scene builder only they use.
+    exclude('**/airflow/AirflowScene.class', '**/airflow/AirflowScene$*.class', '**/airflow/AirflowScenarios.class',
+            '**/airflow/AirflowScenarios$*.class', '**/airflow/AirflowSoaks.class', '**/airflow/AirflowSoaks$*.class')
 }

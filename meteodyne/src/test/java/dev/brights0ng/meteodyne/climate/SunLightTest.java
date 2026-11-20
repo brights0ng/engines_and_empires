@@ -1,3 +1,4 @@
+// Edited by Claude: the season's strength tests.
 package dev.brights0ng.meteodyne.climate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -66,5 +67,46 @@ class SunLightTest {
         assertEquals(2, SunLight.warmth(8, 1, 0.25), 1e-12);
         assertEquals(0, SunLight.warmth(8, 0, 1), 1e-12);
         assertEquals(0, SunLight.warmth(0, 1, 1), 1e-12, "max 0 turns it off");
+    }
+
+    private static final double TILT = 23.44, LATITUDE = 37.55;
+
+    @Test
+    void earthsTiltHalvesTheSunFromMidsummerToMidwinter() {
+        assertEquals(1, SunLight.season(TILT, LATITUDE, ClimateCurves.sun(ClimateCurves.SUN_PEAK)), 1e-12);
+        assertEquals(0.5, SunLight.season(TILT, LATITUDE, ClimateCurves.sun(ClimateCurves.SUN_PEAK + 0.5)), 1e-3);
+        double equinox = SunLight.season(TILT, LATITUDE, ClimateCurves.sun(0));
+        assertEquals(Math.cos(Math.toRadians(LATITUDE)) / Math.cos(Math.toRadians(LATITUDE - TILT)), equinox, 1e-12);
+        assertEquals(0.818, equinox, 1e-3);
+        assertEquals(equinox, SunLight.season(TILT, LATITUDE, Double.NaN), 1e-12, "no seasons: the equinox's");
+        // it climbs steadily from midwinter to midsummer
+        double last = 0;
+        for (int i = 0; i <= 6; i++) {
+            double s = SunLight.season(TILT, LATITUDE, ClimateCurves.sun(ClimateCurves.SUN_PEAK + 0.5 + i / 12.0));
+            assertTrue(s > last, "rising at sub-season " + i + ": " + s);
+            last = s;
+        }
+    }
+
+    @Test
+    void theTiltSetsHowHardWinterIs() {
+        assertEquals(1, SunLight.season(0, LATITUDE, -1), 1e-12, "no tilt: the same sun all year");
+        assertEquals(1, SunLight.season(0, LATITUDE, 1), 1e-12);
+        double mild = SunLight.season(10, LATITUDE, -1), harsh = SunLight.season(35, LATITUDE, -1);
+        assertTrue(mild > 0.5 && harsh < 0.5, mild + ", " + harsh);
+        assertEquals(Math.cos(Math.toRadians(LATITUDE + 35)) / Math.cos(Math.toRadians(LATITUDE - 35)), harsh, 1e-12);
+        // past the polar circle the winter sun doesn't rise at noon
+        assertEquals(0, SunLight.season(TILT, 70, -1), 1e-12);
+        assertEquals(1, SunLight.season(TILT, 70, 1), 1e-12);
+    }
+
+    @Test
+    void inTheTropicsTheStrongestSunIsOverhead() {
+        // at 10 degrees the sun is overhead in late spring; midsummer is a little past it
+        double midsummer = SunLight.season(TILT, 10, 1);
+        assertEquals(Math.cos(Math.toRadians(TILT - 10)), midsummer, 1e-12);
+        assertTrue(midsummer < 1);
+        assertEquals(1, SunLight.season(TILT, 10, Math.sin(Math.toRadians(10)) / Math.sin(Math.toRadians(TILT))), 1e-12);
+        assertEquals(0, SunLight.season(0, 90, 0), 1e-12, "the pole with no tilt: no sun");
     }
 }
