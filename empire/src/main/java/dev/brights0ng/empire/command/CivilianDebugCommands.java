@@ -30,6 +30,7 @@ import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianFood;
 import dev.brights0ng.empire.rules.CivilianLines;
+import dev.brights0ng.empire.rules.CivilianSleep;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -90,6 +91,14 @@ public final class CivilianDebugCommands {
                 .then(Commands.literal("abilities")
                         .then(Commands.argument("code", StringArgumentType.word())
                                 .executes(ctx -> abilities(ctx.getSource(), code(ctx)))))
+                .then(Commands.literal("sleep")
+                        .then(Commands.literal("claim")
+                                .executes(ctx -> sleepClaim(ctx.getSource())))
+                        .then(Commands.literal("release")
+                                .executes(ctx -> sleepRelease(ctx.getSource())))
+                        .then(Commands.literal("lastnight")
+                                .then(Commands.argument("value", FloatArgumentType.floatArg(0.0F, 1.0F))
+                                        .executes(ctx -> sleepLastNight(ctx.getSource(), FloatArgumentType.getFloat(ctx, "value"))))))
                 .then(Commands.literal("traveller")
                         .then(playerArgument()
                                 .executes(ctx -> traveller(ctx.getSource(), player(ctx)))))
@@ -300,6 +309,16 @@ public final class CivilianDebugCommands {
             if (!stack.isEmpty()) pockets.add(stack.getCount() + "× " + BuiltInRegistries.ITEM.getKey(stack.getItem()));
         }
         source.sendSuccess(() -> Component.literal("Inventory: " + (pockets.isEmpty() ? "empty" : String.join(", ", pockets))), false);
+        CivilianSleep sleep = civilian.sleep();
+        int need = civilian.sleepNeedTicks();
+        String sleepState = civilian.isSleeping() ? "sleeping in bed"
+                : civilian.isRoughSleeping() ? "sleeping rough" : "awake";
+        String bed = civilian.claimedBed() != null ? civilian.claimedBed().toShortString() : "none";
+        String lastNight = Float.isNaN(sleep.lastNight()) ? "none" : String.format(Locale.ROOT, "%.2f", sleep.lastNight());
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "Sleep %s, bed %s, need %d (%d->%d), slept %d (credit %.1f), lastNight %s",
+                sleepState, bed, need, CivilianSleep.bedtime(need), CivilianSleep.wakeTime(need),
+                sleep.sleptTicks(), sleep.creditTicks(), lastNight)), false);
         if (civilian.isUsingItem()) {
             source.sendSuccess(() -> Component.literal("eating " + BuiltInRegistries.ITEM.getKey(civilian.getUseItem().getItem())), false);
         }
@@ -312,6 +331,58 @@ public final class CivilianDebugCommands {
         civilian.setFood(level, saturation);
         source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " food " + civilian.food().foodLevel()
                 + String.format(Locale.ROOT, ", saturation %.1f", civilian.food().saturation())), true);
+        return 1;
+    }
+
+    private static int sleepClaim(CommandSourceStack source) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        if (civilian.status() != CivilianEntity.Status.CITIZEN || civilian.civilianId() == null) {
+            source.sendFailure(Component.literal(civilian.getName().getString() + " is not a citizen"));
+            return 0;
+        }
+        EmpireSavedData data = EmpireSavedData.of(source.getServer());
+        CivilianRecord record = data.civilian(civilian.civilianId());
+        EmpireRecord empire = record != null ? data.getEmpire(record.empire()) : null;
+        if (empire == null) {
+            source.sendFailure(Component.literal(civilian.getName().getString() + " has no empire"));
+            return 0;
+        }
+        BlockPos claimed = CivilianBeds.ensureOrClaimBed(source.getServer().overworld(), empire, civilian);
+        if (claimed == null) {
+            source.sendFailure(Component.literal("No unclaimed bed within " + CivilianBeds.CLAIM_RADIUS + " blocks on empire land"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " bed " + claimed.toShortString()), true);
+        return 1;
+    }
+
+    private static int sleepRelease(CommandSourceStack source) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        BlockPos bed = civilian.claimedBed();
+        if (bed == null) {
+            source.sendFailure(Component.literal(civilian.getName().getString() + " has no claimed bed"));
+            return 0;
+        }
+        CivilianBeds.release(source.getServer().overworld(), bed);
+        civilian.setClaimedBed(null);
+        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " released bed " + bed.toShortString()), true);
+        return 1;
+    }
+
+    private static int sleepLastNight(CommandSourceStack source, float value) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        civilian.setLastNight(value);
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "%s lastNight %.2f",
+                civilian.getName().getString(), civilian.sleep().lastNight())), true);
         return 1;
     }
 
@@ -376,7 +447,9 @@ public final class CivilianDebugCommands {
                     + "] body " + (loaded ? "loaded" : "not loaded") + ", last at " + civilian.lastPos().toShortString()
                     + ", food " + civilian.food().foodLevel() + ", hp "
                     + (Float.isNaN(civilian.health()) ? "unknown" : String.format(Locale.ROOT, "%.1f", civilian.health()))
-                    + "/30"), false);
+                    + "/30, sleep "
+                    + (Float.isNaN(civilian.sleep().lastNight()) ? "none" : String.format(Locale.ROOT, "%.2f", civilian.sleep().lastNight()))
+                    + (civilian.bed() != null ? ", bed " + civilian.bed().toShortString() : "")), false);
         }
         TravellerSlot slot = data.traveller(record.id());
         if (slot != null) {
