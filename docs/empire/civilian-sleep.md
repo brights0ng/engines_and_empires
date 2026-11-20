@@ -90,6 +90,7 @@
 
 ## Verification (2026-11-20)
 
-- `:empire:test` (`CivilianSleepTest`: 16 new unit tests; `CivilianLinesTest` covers `WOKEN` lang keys): passed.
-- `:empire:runGameTestServer`: **135/135** required tests passed (11 new tests in `CivilianSleepGameTests`).
-- No client visual verification was performed.
+- Full check (`./gradlew compileJava compileTestJava test runGameTestServer --console=plain`): **BUILD SUCCESSFUL** (4m 29s).
+  - Unit tests across all modules: **1380 passed, 5 skipped** (pre-existing), **0 failed, 0 errors** (Empire: **164**, including **17** new tests in `CivilianSleepTest` and `WOKEN` lang-key coverage in `CivilianLinesTest`; `core`: 33 including `ArchitectureTest`).
+  - Game test servers (all 11 passing): aggregate **434/434**, coreless **384/384**, Empire **135/135** (+11 new tests in `CivilianSleepGameTests`), Frontier **17/17**, Meteodyne **125/125**, Paradyne Lib **3/3**, Sable Fixes **2/2**, Seismic **20/20**, Simple Spoilage **34/34**, Sparse Ores **13/13**, Sparse Ores + Create **13/13**.
+- No client visual verification was performed; bed pose, rough-sleep ground lift, woken grumble bubbles, and debug command output remain for Bright to check in-game.
