@@ -1,0 +1,7 @@
+{
+  "priority": 1100,
+  "selector": "create:shaft",
+  "properties": {
+    "sable:mass": 0.1
+  }
+}
