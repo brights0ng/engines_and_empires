@@ -1,5 +1,6 @@
 // Written by Claude (GreedyFluids M8c c2); edited by Claude (c2: the REF run and error against it; the hybrid gate CGD1, CGD2;
-// A': the source-velocity radius CGS2–CGS24 and CGSB4, CGSB8; its shapes, cap and band; the lone campfire).
+// A': the source-velocity radius CGS2–CGS24 and CGSB4, CGSB8; its shapes, cap and band; the lone campfire;
+// time-averaged error and REFTWIN).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -45,6 +46,8 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
  *   <li>GATE05, GATE10: the thermal gate at 0.5 and 1 °C instead of 0.25 (W2);</li>
  *   <li>EPSU1, EPSU2: the velocity indicator's threshold at 1 and 2 m/s instead of 0.5 (W3);</li>
  *   <li>HOLDFLOW: the hold's flow test tolerates 50 % instead of 25 % (W4);</li>
+ *   <li>REFTWIN: REF with its remesh cadence shifted by 16 steps: how far two equally fine runs drift apart, the floor
+ *       under any error against REF;</li>
  *   <li>REF: no thermal gate and no velocity hold: velocity refines everywhere and steps every step (the M7a
  *       reference check's REF). With it, each lever's error against REF is reported beside its drift from DEFAULT, so a
  *       lever docks no accuracy when its error is no larger than DEFAULT's.</li>
@@ -65,7 +68,7 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 class AirflowLeverReplayTest {
 
     enum Lever { DEFAULT, TWIN, CG, CGD1, CGD2, CGS2, CGS4, CGS8, CGS12, CGS16, CGS24, CGSB4, CGSB8, CGUP16, CGDN16,
-        CGK2, CGK4, CGG2, CGG4, CGT4, CGT8, CGT16, CGT8K4, GATE05, GATE10, EPSU1, EPSU2, HOLDFLOW, REF }
+        CGK2, CGK4, CGG2, CGG4, CGT4, CGT8, CGT16, CGT8K4, GATE05, GATE10, EPSU1, EPSU2, HOLDFLOW, REFTWIN, REF }
 
     /** A''s linger after a heat source goes, s (decision 34). */
     static final double SOURCE_LINGER = 5;
@@ -119,9 +122,12 @@ class AirflowLeverReplayTest {
             case EPSU1 -> m.setVelocityThreshold(1.0);
             case EPSU2 -> m.setVelocityThreshold(2.0);
             case HOLDFLOW -> m.setAdaptiveHold(0.5, AirRegion.HOLD_DELTA_T);
-            case REF -> {
+            case REF, REFTWIN -> {
                 m.setThermalVelocityGate(Double.NaN);
                 m.setVelocityHold(AirRegion.HOLD_REFRESH, 0, AirRegion.HOLD_WAKE);
+                if (lever == Lever.REFTWIN) {
+                    m.setCadencePhaseForTesting(16);
+                }
             }
             default -> { }
         }
@@ -136,6 +142,10 @@ class AirflowLeverReplayTest {
         long boxSum;
         double coreSum, boxesSum, heldSum, worstMean, worstP99, worstIndoor, errMean, errP99, errIndoor;
         int bins;
+        /** Time-averaged error (M8c c2): per-cell sums over the current window and the whole summary. */
+        double[] sumWindow, sumAll;
+        int samplesWindow, samplesAll;
+        double avgMean, avgP99, avgIndoor, allMean, allP99, allIndoor;
 
         Run(Lever lever, AirflowRegionModel model) {
             this.lever = lever;
@@ -216,7 +226,7 @@ class AirflowLeverReplayTest {
             now[c] = palette[build.cells()[c] & 0xFF];
         }
         List<String> censusRows = new ArrayList<>(), binRows = new ArrayList<>();
-        int next = 1;
+        int next = 1, sampleTick = 0;
         double binEnd = AirflowReplayTest.BIN;
         while (ref.model.time() < life) {
             List<Object> due = new ArrayList<>();
@@ -235,6 +245,25 @@ class AirflowLeverReplayTest {
                 r.wall += System.nanoTime() - t0;
                 r.steps++;
                 r.boxSum += r.model.boxes();
+            }
+            if (startSecond + ref.model.time() >= from && ++sampleTick % 2 == 0) {
+                for (Run r : runs) {
+                    float[] air = r.model.region().thermalState().airArray();
+                    if (r.sumWindow == null || r.sumWindow.length != air.length) {
+                        r.sumWindow = new double[air.length];
+                        r.sumAll = new double[air.length];
+                    }
+                    for (int c = 0; c < air.length; c++) {
+                        r.sumWindow[c] += air[c];
+                        r.sumAll[c] += air[c];
+                    }
+                    r.samplesWindow++;
+                    r.samplesAll++;
+                }
+                if (runs.get(0).samplesWindow >= AVERAGE_WINDOW) {
+                    averageError(runs, AirflowReplayTest.classes(ref.model.region().grid(), ref.model.region().background()),
+                            false);
+                }
             }
             if (ref.model.time() < binEnd - 1e-9) {
                 continue;
@@ -276,6 +305,7 @@ class AirflowLeverReplayTest {
             binRows.add(row.toString());
             binEnd += AirflowReplayTest.BIN;
         }
+        averageError(runs, AirflowReplayTest.classes(ref.model.region().grid(), ref.model.region().background()), true);
 
         String name = "levers-" + id + "-" + variant
                 + (variant == Variant.WIND ? String.format(Locale.ROOT, "%.0f", AirflowReplayTest.WIND_SPEED) : "")
@@ -298,6 +328,19 @@ class AirflowLeverReplayTest {
                     core, core / (ref.coreSum / ref.bins), r.boxesSum / r.bins / 1000, r.heldSum / r.bins, r.worstMean,
                     r.worstP99, r.worstIndoor, levers.contains(Lever.REF) ? String.format(Locale.ROOT,
                             "%.3f | %.3f | %.3f", r.errMean, r.errP99, r.errIndoor) : "— | — | —"));
+        }
+        if (levers.contains(Lever.REF)) {
+            out.add("");
+            out.add(String.format(Locale.ROOT, "**Time-averaged error against REF** (°C; mean / p99 / indoor mean of |T̄ − "
+                    + "T̄_REF| over fluid cells, each run's field averaged once a second): over %d s windows, the worst "
+                    + "window; and over the whole summary.", AVERAGE_WINDOW));
+            out.add("");
+            out.add("| Lever | " + AVERAGE_WINDOW + " s means, worst window | Whole-summary mean |");
+            out.add("|---|---|---|");
+            for (Run r : runs) {
+                out.add(String.format(Locale.ROOT, "| %s | %.3f / %.3f / %.3f | %.3f / %.3f / %.3f |", r.lever, r.avgMean,
+                        r.avgP99, r.avgIndoor, r.allMean, r.allP99, r.allIndoor));
+            }
         }
         out.add("");
         out.add("## W0: where velocity counts (DEFAULT)");
@@ -323,6 +366,46 @@ class AirflowLeverReplayTest {
         Files.createDirectories(AirflowReplayTest.OUT);
         Files.write(AirflowReplayTest.OUT.resolve(name + ".md"), out);
         System.out.printf(Locale.ROOT, "levers on region %d, %s: %d bins%n", id, variant, binRows.size());
+    }
+
+    /** Seconds per window of the time-averaged error. */
+    static final int AVERAGE_WINDOW = 30;
+
+    /**
+     * Scores each run's time-averaged field against REF's: the current window's (keeping the worst, then clearing it),
+     * or, when {@code whole}, the whole summary's (a partial last window counts if it has at least half a window).
+     */
+    private static void averageError(List<Run> runs, byte[] classes, boolean whole) {
+        Run truth = runs.stream().filter(x -> x.lever == Lever.REF).findFirst().orElse(null);
+        if (truth == null || truth.sumWindow == null) {
+            return;
+        }
+        boolean windowCounts = truth.samplesWindow >= (whole ? AVERAGE_WINDOW / 2 : AVERAGE_WINDOW);
+        float[] t = mean(truth.sumWindow, truth.samplesWindow), all = mean(truth.sumAll, truth.samplesAll);
+        for (Run r : runs) {
+            if (windowCounts && r.samplesWindow > 0) {
+                double[] e = drift(t, mean(r.sumWindow, r.samplesWindow), classes);
+                r.avgMean = Math.max(r.avgMean, e[0]);
+                r.avgP99 = Math.max(r.avgP99, e[1]);
+                r.avgIndoor = Math.max(r.avgIndoor, e[2]);
+            }
+            java.util.Arrays.fill(r.sumWindow, 0);
+            r.samplesWindow = 0;
+            if (whole && r.samplesAll > 0) {
+                double[] e = drift(all, mean(r.sumAll, r.samplesAll), classes);
+                r.allMean = e[0];
+                r.allP99 = e[1];
+                r.allIndoor = e[2];
+            }
+        }
+    }
+
+    private static float[] mean(double[] sum, int n) {
+        float[] m = new float[sum.length];
+        for (int c = 0; c < sum.length; c++) {
+            m[c] = (float) (sum[c] / Math.max(1, n));
+        }
+        return m;
     }
 
     /** One W0 row: per class, % of cells where velocity counts, mean |air − background| and % over 0.25 °C. */
@@ -370,6 +453,9 @@ class AirflowLeverReplayTest {
                 continue;
             }
             double x = Math.abs(ref[c] - other[c]);
+            if (Double.isNaN(x)) {
+                continue; // a cell solid for part of a time average (edits)
+            }
             d[n++] = x;
             sum += x;
             if (classes[c] >= 2) {
