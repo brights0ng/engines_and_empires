@@ -1,13 +1,19 @@
 // Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f: loose regression bars; M8a:
 // the two bars the realistic surface film moved out of, re-centred; M8b4: a block broken beside lava, with its bar
 // under F1; M8b5a: a tall cave, whole and cut by a tile border; M8e: lava under each fixed-wall surface, and h's lava
-// bar re-centred on the adopted one).
+// bar re-centred on the adopted one; M8e e3b: the dynamic start's calibration).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.function.Supplier;
 
 import dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface;
+import dev.brights0ng.greedyfluids.region.AirRegion;
+import dev.brights0ng.greedyfluids.solve.Background3D;
+import dev.brights0ng.greedyfluids.solve.SteadyHeat3D;
+import dev.brights0ng.greedyfluids.solve.WallStore3D;
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.climate.Underground;
 import dev.brights0ng.meteodyne.rain.WeatherConfig;
@@ -689,6 +695,185 @@ public final class AirflowScenarios {
     private static void lFinite(List<String> failures, String what, double a, double b, double c) {
         if (!Double.isFinite(a) || !Double.isFinite(b) || !Double.isFinite(c)) {
             failures.add(what + ": " + a + ", " + b + ", " + c);
+        }
+    }
+
+    /** m's effective diffusivities, m²/s. */
+    private static final double[] M_KAPPAS = {0.1, 0.2, 0.5, 1, 2};
+    /** m's store capacity scale for steady references: the same steady state, reached far sooner. */
+    private static final double M_LIGHT = 1e-4;
+    /**
+     * How long a steady reference runs, s, sampled at the last three multiples of {@link #M_DRIFT} s and extrapolated
+     * from them: even with light stores a cave's own air settles over hours (11 × 6 × 11 at about 1 h, 16 × 30 × 16 at
+     * about 3 h): at 1 h the first run was still climbing 40 °C in its last 10 min.
+     */
+    private static final double M_STEADY = 21_600, M_DRIFT = 3600;
+    /** How long the full solver runs from a start before it is compared, s (Bright's bar: 2 min). */
+    private static final double M_AFTER = 120;
+    /** Bright's bar: the estimate's enclosed mean and store mean within this share of the reference's rise. */
+    private static final double M_SHARE = 0.15;
+    /** In open air both starts settle within seconds: errors this small, C, count as no worse than cold. */
+    private static final double M_TIE = 0.1;
+
+    /**
+     * One of m's cases: its scene, outside air and wind; {@code fixed}: heated by lava (the reference is the steady
+     * state) or else by block sources (the reference is the full solver at the horizon from cold); {@code enclosed}: the
+     * ±15 % bar applies (open air is tied in the estimate, so only the 2-minute check does); the measured volume and a
+     * reader's cell, scene cells.
+     */
+    private record MCase(String name, Supplier<AirflowScene> scene, AirflowScene.Outside outside, double wind,
+                         boolean fixed, boolean enclosed, int[] volume, int[] reader) {
+    }
+
+    /** What m reads off a run: the volume's mean offset, the reader's offset, the stores' mean offset, C. */
+    private record MReading(double mean, double reader, double stores) {
+        static MReading of(AirflowScene.Run run, MCase c) {
+            int[] v = c.volume(), r = c.reader();
+            return new MReading(run.meanOffset(v[0], v[1], v[2], v[3], v[4], v[5]), run.offset(r[0], r[1], r[2]),
+                    storeOffset(run.model.region(), v));
+        }
+
+        /** Each value's limit from three equally spaced samples, by Aitken's Δ² (the last sample where it can't). */
+        static MReading limit(MReading a, MReading b, MReading c) {
+            return new MReading(aitken(a.mean, b.mean, c.mean), aitken(a.reader, b.reader, c.reader),
+                    aitken(a.stores, b.stores, c.stores));
+        }
+
+        private static double aitken(double a, double b, double c) {
+            double d1 = b - a, d2 = c - b, den = d2 - d1;
+            // a geometric approach: steps of one sign, shrinking
+            if (!(Math.abs(d2) < Math.abs(d1)) || d1 * d2 <= 0 || den == 0) {
+                return c;
+            }
+            return c - d2 * d2 / den;
+        }
+    }
+
+    /** The mean offset from their near cell's background of the non-fixed stores whose near cell is in a volume, C. */
+    private static double storeOffset(AirRegion region, int[] v) {
+        WallStore3D w = region.mesh().solver().wallStore();
+        Background3D bg = region.background();
+        int nx = bg.nx(), nz = bg.nz();
+        double sum = 0;
+        int n = 0;
+        for (int i = 0; i < w.count(); i++) {
+            if (w.isFixed(i)) {
+                continue;
+            }
+            int c = w.cellA(i), x = c % nx, z = c / nx % nz, y = c / (nx * nz);
+            if (x >= v[0] && x <= v[3] && y >= v[1] && y <= v[4] && z >= v[2] && z <= v[5]) {
+                sum += w.temperature(i) - bg.cell(c);
+                n++;
+            }
+        }
+        return n == 0 ? Double.NaN : sum / n;
+    }
+
+    private static final MCase[] M_CASES = {
+            new MCase("house with a campfire", () -> house().set(15, G, 20, door(false, false))
+                    .set(15, G + 1, 20, door(true, false)).set(15, G, 15, FIRE), STILL, 0, false, true, INSIDE,
+                    new int[] {12, G + 1, 12}),
+            new MCase("house with a 2x2 lava pool", () -> house().fill(15, G - 1, 15, 16, G - 1, 16, LAVA), STILL, 0,
+                    true, true, INSIDE, new int[] {12, G + 1, 12}),
+            new MCase("tall cave with a lava face", () -> new AirflowScene(N, K_TOP, N)
+                    .fill(0, 0, 0, N - 1, K_TOP - 1, N - 1, STONE).fill(4, 4, 8, 19, 33, 23, Blocks.AIR.defaultBlockState())
+                    .fill(3, 4, 14, 3, 6, 17, LAVA), K_BACKGROUND, 0, true, true, new int[] {4, 4, 8, 19, 33, 23},
+                    new int[] {12, 5, 15}),
+            new MCase("closed cave with a 3x3 lava pool", () -> new AirflowScene(N, K_TOP, N)
+                    .fill(0, 0, 0, N - 1, K_TOP - 1, N - 1, STONE)
+                    .fill(10, 10, 10, 20, 15, 20, Blocks.AIR.defaultBlockState()).fill(14, 9, 14, 16, 9, 16, LAVA),
+                    K_BACKGROUND, 0, true, true, new int[] {10, 10, 10, 20, 15, 20}, new int[] {11, 11, 11}),
+            new MCase("open lava pool, still", () -> ground(G).fill(14, G - 1, 14, 16, G - 1, 16, LAVA), STILL, 0, true,
+                    false, new int[] {12, G, 12, 18, G + 3, 18}, new int[] {15, G + 1, 18}),
+            new MCase("open lava pool, 3 m/s", () -> ground(G).fill(14, G - 1, 14, 16, G - 1, 16, LAVA), STILL, 3, true,
+                    false, new int[] {12, G, 12, 18, G + 3, 18}, new int[] {19, G + 1, 15}),
+            new MCase("lone campfire, still", () -> ground(G).set(15, G, 15, FIRE), STILL, 0, false, false,
+                    new int[] {12, G, 12, 18, G + 3, 18}, new int[] {15, G + 1, 17}),
+    };
+
+    /**
+     * m (GreedyFluids M8e e3b; Bright 2026-11-20, decisions 53–55): calibrates the dynamic start's effective
+     * diffusivity. For each case:
+     * <ul>
+     *   <li><b>reference:</b> lava cases, the full solver with its stores' capacities × {@link #M_LIGHT} for
+     *       {@link #M_STEADY} s (a steady state does not depend on capacities), its drift over the last
+     *       {@link #M_DRIFT} s logged; source cases, the full solver from cold for the horizon (1,200 s), and
+     *       {@link #M_AFTER} s more for the 2-minute target;</li>
+     *   <li><b>cold:</b> the full solver from cold for {@link #M_AFTER} s (what a reader sees today);</li>
+     *   <li><b>each κ:</b> the estimate (its readings, iterations and time), then the full solver from it for
+     *       {@link #M_AFTER} s.</li>
+     * </ul>
+     * Bright's bar: in enclosed cases the estimate's mean and store mean within ±15 % of the reference's rise; in
+     * every case, after 2 min both the volume's mean and the reader nearer the target than from cold. <b>Report
+     * only</b>: finite values; the bar is logged as PASS or MISS per κ.
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_scenario_start")
+    public static void dynamicStartCalibration(GameTestHelper helper) {
+        List<String> failures = new ArrayList<>();
+        for (MCase c : M_CASES) {
+            mCase(c, failures);
+        }
+        helper.assertTrue(failures.isEmpty(), "m. finite readings: " + String.join("; ", failures));
+        helper.succeed();
+    }
+
+    private static void mCase(MCase c, List<String> failures) {
+        double horizon = SteadyHeat3D.DEFAULT_HORIZON;
+        // the reference
+        AirflowScene.Run ref = c.scene().get().build(c.outside(), c.wind(), 0);
+        MReading atEstimate, target;
+        AirflowScene.Report report = new AirflowScene.Report("m " + c.name());
+        if (c.fixed()) {
+            ref.model.region().mesh().solver().wallStore().scaleCapacitiesForTesting(M_LIGHT);
+            ref.until(M_STEADY - 2 * M_DRIFT);
+            MReading first = MReading.of(ref, c);
+            ref.until(M_STEADY - M_DRIFT);
+            MReading second = MReading.of(ref, c);
+            ref.until(M_STEADY);
+            MReading last = MReading.of(ref, c);
+            atEstimate = target = MReading.limit(first, second, last);
+            report.add("ref t21600 mean", last.mean()).add("drift over last hour", last.mean() - second.mean())
+                    .add("steady mean", target.mean()).add("reader", target.reader()).add("stores", target.stores())
+                    .add("stores t21600", last.stores());
+        } else {
+            ref.until(horizon);
+            atEstimate = MReading.of(ref, c);
+            ref.until(horizon + M_AFTER);
+            target = MReading.of(ref, c);
+            report.add("ref t1200 mean", atEstimate.mean()).add("reader", atEstimate.reader())
+                    .add("stores", atEstimate.stores()).add("t1320 mean", target.mean()).add("reader", target.reader());
+        }
+        report.log(ref);
+        // from cold, as today
+        AirflowScene.Run cold = c.scene().get().build(c.outside(), c.wind(), 0);
+        cold.until(M_AFTER);
+        MReading fromCold = MReading.of(cold, c);
+        double coldMeanErr = Math.abs(fromCold.mean() - target.mean()), coldReaderErr = Math.abs(fromCold.reader() - target.reader());
+        AirflowScene.Report coldReport = new AirflowScene.Report("m " + c.name() + ", cold start");
+        coldReport.add("t120 mean", fromCold.mean()).add("reader", fromCold.reader()).add("mean error", coldMeanErr)
+                .add("reader error", coldReaderErr).log(cold);
+        lFinite(failures, c.name() + " reference", target.mean(), target.reader(), fromCold.mean());
+        // each kappa
+        for (double kappa : M_KAPPAS) {
+            AirflowScene.Run run = c.scene().get().build(c.outside(), c.wind(), 0);
+            AirRegion region = run.model.region();
+            SteadyHeat3D.Estimate e = region.estimateStart(SteadyHeat3D.Settings.DEFAULT.withKappa(kappa), null);
+            region.moveTowardEstimate(e, 1);
+            MReading est = MReading.of(run, c);
+            run.until(M_AFTER);
+            MReading after = MReading.of(run, c);
+            double meanShare = est.mean() / atEstimate.mean() - 1, storeShare = est.stores() / atEstimate.stores() - 1;
+            double meanErr = Math.abs(after.mean() - target.mean()), readerErr = Math.abs(after.reader() - target.reader());
+            boolean close = !c.enclosed() || Math.abs(meanShare) <= M_SHARE && Math.abs(storeShare) <= M_SHARE;
+            boolean nearer = (meanErr < coldMeanErr || meanErr <= M_TIE) && (readerErr < coldReaderErr || readerErr <= M_TIE);
+            AirflowScene.Report line = new AirflowScene.Report(String.format(Locale.ROOT, "m %s, kappa %.1f, %s", c.name(),
+                    kappa, close && nearer ? "PASS" : "MISS" + (close ? "" : " (estimate)") + (nearer ? "" : " (2 min)")));
+            line.add("est mean", est.mean()).add("vs ref", meanShare).add("est reader", est.reader())
+                    .add("est stores", est.stores()).add("vs ref", storeShare).add("t120 mean", after.mean())
+                    .add("mean error", meanErr).add("reader", after.reader()).add("reader error", readerErr)
+                    .add("iterations", e.iterations()).add("estimate ms", e.ms()).add("converged", e.converged() ? 1 : 0)
+                    .log(run);
+            lFinite(failures, c.name() + " kappa " + kappa, est.mean(), after.mean(), after.reader());
         }
     }
 
