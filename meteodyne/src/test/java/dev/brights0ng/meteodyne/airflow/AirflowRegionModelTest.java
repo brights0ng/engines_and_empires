@@ -1,4 +1,5 @@
-// Written by Claude (GreedyFluids M7b b3); edited by Claude (M7d d2: save and restore; M7f: stores one by one).
+// Written by Claude (GreedyFluids M7b b3); edited by Claude (M7d d2: save and restore; M7f: stores one by one; M8c c3:
+// the source-velocity radius from the spec).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -11,6 +12,7 @@ import java.util.Map;
 import dev.brights0ng.greedyfluids.grid.CellGrid3D;
 import dev.brights0ng.greedyfluids.grid.CellType;
 import dev.brights0ng.greedyfluids.grid.Material;
+import dev.brights0ng.greedyfluids.refine.AdaptiveMesh3D;
 import dev.brights0ng.meteodyne.airflow.AirflowBatch.Change;
 import dev.brights0ng.meteodyne.airflow.AirflowCells.Cell;
 import dev.brights0ng.meteodyne.airflow.AirflowCells.Kind;
@@ -75,6 +77,20 @@ class AirflowRegionModelTest {
         assertEquals(0.5, m.time(), 1e-12);
         assertTrue(m.healthy());
         assertTrue(m.publish() != null);
+    }
+
+    @Test
+    void theSpecSetsTheSourceVelocityRadius() {
+        AdaptiveMesh3D mesh = model(Map.of()).region().mesh();
+        assertEquals(AdaptiveMesh3D.GateMode.CONTRAST, mesh.gateMode());
+        assertEquals(AdaptiveMesh3D.DEFAULT_SOURCE_VELOCITY_RADIUS, mesh.sourceVelocityRadius(), "the default");
+        AirflowSections.Codes air = new AirflowSections.Codes(0, 1, AirflowCells.AIR,
+                new byte[AirflowSections.SECTION_CELLS]);
+        AirflowRegionModel four = AirflowRegionModel.build(new AirflowRegionModel.Spec(0, 0, 0, 16, 16, 16,
+                new AirflowSections.Codes[] {air}, new AirflowCells.Table(1, new Cell[] {AIR, STONE}), 10, 0, 0,
+                new int[0], new double[0], null, null, 0, null, null, AirflowRegionModel.DEFAULT_KAPPA, 4));
+        assertEquals(4, four.region().mesh().sourceVelocityRadius(), "[heat] airflowSourceVelocityRadius");
+        assertEquals(AdaptiveMesh3D.DEFAULT_SOURCE_VELOCITY_LINGER, four.region().mesh().sourceVelocityLinger());
     }
 
     @Test

@@ -2,7 +2,7 @@
 // background field, fixed walls, thermostats and body heat; M7f: sources on the grid before the region is built, the
 // heat diffusivity from the spec; held steps and edit-batch time for the profile; a weather sent ahead of an edit
 // batch goes first, and door toggles refresh the follow weights; M8a: the surface film from the cell table; M8b: tile
-// borders; M8b5b: the far side from regions of any size across).
+// borders; M8b5b: the far side from regions of any size across; M8c c3: the source-velocity radius from the spec).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -16,6 +16,7 @@ import dev.brights0ng.greedyfluids.grid.CellGrid3D;
 import dev.brights0ng.greedyfluids.grid.CellGrid3D.FaceBoundary;
 import dev.brights0ng.greedyfluids.grid.CellGrid3D.Side;
 import dev.brights0ng.greedyfluids.grid.CellType;
+import dev.brights0ng.greedyfluids.refine.AdaptiveMesh3D;
 import dev.brights0ng.greedyfluids.region.AirFrame;
 import dev.brights0ng.greedyfluids.region.AirRegion;
 import dev.brights0ng.greedyfluids.region.ThermalState;
@@ -72,11 +73,22 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
      * the same order (entries null where none; the array null for none at all), to be decayed to game tick
      * {@code now}. {@code lattice} and {@code tops} are the background's ({@link Weather}); null for the uniform
      * {@code backgroundT}. {@code kappa} is the air's heat diffusivity, m²/s ({@code [heat] airflowHeatDiffusivity}).
+     * {@code sourceRadius} is how far from a heat source the air's motion always counts, cells
+     * ({@code [heat] airflowSourceVelocityRadius}).
      */
     record Spec(int x0, int y0, int z0, int nx, int ny, int nz, AirflowSections.Codes[] sections,
                 AirflowCells.Table table, double backgroundT, double windX, double windZ, int[] sourceCells,
                 double[] sourceWatts, double[] sourceLimits, AirflowSaved.Section[] saved, long now, float[] lattice,
-                int[] tops, double kappa) {
+                int[] tops, double kappa, int sourceRadius) {
+        /** As above, with GreedyFluids' default source-velocity radius. */
+        Spec(int x0, int y0, int z0, int nx, int ny, int nz, AirflowSections.Codes[] sections,
+             AirflowCells.Table table, double backgroundT, double windX, double windZ, int[] sourceCells,
+             double[] sourceWatts, double[] sourceLimits, AirflowSaved.Section[] saved, long now, float[] lattice,
+             int[] tops, double kappa) {
+            this(x0, y0, z0, nx, ny, nz, sections, table, backgroundT, windX, windZ, sourceCells, sourceWatts,
+                    sourceLimits, saved, now, lattice, tops, kappa, AdaptiveMesh3D.DEFAULT_SOURCE_VELOCITY_RADIUS);
+        }
+
         /** As above, with {@link #DEFAULT_KAPPA}. */
         Spec(int x0, int y0, int z0, int nx, int ny, int nz, AirflowSections.Codes[] sections,
              AirflowCells.Table table, double backgroundT, double windX, double windZ, int[] sourceCells,
@@ -199,6 +211,7 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         }
         region = initial == null ? new AirRegion(grid, background, null, spec.windX(), spec.windZ(), config)
                 : AirRegion.restore(grid, background, initial, spec.windX(), spec.windZ(), config);
+        region.mesh().setSourceVelocityRadius(spec.sourceRadius(), AdaptiveMesh3D.DEFAULT_SOURCE_VELOCITY_LINGER);
         cuts();
         distribute();
     }

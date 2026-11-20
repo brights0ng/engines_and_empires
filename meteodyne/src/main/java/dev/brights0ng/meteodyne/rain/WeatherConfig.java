@@ -4,6 +4,8 @@
 // Updated by Claude: [seasons] obliquity and sunLatitude, the sun's strength through the year.
 // Updated by Claude: [heat] airflow speed limit and tile cap (GreedyFluids M7e).
 // Updated by Claude: [heat] airflow stone conductivity and heat capacity, and heat diffusivity (GreedyFluids M7f).
+// Updated by Claude: [heat] airflowSourceVelocityRadius, how far from a heat source the air's motion is always resolved
+// (GreedyFluids M8c c3).
 // Updated by Claude: [heat] engine defaults to AIRFLOW (GreedyFluids M7f f3).
 // Updated by Claude: [heat] airflow neighbour tiles, their threshold and reach (GreedyFluids M8b b4).
 // Updated by Claude: [heat] airflow surface film, a physical one (GreedyFluids M8a).
@@ -463,6 +465,14 @@ public final class WeatherConfig {
                     "evens a room out. GreedyFluids' own default is 1. Applies to tiles built after the change.")
             .defineInRange("airflowHeatDiffusivity", 0.05, 0.001, 10.0);
 
+    public static final ModConfigSpec.IntValue AIRFLOW_SOURCE_VELOCITY_RADIUS = BUILDER
+            .comment("AIRFLOW: how far from a heat source (a fire, furnace, lava or magma) the air's motion is always",
+                    "worked out in full, blocks. Farther out it is worked out only where neighbouring air differs in",
+                    "temperature, which is what keeps windy open ground cheap. Larger places plumes and warm air",
+                    "around a base more faithfully and costs more around sources; 0 leaves it to the contrast alone.",
+                    "Applies to tiles built after the change.")
+            .defineInRange("airflowSourceVelocityRadius", 12, 0, 32);
+
     public static final ModConfigSpec.DoubleValue HEAT_BUDGET = BUILDER
             .comment("CPU cores the simulation may use on average (its own threads, not the server thread). When it",
                     "needs more, rooms are stepped less often in longer steps: warming stays on time, a little coarser.")
@@ -580,6 +590,12 @@ public final class WeatherConfig {
     /** AIRFLOW: the air's heat diffusivity, m²/s. */
     public static double airflowHeatDiffusivity() {
         return SPEC.isLoaded() ? AIRFLOW_HEAT_DIFFUSIVITY.get() : 0.05;
+    }
+
+    /** AIRFLOW: how far from a heat source the air's motion is always resolved, blocks (M8c c3). */
+    public static int airflowSourceVelocityRadius() {
+        return SPEC.isLoaded() ? AIRFLOW_SOURCE_VELOCITY_RADIUS.get()
+                : dev.brights0ng.greedyfluids.refine.AdaptiveMesh3D.DEFAULT_SOURCE_VELOCITY_RADIUS;
     }
 
     /** The height cooling, C per 100 blocks. */

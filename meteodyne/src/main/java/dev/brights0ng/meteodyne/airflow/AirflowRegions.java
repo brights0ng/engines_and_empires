@@ -5,6 +5,7 @@
 // each region reads its running neighbours' frames for its borders; M8b b4: secondaries, the tiles that run beside a
 // player's where enclosed air crosses a border; M8b5b: tiles merged into one region, and split again; M8c c0: the
 // recorder's background dump).
+// Edited by Claude: the source-velocity radius from [heat] into each region's spec (GreedyFluids M8c c3).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -1397,7 +1398,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
                 AirflowCells.table(), lattice[0], w[0], w[1], cells.stream().mapToInt(Integer::intValue).toArray(),
                 watts.stream().mapToDouble(Double::doubleValue).toArray(),
                 limits.stream().mapToDouble(Double::doubleValue).toArray(), any ? saved : null, level.getGameTime(),
-                lattice, tops, WeatherConfig.airflowHeatDiffusivity());
+                lattice, tops, WeatherConfig.airflowHeatDiffusivity(), WeatherConfig.airflowSourceVelocityRadius());
         r.spec = spec;
         if (recorder != null) {
             recorder.regionBuilt(r.id, spec, false);

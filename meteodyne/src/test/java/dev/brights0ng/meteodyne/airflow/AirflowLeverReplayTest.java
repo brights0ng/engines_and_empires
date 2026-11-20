@@ -1,6 +1,6 @@
 // Written by Claude (GreedyFluids M8c c2); edited by Claude (c2: the REF run and error against it; the hybrid gate CGD1, CGD2;
 // A': the source-velocity radius CGS2–CGS24 and CGSB4, CGSB8; its shapes, cap and band; the lone campfire;
-// time-averaged error and REFTWIN).
+// time-averaged error and REFTWIN; c3: DEFAULT is the contrast gate with R 12, BG the old default, the alternatives gone).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -27,22 +27,12 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
  * model per lever step in lockstep on the same recorded inputs ({@link AirflowReplayTest}'s replay: same spec, events
  * and input variant), so every difference in temperature is the lever's.
  * <ul>
- *   <li>DEFAULT: Meteodyne's region as it runs (the reference);</li>
+ *   <li>DEFAULT: Meteodyne's region as it runs (the reference): since M8c c3 the contrast gate with the
+ *       source-velocity radius at its default, 12 cells;</li>
  *   <li>TWIN: DEFAULT with its remesh cadence shifted by 16 steps: the noise floor any lever's drift is read against;</li>
- *   <li>CG: the thermal gate counts contrast between neighbouring air instead of departure from the background (W1);</li>
- *   <li>CGD1, CGD2: CG, and also air more than 1 or 2 °C from its background (CONTRAST_OR_DEPARTURE);</li>
- *   <li>CGS2, CGS4, CGS8, CGS12, CGS16, CGS24 (A'): CG, and velocity always counts within 2–24 cells of a heat source
- *       (block sources and fixed walls), lingering 5 s after a source goes; CGSB4, CGSB8: CG, and within 4 or 8 cells
- *       of a heat source the BACKGROUND gate's rule;</li>
- *   <li>CGUP16, CGDN16 (diagnostic): CG, velocity counts within 4 cells of a source and in the half of its 16-cell
- *       cube upwind (or downwind) along the wind's dominant axis;</li>
- *   <li>CGK2, CGK4 (K): CG, velocity counts within 4 cells of a source, and boxes within 16 cells are at most 2 or 4
- *       cells across;</li>
- *   <li>CGG2, CGG4 (G): CG, velocity counts within 8 cells of a source at the usual threshold and out to 16 cells at
- *       2 or 4 times it;</li>
- *   <li>CGT4, CGT8, CGT16 (S): CG, velocity counts within 4 cells of a source and in every box whose air, followed
- *       along the flow for 4, 8 or 16 s (at most 28 cells of path), gets there; CGT8K4: CGT8's reach under K's cap of
- *       4, velocity counting within 4 cells only;</li>
+ *   <li>BG: the thermal gate measures departure from the background (D3's gate before M8c c3);</li>
+ *   <li>CG: the contrast gate alone (radius 0);</li>
+ *   <li>CGS2 … CGS24: the contrast gate with the source-velocity radius at 2–24 cells (5 s linger);</li>
  *   <li>GATE05, GATE10: the thermal gate at 0.5 and 1 °C instead of 0.25 (W2);</li>
  *   <li>EPSU1, EPSU2: the velocity indicator's threshold at 1 and 2 m/s instead of 0.5 (W3);</li>
  *   <li>HOLDFLOW: the hold's flow test tolerates 50 % instead of 25 % (W4);</li>
@@ -67,56 +57,21 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 @EnabledIfSystemProperty(named = "meteodyne.airflowLevers", matches = ".+")
 class AirflowLeverReplayTest {
 
-    enum Lever { DEFAULT, TWIN, CG, CGD1, CGD2, CGS2, CGS4, CGS8, CGS12, CGS16, CGS24, CGSB4, CGSB8, CGUP16, CGDN16,
-        CGK2, CGK4, CGG2, CGG4, CGT4, CGT8, CGT16, CGT8K4, GATE05, GATE10, EPSU1, EPSU2, HOLDFLOW, REFTWIN, REF }
+    enum Lever { DEFAULT, TWIN, BG, CG, CGS2, CGS4, CGS8, CGS12, CGS16, CGS24, GATE05, GATE10, EPSU1, EPSU2, HOLDFLOW,
+        REFTWIN, REF }
 
     /** A''s linger after a heat source goes, s (decision 34). */
-    static final double SOURCE_LINGER = 5;
+    static final double SOURCE_LINGER = AdaptiveMesh3D.DEFAULT_SOURCE_VELOCITY_LINGER;
     /** The lone campfire's power, W (Meteodyne's lit campfire). */
     static final double CAMPFIRE_WATTS = 10_000;
 
     static void apply(Lever lever, AdaptiveMesh3D m) {
         switch (lever) {
             case TWIN -> m.setCadencePhaseForTesting(16);
-            case CG -> m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST);
-            case CGD1, CGD2 -> {
-                m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST_OR_DEPARTURE);
-                m.setGateDeparture(lever == Lever.CGD1 ? 1 : 2);
-            }
-            case CGS2, CGS4, CGS8, CGS12, CGS16, CGS24, CGSB4, CGSB8 -> {
-                m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST);
-                String name = lever.name();
-                boolean bg = name.startsWith("CGSB");
-                m.setSourceVelocityRadius(Integer.parseInt(name.substring(bg ? 4 : 3)), SOURCE_LINGER,
-                        bg ? AdaptiveMesh3D.SourceVelocityRule.BACKGROUND : AdaptiveMesh3D.SourceVelocityRule.ALWAYS);
-            }
-            case CGUP16, CGDN16 -> {
-                m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST);
-                m.setSourceVelocityRadius(16, SOURCE_LINGER, AdaptiveMesh3D.SourceVelocityRule.ALWAYS);
-                m.setSourceVelocityShape(lever == Lever.CGUP16 ? AdaptiveMesh3D.SourceVelocityShape.UPWIND
-                        : AdaptiveMesh3D.SourceVelocityShape.DOWNWIND, 4, 8);
-            }
-            case CGK2, CGK4 -> {
-                m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST);
-                m.setSourceVelocityRadius(16, SOURCE_LINGER, AdaptiveMesh3D.SourceVelocityRule.ALWAYS);
-                m.setSourceVelocityShape(AdaptiveMesh3D.SourceVelocityShape.CUBE, 4, 8);
-                m.setSourceVelocityCap(lever == Lever.CGK2 ? 2 : 4);
-            }
-            case CGG2, CGG4 -> {
-                m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST);
-                m.setSourceVelocityRadius(16, SOURCE_LINGER, AdaptiveMesh3D.SourceVelocityRule.ALWAYS);
-                m.setSourceVelocityShape(AdaptiveMesh3D.SourceVelocityShape.CUBE, 8, 8);
-                m.setSourceVelocityBand(lever == Lever.CGG2 ? 2 : 4);
-            }
-            case CGT4, CGT8, CGT16, CGT8K4 -> {
-                m.setGateMode(AdaptiveMesh3D.GateMode.CONTRAST);
-                m.setSourceVelocityRadius(24, SOURCE_LINGER, AdaptiveMesh3D.SourceVelocityRule.ALWAYS);
-                m.setSourceVelocityShape(AdaptiveMesh3D.SourceVelocityShape.TRACE, 4,
-                        lever == Lever.CGT4 ? 4 : lever == Lever.CGT16 ? 16 : 8);
-                if (lever == Lever.CGT8K4) {
-                    m.setSourceVelocityCap(4);
-                }
-            }
+            case BG -> m.setGateMode(AdaptiveMesh3D.GateMode.BACKGROUND);
+            case CG -> m.setSourceVelocityRadius(0, SOURCE_LINGER);
+            case CGS2, CGS4, CGS8, CGS12, CGS16, CGS24 ->
+                    m.setSourceVelocityRadius(Integer.parseInt(lever.name().substring(3)), SOURCE_LINGER);
             case GATE05 -> m.setThermalVelocityGate(0.5);
             case GATE10 -> m.setThermalVelocityGate(1.0);
             case EPSU1 -> m.setVelocityThreshold(1.0);
