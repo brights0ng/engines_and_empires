@@ -1,6 +1,7 @@
 // Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f: loose regression bars; M8a:
 // the two bars the realistic surface film moved out of, re-centred; M8b4: a block broken beside lava, with its bar
-// under F1; M8b5a: a tall cave, whole and cut by a tile border; M8e: lava under each fixed-wall surface).
+// under F1; M8b5a: a tall cave, whole and cut by a tile border; M8e: lava under each fixed-wall surface, and h's lava
+// bar re-centred on the adopted one).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -353,7 +354,11 @@ public final class AirflowScenarios {
         helper.succeed();
     }
 
-    /** h. Machines and lava heat a room: the house with a lit furnace, then with a 2 × 2 lava pool in its floor. */
+    /**
+     * h. Machines and lava heat a room: the house with a lit furnace, then with a 2 × 2 lava pool in its floor. M8e
+     * (Bright, 2026-11-20: lava faces couple by free convection, kept fine at radius 1): the pool's bar re-centred on
+     * its new value (64.06 C, from 2.13 when lava coupled through the stone below it).
+     */
     @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_scenario_machines")
     public static void furnaceAndLavaHeatARoom(GameTestHelper helper) {
         double[] warm = new double[2];
@@ -379,7 +384,7 @@ public final class AirflowScenarios {
         helper.assertTrue(warm[0] > 0, "a lit furnace warms the room: " + warm[0]);
         helper.assertTrue(warm[1] > 0, "lava warms the room: " + warm[1]);
         bar(helper, "h. lit furnace, inside at 10 min, C", warm[0], 4.29, 2.5, 6.5);
-        bar(helper, "h. lava pool, inside at 10 min, C", warm[1], 2.13, 1.2, 3.2);
+        bar(helper, "h. lava pool, inside at 10 min, C", warm[1], 64.06, 32, 96);
         helper.succeed();
     }
 

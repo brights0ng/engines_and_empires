@@ -9,7 +9,8 @@
 // Updated by Claude: [heat] engine defaults to AIRFLOW (GreedyFluids M7f f3).
 // Updated by Claude: [heat] airflow neighbour tiles, their threshold and reach (GreedyFluids M8b b4).
 // Updated by Claude: [heat] airflow surface film, a physical one (GreedyFluids M8a).
-// Updated by Claude: [heat] airflowFixedWallSurface, how lava and magma meet their air (GreedyFluids M8e).
+// Updated by Claude: [heat] airflowFixedWallSurface and airflowFixedWallKeepFine, how lava and magma meet their air
+// (GreedyFluids M8e; CONVECTION and 1 by default, Bright 2026-11-20).
 package dev.brights0ng.meteodyne.rain;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -462,12 +463,18 @@ public final class WeatherConfig {
 
     public static final ModConfigSpec.EnumValue<dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface>
             AIRFLOW_FIXED_WALL_SURFACE = BUILDER
-            .comment("AIRFLOW: how lava and magma faces heat the air beside them (GreedyFluids M8e, on trial). RAY: as any",
-                    "wall, through the film and half the blocks behind the face (a lava pool over deep stone barely",
-                    "warms its air). FILM: through the surface film alone. CONVECTION: as FILM, with free convection",
-                    "off the hot face (about twice the film's warmth from lava). Applies from the next /reload or",
-                    "restart.")
-            .defineEnum("airflowFixedWallSurface", dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface.RAY);
+            .comment("AIRFLOW: how lava and magma faces heat the air beside them (GreedyFluids M8e). CONVECTION: free",
+                    "convection off the hot face (a lava face gives its air about 13-15 kW). FILM: through the still-air",
+                    "film alone (about half that). RAY: as any wall, through the film and half the blocks behind the",
+                    "face (before M8e: a lava pool over deep stone barely warms its air). Applies from the next /reload",
+                    "or restart.")
+            .defineEnum("airflowFixedWallSurface", dev.brights0ng.greedyfluids.grid.CellGrid3D.DEFAULT_FIXED_SURFACE);
+
+    public static final ModConfigSpec.IntValue AIRFLOW_FIXED_WALL_KEEP_FINE = BUILDER
+            .comment("AIRFLOW: how far around lava and magma facing air the air is always kept at full resolution,",
+                    "blocks (GreedyFluids M8e). 0 lets the heat of a lava pool in a closed room spread evenly through",
+                    "one coarse block of air, with no plume. Applies from the next /reload or restart.")
+            .defineInRange("airflowFixedWallKeepFine", dev.brights0ng.greedyfluids.grid.CellGrid3D.DEFAULT_FIXED_KEEP_FINE, 0, 4);
 
     public static final ModConfigSpec.DoubleValue AIRFLOW_HEAT_DIFFUSIVITY = BUILDER
             .comment("AIRFLOW: how fast heat spreads through the air by mixing alone, m²/s (indoor air mixes at about",
@@ -599,8 +606,12 @@ public final class WeatherConfig {
 
     /** AIRFLOW: how lava and magma faces couple to their air (M8e). */
     public static dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface airflowFixedWallSurface() {
-        return SPEC.isLoaded() ? AIRFLOW_FIXED_WALL_SURFACE.get()
-                : dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface.RAY;
+        return SPEC.isLoaded() ? AIRFLOW_FIXED_WALL_SURFACE.get() : dev.brights0ng.greedyfluids.grid.CellGrid3D.DEFAULT_FIXED_SURFACE;
+    }
+
+    /** AIRFLOW: the keep-fine radius around lava and magma facing air, blocks (M8e). */
+    public static int airflowFixedWallKeepFine() {
+        return SPEC.isLoaded() ? AIRFLOW_FIXED_WALL_KEEP_FINE.get() : dev.brights0ng.greedyfluids.grid.CellGrid3D.DEFAULT_FIXED_KEEP_FINE;
     }
 
     /** AIRFLOW: the air's heat diffusivity, m²/s. */

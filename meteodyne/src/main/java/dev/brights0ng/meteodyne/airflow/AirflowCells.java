@@ -1,5 +1,5 @@
 // Written by Claude (GreedyFluids M7b); edited by Claude (M7c: hot walls; M7f: real stone from the config; M8a: the
-// surface film from the config; M8e: the fixed walls' surface from the config, and keep-fine cubes around them).
+// surface film from the config; M8e: the fixed walls' surface and keep-fine radius from the config).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -124,9 +124,10 @@ public final class AirflowCells {
             this.fixedKeepFine = fixedKeepFine;
         }
 
-        /** As above with the library's RAY fixed-wall surface (replays and unit tests). */
+        /** As above with the library's default fixed walls (replays and unit tests). */
         Table(long generation, Cell[] cells, double filmResistance) {
-            this(generation, cells, filmResistance, CellGrid3D.FixedSurface.RAY, 0);
+            this(generation, cells, filmResistance, CellGrid3D.DEFAULT_FIXED_SURFACE,
+                    CellGrid3D.DEFAULT_FIXED_KEEP_FINE);
         }
 
         /** A table with the default surface film (unit tests that build their own tables, without the config). */
@@ -184,7 +185,8 @@ public final class AirflowCells {
     private static double stoneConductance, stoneCapacity;
     /** The surface film for this generation, s/m (the config's m²·K/W times air's heat capacity). */
     private static double filmResistance;
-    private static CellGrid3D.FixedSurface fixedSurface = CellGrid3D.FixedSurface.RAY;
+    private static CellGrid3D.FixedSurface fixedSurface = CellGrid3D.DEFAULT_FIXED_SURFACE;
+    private static int fixedKeepFine = CellGrid3D.DEFAULT_FIXED_KEEP_FINE;
 
     static {
         reset(1);
@@ -290,7 +292,7 @@ public final class AirflowCells {
         code = (byte) CELLS.size();
         CELLS.add(cell);
         INTERNED.put(cell, code);
-        table = new Table(generation, CELLS.toArray(Cell[]::new), filmResistance, fixedSurface, 0);
+        table = new Table(generation, CELLS.toArray(Cell[]::new), filmResistance, fixedSurface, fixedKeepFine);
         return code;
     }
 
@@ -325,9 +327,10 @@ public final class AirflowCells {
         stoneCapacity = WeatherConfig.airflowStoneHeatCapacity() * 1e6 / rhoCp;
         filmResistance = WeatherConfig.airflowSurfaceFilm() * rhoCp;
         fixedSurface = WeatherConfig.airflowFixedWallSurface();
+        fixedKeepFine = WeatherConfig.airflowFixedWallKeepFine();
         CELLS.add(AIR_CELL);
         INTERNED.put(AIR_CELL, AIR);
-        table = new Table(generation, CELLS.toArray(Cell[]::new), filmResistance, fixedSurface, 0);
+        table = new Table(generation, CELLS.toArray(Cell[]::new), filmResistance, fixedSurface, fixedKeepFine);
     }
 
     @SubscribeEvent
