@@ -1,4 +1,4 @@
-// Written by Claude; added vanilla held-food arm poses by ChatGPT.
+// Written by Claude; added vanilla held-food arm poses by ChatGPT; added rough-sleep ground lift by Gemini.
 package dev.brights0ng.empire.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -54,7 +54,15 @@ public class CivilianRenderer extends HumanoidMobRenderer<CivilianEntity, Player
                 else model.leftArmPose = HumanoidModel.ArmPose.ITEM;
             }
         }
+        boolean roughLift = civilian.isRoughSleeping() && !civilian.isSleeping();
+        if (roughLift) {
+            poseStack.pushPose();
+            poseStack.translate(0.0, 0.15, 0.0);
+        }
         super.render(civilian, entityYaw, partialTick, poseStack, buffer, packedLight);
+        if (roughLift) {
+            poseStack.popPose();
+        }
         CivilianSpeechStore.Bubble bubble = CivilianSpeechStore.get(civilian.getId());
         if (bubble != null) {
             CivilianBubbleRenderer.render(civilian, bubble, entityRenderDispatcher, getFont(), partialTick, poseStack,
