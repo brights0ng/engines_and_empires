@@ -1,6 +1,6 @@
 // Written by Claude (GreedyFluids M7b b4); edited by Claude (M7d d1: regions are tiles; d2: save counts; the view;
 // M7e: the speed limit's and the cap's counts; M8b: heat across a tile's borders; b4: secondaries; M8b5b: merged
-// regions).
+// regions; M8c c4: stand-ins).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.nio.file.Path;
@@ -31,6 +31,9 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *   <li>{@code record start|stop|mark <text>}: the smoke recorder ({@link AirflowRecorder}), into
  *       {@code greedyfluids-scans/airflow/<stamp>/}.</li>
  *   <li>{@code show}: toggles the debug view for the player running it ({@link AirflowView}).</li>
+ *   <li>{@code standin [list]}, {@code standin add <name> [pos]}, {@code standin remove <name>},
+ *       {@code standin clear} (M8c c4): fixed points that keep tiles alive as players do
+ *       ({@link AirflowRegions#addStandIn}); default position: where the source stands.</li>
  * </ul>
  */
 @EventBusSubscriber(modid = Meteodyne.MODID)
@@ -44,6 +47,23 @@ public final class AirflowCommand {
                 .then(Commands.literal("airflow")
                         .then(Commands.literal("status").executes(c -> status(c.getSource())))
                         .then(Commands.literal("show").executes(c -> show(c.getSource())))
+                        .then(Commands.literal("standin")
+                                .executes(c -> standIns(c.getSource()))
+                                .then(Commands.literal("list").executes(c -> standIns(c.getSource())))
+                                .then(Commands.literal("add")
+                                        .then(Commands.argument("name", StringArgumentType.word())
+                                                .executes(c -> addStandIn(c.getSource(),
+                                                        StringArgumentType.getString(c, "name"),
+                                                        c.getSource().getPosition()))
+                                                .then(Commands.argument("pos", Vec3Argument.vec3())
+                                                        .executes(c -> addStandIn(c.getSource(),
+                                                                StringArgumentType.getString(c, "name"),
+                                                                Vec3Argument.getVec3(c, "pos"))))))
+                                .then(Commands.literal("remove")
+                                        .then(Commands.argument("name", StringArgumentType.word())
+                                                .executes(c -> removeStandIn(c.getSource(),
+                                                        StringArgumentType.getString(c, "name")))))
+                                .then(Commands.literal("clear").executes(c -> clearStandIns(c.getSource()))))
                         .then(Commands.literal("sample")
                                 .executes(c -> sample(c.getSource(), c.getSource().getPosition()))
                                 .then(Commands.argument("pos", Vec3Argument.vec3())
@@ -77,6 +97,7 @@ public final class AirflowCommand {
                 rec == null ? "" : "; recording " + rec.seconds() + " s into " + rec.dir().toAbsolutePath()));
         reply(source, neighbourLine(r));
         reply(source, mergeLine(r));
+        reply(source, standInLine(r));
         for (AirflowRegions.Region g : r.regions()) {
             reply(source, regionLine(g, now));
         }
@@ -139,6 +160,67 @@ public final class AirflowCommand {
                 bounds, slot.status(), slot.boxes(), slot.stepMs(), slot.lag(), slot.queued(), age, slot.steps(),
                 slot.drops(), slot.failures(), c.desyncs(), c.edits(), c.toggles(), c.watts(), c.exchangedJ() / 1e3,
                 slot.failure() == null ? "" : "; last failure: " + slot.failure());
+    }
+
+    /** M8c c4: the stand-ins and where each stands. */
+    static String standInLine(AirflowRegions r) {
+        List<AirflowRegions.StandIn> all = r.standIns();
+        if (all.isEmpty()) {
+            return "Stand-ins: none";
+        }
+        StringBuilder b = new StringBuilder("Stand-ins: ").append(all.size());
+        for (AirflowRegions.StandIn s : all) {
+            AirflowRegions.Region g = r.regionAt(s.pos().x, s.pos().y, s.pos().z);
+            b.append(String.format(Locale.ROOT, "; %s at %.1f %.1f %.1f (%s)", s.name(), s.pos().x, s.pos().y,
+                    s.pos().z, g == null ? "no region yet" : "region #" + g.id()));
+        }
+        return b.toString();
+    }
+
+    static int standIns(CommandSourceStack source) {
+        AirflowRegions r = AirflowRegions.get();
+        if (r == null) {
+            fail(source, "Airflow is off: [heat] engine is " + Airflow.engine());
+            return 0;
+        }
+        reply(source, standInLine(r));
+        return 1;
+    }
+
+    static int addStandIn(CommandSourceStack source, String name, Vec3 at) {
+        AirflowRegions r = AirflowRegions.get();
+        if (r == null) {
+            fail(source, "Airflow is off: [heat] engine is " + Airflow.engine());
+            return 0;
+        }
+        if (source.getLevel() != r.level()) {
+            fail(source, "Airflow runs in the Overworld only");
+            return 0;
+        }
+        boolean added = r.addStandIn(name, at);
+        reply(source, String.format(Locale.ROOT, "Stand-in %s %s %.1f %.1f %.1f: it keeps its tile alive as a player "
+                + "would, until removed or the server stops", name, added ? "at" : "moved to", at.x, at.y, at.z));
+        return 1;
+    }
+
+    static int removeStandIn(CommandSourceStack source, String name) {
+        AirflowRegions r = AirflowRegions.get();
+        if (r == null || !r.removeStandIn(name)) {
+            fail(source, "No stand-in named " + name);
+            return 0;
+        }
+        reply(source, "Stand-in " + name + " removed; its tiles go into their grace");
+        return 1;
+    }
+
+    static int clearStandIns(CommandSourceStack source) {
+        AirflowRegions r = AirflowRegions.get();
+        if (r == null) {
+            fail(source, "Airflow is off: [heat] engine is " + Airflow.engine());
+            return 0;
+        }
+        reply(source, r.clearStandIns() + " stand-ins removed");
+        return 1;
     }
 
     static int sample(CommandSourceStack source, Vec3 at) {

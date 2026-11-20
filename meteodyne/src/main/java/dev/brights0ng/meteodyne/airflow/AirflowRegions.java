@@ -6,12 +6,15 @@
 // player's where enclosed air crosses a border; M8b5b: tiles merged into one region, and split again; M8c c0: the
 // recorder's background dump).
 // Edited by Claude: the source-velocity radius from [heat] into each region's spec (GreedyFluids M8c c3).
+// Edited by Claude: stand-ins, fixed points that keep tiles alive as players do (GreedyFluids M8c c4).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,6 +36,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.TicketType;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -91,6 +96,10 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  *       every {@link #SAVE_TICKS}, when it retires and when the server stops; a region is built from what its
  *       chunks hold, decayed toward the background ({@link AirflowSaved}). A save that arrives after its chunk
  *       unloaded is lost; the chunk keeps the save before it.</li>
+ *   <li><b>Stand-ins (M8c c4; Bright, 2026-11-20):</b> named fixed points that keep tiles alive as a player standing
+ *       there would (traces, secondaries, merging, 500 W of body heat), so one player can profile several sites at
+ *       once. Each holds a chunk ticket over the 3×3 tiles around it while it exists ({@link #STAND_IN_RADIUS}); not
+ *       saved, gone at a restart. Debug only: {@code /meteodyne airflow standin}.</li>
  * </ul>
  * Started at {@code ServerStartedEvent} in airflow mode, stopped (air thread joined) at {@code ServerStoppingEvent}.
  */
@@ -122,6 +131,13 @@ public final class AirflowRegions implements AirflowSections.Listener {
     static final int MAX_TRANSITIONS = 2;
     /** A merge or split not done in this long is given up, ticks (M8b5b; 2 min). */
     static final long TRANSITION_TIMEOUT_TICKS = 2400;
+    /**
+     * M8c c4: a stand-in's chunk ticket reaches this many chunks from its chunk, so the 3×3 tiles around its tile
+     * are loaded (its tile is 4 chunks wide; its neighbours' far sides are at most 7 chunks away).
+     */
+    static final int STAND_IN_RADIUS = 7;
+    private static final TicketType<ChunkPos> STAND_IN_TICKET = TicketType.create("meteodyne_airflow_stand_in",
+            Comparator.comparingLong(ChunkPos::toLong));
 
     private static volatile AirflowRegions running;
 
@@ -266,7 +282,9 @@ public final class AirflowRegions implements AirflowSections.Listener {
      */
     private final Map<Long, Live> live = new ConcurrentHashMap<>();
     private AirflowSections sections;
-    private Function<ServerLevel, List<Anchor>> anchors = AirflowRegions::players;
+    private Function<ServerLevel, List<Anchor>> anchors = this::playersAndStandIns;
+    /** M8c c4: the stand-ins, by name, in the order added. */
+    private final Map<String, StandIn> standIns = new LinkedHashMap<>();
     private final AirflowLimits.Speeds speeds = new AirflowLimits.Speeds(AirflowLimits.WINDOW_TICKS);
     private int nextId = 1;
     private long managerNanos;
@@ -547,6 +565,58 @@ public final class AirflowRegions implements AirflowSections.Listener {
         };
     }
 
+    /** M8c c4: a stand-in: its name, the id it keeps tiles under, where it stands, and the chunk its ticket is on. */
+    public record StandIn(String name, UUID id, Vec3 pos, ChunkPos ticket) {
+    }
+
+    /**
+     * M8c c4: puts a stand-in named {@code name} at {@code pos} (server thread), moving it if one by that name exists.
+     * Returns true when it is new.
+     */
+    public boolean addStandIn(String name, Vec3 pos) {
+        StandIn old = standIns.remove(name);
+        if (old != null) {
+            level.getChunkSource().removeRegionTicket(STAND_IN_TICKET, old.ticket(), STAND_IN_RADIUS, old.ticket());
+        }
+        ChunkPos chunk = new ChunkPos(BlockPos.containing(pos));
+        level.getChunkSource().addRegionTicket(STAND_IN_TICKET, chunk, STAND_IN_RADIUS, chunk);
+        UUID id = UUID.nameUUIDFromBytes(("meteodyne:airflow_stand_in/" + name)
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        standIns.put(name, new StandIn(name, id, pos, chunk));
+        if (recorder != null) {
+            recorder.mark(String.format(java.util.Locale.ROOT, "stand-in %s at %.1f %.1f %.1f", name, pos.x, pos.y,
+                    pos.z));
+        }
+        return old == null;
+    }
+
+    /** M8c c4: removes the stand-in named {@code name}; false if there is none. Its tiles go into their grace. */
+    public boolean removeStandIn(String name) {
+        StandIn s = standIns.remove(name);
+        if (s == null) {
+            return false;
+        }
+        level.getChunkSource().removeRegionTicket(STAND_IN_TICKET, s.ticket(), STAND_IN_RADIUS, s.ticket());
+        if (recorder != null) {
+            recorder.mark("stand-in " + name + " removed");
+        }
+        return true;
+    }
+
+    /** M8c c4: removes every stand-in; returns how many there were. */
+    public int clearStandIns() {
+        List<String> names = new ArrayList<>(standIns.keySet());
+        for (String name : names) {
+            removeStandIn(name);
+        }
+        return names.size();
+    }
+
+    /** M8c c4: the stand-ins, in the order added (server thread). */
+    public List<StandIn> standIns() {
+        return List.copyOf(standIns.values());
+    }
+
     /**
      * Game tests only, before any region opens: shifts the tile grid by whole sections so that the section holding
      * {@code at} is the second along x and z of its tile and the lower of its band. A 7-block test structure from
@@ -587,6 +657,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
     }
 
     void stop() {
+        clearStandIns();
         stopRecording();
         for (Transition t : List.copyOf(transitions)) {
             abandon(t, false);
@@ -1507,6 +1578,15 @@ public final class AirflowRegions implements AirflowSections.Listener {
                 xyzw.add(AirflowSources.PLAYER_WATTS);
             }
         }
+        for (StandIn s : standIns.values()) { // M8c c4: a stand-in is warm as a player is
+            Vec3 at = s.pos().add(0, 0.9, 0);
+            if (r.contains(at.x, at.y, at.z)) {
+                xyzw.add(at.x - r.x0);
+                xyzw.add(at.y - r.y0);
+                xyzw.add(at.z - r.z0);
+                xyzw.add(AirflowSources.PLAYER_WATTS);
+            }
+        }
         if (!xyzw.isEmpty() || r.hadBodies) {
             r.hadBodies = !xyzw.isEmpty();
             double[] packed = xyzw.stream().mapToDouble(Double::doubleValue).toArray();
@@ -1695,6 +1775,15 @@ public final class AirflowRegions implements AirflowSections.Listener {
             if (!p.isSpectator() && !ships.aboard(level, p.position(), ABOARD_MARGIN)) {
                 out.add(new Anchor(p.getUUID(), p.position()));
             }
+        }
+        return out;
+    }
+
+    /** What keeps tiles alive outside game tests: the players, then the stand-ins (M8c c4). */
+    private List<Anchor> playersAndStandIns(ServerLevel level) {
+        List<Anchor> out = players(level);
+        for (StandIn s : standIns.values()) {
+            out.add(new Anchor(s.id(), s.pos()));
         }
         return out;
     }

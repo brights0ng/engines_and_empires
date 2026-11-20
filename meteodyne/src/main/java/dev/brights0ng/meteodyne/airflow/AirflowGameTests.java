@@ -4,7 +4,7 @@
 // config, the recorder's profile; f3: AIRFLOW is the config's default, game-test servers run LEGACY; M8a: AIRFLOW
 // started by the server's own handlers; the surface film from the config; M8b b4: secondaries, and the tests that count
 // regions run without them; M8b5b: a cut room merges into one region and splits, the B3 test with merging off; M8c c0:
-// the recorder's background dump read back).
+// the recorder's background dump read back; M8c c4: a stand-in keeps a far tile alive).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -1040,6 +1040,68 @@ public final class AirflowGameTests {
 
     /** Window size of part b3: four sections across, three tall. */
     private static final int WX = 64, WY = 48, WZ = 64;
+
+    /**
+     * M8c c4 (Bright, 2026-11-20): a stand-in 1,024 blocks east of the test, where no chunk is loaded, keeps its tile
+     * alive with no player there: its ticket loads the chunks, the tile is built and stepped and counts as occupied,
+     * and the {@code standin} commands answer. Removed, its tile retires after the grace.
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_stand_in", timeoutTicks = 40_000)
+    public static void aStandInKeepsAFarTileAlive(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos near = helper.absolutePos(new BlockPos(1, 2, 1));
+        Vec3 far = Vec3.atBottomCenterOf(near.offset(1024, 0, 0));
+        AirflowRegions regions = new AirflowRegions(level);
+        regions.neighbourTiles(AirflowNeighbourTiles.Mode.OFF, 0); // counts regions
+        boolean opened = AirflowSections.get(level) == null;
+        regions.start();
+        AirflowRegions.useForTests(regions);
+        var commands = level.getServer().getCommands().getDispatcher();
+        var op = level.getServer().createCommandSourceStack().withLevel(level).withPosition(far);
+        boolean[] stopped = {false};
+        helper.onEachTick(() -> {
+            if (!stopped[0]) {
+                regions.tick();
+            }
+        });
+        Runnable cleanup = () -> {
+            stopped[0] = true;
+            AirflowRegions.useForTests(null);
+            regions.stop();
+            if (opened) {
+                AirflowSections.close(level);
+            }
+        };
+        helper.assertTrue(level.getChunkSource().getChunkNow((int) far.x >> 4, (int) far.z >> 4) == null,
+                "the far spot's chunk should start unloaded");
+        helper.assertTrue(command(commands, "meteodyne airflow standin add far", op) == 1, "standin add answers");
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region r = regions.regionAt(far.x, far.y, far.z);
+                    helper.assertTrue(r != null && r.slot() != null && r.slot().steps() >= 2,
+                            "waiting for the stand-in's tile to be built and stepped: "
+                                    + AirflowCommand.standInLine(regions));
+                })
+                .thenExecute(() -> {
+                    AirflowRegions.Region r = regions.regionAt(far.x, far.y, far.z);
+                    helper.assertTrue(regions.regions().size() == 1 && r.occupied() && !r.secondary(),
+                            "one region, kept by the stand-in: " + regionLine(r, level));
+                    helper.assertTrue(r.slot().status() == AirflowRuntime.Status.RUNNING && r.slot().failures() == 0,
+                            "running: " + r.slot().failure());
+                    helper.assertTrue(regions.standIns().size() == 1 && regions.standIns().get(0).name().equals("far"),
+                            AirflowCommand.standInLine(regions));
+                    helper.assertTrue(command(commands, "meteodyne airflow standin", op) == 1, "standin lists");
+                    helper.assertTrue(command(commands, "meteodyne airflow standin remove far", op) == 1,
+                            "standin remove answers");
+                    helper.assertTrue(command(commands, "meteodyne airflow standin remove far", op) == 0,
+                            "removing it twice fails");
+                    helper.assertTrue(regions.standIns().isEmpty(), "no stand-ins left");
+                })
+                .thenWaitUntil(() -> helper.assertTrue(regions.regions().isEmpty(),
+                        "waiting for the tile's grace to end: " + regions.regions().size()))
+                .thenExecute(cleanup)
+                .thenSucceed();
+    }
 
     /**
      * M7e (Bright, 2026-11-15): an anchor faster than {@code airflowSpeedLimit} (5.5 blocks a second over 2 s) opens no
