@@ -1,4 +1,4 @@
-// Written by Claude; extended with ability, needs, inventory and eating commands by ChatGPT.
+// Written by Claude; extended with ability, needs, inventory and eating commands by ChatGPT; extended with sleep commands and bed cleanup by Gemini.
 package dev.brights0ng.empire.command;
 
 import java.util.ArrayList;
@@ -15,6 +15,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 
+import dev.brights0ng.empire.civilian.CivilianBeds;
 import dev.brights0ng.empire.civilian.CivilianChunkLoading;
 import dev.brights0ng.empire.civilian.CivilianEntity;
 import dev.brights0ng.empire.civilian.CivilianRoster;
@@ -179,6 +180,7 @@ public final class CivilianDebugCommands {
             if (civilian.status() == CivilianEntity.Status.CITIZEN && civilian.civilianId() != null) {
                 CivilianRecord record = data.civilian(civilian.civilianId());
                 if (record != null && record.body().equals(civilian.getUUID())) {
+                    CivilianBeds.release(source.getServer().overworld(), record.bed());
                     data.removeCivilian(record.id());
                 }
             } else if (civilian.status() == CivilianEntity.Status.TRAVELLER) {

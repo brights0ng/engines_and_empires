@@ -139,7 +139,9 @@ public final class CivilianRoster {
         }
         ServerLevel overworld = server.overworld();
         for (CivilianRecord record : records) {
+            CivilianBeds.release(overworld, record.bed());
             if (overworld.getEntity(record.body()) instanceof CivilianEntity body) {
+                body.setClaimedBed(null);
                 body.startLeaving();
             }
         }
@@ -154,6 +156,7 @@ public final class CivilianRoster {
         if (civilian.status() == CivilianEntity.Status.CITIZEN) {
             CivilianRecord record = civilian.ownRecord(data);
             if (record != null) {
+                CivilianBeds.release(level, record.bed() != null ? record.bed() : civilian.claimedBed());
                 data.removeCivilian(record.id());
                 STRIKES.remove(record.id());
                 EmpireRecord empire = data.getEmpire(record.empire());
@@ -227,6 +230,8 @@ public final class CivilianRoster {
         } else if (civilian.status() == CivilianEntity.Status.CITIZEN) {
             CivilianRecord old = civilian.ownRecord(data);
             if (old != null) {
+                CivilianBeds.release(level, old.bed());
+                civilian.setClaimedBed(null);
                 data.removeCivilian(old.id());
             }
         }
