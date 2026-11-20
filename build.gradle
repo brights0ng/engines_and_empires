@@ -181,6 +181,10 @@ dependencies {
     // The core mod replaces its item weight lookup with ours (see the weight package).
     implementation("maven.modrinth:TgzFvqFZ:${encumbered_version}")
 
+    // Odyssey Quests (Heracles) and Resourceful Lib, the library it needs.
+    implementation("maven.modrinth:odyssey-quests:${odyssey_quests_version}")
+    implementation("maven.modrinth:resourceful-lib:${resourceful_lib_version}")
+
     // AppleSkin (food value previews). Optional: food/client/AppleSkinCompat shows spoiled food's real values in it, and
     // is only hooked up when AppleSkin is present.
     compileOnly("maven.modrinth:appleskin:${appleskin_version}")

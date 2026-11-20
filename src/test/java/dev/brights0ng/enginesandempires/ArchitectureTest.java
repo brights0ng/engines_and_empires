@@ -1,4 +1,4 @@
-// Updated by Gemini: accounted for removed MineColonies files in manifest checks; added empire mod.
+// Updated by Gemini: accounted for removed MineColonies files in manifest checks; added empire mod and Odyssey Quests core dependency.
 // Updated by Claude: Empire's required outside mods and its gated Simple Spoilage and Meteodyne packages.
 package dev.brights0ng.enginesandempires;
 
@@ -126,6 +126,9 @@ class ArchitectureTest {
         OUTSIDE.put("dieselgenerators", List.of("com.jesz.createdieselgenerators"));
         OUTSIDE.put("create", List.of("com.simibubi.create", "dev.engine_room.flywheel", "net.createmod.catnip"));
         OUTSIDE.put("encumbered", List.of("com.khofonyx.encumbered"));
+        // Odyssey Quests (Heracles) brings Hermes, Olympus and Resourceful Lib.
+        OUTSIDE.put("odysseyquests", List.of("earth.terrarium.heracles", "earth.terrarium.hermes",
+                "earth.terrarium.olympus", "com.teamresourceful"));
         // Empire's gods demand their items (by id only). Big Cannons brings RPL, Farm & Charm brings Architectury.
         OUTSIDE.put("bigcannons", List.of("rbasamoyai.createbigcannons", "rbasamoyai.ritchiesprojectilelib"));
         OUTSIDE.put("naturalist", List.of("com.crispytwig.naturalist"));
@@ -141,7 +144,8 @@ class ArchitectureTest {
                     "farmandcharm"),
             // Create, through Seismic Surveyance, which requires it; the combined run loads it.
             "coreless_tests", Set.of("create"),
-            "engines_and_empires", Set.of("sable", "create", "simulated", "aeronautics", "offroad", "encumbered"));
+            "engines_and_empires", Set.of("sable", "create", "simulated", "aeronautics", "offroad", "encumbered",
+                    "odysseyquests"));
 
     /**
      * Manifest rows the plan later moved or renamed (steps 1c-A and 1c-B), as {@code kind:path} to the mod and file

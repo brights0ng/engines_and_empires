@@ -1,4 +1,4 @@
-// Updated by Gemini: removed MineColonies from optional dependency expectations.
+// Updated by Gemini: removed MineColonies from optional dependency expectations; added Odyssey Quests (heracles) as required.
 // Updated by Claude: Farm & Charm is optional (the core turns its mincer's ore recipes off).
 package dev.brights0ng.enginesandempires;
 
@@ -35,7 +35,7 @@ class CoreMetadataTest {
         }
         assertEquals(new TreeSet<>(Set.of("neoforge", "minecraft", "paradyne_lib", "sparse_ores", "seismic_surveyance",
                 "meteodyne", "frontier", "simple_spoilage", "sable", "create", "simulated", "aeronautics", "offroad",
-                "encumbered")), required);
+                "encumbered", "heracles")), required);
         assertEquals(new TreeSet<>(Set.of("cold_sweat", "sereneseasons", "appleskin", "appleseed",
                 "guardvillagers", "born_in_chaos_v1", "naturalist", "farm_and_charm")), optional);
     }
