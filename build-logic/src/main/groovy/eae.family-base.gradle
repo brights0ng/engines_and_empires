@@ -35,6 +35,27 @@ repositories {
             includeGroup("maven.modrinth")
         }
     }
+    maven {
+        // FTB Quests, FTB Library, FTB Teams
+        url = "https://maven.ftb.dev/releases"
+        content {
+            includeGroup("dev.ftb.mods")
+        }
+    }
+    maven {
+        url "https://maven.latvian.dev/releases"
+        content {
+            includeGroup "dev.latvian.mods"
+            includeGroup "dev.latvian.apps"
+        }
+    }
+
+    maven {
+        url 'https://jitpack.io'
+        content {
+            includeGroup "com.github.rtyley"
+        }
+    }
 }
 
 // GreedyFluids (dev.brights0ng:greedyfluids), our own air and heat library, used by Meteodyne: a pinned copy committed in

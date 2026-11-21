@@ -185,6 +185,14 @@ dependencies {
     implementation("maven.modrinth:odyssey-quests:${odyssey_quests_version}")
     implementation("maven.modrinth:resourceful-lib:${resourceful_lib_version}")
 
+    // FTB Quests and its required libraries (FTB Library, FTB Teams, Architectury API).
+    implementation("dev.ftb.mods:ftb-quests-neoforge:${ftb_quests_version}") { transitive = false }
+    implementation("dev.ftb.mods:ftb-library-neoforge:${ftb_library_version}") { transitive = false }
+    implementation("dev.ftb.mods:ftb-teams-neoforge:${ftb_teams_version}") { transitive = false }
+    implementation("maven.modrinth:architectury-api:${architectury_version}") { transitive = false }
+
+    implementation("dev.latvian.mods:kubejs-neoforge:$kubejs_version")
+
     // AppleSkin (food value previews). Optional: food/client/AppleSkinCompat shows spoiled food's real values in it, and
     // is only hooked up when AppleSkin is present.
     compileOnly("maven.modrinth:appleskin:${appleskin_version}")
@@ -225,7 +233,7 @@ dependencies {
     // installed; aggregate game tests go without it. Compiled against the Modrinth copy (10.1.0.9), so a
     // fresh checkout builds without libs/.
     compileOnly("maven.modrinth:serene-seasons:pHEgQQUE") { transitive = false }
-    // Project Atmosphere was removed on 2026-10-05: the core mod now owns the weather (claude/weather-backbone-plan.md).
+
 }
 
 tasks.named('test') {
