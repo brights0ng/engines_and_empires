@@ -1,3 +1,4 @@
+// edited by Gemini
 package dev.brights0ng.enginesandempires.gametest;
 
 import java.util.ArrayList;
@@ -37,15 +38,26 @@ public final class WeightGameTests {
 
     @GameTest(template = SCRATCH)
     public static void blocksWeighTheirAeronauticsMass(GameTestHelper helper) {
-        // Wood is "light" in Aeronautics, wool and leaves "super light"
+        // Wood: logs 1, planks and wooden stairs 0.5, wooden slabs 0.25; wool and leaves "super light"
         expect(helper, Items.OAK_PLANKS, 0.5f);
-        expect(helper, Items.OAK_LOG, 0.5f);
+        expect(helper, Items.OAK_LOG, 1f);
+        expect(helper, Items.OAK_SLAB, 0.25f);
+        expect(helper, Items.OAK_STAIRS, 0.5f);
         expect(helper, Items.WHITE_WOOL, 0.25f);
         expect(helper, Items.DIRT, 1f);
         expect(helper, Items.STONE, 2f);
         expect(helper, Items.COBBLESTONE, 2f);
         expect(helper, Items.ANDESITE, 2f);
         expect(helper, Items.STONE_SLAB, 1f);
+        expect(helper, Items.STONE_STAIRS, 2f);
+        expect(helper, Items.BRICK_STAIRS, 1f);
+        expect(helper, Items.CHEST, 1f);
+        expect(helper, Items.BARREL, 1f);
+        expect(helper, Items.FURNACE, 2f);
+        expect(helper, item("create:shaft"), 0.1f);
+        expect(helper, item("create:cogwheel"), 0.25f);
+        expect(helper, item("create:large_cogwheel"), 0.5f);
+        expect(helper, item("create:mechanical_press"), 2f);
         expect(helper, Items.IRON_ORE, 2f);
         expect(helper, Items.DEEPSLATE_IRON_ORE, 2f);
         expect(helper, Items.NETHER_QUARTZ_ORE, 2f);
@@ -89,9 +101,13 @@ public final class WeightGameTests {
         expect(helper, Items.DIAMOND_SWORD, 2f);
         expect(helper, Items.NETHERITE_SHOVEL, 2f);
         expect(helper, Items.LEATHER_HELMET, 0.5f);
-        expect(helper, Items.CHAINMAIL_LEGGINGS, 1f);
-        expect(helper, Items.IRON_CHESTPLATE, 1f);
+        expect(helper, Items.LEATHER_CHESTPLATE, 1f);
+        expect(helper, Items.IRON_BOOTS, 1f);
+        expect(helper, Items.CHAINMAIL_LEGGINGS, 2f);
+        expect(helper, Items.IRON_CHESTPLATE, 2f);
         expect(helper, Items.DIAMOND_BOOTS, 2f);
+        expect(helper, Items.DIAMOND_CHESTPLATE, 4f);
+        expect(helper, Items.NETHERITE_LEGGINGS, 4f);
         expect(helper, Items.BOW, 1f);
         expect(helper, Items.SHIELD, 1f);
         expect(helper, Items.ELYTRA, 1f);

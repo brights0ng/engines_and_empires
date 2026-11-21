@@ -1,7 +1,8 @@
 // Written by Claude (GreedyFluids M7f: the acceptance scenarios); edited by Claude (M7f f2: saving and rebuilding a
 // running scene, for the model soak; the outside air sent ahead of an edit, as the manager does); edited by Claude
 // (M8a: tiles cut from a larger scene, for the straddle scenarios; M8b: neighbouring tiles stepped together; M8b5b:
-// neighbours of any size).
+// neighbours of any size; M8e: fixed walls of its own, and the hottest air in a box; M8e e3: the dynamic start, off
+// unless asked for, and a reopen later than the save).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -9,6 +10,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
+import dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface;
 import dev.brights0ng.greedyfluids.grid.CellGrid3D.Side;
 import dev.brights0ng.greedyfluids.region.AirFrame;
 import dev.brights0ng.meteodyne.Meteodyne;
@@ -41,6 +43,15 @@ final class AirflowScene {
     final int ox, oy, oz;
     /** A tile's column tops from the whole scene's columns (the world's heightmap beyond the tile); null: its own. */
     private final int[] worldTops;
+    /** How lava and magma meet their air here (M8e); null: the config's, as the cell table has it. */
+    private FixedSurface fixedSurface;
+    /** Keep-fine cube radius around lava and magma facing air (M8e), with {@link #fixedSurface}. */
+    private int fixedKeepFine;
+    /**
+     * Whether the region starts from the dynamic start's estimate (M8e e3): off, so every scenario's bar keeps its cold
+     * start, unless the scenario asks ({@link #dynamicStart}).
+     */
+    private boolean dynamicStart;
 
     AirflowScene(int nx, int ny, int nz) {
         this(nx, ny, nz, 0, 0, 0, null);
@@ -81,6 +92,9 @@ final class AirflowScene {
             }
         }
         AirflowScene t = new AirflowScene(tnx, tny, tnz, ox + x0, oy + y0, oz + z0, cut);
+        t.fixedSurface = fixedSurface;
+        t.fixedKeepFine = fixedKeepFine;
+        t.dynamicStart = dynamicStart;
         for (int y = 0; y < tny; y++) {
             for (int z = 0; z < tnz; z++) {
                 for (int x = 0; x < tnx; x++) {
@@ -89,6 +103,22 @@ final class AirflowScene {
             }
         }
         return t;
+    }
+
+    /**
+     * Builds this scene (and tiles cut from it afterwards) with fixed-wall surface {@code surface} and keep-fine cubes
+     * of radius {@code keepFine} around fixed walls facing air (M8e).
+     */
+    AirflowScene fixedWalls(FixedSurface surface, int keepFine) {
+        fixedSurface = surface;
+        fixedKeepFine = keepFine;
+        return this;
+    }
+
+    /** Builds this scene (and tiles cut from it, and rebuilds after a restart) with the dynamic start on or off (M8e e3). */
+    AirflowScene dynamicStart(boolean on) {
+        dynamicStart = on;
+        return this;
     }
 
     int index(int x, int y, int z) {
@@ -193,6 +223,10 @@ final class AirflowScene {
             }
         }
         AirflowCells.Table table = AirflowCells.table(); // after the codes: coding may add to it
+        if (fixedSurface != null) {
+            table = table.withFixedWalls(fixedSurface, fixedKeepFine);
+        }
+        table = table.withDynamicStart(dynamicStart);
         List<Integer> cells = new ArrayList<>();
         List<Double> watts = new ArrayList<>(), limits = new ArrayList<>();
         for (int c = 0; c < states.length; c++) {
@@ -322,11 +356,19 @@ final class AirflowScene {
          * the wind carry over; simulated time runs on.
          */
         Run restart(long tick) {
+            return restart(tick, tick);
+        }
+
+        /**
+         * As {@link #restart(long)}, saved at game tick {@code saveTick} and reopened at {@code openTick}: the save is
+         * decayed by the ticks between (M8e e3: a saved tile left alone).
+         */
+        Run restart(long saveTick, long openTick) {
             sendWeather(); // the save's background is then the rebuild's, as at a reopen within the same weather
-            AirflowSaved.Tile tile = model.save(tick);
+            AirflowSaved.Tile tile = model.save(saveTick);
             double now = time();
             shiftBefore += model.region().mesh().backgroundShiftEnergy();
-            model = AirflowRegionModel.build(scene.spec(outside, now, windX, windZ, kappa, tile.sections(), tick));
+            model = AirflowRegionModel.build(scene.spec(outside, now, windX, windZ, kappa, tile.sections(), openTick));
             model.neighbours(neighbours);
             before = now;
             lastWeather = now;
@@ -418,6 +460,23 @@ final class AirflowScene {
                 }
             }
             return n == 0 ? Double.NaN : sum / n;
+        }
+
+        /** The hottest air cell's temperature in a box, inclusive, C (M8e). */
+        double maxTemperature(int x0, int y0, int z0, int x1, int y1, int z1) {
+            AirFrame f = frame();
+            double max = Double.NaN;
+            for (int y = y0; y <= y1; y++) {
+                for (int z = z0; z <= z1; z++) {
+                    for (int x = x0; x <= x1; x++) {
+                        if (f.isAir(x + 0.5, y + 0.5, z + 0.5)) {
+                            double t = f.temperature(x + 0.5, y + 0.5, z + 0.5);
+                            max = Double.isNaN(max) ? t : Math.max(max, t);
+                        }
+                    }
+                }
+            }
+            return max;
         }
 
         /** The mean velocity along {@code axis} (0 x, 1 up, 2 z) of the air cells in a box, inclusive, m/s. */

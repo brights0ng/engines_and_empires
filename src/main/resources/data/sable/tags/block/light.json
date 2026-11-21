@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [],
+  "remove": [
+    "#minecraft:logs",
+    "#minecraft:stairs",
+    "minecraft:chest",
+    "minecraft:barrel",
+    "#c:chests/wooden",
+    { "id": "create:shaft", "required": false },
+    { "id": "create:cogwheel", "required": false }
+  ]
+}

@@ -1,3 +1,4 @@
+// edited by Gemini
 package dev.brights0ng.enginesandempires.weight;
 
 import java.math.BigDecimal;
@@ -24,7 +25,8 @@ import net.minecraft.world.level.block.state.BlockState;
  * <p>The rules, first match wins:
  * <ol>
  *   <li>The pack's data map ({@link WeightDataMaps#ITEM_WEIGHT}): the weight groups, by tag, and any exceptions.</li>
- *   <li>Armour, by material: leather 0.5; chainmail, iron, gold, turtle and anything modded 1; diamond, netherite 2.</li>
+ *   <li>Armour, by material and slot: leather 0.5; chainmail, iron, gold, turtle and anything modded 1; diamond,
+ *       netherite 2; leggings and chestplates are bumped one step heavier (1 / 2 / 4).</li>
  *   <li>Tools and weapons, by tier: wood 0.5; stone, iron, gold and anything modded 1; diamond, netherite 2.</li>
  *   <li>Anything else with durability (bows, shields, shears, elytra...): 1.</li>
  *   <li>A block: its Aeronautics mass ({@code sable:mass} of its default state). A block you can walk through, which
@@ -47,6 +49,7 @@ public final class ItemWeights {
     private static final float LIGHT = 0.5f;
     private static final float NORMAL = 1f;
     private static final float HEAVY = 2f;
+    private static final float SUPER_HEAVY = 4f;
 
     /** Which rule gave an item its weight. */
     public enum Source {
@@ -71,7 +74,7 @@ public final class ItemWeights {
         }
         Item item = holder.value();
         if (item instanceof ArmorItem armour) {
-            return new Result(armourWeight(armour.getMaterial()), Source.ARMOUR);
+            return new Result(armourWeight(armour.getMaterial(), armour.getType()), Source.ARMOUR);
         }
         if (item instanceof TieredItem tool) {
             return new Result(tierWeight(tool.getTier()), Source.TOOL);
@@ -100,15 +103,16 @@ public final class ItemWeights {
         }
     }
 
-    static float armourWeight(Holder<ArmorMaterial> material) {
+    static float armourWeight(Holder<ArmorMaterial> material, ArmorItem.Type type) {
+        boolean heavySlot = type == ArmorItem.Type.CHESTPLATE || type == ArmorItem.Type.LEGGINGS;
         ArmorMaterial value = material.value();
         if (value == ArmorMaterials.LEATHER.value()) {
-            return LIGHT;
+            return heavySlot ? NORMAL : LIGHT;
         }
         if (value == ArmorMaterials.DIAMOND.value() || value == ArmorMaterials.NETHERITE.value()) {
-            return HEAVY;
+            return heavySlot ? SUPER_HEAVY : HEAVY;
         }
-        return NORMAL;
+        return heavySlot ? HEAVY : NORMAL;
     }
 
     static float tierWeight(Tier tier) {

@@ -1,5 +1,6 @@
 // Written by Claude (GreedyFluids M7b); edited by Claude (M7c: hot walls; M7f: real stone from the config; M8a: the
-// surface film from the config).
+// surface film from the config; M8e: the fixed walls' surface and keep-fine radius from the config; M8e e3: the dynamic
+// start's switch from the config).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -112,11 +113,34 @@ public final class AirflowCells {
         private final long generation;
         private final Cell[] cells;
         private final double filmResistance;
+        private final CellGrid3D.FixedSurface fixedSurface;
+        private final int fixedKeepFine;
+        /** Whether regions start from the dynamic start's estimate (M8e e3; {@code [heat] airflowDynamicStart}). */
+        private final boolean dynamicStart;
 
-        Table(long generation, Cell[] cells, double filmResistance) {
+        Table(long generation, Cell[] cells, double filmResistance, CellGrid3D.FixedSurface fixedSurface,
+              int fixedKeepFine, boolean dynamicStart) {
             this.generation = generation;
             this.cells = cells;
             this.filmResistance = filmResistance;
+            this.fixedSurface = fixedSurface;
+            this.fixedKeepFine = fixedKeepFine;
+            this.dynamicStart = dynamicStart;
+        }
+
+        /**
+         * As above with the dynamic start off: tables built without the config (replays, unit tests) start cold, as
+         * before M8e e3; the config's table ({@link AirflowCells#table}) takes {@code [heat] airflowDynamicStart}.
+         */
+        Table(long generation, Cell[] cells, double filmResistance, CellGrid3D.FixedSurface fixedSurface,
+              int fixedKeepFine) {
+            this(generation, cells, filmResistance, fixedSurface, fixedKeepFine, false);
+        }
+
+        /** As above with the library's default fixed walls (replays and unit tests). */
+        Table(long generation, Cell[] cells, double filmResistance) {
+            this(generation, cells, filmResistance, CellGrid3D.DEFAULT_FIXED_SURFACE,
+                    CellGrid3D.DEFAULT_FIXED_KEEP_FINE);
         }
 
         /** A table with the default surface film (unit tests that build their own tables, without the config). */
@@ -131,6 +155,34 @@ public final class AirflowCells {
         /** The surface film on each face of a solid in this generation, s/m (GreedyFluids' unit; M8a). */
         public double filmResistance() {
             return filmResistance;
+        }
+
+        /** How lava and magma faces couple to their air in this generation ({@code [heat] airflowFixedWallSurface}). */
+        public CellGrid3D.FixedSurface fixedSurface() {
+            return fixedSurface;
+        }
+
+        /** The keep-fine cube radius around fixed walls that face air in this generation, cells (0: none; M8e). */
+        public int fixedKeepFine() {
+            return fixedKeepFine;
+        }
+
+        /** Whether regions start from the dynamic start's estimate ({@code [heat] airflowDynamicStart}; M8e e3). */
+        public boolean dynamicStart() {
+            return dynamicStart;
+        }
+
+        /**
+         * This table with another fixed-wall surface and keep-fine radius (scenarios and replays that compare them;
+         * M8e).
+         */
+        Table withFixedWalls(CellGrid3D.FixedSurface surface, int keepFine) {
+            return new Table(generation, cells, filmResistance, surface, keepFine, dynamicStart);
+        }
+
+        /** This table with the dynamic start on or off (scenarios, which start cold unless they ask; M8e e3). */
+        Table withDynamicStart(boolean on) {
+            return new Table(generation, cells, filmResistance, fixedSurface, fixedKeepFine, on);
         }
 
         /** Codes in use, AIR included. */
@@ -156,6 +208,8 @@ public final class AirflowCells {
     private static double stoneConductance, stoneCapacity;
     /** The surface film for this generation, s/m (the config's m²·K/W times air's heat capacity). */
     private static double filmResistance;
+    private static CellGrid3D.FixedSurface fixedSurface = CellGrid3D.DEFAULT_FIXED_SURFACE;
+    private static int fixedKeepFine = CellGrid3D.DEFAULT_FIXED_KEEP_FINE;
 
     static {
         reset(1);
@@ -261,7 +315,7 @@ public final class AirflowCells {
         code = (byte) CELLS.size();
         CELLS.add(cell);
         INTERNED.put(cell, code);
-        table = new Table(generation, CELLS.toArray(Cell[]::new), filmResistance);
+        table = new Table(generation, CELLS.toArray(Cell[]::new), filmResistance, fixedSurface, fixedKeepFine);
         return code;
     }
 
@@ -295,9 +349,12 @@ public final class AirflowCells {
         stoneConductance = WeatherConfig.airflowStoneConductivity() / rhoCp;
         stoneCapacity = WeatherConfig.airflowStoneHeatCapacity() * 1e6 / rhoCp;
         filmResistance = WeatherConfig.airflowSurfaceFilm() * rhoCp;
+        fixedSurface = WeatherConfig.airflowFixedWallSurface();
+        fixedKeepFine = WeatherConfig.airflowFixedWallKeepFine();
         CELLS.add(AIR_CELL);
         INTERNED.put(AIR_CELL, AIR);
-        table = new Table(generation, CELLS.toArray(Cell[]::new), filmResistance);
+        table = new Table(generation, CELLS.toArray(Cell[]::new), filmResistance, fixedSurface, fixedKeepFine,
+                WeatherConfig.airflowDynamicStart());
     }
 
     @SubscribeEvent

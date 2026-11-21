@@ -2,7 +2,8 @@
 // background field, fixed walls, thermostats and body heat; M7f: sources on the grid before the region is built, the
 // heat diffusivity from the spec; held steps and edit-batch time for the profile; a weather sent ahead of an edit
 // batch goes first, and door toggles refresh the follow weights; M8a: the surface film from the cell table; M8b: tile
-// borders; M8b5b: the far side from regions of any size across; M8c c3: the source-velocity radius from the spec).
+// borders; M8b5b: the far side from regions of any size across; M8c c3: the source-velocity radius from the spec; M8e:
+// the fixed walls' surface and keep-fine radius from the cell table; M8e e3: the dynamic start).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -22,6 +23,7 @@ import dev.brights0ng.greedyfluids.region.AirRegion;
 import dev.brights0ng.greedyfluids.region.ThermalState;
 import dev.brights0ng.greedyfluids.solve.Background3D;
 import dev.brights0ng.greedyfluids.solve.SolverConfig3D;
+import dev.brights0ng.greedyfluids.solve.SteadyHeat3D;
 
 /**
  * One GreedyFluids region on the air thread (M7b b3): an {@link AirRegion} built from cached section codes, fed the
@@ -46,6 +48,15 @@ import dev.brights0ng.greedyfluids.solve.SolverConfig3D;
  *   <li><b>Body heat (M7c c3):</b> {@link Bodies} replaces the moving heat sources (players).</li>
  *   <li><b>Saved state (M7d d2):</b> built from the tile's saved sections when there are any (decayed to the build
  *       tick, {@link AirflowSaved}); {@link #save} packs the current state the same way.</li>
+ *   <li><b>Dynamic start (M8e e3; Bright, decisions 48–49, 53–56):</b> with the cell table's switch on and any source
+ *       block or fixed wall, the region is moved toward GreedyFluids' heat-only estimate ({@link SteadyHeat3D}: lava
+ *       steady, sources an in-game day on, air open to the sky (above its column's open height, as the borders'
+ *       enclosure test) tied to the weather) before its first frame: all the way when built
+ *       fresh, by 1 − e^(−Δt/τ) when restored from a save Δt ticks old, so a save left alone decays toward the estimate
+ *       rather than the background; skipped when that weight is under {@link #MIN_START_WEIGHT} (merges, splits and
+ *       quick reopens, all through a save). Thermostats count at their duty cycle: a heater whose air the estimate
+ *       takes past its limit has its power scaled so the air sits at it (up to {@link #DUTY_PASSES} passes).
+ *       EXCHANGE faces are insulated in the estimate (no neighbour's frame is read before the first step).</li>
  *   <li><b>Borders (M8b, B2):</b> with column tops, the tile's enclosed cut cells are EXCHANGE ({@link AirflowBorders}),
  *       set before the region is built and changed when a weather brings new tops. Before each step their far side
  *       (temperature and distance) is read from the running neighbours' latest frames ({@link #neighbours}), by
@@ -59,6 +70,17 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     static final int THERMOSTAT_STEPS = 4;
     /** A thermostat's way back, C. */
     static final double HYSTERESIS = 1;
+    /** The dynamic start's smallest weight worth a solve: a save about 12 s old (M8e e3). */
+    static final double MIN_START_WEIGHT = 0.01;
+    /** How many times the dynamic start re-solves with thermostats scaled to their duty cycle (M8e e3). */
+    static final int DUTY_PASSES = 3;
+    /** How far past its limit, C, a thermostat's estimated air must be for its duty cycle to be scaled. */
+    static final double DUTY_TOLERANCE = 0.1;
+    /**
+     * The dynamic start's settings: GreedyFluids' defaults. Report-only tests ({@code AirflowStartCostTest}) set others
+     * to compare them; nothing else writes it.
+     */
+    static SteadyHeat3D.Settings startSettings = SteadyHeat3D.Settings.DEFAULT;
     /**
      * The air's heat diffusivity where a spec doesn't give one, m²/s (M7f; Bright, 2026-11-15: set from Meteodyne,
      * not GreedyFluids' 1 m²/s, which mixes a heated room faster than its plume can layer it).
@@ -112,6 +134,12 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
              double[] sourceWatts, AirflowSaved.Section[] saved, long now) {
             this(x0, y0, z0, nx, ny, nz, sections, table, backgroundT, windX, windZ, sourceCells, sourceWatts, null,
                     saved, now, null, null);
+        }
+
+        /** This spec with another cell table (M8e: replays comparing fixed-wall surfaces). */
+        Spec withTable(AirflowCells.Table other) {
+            return new Spec(x0, y0, z0, nx, ny, nz, sections, other, backgroundT, windX, windZ, sourceCells,
+                    sourceWatts, sourceLimits, saved, now, lattice, tops, kappa, sourceRadius);
         }
     }
 
@@ -174,6 +202,10 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     private AirflowBorders.Neighbours neighbours = AirflowBorders.NONE;
     /** Heat out through EXCHANGE faces so far, J (into the neighbours; negative: in from them). */
     private double exchangedJ;
+    /** The dynamic start (M8e e3): the weight it was applied at (0: not applied), its CG iterations and time, ms. */
+    private double startWeight;
+    private int startIterations;
+    private double startMs;
 
     private AirflowRegionModel(CellGrid3D grid, Spec spec) {
         this.grid = grid;
@@ -214,6 +246,125 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         region.mesh().setSourceVelocityRadius(spec.sourceRadius(), AdaptiveMesh3D.DEFAULT_SOURCE_VELOCITY_LINGER);
         cuts();
         distribute();
+        dynamicStart(spec);
+    }
+
+    /** Moves the new region toward the dynamic start's estimate (M8e e3; see the class notes). */
+    private void dynamicStart(Spec spec) {
+        if (!spec.table().dynamicStart()) {
+            return;
+        }
+        double weight = 1;
+        if (restored) {
+            long saved = Long.MIN_VALUE;
+            for (AirflowSaved.Section s : spec.saved()) {
+                if (s != null) {
+                    saved = Math.max(saved, s.tick());
+                }
+            }
+            weight = -Math.expm1(-Math.max(0, spec.now() - saved) / AirflowSaved.TAU_TICKS);
+            if (weight < MIN_START_WEIGHT) {
+                return;
+            }
+        }
+        Map<Integer, Double> duty = new HashMap<>();
+        double[] watts = startWatts(duty);
+        if (!region.needsEstimate(watts)) {
+            return;
+        }
+        float[] tie = skyOpen(spec.tops());
+        SteadyHeat3D.Estimate e = region.estimateStart(startSettings, watts, tie);
+        int iterations = e.iterations();
+        double ms = e.ms();
+        for (int pass = 0; pass < DUTY_PASSES && dutyCycles(e, duty); pass++) {
+            e = region.estimateStart(startSettings, startWatts(duty), tie);
+            iterations += e.iterations();
+            ms += e.ms();
+        }
+        region.moveTowardEstimate(e, weight);
+        startWeight = weight;
+        startIterations = iterations;
+        startMs = ms;
+    }
+
+    /**
+     * The dynamic start's outdoor tie per region cell: 1 for air at or above its column's first open height
+     * ({@code tops}, region cells by {@code z * nx + x}), 0 below; null without tops (GreedyFluids then ties air whose
+     * follow weight is 1).
+     */
+    private float[] skyOpen(int[] tops) {
+        if (tops == null) {
+            return null;
+        }
+        float[] out = new float[nx * ny * nz];
+        for (int z = 0; z < nz; z++) {
+            for (int x = 0; x < nx; x++) {
+                for (int y = Math.max(0, tops[z * nx + x]); y < ny; y++) {
+                    if (grid.type(x, y, z).isFluid()) {
+                        out[grid.index(x, y, z)] = 1;
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Per box of the current graph, W: every source block's power by the power rule, thermostats on and scaled by
+     * their duty ({@code duty}, by block cell; 1 where absent).
+     */
+    private double[] startWatts(Map<Integer, Double> duty) {
+        var g = region.mesh().graph();
+        double[] out = new double[g.boxCount()];
+        for (Map.Entry<Integer, Block> b : blocks.entrySet()) {
+            List<Integer> into = targets(b.getKey());
+            if (into.isEmpty()) {
+                continue;
+            }
+            double w = b.getValue().watts * duty.getOrDefault(b.getKey(), 1.0) / into.size();
+            for (int c : into) {
+                int box = g.boxOfCellIndex(c);
+                if (box >= 0) {
+                    out[box] += w;
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Scales each thermostat whose air the estimate takes past its limit by the share of its rise that reaches the
+     * limit (a heater whose air starts past its limit already goes to 0); returns whether any changed.
+     */
+    private boolean dutyCycles(SteadyHeat3D.Estimate e, Map<Integer, Double> duty) {
+        var g = e.graph();
+        boolean changed = false;
+        for (Map.Entry<Integer, Block> b : blocks.entrySet()) {
+            Block k = b.getValue();
+            if (Double.isNaN(k.limit) || k.watts == 0) {
+                continue;
+            }
+            List<Integer> into = targets(b.getKey());
+            if (into.isEmpty()) {
+                continue;
+            }
+            double t = 0, cold = 0;
+            for (int c : into) {
+                int box = g.boxOfCellIndex(c);
+                t += e.boxT()[box];
+                cold += e.coldBoxT()[box];
+            }
+            t /= into.size();
+            cold /= into.size();
+            boolean past = k.watts > 0 ? t > k.limit + DUTY_TOLERANCE : t < k.limit - DUTY_TOLERANCE;
+            if (!past) {
+                continue;
+            }
+            double rise = t - cold, share = rise != 0 ? (k.limit - cold) / rise : 0;
+            duty.put(b.getKey(), duty.getOrDefault(b.getKey(), 1.0) * Math.max(0, Math.min(1, share)));
+            changed = true;
+        }
+        return changed;
     }
 
     /** Builds the region (air thread: construction meshes the window, tens to hundreds of ms). */
@@ -227,6 +378,8 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         }
         CellGrid3D grid = new CellGrid3D(spec.nx(), spec.ny(), spec.nz());
         grid.setFilmResistance(spec.table().filmResistance()); // before the region: its stores and graph read it
+        grid.setFixedSurface(spec.table().fixedSurface()); // M8e: likewise its stores
+        grid.setFixedKeepFine(spec.table().fixedKeepFine()); // and its keep-fine marks
         for (int j = 0; j < nsy; j++) {
             for (int k = 0; k < nsz; k++) {
                 for (int i = 0; i < nsx; i++) {
@@ -615,6 +768,19 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
     /** Whether the region started from saved state. */
     boolean restored() {
         return restored;
+    }
+
+    /** The dynamic start's weight (0: not applied), CG iterations and time, ms (M8e e3; for tests and the report). */
+    double startWeight() {
+        return startWeight;
+    }
+
+    int startIterations() {
+        return startIterations;
+    }
+
+    double startMs() {
+        return startMs;
     }
 
     /** Watts set per region cell (for tests). */
