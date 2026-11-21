@@ -91,6 +91,29 @@ public final class CivilianSleepGameTests {
         }
     }
 
+    /**
+     * Builds an enclosed, lit stone room whose interior spans {@code [origin, origin + (w-1, h-1, d-1)]} with a torch
+     * at the centre of the floor. Returns the interior origin.
+     */
+    private static BlockPos buildHomeRoom(ServerLevel level, BlockPos origin, int innerW, int innerH, int innerD,
+                                          List<BlockPos> placed) {
+        for (int dx = -1; dx <= innerW; dx++) {
+            for (int dy = -1; dy <= innerH; dy++) {
+                for (int dz = -1; dz <= innerD; dz++) {
+                    BlockPos p = origin.offset(dx, dy, dz);
+                    boolean shell = dx == -1 || dx == innerW || dy == -1 || dy == innerH || dz == -1 || dz == innerD;
+                    BlockState state = shell ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState();
+                    level.setBlock(p, state, Block.UPDATE_ALL);
+                    placed.add(p);
+                }
+            }
+        }
+        BlockPos torch = origin.offset(innerW / 2, 0, innerD / 2);
+        level.setBlock(torch, Blocks.TORCH.defaultBlockState(), Block.UPDATE_ALL);
+        placed.add(torch);
+        return origin;
+    }
+
     /** Places a complete bed without premature neighbour breakage; returns the head BlockPos. */
     private static BlockPos placeBed(ServerLevel level, BlockPos foot, Direction facing, List<BlockPos> placed) {
         BlockPos head = foot.relative(facing);
@@ -122,22 +145,21 @@ public final class CivilianSleepGameTests {
         buildFloor(level, main, 6, placed);
         EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
 
-        BlockPos nearBed = placeBed(level, main.offset(2, 0, 0), Direction.EAST, placed);
-        BlockPos farBed = placeBed(level, main.offset(-4, 0, 0), Direction.WEST, placed);
+        BlockPos nearRoom = buildHomeRoom(level, main.offset(2, 0, -2), 5, 2, 5, placed);
+        BlockPos nearBed = placeBed(level, nearRoom.offset(0, 0, 2), Direction.EAST, placed);
+        BlockPos farRoom = buildHomeRoom(level, main.offset(-8, 0, -2), 5, 2, 5, placed);
+        BlockPos farBed = placeBed(level, farRoom.offset(4, 0, 2), Direction.WEST, placed);
         // Unstaked chunk: 2 chunks east of mainPos (empire only stakes a 3x3 chunk area: dx in [-1, 1]).
-        BlockPos outsideFoot = new BlockPos(((main.getX() >> 4) + 2) * 16 + 2, main.getY(), main.getZ());
-        level.setBlock(outsideFoot.below(), Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
-        level.setBlock(outsideFoot.east().below(), Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
-        placed.add(outsideFoot.below());
-        placed.add(outsideFoot.east().below());
-        placeBed(level, outsideFoot, Direction.EAST, placed);
+        BlockPos outsideOrigin = new BlockPos(((main.getX() >> 4) + 2) * 16 + 2, main.getY(), main.getZ());
+        buildHomeRoom(level, outsideOrigin, 5, 2, 5, placed);
+        placeBed(level, outsideOrigin.offset(0, 0, 2), Direction.EAST, placed);
 
-        CivilianEntity first = citizen(helper, empire, main.offset(1, 0, 1));
-        CivilianEntity second = citizen(helper, empire, main.offset(1, 0, -1));
+        CivilianEntity first = citizen(helper, empire, main.offset(0, 0, 1));
+        CivilianEntity second = citizen(helper, empire, main.offset(0, 0, -1));
         CivilianEntity third = citizen(helper, empire, main.offset(-1, 0, 1));
 
         // Wait 1 tick for ServerLevel.onBlockStateChange's server.execute POI add.
-        helper.runAtTickTime(1, () -> {
+        helper.runAtTickTime(3, () -> {
             try {
                 BlockPos claimed1 = CivilianBeds.ensureOrClaimBed(level, empire, first);
                 BlockPos claimed2 = CivilianBeds.ensureOrClaimBed(level, empire, second);
@@ -164,12 +186,13 @@ public final class CivilianSleepGameTests {
         BlockPos main = mainPos(helper);
         buildFloor(level, main, 4, placed);
         EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
-        BlockPos bedHead = placeBed(level, main.offset(2, 0, 0), Direction.EAST, placed);
+        BlockPos room = buildHomeRoom(level, main.offset(2, 0, -2), 5, 2, 5, placed);
+        BlockPos bedHead = placeBed(level, room.offset(0, 0, 2), Direction.EAST, placed);
 
-        CivilianEntity first = citizen(helper, empire, main.offset(1, 0, 1));
-        CivilianEntity second = citizen(helper, empire, main.offset(1, 0, -1));
+        CivilianEntity first = citizen(helper, empire, main.offset(-1, 0, 1));
+        CivilianEntity second = citizen(helper, empire, main.offset(-1, 0, -1));
 
-        helper.runAtTickTime(1, () -> {
+        helper.runAtTickTime(3, () -> {
             try {
                 BlockPos claimed = CivilianBeds.ensureOrClaimBed(level, empire, first);
                 helper.assertTrue(bedHead.equals(claimed), "first claimed bed");
@@ -269,10 +292,11 @@ public final class CivilianSleepGameTests {
         BlockPos main = mainPos(helper);
         buildFloor(level, main, 4, placed);
         EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
-        BlockPos bedHead = placeBed(level, main.offset(2, 0, 0), Direction.EAST, placed);
-        CivilianEntity civilian = citizen(helper, empire, main.offset(1, 0, 0));
+        BlockPos room = buildHomeRoom(level, main.offset(2, 0, -2), 5, 2, 5, placed);
+        BlockPos bedHead = placeBed(level, room.offset(3, 0, 2), Direction.EAST, placed);
+        CivilianEntity civilian = citizen(helper, empire, room.offset(1, 0, 2));
 
-        helper.runAtTickTime(1, () -> {
+        helper.runAtTickTime(3, () -> {
             try {
                 // Rough sleep damage wake.
                 civilian.startRoughSleeping();
@@ -311,8 +335,9 @@ public final class CivilianSleepGameTests {
         BlockPos main = mainPos(helper);
         buildFloor(level, main, 5, placed);
         EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
-        BlockPos bedHead = placeBed(level, main.offset(2, 0, 0), Direction.EAST, placed);
-        CivilianEntity civilian = citizen(helper, empire, main.offset(1, 0, 0));
+        BlockPos room = buildHomeRoom(level, main.offset(2, 0, -2), 5, 2, 5, placed);
+        BlockPos bedHead = placeBed(level, room.offset(3, 0, 2), Direction.EAST, placed);
+        CivilianEntity civilian = citizen(helper, empire, room.offset(1, 0, 2));
 
         int need = civilian.sleepNeedTicks();
         long bedtime = CivilianSleep.ownBedtime(TEST_NIGHT, need);
@@ -399,11 +424,12 @@ public final class CivilianSleepGameTests {
         BlockPos main = mainPos(helper);
         buildFloor(level, main, 6, placed);
         EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
-        BlockPos bedHead = placeBed(level, main.offset(2, 0, 0), Direction.EAST, placed);
-        CivilianEntity civilian = citizen(helper, empire, main.offset(2, 0, 2));
+        BlockPos room = buildHomeRoom(level, main.offset(5, 0, -2), 5, 2, 5, placed);
+        BlockPos bedHead = placeBed(level, room.offset(3, 0, 2), Direction.EAST, placed);
+        CivilianEntity civilian = citizen(helper, empire, main.offset(-2, 0, 2));
         level.setDayTime(TEST_NIGHT * CivilianSleep.DAY_LENGTH + 1000L);
 
-        helper.runAtTickTime(1, () -> {
+        helper.runAtTickTime(3, () -> {
             CivilianBeds.ensureOrClaimBed(level, empire, civilian);
             // Occupy the bed externally (e.g., player sleeping in it).
             level.setBlock(bedHead, level.getBlockState(bedHead).setValue(BedBlock.OCCUPIED, true),
@@ -433,7 +459,8 @@ public final class CivilianSleepGameTests {
         BlockPos main = mainPos(helper);
         buildFloor(level, main, 6, placed);
         EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
-        BlockPos bedHead = placeBed(level, main.offset(4, 0, 0), Direction.EAST, placed);
+        BlockPos room = buildHomeRoom(level, main.offset(4, 0, -2), 5, 2, 5, placed);
+        BlockPos bedHead = placeBed(level, room.offset(0, 0, 2), Direction.EAST, placed);
 
         // Keep all three citizens inside main's chunk so every entity ticks without waiting for chunk-loading recompute.
         BlockPos claimsStart = new BlockPos((main.getX() & ~15) + 1, main.getY(), (main.getZ() & ~15) + 1);
@@ -494,7 +521,8 @@ public final class CivilianSleepGameTests {
         BlockPos main = mainPos(helper);
         buildFloor(level, main, 6, placed);
         EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
-        placeBed(level, main.offset(4, 0, 0), Direction.EAST, placed);
+        BlockPos room = buildHomeRoom(level, main.offset(4, 0, -2), 5, 2, 5, placed);
+        placeBed(level, room.offset(0, 0, 2), Direction.EAST, placed);
 
         BlockPos startPos = new BlockPos((main.getX() & ~15) + 1, main.getY(), (main.getZ() & ~15) + 1);
         level.setBlock(startPos.below(), Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
@@ -504,12 +532,12 @@ public final class CivilianSleepGameTests {
         long bedtime = CivilianSleep.ownBedtime(TEST_NIGHT, civilian.sleepNeedTicks());
         level.setDayTime(bedtime);
 
-        helper.runAtTickTime(1, () -> {
+        helper.runAtTickTime(3, () -> {
             CivilianBeds.ensureOrClaimBed(level, empire, civilian);
             // Jump halfway through sleep period, still inside night.
-            level.setDayTime(bedtime + 3600L);
+            level.setDayTime(level.getDayTime() + 3600L);
         });
-        helper.runAtTickTime(3, () -> {
+        helper.runAtTickTime(5, () -> {
             try {
                 helper.assertTrue(startPos.closerToCenterThan(civilian.position(), 1.5),
                         "within-night jump did not teleport citizen");
@@ -534,7 +562,8 @@ public final class CivilianSleepGameTests {
         BlockPos main = mainPos(helper);
         buildFloor(level, main, 5, placed);
         EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
-        BlockPos bedHead = placeBed(level, main.offset(3, 0, 0), Direction.EAST, placed);
+        BlockPos room = buildHomeRoom(level, main.offset(3, 0, -2), 5, 2, 5, placed);
+        BlockPos bedHead = placeBed(level, room.offset(0, 0, 2), Direction.EAST, placed);
 
         // Unloaded catch-up: morning of day 11 after last seeing day 10 morning.
         long day11Morning = (TEST_NIGHT + 1) * CivilianSleep.DAY_LENGTH + 1000L;
@@ -549,7 +578,7 @@ public final class CivilianSleepGameTests {
         awakeAllNight.setNoAi(true);
         CivilianEntity freeCivilian = CivilianSpawning.spawn(level, Vec3.atBottomCenterOf(main.offset(0, 0, 3)), null);
 
-        helper.runAtTickTime(1, () -> {
+        helper.runAtTickTime(3, () -> {
             try {
                 // Simulate reload from disk with old lastDayTime on fresh replacement bodies.
                 CivilianBeds.ensureOrClaimBed(level, empire, withBed);

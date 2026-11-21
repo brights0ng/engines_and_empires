@@ -606,7 +606,9 @@ public class CivilianEntity extends PathfinderMob {
         if (inventoryMeal) stopUsingItem();
         wakeUp(false);
         if (claimedBed != null && level() instanceof ServerLevel serverLevel) {
-            CivilianBeds.release(serverLevel, claimedBed);
+            CivilianRecord leavingRecord = ownRecord(EmpireSavedData.of(serverLevel));
+            CivilianBeds.releaseAndDetach(serverLevel, leavingRecord != null ? leavingRecord.empire() : null,
+                    civilianId, claimedBed);
             claimedBed = null;
         }
         status = Status.LEAVING;

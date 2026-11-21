@@ -189,7 +189,7 @@ public final class CivilianDebugCommands {
             if (civilian.status() == CivilianEntity.Status.CITIZEN && civilian.civilianId() != null) {
                 CivilianRecord record = data.civilian(civilian.civilianId());
                 if (record != null && record.body().equals(civilian.getUUID())) {
-                    CivilianBeds.release(source.getServer().overworld(), record.bed());
+                    CivilianBeds.releaseAndDetach(source.getServer().overworld(), record.empire(), record.id(), record.bed());
                     data.removeCivilian(record.id());
                 }
             } else if (civilian.status() == CivilianEntity.Status.TRAVELLER) {
@@ -369,7 +369,9 @@ public final class CivilianDebugCommands {
             source.sendFailure(Component.literal(civilian.getName().getString() + " has no claimed bed"));
             return 0;
         }
-        CivilianBeds.release(source.getServer().overworld(), bed);
+        ServerLevel overworld = source.getServer().overworld();
+        CivilianRecord record = civilian.civilianId() != null ? EmpireSavedData.of(overworld).civilian(civilian.civilianId()) : null;
+        CivilianBeds.releaseAndDetach(overworld, record != null ? record.empire() : null, civilian.civilianId(), bed);
         civilian.setClaimedBed(null);
         source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " released bed " + bed.toShortString()), true);
         return 1;

@@ -1,13 +1,21 @@
 // Written by Gemini.
 package dev.brights0ng.empire.civilian;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
 
 import dev.brights0ng.empire.data.EmpireRecord;
+import dev.brights0ng.empire.data.EmpireSavedData;
+import dev.brights0ng.empire.data.RegionRecord;
+import dev.brights0ng.empire.region.HomeRegionScanner;
 import dev.brights0ng.empire.rules.ChunkKeys;
+import dev.brights0ng.empire.rules.RegionOrigin;
+import dev.brights0ng.empire.rules.RegionRules;
+import dev.brights0ng.empire.rules.RegionType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -23,8 +31,8 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Bed claiming, validation, rough-sleep spot selection and night-skip teleport targets for citizens.
  *
- * <p>Citizens auto-claim the nearest unclaimed vanilla {@link PoiTypes#HOME} bed within {@link #CLAIM_RADIUS} blocks
- * of their home on their empire's staked chunks until proper housing replaces auto-claim.
+ * <p>Citizens may only claim or sleep in beds inside a valid {@link RegionType#HOME} region of their empire with spare
+ * capacity (D8). Unclaimed beds not yet in any region trigger an automatic {@code HOME} flood-fill scan.
  */
 public final class CivilianBeds {
 
@@ -39,13 +47,21 @@ public final class CivilianBeds {
     private static final int ROUGH_HOME_MAX = 3;
     private static final int ANGLE_STEPS = 18;
 
-    /** True if {@code pos} is on {@code empire}'s staked land and still holds a valid bed head POI/block. */
+    /**
+     * True if {@code pos} is on {@code empire}'s staked land, lies inside a valid {@link RegionType#HOME} region of
+     * {@code empire}, and still holds a valid bed head POI/block.
+     */
     public static boolean isValidClaimedBed(ServerLevel level, EmpireRecord empire, @Nullable BlockPos pos) {
         if (pos == null) {
             return false;
         }
         long chunk = ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4);
         if (!empire.state().staked().contains(chunk)) {
+            return false;
+        }
+        RegionRecord region = EmpireSavedData.of(level).regionAt(pos);
+        if (region == null || !region.empireId().equals(empire.id())
+                || region.type() != RegionType.HOME || !region.valid()) {
             return false;
         }
         if (level.hasChunkAt(pos)) {
@@ -71,31 +87,79 @@ public final class CivilianBeds {
     }
 
     /**
-     * Claims the nearest unclaimed bed on {@code empire}'s staked chunks within {@link #CLAIM_RADIUS} blocks of
-     * {@code home}, acquiring its vanilla {@link PoiTypes#HOME} ticket. Returns null if none is available.
+     * Claims the nearest eligible unclaimed bed on {@code empire}'s staked chunks within {@link #CLAIM_RADIUS} blocks
+     * of {@code home}. A bed is eligible if it sits inside a valid {@code HOME} of {@code empire} with spare capacity,
+     * or if it is not yet in any region and an automatic {@code HOME} flood fill from it succeeds (D8).
      */
     @Nullable
-    public static BlockPos claimNearest(ServerLevel level, EmpireRecord empire, BlockPos home) {
+    public static BlockPos claimNearest(ServerLevel level, EmpireRecord empire, BlockPos home,
+                                        @Nullable UUID civilianId) {
         PoiManager poi = level.getPoiManager();
-        Optional<BlockPos> closest = poi.findClosest(
-                type -> type.is(PoiTypes.HOME),
-                pos -> isClaimable(level, empire, pos),
-                home,
-                CLAIM_RADIUS,
-                PoiManager.Occupancy.HAS_SPACE);
-        if (closest.isEmpty()) {
-            return null;
+        EmpireSavedData data = EmpireSavedData.of(level);
+
+        List<BlockPos> candidates = poi.findAll(
+                        type -> type.is(PoiTypes.HOME),
+                        pos -> isClaimableBase(level, empire, pos),
+                        home,
+                        CLAIM_RADIUS,
+                        PoiManager.Occupancy.HAS_SPACE)
+                .map(BlockPos::immutable)
+                .sorted(Comparator.comparingDouble(pos -> pos.distSqr(home)))
+                .toList();
+
+        for (BlockPos target : candidates) {
+            RegionRecord existing = data.regionAt(target);
+            if (existing != null) {
+                if (!existing.empireId().equals(empire.id())
+                        || existing.type() != RegionType.HOME
+                        || !existing.valid()) {
+                    continue;
+                }
+                int capacity = RegionRules.homeCapacity(existing.blockCount());
+                boolean alreadyMember = civilianId != null && existing.inhabitants().contains(civilianId);
+                if (!alreadyMember && existing.inhabitants().size() >= capacity) {
+                    continue;
+                }
+                Optional<BlockPos> taken = takeBedPoi(poi, target);
+                if (taken.isPresent()) {
+                    if (civilianId != null) {
+                        existing.addInhabitant(civilianId);
+                        data.setDirty();
+                    }
+                    return taken.get();
+                }
+            } else {
+                HomeRegionScanner.ScanResult scan = HomeRegionScanner.scan(
+                        level, data, empire, target, RegionOrigin.AUTO);
+                if (!scan.succeeded()) {
+                    continue;
+                }
+                RegionRecord created = scan.region();
+                if (RegionRules.homeCapacity(created.blockCount()) < 1) {
+                    continue;
+                }
+                Optional<BlockPos> taken = takeBedPoi(poi, target);
+                if (taken.isPresent()) {
+                    if (civilianId != null) {
+                        created.addInhabitant(civilianId);
+                    }
+                    data.addRegion(created);
+                    return taken.get();
+                }
+            }
         }
-        BlockPos target = closest.get();
-        Optional<BlockPos> taken = poi.take(
+        return null;
+    }
+
+    private static Optional<BlockPos> takeBedPoi(PoiManager poi, BlockPos target) {
+        return poi.take(
                 type -> type.is(PoiTypes.HOME),
                 (type, pos) -> pos.equals(target),
                 target,
-                1);
-        return taken.map(BlockPos::immutable).orElse(null);
+                1).map(BlockPos::immutable);
     }
 
-    private static boolean isClaimable(ServerLevel level, EmpireRecord empire, BlockPos pos) {
+    private static boolean isClaimableBase(ServerLevel level, EmpireRecord empire, BlockPos pos) {
         long chunk = ChunkKeys.pack(pos.getX() >> 4, pos.getZ() >> 4);
         if (!empire.state().staked().contains(chunk)) {
             return false;
@@ -114,22 +178,45 @@ public final class CivilianBeds {
         }
     }
 
+    /** Releases a bed's POI ticket and detaches {@code civilianId} from any region of {@code empireId}. */
+    public static void releaseAndDetach(ServerLevel level, @Nullable UUID empireId, @Nullable UUID civilianId,
+                                        @Nullable BlockPos bedPos) {
+        release(level, bedPos);
+        if (empireId != null && civilianId != null) {
+            EmpireSavedData.of(level).detachInhabitant(empireId, civilianId);
+        }
+    }
+
     /**
-     * Validates a citizen's current bed claim (releasing it if broken or unstaked) and, if none is held, tries to claim
-     * the nearest unclaimed bed on its empire's land.
+     * Validates a citizen's current bed claim (releasing and detaching if broken, unstaked or in an invalid/full home)
+     * and, if none is held, tries to claim the nearest eligible bed in a valid {@code HOME}.
      */
     @Nullable
     public static BlockPos ensureOrClaimBed(ServerLevel level, EmpireRecord empire, CivilianEntity civilian) {
+        EmpireSavedData data = EmpireSavedData.of(level);
+        UUID civilianId = civilian.civilianId();
         BlockPos current = civilian.claimedBed();
         if (current != null) {
             if (isValidClaimedBed(level, empire, current)) {
-                return current;
+                RegionRecord region = data.regionAt(current);
+                if (region != null && civilianId != null) {
+                    if (region.inhabitants().contains(civilianId)) {
+                        return current;
+                    }
+                    if (region.inhabitants().size() < RegionRules.homeCapacity(region.blockCount())) {
+                        region.addInhabitant(civilianId);
+                        data.setDirty();
+                        return current;
+                    }
+                } else {
+                    return current;
+                }
             }
-            release(level, current);
+            releaseAndDetach(level, empire.id(), civilianId, current);
             civilian.setClaimedBed(null);
         }
         BlockPos home = civilian.home() != null ? civilian.home() : CivilianRoster.homeFor(empire, level, civilian.getBlockY());
-        BlockPos claimed = claimNearest(level, empire, home);
+        BlockPos claimed = claimNearest(level, empire, home, civilianId);
         if (claimed != null) {
             civilian.setClaimedBed(claimed);
         }

@@ -156,7 +156,8 @@ public final class CivilianRoster {
         if (civilian.status() == CivilianEntity.Status.CITIZEN) {
             CivilianRecord record = civilian.ownRecord(data);
             if (record != null) {
-                CivilianBeds.release(level, record.bed() != null ? record.bed() : civilian.claimedBed());
+                CivilianBeds.releaseAndDetach(level, record.empire(), record.id(),
+                        record.bed() != null ? record.bed() : civilian.claimedBed());
                 data.removeCivilian(record.id());
                 STRIKES.remove(record.id());
                 EmpireRecord empire = data.getEmpire(record.empire());
@@ -230,7 +231,7 @@ public final class CivilianRoster {
         } else if (civilian.status() == CivilianEntity.Status.CITIZEN) {
             CivilianRecord old = civilian.ownRecord(data);
             if (old != null) {
-                CivilianBeds.release(level, old.bed());
+                CivilianBeds.releaseAndDetach(level, old.empire(), old.id(), old.bed());
                 civilian.setClaimedBed(null);
                 data.removeCivilian(old.id());
             }

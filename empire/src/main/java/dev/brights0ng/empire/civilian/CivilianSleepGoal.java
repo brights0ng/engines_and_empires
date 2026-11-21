@@ -112,7 +112,8 @@ public class CivilianSleepGoal extends Goal {
         if (targetingBed) {
             if (empire == null || targetPos == null || !CivilianBeds.isValidClaimedBed(serverLevel, empire, targetPos)) {
                 if (targetPos != null) {
-                    CivilianBeds.release(serverLevel, targetPos);
+                    CivilianBeds.releaseAndDetach(serverLevel, empire != null ? empire.id() : null,
+                            civilian.civilianId(), targetPos);
                     civilian.setClaimedBed(null);
                 }
                 civilian.markRoughOnlyNight(night);

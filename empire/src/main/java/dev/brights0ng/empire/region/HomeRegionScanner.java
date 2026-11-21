@@ -28,6 +28,7 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
  * Flood-fill scanner and validator for {@link RegionType#HOME} regions (D4, D5).
@@ -62,6 +63,15 @@ public final class HomeRegionScanner {
 
     public static boolean isHazard(BlockState state) {
         return state.is(HAZARDS_TAG);
+    }
+
+    /**
+     * True if {@code (x, y, z)} has direct sky exposure (no motion-blocking block such as stone or glass above it).
+     * Uses the synchronous {@link Heightmap.Types#MOTION_BLOCKING} heightmap so glass roofs/windows are allowed and
+     * roof breaks invalidate immediately (D5).
+     */
+    public static boolean isExposedToSky(ServerLevel level, int x, int y, int z) {
+        return y + 1 >= level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z);
     }
 
     /** True if every chunk touched by {@code region} is currently loaded in {@code level}. */
@@ -102,7 +112,7 @@ public final class HomeRegionScanner {
                     if (data.regionAt(BlockKeys.pack(x, y, z)) != null) {
                         return RegionFloodFill.Cell.BOUNDARY;
                     }
-                    if (level.canSeeSky(cursor)) {
+                    if (isExposedToSky(level, x, y, z)) {
                         return RegionFloodFill.Cell.BOUNDARY;
                     }
                     return isInterior(state) ? RegionFloodFill.Cell.INCLUDE : RegionFloodFill.Cell.BOUNDARY;
@@ -169,7 +179,7 @@ public final class HomeRegionScanner {
                 hasTallColumn = true;
             }
 
-            if (level.canSeeSky(cursor)) {
+            if (isExposedToSky(level, x, y, z)) {
                 return RegionInvalidReason.EXPOSED_TO_SKY;
             }
 

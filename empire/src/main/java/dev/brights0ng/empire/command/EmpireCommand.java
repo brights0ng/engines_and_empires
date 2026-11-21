@@ -65,6 +65,7 @@ public final class EmpireCommand {
                 .then(Commands.literal("debug")
                         .requires(source -> source.hasPermission(2))
                         .then(CivilianDebugCommands.node())
+                        .then(RegionDebugCommands.node())
                         .then(Commands.literal("dominion")
                                 .then(Commands.argument("player", StringArgumentType.word())
                                         .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(ctx.getSource().getOnlinePlayerNames(), builder))

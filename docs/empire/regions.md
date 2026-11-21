@@ -1,7 +1,7 @@
-<!-- Written by Gemini (2026-11-20) from Bright's decisions in this session. -->
+<!-- Written by Gemini (2026-11-20) from Bright's decisions in this session; updated with implementation and verification by Gemini (2026-11-20). -->
 # Empire: Regions (framework and `HOME`)
 
-**Date:** 2026-11-20 · **Status:** planned; ready to implement on branch `empire/civilian-sleep` (worktree `../EnginesAndEmpires-empire`) in phases R1–R4.
+**Date:** 2026-11-20 · **Status:** built (phases R1–R4) on branch `empire/civilian-sleep` (worktree `../EnginesAndEmpires-empire`). In-game visual check of `/empire debug region show` particle outlines remains for Bright.
 **Scope:** arbitrary 3D `BlockPos` plots of empire land assigned to a purpose, a pure flood-fill engine, lifecycle/invalidation, and the first region type (`HOME`) wired into citizen bed claiming (`CivilianBeds`).
 
 ---
@@ -100,3 +100,18 @@
 - **Cots:** Beds/cots that citizens can sleep in anywhere outside a `HOME`.
 - **Citizen self-repair:** Before detaching from an invalidated region, citizens attempt to fix the issue (replace a broken block, break a placed hazard, re-light) first.
 - **Additional region types & Meteodyne:** `PUB`, `FARM`, `LARDER`, `WORKSHOP`, etc., plus optional indoor temperature/shelter checks via `empire.compat.meteodyne`.
+
+---
+
+## Implementation notes (Gemini, 2026-11-20)
+
+- **Pure `rules` collections:** `:empire:test` runs without Minecraft/fastutil on its test classpath, so `RegionFloodFill` uses pure JDK `Set<Long>` and a primitive `long[]` BFS queue (matching `ClaimGraph` and `EmpireState`), while `RegionRecord` in `data` stores `LongOpenHashSet` and `EmpireSavedData` uses `Long2ObjectOpenHashMap`. `BlockKeys` packs/unpacks 3D coordinates with `BlockPos.asLong`'s exact 26/26/12-bit layout.
+- **Direct sky exposure vs. `Level.canSeeSky`:** In MC 1.21.1, `Level.canSeeSky(pos)` checks `LightLayer.SKY >= 15`, which treats glass roofs as sky-exposed and lags asynchronously behind roof breaks. `HomeRegionScanner.isExposedToSky(level, x, y, z)` instead checks `y + 1 >= level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z)` — updated synchronously on block edits, allowing glass roofs/windows while catching any open sky exposure (including bare outdoor beds).
+- **Commands:** `/empire debug region ...` lives in `command.RegionDebugCommands` attached under `/empire debug` in `EmpireCommand`. `scan home` accepts optional `auto` (default) or `manual`.
+
+## Verification (2026-11-20)
+
+- Full check (`.\gradlew.bat compileJava compileTestJava test runGameTestServer --console=plain`): **BUILD SUCCESSFUL** (3m 52s).
+  - Unit tests across all modules: **1391 passed, 5 skipped** (pre-existing), **0 failed** (Empire: **175**, +11 new in `RegionRulesTest` and `RegionFloodFillTest`; `core`: 33 including `ArchitectureTest`).
+  - Game test servers (all 11 passing): aggregate **440/440**, coreless **390/390**, Empire **141/141** (+6 new in `RegionGameTests`; `CivilianSleepGameTests` updated to enclosed lit `HOME` rooms), Frontier **17/17**, Meteodyne **125/125**, Paradyne Lib **3/3**, Sable Fixes **2/2**, Seismic **20/20**, Simple Spoilage **34/34**, Sparse Ores **13/13**, Sparse Ores + Create **13/13**.
+- No client visual verification was performed; `/empire debug region show` particle outlines and in-game UX remain for Bright to check.
