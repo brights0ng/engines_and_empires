@@ -91,6 +91,7 @@ public final class RegionManager {
                 if (!region.valid()) {
                     region.markValid();
                     data.setDirty();
+                    RegionNetwork.pushToEmpire(overworld, region.empireId());
                 }
             } else {
                 boolean wasValid = region.valid();
@@ -98,6 +99,9 @@ public final class RegionManager {
                 region.markInvalid(reason, gameTime);
                 if (wasValid || prevReason != reason) {
                     data.setDirty();
+                }
+                if (wasValid) {
+                    RegionNetwork.pushToEmpire(overworld, region.empireId());
                 }
                 if (wasValid || !region.inhabitants().isEmpty()) {
                     detachAllInhabitants(overworld, data, region);
@@ -108,6 +112,7 @@ public final class RegionManager {
         if (RegionRules.shouldAutoDelete(region.origin(), region.valid(), region.invalidSinceGameTime(), gameTime)) {
             detachAllInhabitants(overworld, data, region);
             data.removeRegion(region.id());
+            RegionNetwork.pushToEmpire(overworld, region.empireId());
         }
     }
 

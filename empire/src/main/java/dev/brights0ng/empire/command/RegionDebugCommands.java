@@ -17,6 +17,7 @@ import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
 import dev.brights0ng.empire.region.HomeRegionScanner;
 import dev.brights0ng.empire.region.RegionManager;
+import dev.brights0ng.empire.region.RegionNetwork;
 import dev.brights0ng.empire.rules.BlockKeys;
 import dev.brights0ng.empire.rules.RegionOrigin;
 import dev.brights0ng.empire.rules.RegionRules;
@@ -161,6 +162,7 @@ public final class RegionDebugCommands {
         }
         RegionRecord created = scan.region();
         data.addRegion(created);
+        RegionNetwork.pushToEmpire(overworld, empire.id());
         int cap = RegionRules.homeCapacity(created.blockCount());
         source.sendSuccess(() -> Component.literal("Created " + origin.id() + " HOME [" + shortId(created.id())
                 + "]: " + created.blockCount() + " blocks, capacity " + cap), true);
@@ -208,6 +210,7 @@ public final class RegionDebugCommands {
         }
         RegionManager.detachAllInhabitants(overworld, data, match);
         data.removeRegion(match.id());
+        RegionNetwork.pushToEmpire(overworld, match.empireId());
         RegionRecord removed = match;
         source.sendSuccess(() -> Component.literal("Removed region [" + shortId(removed.id()) + "]"), true);
         return 1;
@@ -225,6 +228,7 @@ public final class RegionDebugCommands {
             RegionManager.detachAllInhabitants(overworld, data, region);
             data.removeRegion(region.id());
         }
+        RegionNetwork.pushToEmpire(overworld, empire.id());
         int count = regions.size();
         source.sendSuccess(() -> Component.literal("Cleared " + count + " region" + (count == 1 ? "" : "s")), true);
         return count;

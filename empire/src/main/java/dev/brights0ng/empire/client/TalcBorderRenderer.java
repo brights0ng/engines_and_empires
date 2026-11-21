@@ -1,10 +1,5 @@
-// Written by Gemini; rewritten by Claude (geometry moved to TalcBorderGeometry, mesh cached, colours and claim rules kept); golden protected land by Claude; claims now asked for by ClaimCacheKeeper.
+// Written by Gemini; rewritten by Claude (geometry moved to TalcBorderGeometry, mesh cached, colours and claim rules kept); golden protected land by Claude; claims now asked for by ClaimCacheKeeper; edited by Gemini (delegated quad rendering to shared VeilMeshRenderer).
 package dev.brights0ng.empire.client;
-
-import org.joml.Matrix4f;
-
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import dev.brights0ng.empire.map.ClaimMapCache;
 import dev.brights0ng.empire.rules.ClaimGrid;
@@ -14,11 +9,9 @@ import dev.brights0ng.paradynelib.client.ClientBlockChanges;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.tags.BlockTags;
-import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -26,7 +19,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
@@ -46,15 +38,12 @@ public final class TalcBorderRenderer {
 
     /** Chunk radius around the player whose borders are drawn. */
     private static final int RENDER_RADIUS = 5;
-    /** Lines and veils fade out between these horizontal distances from the camera. */
-    private static final float FADE_START = 55.0F;
-    private static final float FADE_END = 80.0F;
     /** Border edges farther than this from the player when the mesh is built are left out. */
-    private static final double BUILD_DISTANCE = FADE_END + 24.0;
+    private static final double BUILD_DISTANCE = VeilMeshRenderer.FADE_END + 24.0;
     /** A rebuild at least this often (5 s) even without a block change, as a safety net. */
     private static final int FALLBACK_REFRESH_TICKS = 100;
 
-    private static TalcBorderGeometry.Mesh mesh;
+    private static VeilMesh mesh;
     private static ClientLevel meshLevel;
     private static long meshChunk;
     private static long meshClaims;
@@ -70,7 +59,7 @@ public final class TalcBorderRenderer {
     }
 
     private static void onBlockChanged(BlockPos pos, BlockState oldState, BlockState newState) {
-        TalcBorderGeometry.Mesh m = mesh;
+        VeilMesh m = mesh;
         if (oldState != newState && m != null && m.readsColumn(pos.getX(), pos.getZ())) {
             dirty = true;
         }
@@ -129,8 +118,9 @@ public final class TalcBorderRenderer {
             return;
         }
 
-        float time = (gameTime + event.getPartialTick().getGameTimeDeltaPartialTick(false)) * 0.06F;
-        draw(event, mc, mesh, time, holdingTarnished);
+        float time = VeilMeshRenderer.animationTime(gameTime, event);
+        boolean tarnished = holdingTarnished;
+        VeilMeshRenderer.draw(event, mc, mesh, time, (style, out) -> colors(style, tarnished, out));
     }
 
     /** A hash of the claim states the mesh depends on. */
@@ -166,7 +156,7 @@ public final class TalcBorderRenderer {
         return drawsBorder(state, neighbour) ? state : 0;
     }
 
-    private static TalcBorderGeometry.Mesh buildMesh(ClientLevel level, LocalPlayer player, int pcx, int pcz) {
+    private static VeilMesh buildMesh(ClientLevel level, LocalPlayer player, int pcx, int pcz) {
         TalcBorderGeometry.Borders borders = new TalcBorderGeometry.Borders();
         double px = player.getX();
         double pz = player.getZ();
@@ -207,67 +197,6 @@ public final class TalcBorderRenderer {
         double dx = x - px;
         double dz = z - pz;
         return dx * dx + dz * dz <= maxSq;
-    }
-
-    private static void draw(RenderLevelStageEvent event, Minecraft mc, TalcBorderGeometry.Mesh m, float time,
-                             boolean tarnished) {
-        Vec3 cam = event.getCamera().getPosition();
-        PoseStack poseStack = event.getPoseStack();
-        poseStack.pushPose();
-        poseStack.translate(m.originX() - cam.x, -cam.y, m.originZ() - cam.z);
-        Matrix4f matrix = poseStack.last().pose();
-
-        MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
-        VertexConsumer consumer = buffers.getBuffer(EmpireRenderTypes.BORDER_VEIL);
-
-        int[] ours = new int[6];
-        int[] rival = new int[6];
-        int[] gold = new int[6];
-        colors(ClaimGrid.OUR_EMPIRE, tarnished, ours);
-        colors(ClaimGrid.OTHER_EMPIRE, tarnished, rival);
-        colors(TalcBorderGeometry.STYLE_PROTECTED, tarnished, gold);
-        // Camera position relative to the mesh origin, so distances stay in small floats.
-        float camX = (float) (cam.x - m.originX());
-        float camZ = (float) (cam.z - m.originZ());
-        float[] fade = new float[4];
-
-        for (int q = 0; q < m.quadCount(); q++) {
-            float maxFade = 0.0F;
-            for (int v = 0; v < 4; v++) {
-                float dx = m.x(q, v) - camX;
-                float dz = m.z(q, v) - camZ;
-                float d = Mth.sqrt(dx * dx + dz * dz);
-                fade[v] = 1.0F - Mth.clamp((d - FADE_START) / (FADE_END - FADE_START), 0.0F, 1.0F);
-                maxFade = Math.max(maxFade, fade[v]);
-            }
-            if (maxFade <= 0.0F) {
-                continue;
-            }
-            int style = m.style(q);
-            int[] c = style == ClaimGrid.OUR_EMPIRE ? ours : style == TalcBorderGeometry.STYLE_PROTECTED ? gold : rival;
-            boolean veil = m.kind(q) == TalcBorderGeometry.Mesh.VEIL;
-            for (int v = 0; v < 4; v++) {
-                float x = m.x(q, v);
-                float y = m.y(q, v);
-                float z = m.z(q, v);
-                int alpha;
-                if (!veil) {
-                    alpha = (int) (225 * fade[v]);
-                    consumer.addVertex(matrix, x, y, z).setColor(c[0], c[1], c[2], alpha);
-                } else {
-                    if (v == 1 || v == 2) {
-                        alpha = 0;
-                    } else {
-                        float wave = Mth.sin((x + m.originX() + z + m.originZ()) * 0.4F + time * 3.0F);
-                        alpha = (int) (105 * (0.75F + 0.25F * wave) * fade[v]);
-                    }
-                    consumer.addVertex(matrix, x, y, z).setColor(c[3], c[4], c[5], alpha);
-                }
-            }
-        }
-
-        buffers.endBatch(EmpireRenderTypes.BORDER_VEIL);
-        poseStack.popPose();
     }
 
     /** Line colour in out[0..2], veil colour in out[3..5]. */

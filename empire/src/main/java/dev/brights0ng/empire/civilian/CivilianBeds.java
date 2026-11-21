@@ -12,6 +12,7 @@ import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
 import dev.brights0ng.empire.region.HomeRegionScanner;
+import dev.brights0ng.empire.region.RegionNetwork;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.RegionOrigin;
 import dev.brights0ng.empire.rules.RegionRules;
@@ -144,6 +145,7 @@ public final class CivilianBeds {
                         created.addInhabitant(civilianId);
                     }
                     data.addRegion(created);
+                    RegionNetwork.pushToEmpire(level, empire.id());
                     return taken.get();
                 }
             }

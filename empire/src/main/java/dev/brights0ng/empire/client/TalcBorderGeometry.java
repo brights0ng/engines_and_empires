@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; edited by Gemini (extracted shared VeilMesh for boundary and region rendering).
 package dev.brights0ng.empire.client;
 
 import java.util.Arrays;
@@ -33,9 +33,9 @@ import java.util.Map;
 public final class TalcBorderGeometry {
 
     /** Half the width of the chalk ribbon, in blocks. */
-    public static final double HALF_W = 0.11;
+    public static final double HALF_W = VeilMesh.HALF_W;
     /** Outward nudge of every line quad off its surface; the render type's polygon offset does the real work. */
-    public static final double LIFT = 0.002;
+    public static final double LIFT = VeilMesh.LIFT;
     /** Height of the light veil above the surface. */
     public static final double VEIL_HEIGHT = 2.8;
     /** A drop parallel to the border gets a band at its base only when it is taller than this (a cliff, not a step). */
@@ -137,102 +137,13 @@ public final class TalcBorderGeometry {
         }
     }
 
-    /** The built quads, stored relative to an origin so float precision holds far from 0,0. */
-    public static final class Mesh {
-        public static final int LINE = 0;
-        /** Veil quads: vertices 0 and 3 are at the bottom, 1 and 2 at the top. */
-        public static final int VEIL = 1;
-
-        private final int originX;
-        private final int originZ;
-        private float[] pos = new float[256 * 12];
-        private byte[] kinds = new byte[256];
-        private byte[] styles = new byte[256];
-        private int quads;
-        private java.util.Set<Long> columns = java.util.Set.of();
-
-        Mesh(int originX, int originZ) {
-            this.originX = originX;
-            this.originZ = originZ;
-        }
-
-        public int originX() {
-            return originX;
-        }
-
-        public int originZ() {
-            return originZ;
-        }
-
-        public int quadCount() {
-            return quads;
-        }
-
-        /** Whether a block change in column (x, z) can change this mesh: the column was read while building it. */
-        public boolean readsColumn(int x, int z) {
-            return columns.contains(key(x, z));
-        }
-
-        public int kind(int q) {
-            return kinds[q];
-        }
-
-        public int style(int q) {
-            return styles[q];
-        }
-
-        /** Vertex v (0-3) of quad q, relative to the origin (y absolute). */
-        public float x(int q, int v) {
-            return pos[q * 12 + v * 3];
-        }
-
-        public float y(int q, int v) {
-            return pos[q * 12 + v * 3 + 1];
-        }
-
-        public float z(int q, int v) {
-            return pos[q * 12 + v * 3 + 2];
-        }
-
-        void horizontal(int kind, int style, double x0, double z0, double x1, double z1, double y) {
-            add(kind, style, x0, y, z0, x0, y, z1, x1, y, z1, x1, y, z0);
-        }
-
-        /** A vertical quad on plane x = plane (normalX) or z = plane, spanning s0..s1 along the other axis. */
-        void vertical(int kind, int style, boolean normalX, double plane, double s0, double s1, double yLo, double yHi) {
-            if (normalX) {
-                add(kind, style, plane, yLo, s0, plane, yHi, s0, plane, yHi, s1, plane, yLo, s1);
-            } else {
-                add(kind, style, s0, yLo, plane, s0, yHi, plane, s1, yHi, plane, s1, yLo, plane);
-            }
-        }
-
-        private void add(int kind, int style, double... v) {
-            if (quads == kinds.length) {
-                int n = quads * 2;
-                pos = Arrays.copyOf(pos, n * 12);
-                kinds = Arrays.copyOf(kinds, n);
-                styles = Arrays.copyOf(styles, n);
-            }
-            int o = quads * 12;
-            for (int i = 0; i < 12; i += 3) {
-                pos[o + i] = (float) (v[i] - originX);
-                pos[o + i + 1] = (float) v[i + 1];
-                pos[o + i + 2] = (float) (v[i + 2] - originZ);
-            }
-            kinds[quads] = (byte) kind;
-            styles[quads] = (byte) style;
-            quads++;
-        }
-    }
-
     /** Builds the mesh for {@code borders}; the mesh's coordinates are relative to (originX, originZ). */
-    public static Mesh build(Terrain terrain, Borders borders, int originX, int originZ) {
-        return new Builder(terrain, borders, new Mesh(originX, originZ)).run();
+    public static VeilMesh build(Terrain terrain, Borders borders, int originX, int originZ) {
+        return new Builder(terrain, borders, new VeilMesh(originX, originZ)).run();
     }
 
     static long key(int x, int z) {
-        return (x & 0xFFFFFFFFL) | ((long) z << 32);
+        return VeilMesh.columnKey(x, z);
     }
 
     static int keyX(long k) {
@@ -310,18 +221,18 @@ public final class TalcBorderGeometry {
 
         private final Terrain terrain;
         private final Borders borders;
-        private final Mesh mesh;
+        private final VeilMesh mesh;
         private final Map<Long, Cell> cells = new HashMap<>();
         private final DoubleList scratch = new DoubleList();
         private final DoubleList spans = new DoubleList();
 
-        Builder(Terrain terrain, Borders borders, Mesh mesh) {
+        Builder(Terrain terrain, Borders borders, VeilMesh mesh) {
             this.terrain = terrain;
             this.borders = borders;
             this.mesh = mesh;
         }
 
-        Mesh run() {
+        VeilMesh run() {
             LinkedHashSet<Long> todo = new LinkedHashSet<>();
             for (long k : borders.zEdges.keySet()) {
                 int x = keyX(k);
@@ -348,7 +259,7 @@ public final class TalcBorderGeometry {
             for (Map.Entry<Long, Integer> e : borders.xEdges.entrySet()) {
                 veil(keyX(e.getKey()), keyZ(e.getKey()), true, e.getValue());
             }
-            mesh.columns = java.util.Set.copyOf(cells.keySet());
+            mesh.setColumns(java.util.Set.copyOf(cells.keySet()));
             return mesh;
         }
 
@@ -620,7 +531,7 @@ public final class TalcBorderGeometry {
                     boolean painted = info != 0;
                     boolean continues = painted && runStart >= 0 && Math.abs(h - runH) < EPS && (info & 3) == runStyle;
                     if (runStart >= 0 && !continues) {
-                        mesh.horizontal(Mesh.LINE, runStyle, cx + c.xs[runStart], cz + z0, cx + c.xs[i], cz + z1, runH + LIFT);
+                        mesh.horizontal(VeilMesh.CHALK, runStyle, cx + c.xs[runStart], cz + z0, cx + c.xs[i], cz + z1, runH + LIFT);
                         runStart = -1;
                     }
                     if (painted) {
@@ -734,12 +645,12 @@ public final class TalcBorderGeometry {
             double b = base + s1;
             double yTop = top + LIFT;
             if (whole || top - bottom <= 2 * HALF_W + EPS) {
-                mesh.vertical(Mesh.LINE, style, normalX, plane, a, b, bottom, yTop);
+                mesh.vertical(VeilMesh.CHALK, style, normalX, plane, a, b, bottom, yTop);
                 return;
             }
-            mesh.vertical(Mesh.LINE, style, normalX, plane, a, b, top - HALF_W, yTop);
+            mesh.vertical(VeilMesh.CHALK, style, normalX, plane, a, b, top - HALF_W, yTop);
             if (bottom <= ground + EPS && top - bottom > BASE_BAND_MIN_DROP + EPS) {
-                mesh.vertical(Mesh.LINE, style, normalX, plane, a, b, bottom, bottom + HALF_W);
+                mesh.vertical(VeilMesh.CHALK, style, normalX, plane, a, b, bottom, bottom + HALF_W);
             }
         }
 
@@ -851,7 +762,7 @@ public final class TalcBorderGeometry {
         }
 
         private void emitVeil(int style, boolean onXPlane, double plane, double s0, double s1, double base) {
-            mesh.vertical(Mesh.VEIL, style, onXPlane, plane, s0, s1, base + LIFT, base + VEIL_HEIGHT);
+            mesh.vertical(VeilMesh.VEIL_GRADIENT, style, onXPlane, plane, s0, s1, base + LIFT, base + VEIL_HEIGHT);
         }
 
         private static double clamp01(double v) {
