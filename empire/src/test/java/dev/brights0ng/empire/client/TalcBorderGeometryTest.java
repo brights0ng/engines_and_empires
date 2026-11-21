@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; edited by Gemini (updated for extracted VeilMesh).
 package dev.brights0ng.empire.client;
 
 import static dev.brights0ng.empire.client.TalcBorderGeometry.HALF_W;
@@ -16,7 +16,6 @@ import java.util.function.Predicate;
 import org.junit.jupiter.api.Test;
 
 import dev.brights0ng.empire.client.TalcBorderGeometry.Borders;
-import dev.brights0ng.empire.client.TalcBorderGeometry.Mesh;
 
 class TalcBorderGeometryTest {
 
@@ -84,7 +83,7 @@ class TalcBorderGeometryTest {
         }
     }
 
-    private static List<Quad> quads(Mesh m) {
+    private static List<Quad> quads(VeilMesh m) {
         List<Quad> out = new ArrayList<>();
         for (int q = 0; q < m.quadCount(); q++) {
             double[] lo = {Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE};
@@ -101,8 +100,8 @@ class TalcBorderGeometryTest {
         return out;
     }
 
-    private static List<Quad> lines(Mesh m, Predicate<Quad> filter) {
-        return quads(m).stream().filter(q -> q.kind() == Mesh.LINE).filter(filter).toList();
+    private static List<Quad> lines(VeilMesh m, Predicate<Quad> filter) {
+        return quads(m).stream().filter(q -> q.kind() == VeilMesh.CHALK).filter(filter).toList();
     }
 
     private static Borders straightNorthBorder(int x0, int x1, int z) {
@@ -131,21 +130,21 @@ class TalcBorderGeometryTest {
 
     @Test
     void flatStraightBorderIsACentredRibbonWithSquareEnds() {
-        Mesh m = TalcBorderGeometry.build(new FakeTerrain(), straightNorthBorder(0, 4, 0), 0, 0);
+        VeilMesh m = TalcBorderGeometry.build(new FakeTerrain(), straightNorthBorder(0, 4, 0), 0, 0);
         List<Quad> all = lines(m, q -> true);
         assertTrue(all.stream().allMatch(Quad::horizontal), "no vertical line quads on flat ground");
         assertTrue(all.stream().allMatch(q -> Math.abs(q.minY() - (64 + LIFT)) < TOL));
         assertTrue(all.stream().allMatch(q -> q.minZ() >= -HALF_W - TOL && q.maxZ() <= HALF_W + TOL));
         assertNoHorizontalOverlap(all);
         assertEquals((4 + 2 * HALF_W) * 2 * HALF_W, area(all), TOL);
-        double veilLength = quads(m).stream().filter(q -> q.kind() == Mesh.VEIL).mapToDouble(q -> q.maxX() - q.minX()).sum();
+        double veilLength = quads(m).stream().filter(q -> q.kind() == VeilMesh.VEIL_GRADIENT).mapToDouble(q -> q.maxX() - q.minX()).sum();
         assertEquals(4.0, veilLength, TOL);
     }
 
     @Test
     void cliffAlongBorderPaintsOnlyTheHigherSideWithLipAndBaseBands() {
         FakeTerrain t = new FakeTerrain().set(-3, 6, -3, -1, 70);
-        Mesh m = TalcBorderGeometry.build(t, straightNorthBorder(0, 4, 0), 0, 0);
+        VeilMesh m = TalcBorderGeometry.build(t, straightNorthBorder(0, 4, 0), 0, 0);
 
         List<Quad> tops = lines(m, Quad::horizontal);
         assertTrue(tops.stream().noneMatch(q -> q.minY() < 65), "lower side gets no ribbon");
@@ -158,14 +157,14 @@ class TalcBorderGeometryTest {
         assertTrue(cliff.stream().anyMatch(q -> Math.abs(q.maxY() - (70 + LIFT)) < TOL), "lip band");
         assertTrue(cliff.stream().anyMatch(q -> Math.abs(q.minY() - 64) < TOL), "base band");
 
-        List<Quad> veils = quads(m).stream().filter(q -> q.kind() == Mesh.VEIL).toList();
+        List<Quad> veils = quads(m).stream().filter(q -> q.kind() == VeilMesh.VEIL_GRADIENT).toList();
         assertTrue(veils.stream().allMatch(q -> Math.abs(q.minY() - (70 + LIFT)) < TOL), "veil rises from the higher side");
     }
 
     @Test
     void cliffOnTheOtherSideMovesTheRibbonThere() {
         FakeTerrain t = new FakeTerrain().set(-3, 6, 0, 3, 70);
-        Mesh m = TalcBorderGeometry.build(t, straightNorthBorder(0, 4, 0), 0, 0);
+        VeilMesh m = TalcBorderGeometry.build(t, straightNorthBorder(0, 4, 0), 0, 0);
         List<Quad> tops = lines(m, q -> q.horizontal() && q.minX() >= -TOL && q.maxX() <= 4 + TOL);
         assertFalse(tops.isEmpty());
         assertTrue(tops.stream().allMatch(q -> q.minY() > 69 && q.minZ() >= -TOL && q.maxZ() <= HALF_W + TOL));
@@ -177,7 +176,7 @@ class TalcBorderGeometryTest {
     @Test
     void oneBlockStepAlongBorderFoldsOverTheEdgeWithNoBaseBand() {
         FakeTerrain t = new FakeTerrain().set(-3, 6, -3, -1, 65);
-        Mesh m = TalcBorderGeometry.build(t, straightNorthBorder(0, 4, 0), 0, 0);
+        VeilMesh m = TalcBorderGeometry.build(t, straightNorthBorder(0, 4, 0), 0, 0);
         List<Quad> face = lines(m, q -> q.normalZ() && Math.abs(q.minZ()) < 0.01 && q.minX() >= -TOL && q.maxX() <= 4 + TOL);
         assertFalse(face.isEmpty());
         assertTrue(face.stream().allMatch(q -> Math.abs(q.minY() - (65 - HALF_W)) < TOL && Math.abs(q.maxY() - (65 + LIFT)) < TOL),
@@ -188,7 +187,7 @@ class TalcBorderGeometryTest {
     @Test
     void stepAlongTheLineIsANarrowFullHeightStripe() {
         FakeTerrain t = new FakeTerrain().set(2, 6, -3, 3, 67);
-        Mesh m = TalcBorderGeometry.build(t, straightNorthBorder(0, 4, 0), 0, 0);
+        VeilMesh m = TalcBorderGeometry.build(t, straightNorthBorder(0, 4, 0), 0, 0);
         List<Quad> step = lines(m, q -> q.normalX() && Math.abs(q.minX() - 2) < 0.01);
         assertFalse(step.isEmpty());
         assertTrue(step.stream().allMatch(q -> Math.abs(q.minY() - 64) < TOL && Math.abs(q.maxY() - (67 + LIFT)) < TOL));
@@ -202,7 +201,7 @@ class TalcBorderGeometryTest {
         for (int x = -1; x <= 4; x++) {
             t.extra.put(List.of(x, 64, -1), new double[][]{{0, 0, 0, 1, 0.15, 1}});
         }
-        Mesh m = TalcBorderGeometry.build(t, straightNorthBorder(0, 4, 0), 0, 0);
+        VeilMesh m = TalcBorderGeometry.build(t, straightNorthBorder(0, 4, 0), 0, 0);
         List<Quad> faces = lines(m, q -> q.normalZ() && Math.abs(q.minZ()) < 0.01 && q.minX() >= -TOL && q.maxX() <= 4 + TOL);
         assertFalse(faces.isEmpty());
         assertTrue(faces.stream().allMatch(q -> Math.abs(q.minY() - 64) < TOL && Math.abs(q.maxY() - (64.15 + LIFT)) < TOL));
@@ -219,7 +218,7 @@ class TalcBorderGeometryTest {
         b.addXEdge(0, 1, 1);
         b.addXEdge(2, 0, 1);
         b.addXEdge(2, 1, 1);
-        Mesh m = TalcBorderGeometry.build(new FakeTerrain(), b, 0, 0);
+        VeilMesh m = TalcBorderGeometry.build(new FakeTerrain(), b, 0, 0);
         List<Quad> tops = lines(m, Quad::horizontal);
         assertNoHorizontalOverlap(tops);
         double outer = 2 + 2 * HALF_W;
@@ -231,7 +230,7 @@ class TalcBorderGeometryTest {
     void postSetBackFromTheBorderLeavesTheLineOnTheGround() {
         FakeTerrain t = new FakeTerrain();
         t.extra.put(List.of(1, 64, -1), new double[][]{{0.375, 0, 0.375, 0.625, 1, 0.625}});
-        Mesh m = TalcBorderGeometry.build(t, straightNorthBorder(0, 4, 0), 0, 0);
+        VeilMesh m = TalcBorderGeometry.build(t, straightNorthBorder(0, 4, 0), 0, 0);
         assertTrue(lines(m, q -> true).stream().allMatch(q -> q.horizontal() && q.minY() < 64.5));
     }
 
@@ -241,7 +240,7 @@ class TalcBorderGeometryTest {
         for (int x = -1; x <= 4; x++) {
             t.extra.put(List.of(x, 70, -1), new double[][]{{0, 0, 0, 1, 1, 1}});
         }
-        Mesh m = TalcBorderGeometry.build(t, straightNorthBorder(0, 4, 0), 0, 0);
+        VeilMesh m = TalcBorderGeometry.build(t, straightNorthBorder(0, 4, 0), 0, 0);
         List<Quad> face = lines(m, q -> q.normalZ() && Math.abs(q.minZ()) < 0.01 && q.minX() >= -TOL && q.maxX() <= 4 + TOL);
         assertFalse(face.isEmpty());
         assertTrue(face.stream().allMatch(q -> q.minY() >= 71 - HALF_W - TOL), "nothing painted below the overhang: " + face);

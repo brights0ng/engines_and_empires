@@ -1,8 +1,8 @@
-<!-- Written by Gemini (2026-11-20) from Bright's decisions in this session; updated with implementation and verification by Gemini (2026-11-20). -->
-# Empire: Regions (framework and `HOME`)
+<!-- Written by Gemini (2026-11-20) from Bright's decisions in this session; updated with implementation and verification by Gemini (2026-11-20); updated with shared veil/chalk region rendering by Gemini (2026-11-20). -->
+# Empire: Regions (framework, `HOME`, and in-world rendering)
 
-**Date:** 2026-11-20 · **Status:** built (phases R1–R4) on branch `empire/civilian-sleep` (worktree `../EnginesAndEmpires-empire`). In-game visual check of `/empire debug region show` particle outlines remains for Bright.
-**Scope:** arbitrary 3D `BlockPos` plots of empire land assigned to a purpose, a pure flood-fill engine, lifecycle/invalidation, and the first region type (`HOME`) wired into citizen bed claiming (`CivilianBeds`).
+**Date:** 2026-11-20 · **Status:** built (phases R1–R4 + shared veil/chalk rendering). In-game visual check remains for Bright.
+**Scope:** arbitrary 3D `BlockPos` plots of empire land assigned to a purpose, a pure flood-fill engine, lifecycle/invalidation, the first region type (`HOME`) wired into citizen bed claiming (`CivilianBeds`), and in-world 3D region rendering sharing the boundary chalk/veil renderer.
 
 ---
 
@@ -75,6 +75,12 @@
   - Marks regions dirty on `BlockEvent.BreakEvent` and `BlockEvent.EntityPlaceEvent` when `pos` is inside `bounds.inflate(1)`.
   - Periodic tick (`VALIDATE_INTERVAL`): validates dirty regions (and sweeps loaded regions), skipping any region whose chunks are not loaded.
   - Handles `VALID → INVALID` detachment (releasing claimed beds inside the region on both `CivilianRecord` and loaded `CivilianEntity`), recovery back to `VALID`, and 3-day auto-deletion of `AUTO` regions.
+
+### In-world rendering (`dev.brights0ng.empire.client` & `dev.brights0ng.empire.region`)
+- **Shared renderer:** `VeilMesh` (pure Java, extracted from `TalcBorderGeometry.Mesh`) and `VeilMeshRenderer` (extracted from `TalcBorderRenderer`) unify chalk-ribbon and shimmering-veil rendering through `EmpireRenderTypes.BORDER_VEIL` (`LEQUAL` depth test, translucent, `NO_CULL`, `POLYGON_OFFSET_LAYERING`), sharing distance fade, chalk opacity, and veil shimmer wave so changes to boundary rendering apply identically to regions.
+- **3D region geometry (`RegionGeometry`, pure Java):** builds a `VeilMesh` for each region's `BlockPos` set — exposed outer faces (`±X, ±Y, ±Z`, nudged inward by `VeilMesh.LIFT`) rendered as `VEIL_UNIFORM`, with geometric crease edges (90° outer corners and 270° inner corners, plus corner caps) framed by `VeilMesh.HALF_W` `CHALK` ribbons with zero quad overlap.
+- **Trigger & palette (`RegionRenderer`):** active while holding Blessed or Tarnished Talc (until the Administration Ledger exists). Each `RegionType` has its own palette entry (`HOME` in blue, slightly dulled under Tarnished Talc; invalid regions in crimson).
+- **Client sync (`RegionPayloads`, `RegionNetwork`, `RegionClientCache`):** C2S `Request` / S2C `Sync` syncs nearby regions of the player's empire on demand while holding talc, with immediate server pushes when regions are created, removed, or change validity.
 
 ### Sleep & command integration
 - `CivilianBeds`: when claiming a bed, iterates unclaimed `PoiTypes.HOME` beds within 48 blocks on staked land, closest first. Accepts beds in a `VALID` `HOME` with spare capacity, or triggers an auto `HOME` flood fill if the bed is not yet in any region. Death, leaving, disband, re-recruitment, and debug clear/release detach the citizen from its `HOME` region.
