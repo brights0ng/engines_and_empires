@@ -36,6 +36,8 @@ public final class RegionRecord {
     private final UUID empireId;
     private final RegionType type;
     private final RegionOrigin origin;
+    /** Packed {@link BlockKeys} / {@link BlockPos#asLong} seed coordinate (first bed / creation anchor). */
+    private long seed;
     /** Packed {@link BlockKeys} / {@link BlockPos#asLong} coordinates belonging to this region. */
     private final LongOpenHashSet blocks = new LongOpenHashSet();
     /** Cached packed {@link dev.brights0ng.empire.rules.ChunkKeys} touched by {@link #blocks}. Not saved. */
@@ -51,14 +53,22 @@ public final class RegionRecord {
     private boolean valid = true;
     private RegionInvalidReason invalidReason = RegionInvalidReason.NONE;
     private long invalidSinceGameTime = -1L;
-    /** Transient dirty flag: set on nearby block changes or unstaking, cleared when validated. */
+    /** Transient dirty flag: set on nearby block changes or unstaking, cleared when updated. */
     private boolean dirty;
+    /** Transient game time of the most recent update, for 1-second cooldown throttling. */
+    private long lastUpdateGameTime = Long.MIN_VALUE;
 
     public RegionRecord(UUID id, UUID empireId, RegionType type, RegionOrigin origin, Collection<Long> initialBlocks) {
+        this(id, empireId, type, origin, firstBlockOrZero(initialBlocks), initialBlocks);
+    }
+
+    public RegionRecord(UUID id, UUID empireId, RegionType type, RegionOrigin origin, long seed,
+                        Collection<Long> initialBlocks) {
         this.id = id;
         this.empireId = empireId;
         this.type = type;
         this.origin = origin;
+        this.seed = seed;
         for (long key : initialBlocks) {
             this.blocks.add(key);
         }
@@ -66,14 +76,24 @@ public final class RegionRecord {
     }
 
     public RegionRecord(UUID id, UUID empireId, RegionType type, RegionOrigin origin, long[] initialBlocks) {
+        this(id, empireId, type, origin, initialBlocks.length > 0 ? initialBlocks[0] : 0L, initialBlocks);
+    }
+
+    public RegionRecord(UUID id, UUID empireId, RegionType type, RegionOrigin origin, long seed,
+                        long[] initialBlocks) {
         this.id = id;
         this.empireId = empireId;
         this.type = type;
         this.origin = origin;
+        this.seed = seed;
         for (long key : initialBlocks) {
             this.blocks.add(key);
         }
         recomputeBoundsAndChunks();
+    }
+
+    private static long firstBlockOrZero(Collection<Long> blocks) {
+        return blocks.isEmpty() ? 0L : blocks.iterator().next();
     }
 
     private void recomputeBoundsAndChunks() {
@@ -115,6 +135,23 @@ public final class RegionRecord {
 
     public RegionOrigin origin() {
         return origin;
+    }
+
+    public long seed() {
+        return seed;
+    }
+
+    public void setSeed(long seed) {
+        this.seed = seed;
+    }
+
+    /** Replaces the region's block set and recomputes its cached bounds and touched chunks. */
+    public void replaceBlocks(Collection<Long> newBlocks) {
+        this.blocks.clear();
+        for (long key : newBlocks) {
+            this.blocks.add(key);
+        }
+        recomputeBoundsAndChunks();
     }
 
     public int blockCount() {
@@ -226,6 +263,14 @@ public final class RegionRecord {
         this.dirty = dirty;
     }
 
+    public long lastUpdateGameTime() {
+        return lastUpdateGameTime;
+    }
+
+    public void setLastUpdateGameTime(long gameTime) {
+        this.lastUpdateGameTime = gameTime;
+    }
+
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
         tag.putInt("version", VERSION);
@@ -233,6 +278,7 @@ public final class RegionRecord {
         tag.putUUID("empire", empireId);
         tag.putString("type", type.id());
         tag.putString("origin", origin.id());
+        tag.putLong("seed", seed);
         tag.put("blocks", new LongArrayTag(blocks.toLongArray()));
         ListTag inhabitantsTag = new ListTag();
         for (UUID inhabitant : inhabitants) {
@@ -252,12 +298,17 @@ public final class RegionRecord {
         if (type == null || origin == null || !tag.hasUUID("id") || !tag.hasUUID("empire")) {
             return null;
         }
+        long[] loadedBlocks = tag.getLongArray("blocks");
+        long loadedSeed = tag.contains("seed", Tag.TAG_ANY_NUMERIC)
+                ? tag.getLong("seed")
+                : (loadedBlocks.length > 0 ? loadedBlocks[0] : 0L);
         RegionRecord record = new RegionRecord(
                 tag.getUUID("id"),
                 tag.getUUID("empire"),
                 type,
                 origin,
-                tag.getLongArray("blocks"));
+                loadedSeed,
+                loadedBlocks);
         ListTag inhabitantsTag = tag.getList("inhabitants", Tag.TAG_INT_ARRAY);
         for (int i = 0; i < inhabitantsTag.size(); i++) {
             record.inhabitants.add(NbtUtils.loadUUID(inhabitantsTag.get(i)));

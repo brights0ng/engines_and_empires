@@ -1,6 +1,7 @@
 // Written by Gemini.
 package dev.brights0ng.empire.region;
 
+import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -25,6 +26,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -57,8 +59,23 @@ public final class HomeRegionScanner {
         }
     }
 
-    public static boolean isInterior(BlockState state) {
-        return state.isAir() || state.is(INTERIOR_TAG);
+    public record RescanResult(Set<Long> blocks, long seed, RegionInvalidReason failure) {
+
+        public boolean succeeded() {
+            return failure == RegionInvalidReason.NONE && !blocks.isEmpty();
+        }
+    }
+
+    /**
+     * True if {@code state} at {@code pos} is whitelisted as {@code HOME} interior: air, blocks in
+     * {@code empire:region_home_interior} (including {@code #minecraft:climbable}), or any non-fluid block without
+     * collision.
+     */
+    public static boolean isInterior(BlockGetter level, BlockPos pos, BlockState state) {
+        if (state.isAir() || state.is(INTERIOR_TAG) || state.is(BlockTags.CLIMBABLE)) {
+            return true;
+        }
+        return state.getFluidState().isEmpty() && state.getCollisionShape(level, pos).isEmpty();
     }
 
     public static boolean isHazard(BlockState state) {
@@ -92,9 +109,81 @@ public final class HomeRegionScanner {
      */
     public static ScanResult scan(ServerLevel level, EmpireSavedData data, EmpireRecord empire, BlockPos start,
                                   RegionOrigin origin) {
+        RegionFloodFill.Result fill = floodFill(
+                level, data, empire, start.getX(), start.getY(), start.getZ(), null);
+
+        if (!fill.succeeded()) {
+            return new ScanResult(null, fill.failure());
+        }
+
+        RegionRecord candidate = new RegionRecord(
+                UUID.randomUUID(), empire.id(), RegionType.HOME, origin, start.asLong(), fill.blocks());
+        RegionInvalidReason reason = validate(level, data, empire, candidate);
+        if (reason != RegionInvalidReason.NONE) {
+            return new ScanResult(null, reason);
+        }
+        return new ScanResult(candidate, RegionInvalidReason.NONE);
+    }
+
+    /**
+     * Re-flood-fills an existing {@code AUTO} {@link RegionType#HOME} from its seed coordinate (migrating the seed to
+     * another bed currently in {@code region}'s block set if the original seed is no longer a bed, or keeping it fixed
+     * otherwise) and validates the resulting shape against all D5 rules.
+     */
+    public static RescanResult rescan(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
+                                      RegionRecord region) {
+        long seed = resolveSeed(level, region);
+        if (!empire.state().staked().contains(BlockKeys.chunkKey(seed))) {
+            return new RescanResult(Set.of(), seed, RegionInvalidReason.UNSTAKED);
+        }
+        RegionFloodFill.Result fill = floodFill(
+                level, data, empire, BlockKeys.getX(seed), BlockKeys.getY(seed), BlockKeys.getZ(seed), region.id());
+        if (!fill.succeeded()) {
+            return new RescanResult(Set.of(), seed, fill.failure());
+        }
+        RegionRecord candidate = new RegionRecord(
+                region.id(), region.empireId(), region.type(), region.origin(), seed, fill.blocks());
+        RegionInvalidReason reason = validate(level, data, empire, candidate);
+        if (reason != RegionInvalidReason.NONE) {
+            return new RescanResult(Set.of(), seed, reason);
+        }
+        return new RescanResult(fill.blocks(), seed, RegionInvalidReason.NONE);
+    }
+
+    /**
+     * Resolves the flood-fill seed for {@code region}: keeps {@code region.seed()} if it is still a bed head,
+     * otherwise migrates to another bed head already in {@code region.blocks()} (lowest packed coordinate for
+     * determinism), or keeps {@code region.seed()} fixed if no other bed exists in the region.
+     */
+    public static long resolveSeed(ServerLevel level, RegionRecord region) {
+        long currentSeed = region.seed();
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos(
+                BlockKeys.getX(currentSeed), BlockKeys.getY(currentSeed), BlockKeys.getZ(currentSeed));
+        if (level.hasChunkAt(cursor) && CivilianBeds.isBedHead(level.getBlockState(cursor))) {
+            return currentSeed;
+        }
+        long migrated = Long.MAX_VALUE;
+        boolean found = false;
+        LongIterator it = region.blocks().iterator();
+        while (it.hasNext()) {
+            long key = it.nextLong();
+            cursor.set(BlockKeys.getX(key), BlockKeys.getY(key), BlockKeys.getZ(key));
+            if (level.hasChunkAt(cursor) && CivilianBeds.isBedHead(level.getBlockState(cursor))) {
+                if (!found || key < migrated) {
+                    migrated = key;
+                    found = true;
+                }
+            }
+        }
+        return found ? migrated : currentSeed;
+    }
+
+    private static RegionFloodFill.Result floodFill(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
+                                                    int startX, int startY, int startZ,
+                                                    @Nullable UUID ignoreRegionId) {
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
-        RegionFloodFill.Result fill = RegionFloodFill.fill(
-                start.getX(), start.getY(), start.getZ(),
+        return RegionFloodFill.fill(
+                startX, startY, startZ,
                 RegionRules.HOME_MAX_BLOCKS,
                 (x, y, z) -> {
                     cursor.set(x, y, z);
@@ -109,26 +198,17 @@ public final class HomeRegionScanner {
                     if (!empire.state().staked().contains(chunk)) {
                         return RegionFloodFill.Cell.BOUNDARY;
                     }
-                    if (data.regionAt(BlockKeys.pack(x, y, z)) != null) {
+                    RegionRecord existing = data.regionAt(BlockKeys.pack(x, y, z));
+                    if (existing != null && !existing.id().equals(ignoreRegionId)) {
                         return RegionFloodFill.Cell.BOUNDARY;
                     }
                     if (isExposedToSky(level, x, y, z)) {
                         return RegionFloodFill.Cell.BOUNDARY;
                     }
-                    return isInterior(state) ? RegionFloodFill.Cell.INCLUDE : RegionFloodFill.Cell.BOUNDARY;
+                    return isInterior(level, cursor, state)
+                            ? RegionFloodFill.Cell.INCLUDE
+                            : RegionFloodFill.Cell.BOUNDARY;
                 });
-
-        if (!fill.succeeded()) {
-            return new ScanResult(null, fill.failure());
-        }
-
-        RegionRecord candidate = new RegionRecord(
-                UUID.randomUUID(), empire.id(), RegionType.HOME, origin, fill.blocks());
-        RegionInvalidReason reason = validate(level, data, empire, candidate);
-        if (reason != RegionInvalidReason.NONE) {
-            return new ScanResult(null, reason);
-        }
-        return new ScanResult(candidate, RegionInvalidReason.NONE);
     }
 
     /**

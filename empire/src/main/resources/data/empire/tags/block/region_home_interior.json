@@ -17,6 +17,7 @@
     "minecraft:chest",
     "minecraft:trapped_chest",
     "#minecraft:doors",
-    "#minecraft:trapdoors"
+    "#minecraft:trapdoors",
+    "#minecraft:climbable"
   ]
 }

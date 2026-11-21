@@ -135,9 +135,11 @@ public final class RegionDebugCommands {
                 : String.valueOf(region.inhabitants().size());
         source.sendSuccess(() -> Component.literal("Region [" + shortId(region.id()) + "] "
                 + region.type().id() + " (" + region.origin().id() + ") — " + status), false);
+        long seed = region.seed();
         source.sendSuccess(() -> Component.literal("Blocks: " + region.blockCount()
                 + ", chunks: " + region.chunks().size()
                 + ", inhabitants: " + cap
+                + ", seed: (" + BlockKeys.getX(seed) + "," + BlockKeys.getY(seed) + "," + BlockKeys.getZ(seed) + ")"
                 + ", bounds: (" + region.minX() + "," + region.minY() + "," + region.minZ()
                 + ")..(" + region.maxX() + "," + region.maxY() + "," + region.maxZ() + ")"), false);
         return 1;
@@ -171,7 +173,7 @@ public final class RegionDebugCommands {
 
     private static int validate(CommandSourceStack source) {
         ServerLevel overworld = source.getServer().overworld();
-        RegionManager.tick(overworld);
+        RegionManager.updateAllNow(overworld);
         EmpireSavedData data = EmpireSavedData.of(overworld);
         int valid = 0;
         int invalid = 0;

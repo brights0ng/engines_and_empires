@@ -1,4 +1,4 @@
-<!-- Written by Gemini (2026-11-20) from Bright's decisions in this session; updated with implementation and verification by Gemini (2026-11-20); updated with shared veil/chalk region rendering by Gemini (2026-11-20). -->
+<!-- Written by Gemini (2026-11-20) from Bright's decisions in this session; updated with implementation and verification by Gemini (2026-11-20); updated with shared veil/chalk region rendering by Gemini (2026-11-20); updated with whitelist expansion and H3+W3 region updates by Gemini (2026-11-21). -->
 # Empire: Regions (framework, `HOME`, and in-world rendering)
 
 **Date:** 2026-11-20 · **Status:** built (phases R1–R4 + shared veil/chalk rendering). In-game visual check remains for Bright.
@@ -13,7 +13,7 @@
 - **D3 Territory & overlaps:** Every block in a region must be inside the empire's **staked chunks**. Regions are **disjoint** (a `BlockPos` belongs to at most one region; flood fill treats existing region blocks and unstaked chunks as boundaries).
 - **D4 `HOME` flood-fill whitelist, boundaries & hazards:**
   - **Cap:** 500 blocks maximum (`HOME_MAX_BLOCKS = 500`); exceeding the cap aborts the fill (`TOO_LARGE`).
-  - **Whitelisted (`INCLUDE`):** air, beds (`#minecraft:beds`), torches (regular/wall/soul/redstone), lanterns (regular/soul), carpets (`#minecraft:wool_carpets`), chests/trapped chests, doors (`#minecraft:doors`), and trapdoors (`#minecraft:trapdoors`) — allowing multi-room homes through interior doors. Stored in data-driven block tag `empire:region_home_interior`.
+  - **Whitelisted (`INCLUDE`):** air, beds (`#minecraft:beds`), torches (regular/wall/soul/redstone), lanterns (regular/soul), carpets (`#minecraft:wool_carpets`), chests/trapped chests, doors (`#minecraft:doors`), trapdoors (`#minecraft:trapdoors`), climbable blocks (`#minecraft:climbable`), and any non-fluid block without collision (`getFluidState().isEmpty() && getCollisionShape(...).isEmpty()`, e.g. signs, banners, buttons, levers, pressure plates, rails, flowers). Stored in data-driven block tag `empire:region_home_interior` plus the collision check in `HomeRegionScanner.isInterior`.
   - **Boundaries (`BOUNDARY`):** non-whitelisted blocks (full blocks such as crafting tables/furnaces/walls, plus structural pieces such as glass panes, fences, slabs, stairs), sky-exposed blocks (`canSeeSky`), unstaked chunks, and blocks belonging to another region.
   - **Hazards (`HAZARD`, early exit):** blacklisted blocks (`empire:region_home_hazards`, default: `minecraft:lava`, `minecraft:tnt`) abort the fill immediately.
 - **D5 `HOME` validation rules:**
@@ -33,9 +33,20 @@
   - Regions track `valid` + `invalidReason` + `invalidSinceGameTime`.
   - When a region becomes `INVALID`, all attached civilians (e.g. `HOME` inhabitants) are immediately detached and their claimed beds inside that region are released.
   - If fixed before expiry, the region returns to `VALID`.
-  - `AUTO` regions remain `INVALID` for **3 MC days** (`72_000` ticks) before being automatically deleted.
+  - `AUTO` regions remain `INVALID` for **3 MC days** (`72_000` ticks) before being automatically deleted **only if they were invalidated during an update**; candidates that fail validation on creation are never kept.
   - `MANUAL` regions are never auto-deleted.
-- **D8 Bed claiming (`CivilianBeds`):** For now, citizens may **only** claim or sleep in beds inside a `VALID` `HOME` of their empire with spare capacity; otherwise they fall back to rough sleep by the bonfire.
+- **D8 Bed claiming (`CivilianBeds`):** Citizens may **only** claim or sleep in beds inside a `VALID` `HOME` of their empire with spare capacity; otherwise they fall back to rough sleep by the bonfire for the rest of the night without re-querying.
+  - **Pass 1:** Check existing `VALID` `HOME`s with empty beds and spare capacity first.
+  - **Pass 2:** If none exist, try unmarked homeless beds one at a time to auto-create a `HOME` until one succeeds or none remain. Any bed that fails `HOME` creation is marked dirty in `RegionManager` so other civilians skip it; marks clear on a block change in the 3×3 chunk neighborhood or at dawn.
+- **D9 Updating `HOME`s (Bright, 2026-11-21 — H3 + W3):**
+  - **How (`AUTO` vs `MANUAL`):**
+    - `AUTO` `HOME`s store a persistent `seed` coordinate (the creation anchor / first bed interacted with). On update, if `seed` is no longer a bed head and another bed exists in the region's current blocks, `seed` migrates to that bed (lowest packed coordinate); otherwise `seed` stays fixed.
+    - `AUTO` `HOME`s re-flood-fill from `seed` (ignoring their own old blocks, stopping at other regions and treating sky-exposed blocks as non-whitelisted `BOUNDARY` so exterior doors work cleanly). On valid reshape, `blocks` and `EmpireSavedData`'s spatial index update in place, inhabitants whose beds were cut off are detached (and beds released), and excess inhabitants are evicted if capacity shrank. On invalidation, old `blocks` are kept so the crimson outline and buffered bounding box still catch repairs.
+    - `MANUAL` `HOME`s never reshape; they keep current validation on their fixed bounds.
+  - **When (event-driven, no periodic sweep):**
+    - `LevelChunkRegionMixin` (`LevelChunk.setBlockState`) notifies `RegionManager` on every Overworld chunk block change (player edits, explosions, fire, pistons, `/setblock`, Create contraptions). Any region whose buffered bounding box (`bounds.inflate(1)`) contains the changed block is prodded; chunk unstaking and direct interactions (civilian bed use, future Ledger) also prod.
+    - **Throttle:** 1-second (`20`-tick) cooldown per region — first prod runs on the next tick (letting multi-block edits and lighting settle); any prod during cooldown coalesces into one trailing update when the cooldown expires.
+    - **Expiry:** Invalidated `AUTO` regions follow normal updates plus a one-shot trigger at `invalidSinceGameTime + 72_000`.
 
 ---
 
@@ -49,7 +60,8 @@
 | `HOME_MAX_CAPACITY` | `4` | `rules.RegionRules` |
 | `INVALID_AUTO_DELETE_TICKS` | `72_000L` (3 MC days) | `rules.RegionRules` |
 | `MIN_BLOCK_LIGHT` | `1` | `region.HomeRegionScanner` |
-| `VALIDATE_INTERVAL` | `100` ticks | `region.RegionManager` |
+| `UPDATE_COOLDOWN_TICKS` | `20L` (1 second) | `region.RegionManager` |
+| `IMMEDIATE_DEFER_TICKS` | `1L` | `region.RegionManager` |
 
 ---
 
@@ -69,12 +81,13 @@
   - `region_home_interior.json`
   - `region_home_hazards.json`
 
-### World logic (`dev.brights0ng.empire.region`)
-- `HomeRegionScanner`: runs `RegionFloodFill` with the `HOME` classifier and validates volume, height, bed presence, sky exposure, monster-spawn block light, hazards, and staked chunks.
+### World logic (`dev.brights0ng.empire.region` & `dev.brights0ng.empire.mixin`)
+- `LevelChunkRegionMixin` (`empire.mixins.json`, `EmpireMixinPlugin`): hooks `LevelChunk.setBlockState` at `RETURN` and calls `RegionManager.onBlockChanged` on Overworld server chunks.
+- `HomeRegionScanner`: runs `RegionFloodFill` (treating sky-exposed blocks as `BOUNDARY`), `rescan(...)` with bed-seed migration for `AUTO` `HOME`s, and `validate(...)` for volume, height, bed presence, sky exposure, monster-spawn block light, hazards, and staked chunks.
 - `RegionManager` (`@EventBusSubscriber`):
-  - Marks regions dirty on `BlockEvent.BreakEvent` and `BlockEvent.EntityPlaceEvent` when `pos` is inside `bounds.inflate(1)`.
-  - Periodic tick (`VALIDATE_INTERVAL`): validates dirty regions (and sweeps loaded regions), skipping any region whose chunks are not loaded.
-  - Handles `VALID → INVALID` detachment (releasing claimed beds inside the region on both `CivilianRecord` and loaded `CivilianEntity`), recovery back to `VALID`, and 3-day auto-deletion of `AUTO` regions.
+  - Event-driven updates with no periodic sweep: prods regions on chunk block changes inside `bounds.inflate(1)`, chunk unstaking, and civilian bed interactions; also tracks failed-bed marks cleared on 3×3 chunk updates or dawn.
+  - Enforces a 1-second (`20`-tick) leading+trailing cooldown throttle per region and schedules one-shot 3-day expiry triggers for invalidated `AUTO` regions.
+  - Handles `AUTO` `HOME` reshaping, cut-off/capacity-shrink inhabitant reconciliation, `VALID → INVALID` detachment, recovery back to `VALID`, and client sync pushes.
 
 ### In-world rendering (`dev.brights0ng.empire.client` & `dev.brights0ng.empire.region`)
 - **Shared renderer:** `VeilMesh` (pure Java, extracted from `TalcBorderGeometry.Mesh`) and `VeilMeshRenderer` (extracted from `TalcBorderRenderer`) unify chalk-ribbon and shimmering-veil rendering through `EmpireRenderTypes.BORDER_VEIL` (`LEQUAL` depth test, translucent, `NO_CULL`, `POLYGON_OFFSET_LAYERING`), sharing distance fade, chalk opacity, and veil shimmer wave so changes to boundary rendering apply identically to regions.
@@ -83,7 +96,7 @@
 - **Client sync (`RegionPayloads`, `RegionNetwork`, `RegionClientCache`):** C2S `Request` / S2C `Sync` syncs nearby regions of the player's empire on demand while holding talc, with immediate server pushes when regions are created, removed, or change validity.
 
 ### Sleep & command integration
-- `CivilianBeds`: when claiming a bed, iterates unclaimed `PoiTypes.HOME` beds within 48 blocks on staked land, closest first. Accepts beds in a `VALID` `HOME` with spare capacity, or triggers an auto `HOME` flood fill if the bed is not yet in any region. Death, leaving, disband, re-recruitment, and debug clear/release detach the citizen from its `HOME` region.
+- `CivilianBeds`: when claiming a bed, gathers unclaimed `PoiTypes.HOME` beds within 48 blocks on staked land, closest first. Pass 1 checks beds already inside a `VALID` `HOME` with spare capacity; Pass 2 tries unmarked homeless beds one at a time to auto-create a `HOME`, marking failed beds dirty in `RegionManager` until a 3×3 chunk update or dawn. Death, leaving, disband, re-recruitment, and debug clear/release detach the citizen from its `HOME` region.
 - `CivilianDebugCommands` (`/empire debug region ...`): `list [player]`, `info`, `scan home`, `validate`, `remove <idPrefix>`, `clear`, `show` (brief particle outline).
 
 ---

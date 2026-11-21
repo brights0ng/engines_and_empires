@@ -1,6 +1,7 @@
 // Written by Gemini.
 package dev.brights0ng.empire.civilian;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -12,6 +13,7 @@ import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
 import dev.brights0ng.empire.region.HomeRegionScanner;
+import dev.brights0ng.empire.region.RegionManager;
 import dev.brights0ng.empire.region.RegionNetwork;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.RegionOrigin;
@@ -108,6 +110,8 @@ public final class CivilianBeds {
                 .sorted(Comparator.comparingDouble(pos -> pos.distSqr(home)))
                 .toList();
 
+        // Pass 1: check existing VALID HOMEs of this empire with spare capacity first.
+        List<BlockPos> homelessCandidates = null;
         for (BlockPos target : candidates) {
             RegionRecord existing = data.regionAt(target);
             if (existing != null) {
@@ -127,16 +131,32 @@ public final class CivilianBeds {
                         existing.addInhabitant(civilianId);
                         data.setDirty();
                     }
+                    RegionManager.prodRegion(level, existing);
                     return taken.get();
                 }
-            } else {
+            } else if (!RegionManager.isFailedBed(level, target)) {
+                if (homelessCandidates == null) {
+                    homelessCandidates = new ArrayList<>();
+                }
+                homelessCandidates.add(target);
+            }
+        }
+
+        // Pass 2: no existing HOME had an empty bed; try unmarked homeless beds one at a time, marking failures dirty.
+        if (homelessCandidates != null) {
+            for (BlockPos target : homelessCandidates) {
+                if (RegionManager.isFailedBed(level, target) || data.regionAt(target) != null) {
+                    continue;
+                }
                 HomeRegionScanner.ScanResult scan = HomeRegionScanner.scan(
                         level, data, empire, target, RegionOrigin.AUTO);
                 if (!scan.succeeded()) {
+                    RegionManager.markFailedBed(level, target);
                     continue;
                 }
                 RegionRecord created = scan.region();
                 if (RegionRules.homeCapacity(created.blockCount()) < 1) {
+                    RegionManager.markFailedBed(level, target);
                     continue;
                 }
                 Optional<BlockPos> taken = takeBedPoi(poi, target);
@@ -202,6 +222,7 @@ public final class CivilianBeds {
             if (isValidClaimedBed(level, empire, current)) {
                 RegionRecord region = data.regionAt(current);
                 if (region != null && civilianId != null) {
+                    RegionManager.prodRegion(level, region);
                     if (region.inhabitants().contains(civilianId)) {
                         return current;
                     }

@@ -132,4 +132,33 @@ class RegionFloodFillTest {
         assertTrue(result.succeeded());
         assertEquals(18, result.blocks().size());
     }
+
+    @Test
+    void stepClassifierAbortsOnExposedToSkyUnlessSteppingFromPortal() {
+        // Unsealed sky at x=2 reached from plain air at x=1 -> aborts with EXPOSED_TO_SKY.
+        RegionFloodFill.Result unsealed = RegionFloodFill.fill(0, 0, 0, 50, (fx, fy, fz, x, y, z) -> {
+            if (x == 2 && y == 0 && z == 0) {
+                return RegionFloodFill.Cell.EXPOSED_TO_SKY;
+            }
+            return (x >= 0 && x <= 1 && y == 0 && z == 0)
+                    ? RegionFloodFill.Cell.INCLUDE
+                    : RegionFloodFill.Cell.BOUNDARY;
+        });
+        assertFalse(unsealed.succeeded());
+        assertEquals(RegionInvalidReason.EXPOSED_TO_SKY, unsealed.failure());
+
+        // Same layout, except x=1 is a door portal: stepping from x=1 to sky at x=2 returns BOUNDARY -> succeeds.
+        RegionFloodFill.Result withDoor = RegionFloodFill.fill(0, 0, 0, 50, (fx, fy, fz, x, y, z) -> {
+            if (x == 2 && y == 0 && z == 0) {
+                return (fx == 1 && fy == 0 && fz == 0)
+                        ? RegionFloodFill.Cell.BOUNDARY
+                        : RegionFloodFill.Cell.EXPOSED_TO_SKY;
+            }
+            return (x >= 0 && x <= 1 && y == 0 && z == 0)
+                    ? RegionFloodFill.Cell.INCLUDE
+                    : RegionFloodFill.Cell.BOUNDARY;
+        });
+        assertTrue(withDoor.succeeded());
+        assertEquals(2, withDoor.blocks().size());
+    }
 }

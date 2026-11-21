@@ -64,6 +64,8 @@ public final class EmpireSavedData extends SavedData {
     private final Map<UUID, Set<UUID>> regionsByEmpire = new HashMap<>();
     /** Packed block coordinate to region id. Not saved: rebuilt on load. */
     private final Long2ObjectMap<UUID> blockToRegion = new Long2ObjectOpenHashMap<>();
+    /** Regions marked dirty by saved-data operations (e.g. chunk unstaking) waiting for {@code RegionManager}. */
+    private final Set<UUID> pendingDirtyRegions = new HashSet<>();
 
     public static EmpireSavedData of(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(
@@ -468,6 +470,7 @@ public final class EmpireSavedData extends SavedData {
     public RegionRecord removeRegion(UUID regionId) {
         RegionRecord removed = regions.remove(regionId);
         if (removed != null) {
+            pendingDirtyRegions.remove(regionId);
             Set<UUID> ids = regionsByEmpire.get(removed.empireId());
             if (ids != null) {
                 ids.remove(regionId);
@@ -485,6 +488,24 @@ public final class EmpireSavedData extends SavedData {
             setDirty();
         }
         return removed;
+    }
+
+    /** Replaces {@code region}'s block set and keeps the spatial {@code blockToRegion} index in sync. */
+    public void replaceRegionBlocks(RegionRecord region, Collection<Long> newBlocks) {
+        UUID id = region.id();
+        LongIterator oldIt = region.blocks().iterator();
+        while (oldIt.hasNext()) {
+            long pos = oldIt.nextLong();
+            if (id.equals(blockToRegion.get(pos))) {
+                blockToRegion.remove(pos);
+            }
+        }
+        region.replaceBlocks(newBlocks);
+        LongIterator newIt = region.blocks().iterator();
+        while (newIt.hasNext()) {
+            blockToRegion.putIfAbsent(newIt.nextLong(), id);
+        }
+        setDirty();
     }
 
     @Nullable
@@ -553,8 +574,19 @@ public final class EmpireSavedData extends SavedData {
             RegionRecord r = regions.get(id);
             if (r != null && r.touchesChunk(chunk)) {
                 r.setDirtyFlag(true);
+                pendingDirtyRegions.add(id);
             }
         }
+    }
+
+    /** Drains region ids marked dirty by saved-data mutations (e.g. unstaking) since the last tick. */
+    public List<UUID> drainPendingDirtyRegions() {
+        if (pendingDirtyRegions.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> out = new ArrayList<>(pendingDirtyRegions);
+        pendingDirtyRegions.clear();
+        return out;
     }
 
     public static EmpireSavedData load(CompoundTag tag, HolderLookup.Provider registries) {

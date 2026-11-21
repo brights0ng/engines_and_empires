@@ -12,14 +12,14 @@ description='''
 ${mod_description}
 '''
 
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="neoforge"
     type="required"
     versionRange="[${neo_version},)"
     ordering="NONE"
     side="BOTH"
 
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="minecraft"
     type="required"
     versionRange="${minecraft_version_range}"
@@ -27,7 +27,7 @@ ${mod_description}
     side="BOTH"
 
 # Paradyne Lib, the family's library
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="paradyne_lib"
     type="required"
     versionRange="[0.1.0,)"
@@ -35,7 +35,7 @@ ${mod_description}
     side="BOTH"
 
 # GeckoLib: the bonfire's model (block and item). Paradyne Lib requires it too; Empire uses it directly.
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="geckolib"
     type="required"
     versionRange="${geckolib_version_range}"
@@ -43,7 +43,7 @@ ${mod_description}
     side="BOTH"
 
 # Frontier: the Settled/Civilized checks, and the Carrion Crow's squelching hearts.
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="frontier"
     type="required"
     versionRange="[0.1.0,)"
@@ -51,7 +51,7 @@ ${mod_description}
     side="BOTH"
 
 # Sparse Ores is optional: Talc registers dynamically when present.
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="sparse_ores"
     type="optional"
     versionRange="[0.1.0,)"
@@ -59,7 +59,7 @@ ${mod_description}
     side="BOTH"
 
 # Seismic Surveyance is optional: Claim overlay is displayed on PRD/Logger maps when present.
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="seismic_surveyance"
     type="optional"
     versionRange="[0.1.0,)"
@@ -68,7 +68,7 @@ ${mod_description}
 
 # Simple Spoilage is optional: when present, the gods refuse stale and rotting founding meat (the Carrion Crow takes any
 # rotting raw meat).
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="simple_spoilage"
     type="optional"
     versionRange="[0.1.0,)"
@@ -77,7 +77,7 @@ ${mod_description}
 
 # Meteodyne is optional: when present, a god's patience (how long it goes unfed before abandoning its empire) is
 # Meteodyne's year.
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="meteodyne"
     type="optional"
     versionRange="[0.1.0,)"
@@ -86,7 +86,7 @@ ${mod_description}
 
 # The outside mods whose items and fluids the gods demand (data/empire/empire/god), named by id only.
 # Create: brass, andesite alloy, sturdy sheets, electron tubes, precision mechanisms, blaze cakes.
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="create"
     type="required"
     versionRange="${create_version_range}"
@@ -94,7 +94,7 @@ ${mod_description}
     side="BOTH"
 
 # Create: Diesel Generators: biodiesel, gasoline and diesel.
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="createdieselgenerators"
     type="required"
     versionRange="*"
@@ -102,14 +102,14 @@ ${mod_description}
     side="BOTH"
 
 # Sable and the Simulated Project, which Create Aeronautics runs on.
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="sable"
     type="required"
     versionRange="${sable_version_range}"
     ordering="NONE"
     side="BOTH"
 
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="simulated"
     type="required"
     versionRange="${simulated_version_range}"
@@ -117,7 +117,7 @@ ${mod_description}
     side="BOTH"
 
 # Create Aeronautics: levitite and pearlescent levitite. Empire replaces their block loot tables, so it loads AFTER.
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="aeronautics"
     type="required"
     versionRange="${simulated_version_range}"
@@ -125,7 +125,7 @@ ${mod_description}
     side="BOTH"
 
 # Create Big Cannons: cast iron, steel, nethersteel and bronze ingots, hardened nitro.
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="createbigcannons"
     type="required"
     versionRange="*"
@@ -133,7 +133,7 @@ ${mod_description}
     side="BOTH"
 
 # Naturalist: venison, duck, catfish, bass and lizard tails (founding meats).
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="naturalist"
     type="required"
     versionRange="*"
@@ -141,9 +141,13 @@ ${mod_description}
     side="BOTH"
 
 # Let's Do: Farm & Charm: barley and the dishes.
-[[dependencies.${mod_id}]]
+[[dependencies."${mod_id}"]]
     modId="farm_and_charm"
     type="required"
     versionRange="*"
     ordering="NONE"
     side="BOTH"
+
+# Mixins: Empire's own, on vanilla classes; the config's plugin would skip any whose target mod is absent.
+[[mixins]]
+    config="empire.mixins.json"
