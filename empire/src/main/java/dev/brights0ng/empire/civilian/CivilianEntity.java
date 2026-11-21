@@ -1,8 +1,10 @@
-// Written by Claude; extended with abilities, inspection, ticking needs, inventory, eating and client eating sync by ChatGPT; extended with sleep persistence and behavior by Gemini.
+// Written by Claude; extended with abilities, inspection, ticking needs, inventory, eating and client eating sync by ChatGPT; extended with sleep persistence, behavior and debug inspection by Gemini.
 package dev.brights0ng.empire.civilian;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -17,15 +19,18 @@ import dev.brights0ng.empire.data.CivilianFoodNbt;
 import dev.brights0ng.empire.data.CivilianSleepNbt;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
+import dev.brights0ng.empire.data.RegionRecord;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianFood;
 import dev.brights0ng.empire.rules.CivilianLines;
 import dev.brights0ng.empire.rules.CivilianNames;
 import dev.brights0ng.empire.rules.CivilianSleep;
+import dev.brights0ng.empire.rules.RegionRules;
 import dev.brights0ng.empire.rules.TravellerWants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.chat.Component;
@@ -43,6 +48,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
@@ -213,7 +219,14 @@ public class CivilianEntity extends PathfinderMob {
     // Sleep runtime state; transient.
     private boolean sleepClockReady;
     private int wakeCooldownUntil = Integer.MIN_VALUE / 2;
-    private long roughOnlyNight = CivilianSleep.NO_NIGHT;
+    private long unreachableNight = CivilianSleep.NO_NIGHT;
+    @Nullable
+    private BlockPos unreachableBed;
+    @Nullable
+    private UUID unreachableRegionId;
+    private long unreachableRegionRevision;
+    @Nullable
+    private CivilianSleepGoal sleepGoal;
 
     private static final class Conversation {
         final CivilianEntity partner;
@@ -246,7 +259,8 @@ public class CivilianEntity extends PathfinderMob {
         goalSelector.addGoal(0, new FloatGoal(this));
         goalSelector.addGoal(1, new CivilianFaceGoal(this));
         goalSelector.addGoal(2, new OpenDoorGoal(this, true));
-        goalSelector.addGoal(3, new CivilianSleepGoal(this));
+        sleepGoal = new CivilianSleepGoal(this);
+        goalSelector.addGoal(3, sleepGoal);
         goalSelector.addGoal(4, new MoveTowardsRestrictionGoal(this, 0.6));
         goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.5) {
             @Override
@@ -350,12 +364,185 @@ public class CivilianEntity extends PathfinderMob {
         return tickCount < wakeCooldownUntil;
     }
 
-    boolean isRoughOnlyNight(long night) {
-        return roughOnlyNight == night;
+    public int wakeCooldownRemaining() {
+        return Math.max(0, wakeCooldownUntil - tickCount);
     }
 
-    void markRoughOnlyNight(long night) {
-        roughOnlyNight = night;
+    void markUnreachableBed(long night, BlockPos bedPos, @Nullable RegionRecord region) {
+        unreachableNight = night;
+        unreachableBed = bedPos.immutable();
+        unreachableRegionId = region != null ? region.id() : null;
+        unreachableRegionRevision = region != null ? region.revision() : 0L;
+    }
+
+    void clearUnreachableBed() {
+        unreachableNight = CivilianSleep.NO_NIGHT;
+        unreachableBed = null;
+        unreachableRegionId = null;
+        unreachableRegionRevision = 0L;
+    }
+
+    /**
+     * True if {@code bedPos} timed out as unreachable earlier on {@code night} and its region has not been updated
+     * since. Automatically clears the suppression if the region changed or a new night began.
+     */
+    boolean isBedUnreachable(long night, @Nullable BlockPos bedPos, @Nullable RegionRecord region) {
+        if (unreachableNight != night || unreachableBed == null || !unreachableBed.equals(bedPos)) {
+            return false;
+        }
+        if (unreachableRegionId != null) {
+            if (region == null || !unreachableRegionId.equals(region.id())
+                    || region.revision() != unreachableRegionRevision) {
+                clearUnreachableBed();
+                return false;
+            }
+        } else if (region != null) {
+            clearUnreachableBed();
+            return false;
+        }
+        return true;
+    }
+
+    @Nullable
+    public BlockPos unreachableBedFor(long night) {
+        return unreachableNight == night ? unreachableBed : null;
+    }
+
+    /**
+     * Temporary debug stats dump (shown on sneak + right-click and {@code /empire debug civilian info}).
+     */
+    public List<Component> debugInfoLines(ServerLevel serverLevel) {
+        List<Component> lines = new ArrayList<>();
+        EmpireSavedData data = EmpireSavedData.of(serverLevel);
+        long dayTime = serverLevel.getDayTime();
+        long night = CivilianSleep.nightIndex(dayTime);
+
+        String name = getName().getString();
+        String homeStr = home != null ? home.toShortString() : "none";
+        UUID empireId = travellerEmpire;
+        if (civilianId != null) {
+            CivilianRecord record = data.civilian(civilianId);
+            empireId = record != null ? record.empire() : null;
+        }
+        String empireStr = empireId != null ? empireId.toString() : "none";
+        String idStr = civilianId != null ? civilianId.toString() : "none";
+
+        lines.add(Component.literal("=== " + name + " (" + status.name() + ") ==="));
+        lines.add(Component.literal(String.format(Locale.ROOT,
+                "Pos: %s (chunk %d, %d) | Home: %s | Look: %s",
+                blockPosition().toShortString(), chunkPosition().x, chunkPosition().z, homeStr, appearance().code())));
+        lines.add(Component.literal("ID: " + idStr + " | Empire: " + empireStr));
+        lines.add(Component.literal(String.format(Locale.ROOT,
+                "Abilities: END %d PRE %d WIL %d WIT %d ORG %d TEA %d (mean %.1f)",
+                abilities.endurance(), abilities.precision(), abilities.willpower(),
+                abilities.wits(), abilities.organization(), abilities.teamwork(), abilities.mean())));
+        lines.add(Component.literal(String.format(Locale.ROOT,
+                "HP: %.1f/%.1f | Food: %d/20, Sat: %.1f, Exh: %.2f | Eaten: %d today / %d yest | Active: %dt",
+                getHealth(), getMaxHealth(), food.foodLevel(), food.saturation(), food.exhaustion(),
+                food.foodEatenToday(), food.foodEatenYesterday(), food.activeTicks())));
+
+        List<String> pockets = new ArrayList<>();
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (!stack.isEmpty()) {
+                pockets.add(stack.getCount() + "x " + BuiltInRegistries.ITEM.getKey(stack.getItem()));
+            }
+        }
+        StringBuilder invLine = new StringBuilder("Inventory: ")
+                .append(pockets.isEmpty() ? "empty" : String.join(", ", pockets));
+        if (!getMainHandItem().isEmpty() || !getOffhandItem().isEmpty()) {
+            invLine.append(" | Hands: main=").append(formatStack(getMainHandItem()))
+                    .append(", off=").append(formatStack(getOffhandItem()));
+        }
+        lines.add(Component.literal(invLine.toString()));
+
+        if (isUsingItem()) {
+            lines.add(Component.literal("Eating: " + BuiltInRegistries.ITEM.getKey(getUseItem().getItem())
+                    + " (" + getUseItemRemainingTicks() + "t left)"));
+        }
+        if (!getActiveEffects().isEmpty()) {
+            List<String> effects = new ArrayList<>();
+            for (MobEffectInstance inst : getActiveEffects()) {
+                String effId = BuiltInRegistries.MOB_EFFECT.getKey(inst.getEffect().value()) != null
+                        ? BuiltInRegistries.MOB_EFFECT.getKey(inst.getEffect().value()).toString()
+                        : inst.getDescriptionId();
+                effects.add(effId + " amp=" + inst.getAmplifier() + " (" + inst.getDuration() + "t)");
+            }
+            lines.add(Component.literal("Effects: " + String.join(", ", effects)));
+        }
+
+        int need = sleepNeedTicks();
+        String sleepState;
+        if (isSleeping()) {
+            sleepState = "sleeping in bed";
+        } else if (isRoughSleeping()) {
+            sleepState = "sleeping rough";
+        } else if (sleepGoal != null && sleepGoal.isActive() && sleepGoal.targetPos() != null) {
+            sleepState = (sleepGoal.isTargetingBed() ? "walking to bed " : "walking to bonfire ")
+                    + "(" + sleepGoal.targetPos().toShortString() + ")";
+        } else {
+            sleepState = "awake";
+        }
+        String lastNightStr = Float.isNaN(sleep.lastNight()) ? "none" : String.format(Locale.ROOT, "%.2f", sleep.lastNight());
+        lines.add(Component.literal(String.format(Locale.ROOT,
+                "Sleep: %s | Need: %dt (%d->%d) | Slept: %dt (credit %.1f) | LastNight: %s",
+                sleepState, need, CivilianSleep.bedtime(need), CivilianSleep.wakeTime(need),
+                sleep.sleptTicks(), sleep.creditTicks(), lastNightStr)));
+
+        boolean wantsSleep = status == Status.CITIZEN && sleep.wantsToSleep(dayTime, need);
+        boolean rested = sleep.isRestedFor(night);
+        int wakeCd = wakeCooldownRemaining();
+        BlockPos unreach = unreachableBedFor(night);
+        StringBuilder sleepFlags = new StringBuilder(String.format(Locale.ROOT,
+                "Sleep flags: wantsToSleep=%s, rested=%s, wakeCooldown=%dt",
+                wantsSleep, rested, wakeCd));
+        if (unreach != null) {
+            sleepFlags.append(", unreachableBed=").append(unreach.toShortString());
+        }
+        lines.add(Component.literal(sleepFlags.toString()));
+
+        StringBuilder bedLine = new StringBuilder("Bed: ")
+                .append(claimedBed != null ? claimedBed.toShortString() : "none");
+        if (claimedBed != null) {
+            RegionRecord region = data.regionAt(claimedBed);
+            if (region != null) {
+                int cap = RegionRules.homeCapacity(region.blockCount());
+                String validity = region.valid() ? "VALID" : "INVALID:" + region.invalidReason().id();
+                bedLine.append(" | HomeRegion: ").append(region.id().toString(), 0, 8)
+                        .append(" (").append(validity)
+                        .append(", ").append(region.inhabitants().size()).append("/").append(cap)
+                        .append(", rev ").append(region.revision()).append(")");
+            } else {
+                bedLine.append(" | HomeRegion: none");
+            }
+        }
+        lines.add(Component.literal(bedLine.toString()));
+
+        if (status == Status.TRAVELLER) {
+            TravellerWants.Want w = TravellerWants.WANTS.get(want);
+            long rem = Math.max(0L, leaveAt - serverLevel.getGameTime());
+            lines.add(Component.literal("Traveller: wants " + w.count() + "x " + w.itemId()
+                    + ", leaves in " + rem + "t (at " + leaveAt + ")"));
+        }
+        if (dialoguePlayer != null || talkPartner != null) {
+            List<String> social = new ArrayList<>();
+            if (dialoguePlayer != null) {
+                Player p = serverLevel.getPlayerByUUID(dialoguePlayer);
+                social.add("dialogue=" + (p != null ? p.getName().getString() : dialoguePlayer.toString()));
+            }
+            if (talkPartner != null) {
+                social.add("talking=" + talkPartner.getName().getString());
+            }
+            lines.add(Component.literal("Social: " + String.join(", ", social)));
+        }
+        return lines;
+    }
+
+    private static String formatStack(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return "empty";
+        }
+        return stack.getCount() + "x " + BuiltInRegistries.ITEM.getKey(stack.getItem());
     }
 
     public void startRoughSleeping() {
@@ -1019,9 +1206,11 @@ public class CivilianEntity extends PathfinderMob {
                 return InteractionResult.PASS;
             }
             if (player.isSecondaryUseActive() && status != Status.LEAVING) {
-                player.sendSystemMessage(Component.translatable("message.empire.civilian.abilities", getName(),
-                        abilities.endurance(), abilities.precision(), abilities.willpower(), abilities.wits(),
-                        abilities.organization(), abilities.teamwork()));
+                if (level() instanceof ServerLevel serverLevel) {
+                    for (Component line : debugInfoLines(serverLevel)) {
+                        player.sendSystemMessage(line);
+                    }
+                }
                 return InteractionResult.SUCCESS;
             }
             if (status == Status.LEAVING) {

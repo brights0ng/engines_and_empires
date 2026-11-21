@@ -87,6 +87,10 @@
 - **`PoiManager` claiming and release:** In MC 1.21.1, `PoiManager.take` uses `.findFirst()` (not closest) and `PoiManager.release` throws if the POI was already removed. `CivilianBeds.claimNearest` locates the closest `HAS_SPACE` `PoiTypes.HOME` on staked empire chunks via `findClosest` before acquiring it with `take`, and `CivilianBeds.release` guards with `exists(...)`. Claimed bed POIs are released on death, empire disband, leaving, re-recruitment, debug clear, and `/empire debug civilian sleep release`.
 - **Woken grumble lines:** Added `CivilianLines.Category.WOKEN` (4 lines: `civilian.empire.line.woken.0..3` in `en_us.json`, added by Gemini; JSON cannot hold comments).
 - **Game test batch isolation:** Synchronous persistence and interaction tests run in batch `civilians`. Multi-tick bed/POI and day-time tests run in individual `civilian_sleep_*` batches so parallel tests never overwrite each other's world `dayTime` or overlap 3×3 staked empires; every time-changing test restores `dayTime` in `finally`.
+- **Bonfire-walk HOME re-check & shift+right-click debug stats (Bright, 2026-11-21):**
+  - While walking to the bonfire for rough sleep, `CivilianSleepGoal` re-checks for a valid `HOME` bed every `BED_RECHECK_INTERVAL` (40 ticks) and performs one final check upon arrival before calling `startRoughSleeping()`. Once asleep by the bonfire, the civilian does not move; if woken from rough sleep, it re-checks for a `HOME` bed once its wake cooldown expires.
+  - A bed that times out as unreachable (`REACH_TIMEOUT = 600` ticks) is skipped for the rest of that night unless its `RegionRecord` is updated (`RegionRecord.revision()`, bumped on block edits in `bounds.inflate(1)` or region shape/validity updates), in which case the civilian retries it.
+  - Temporary debug tool: sneak + right-click on any non-leaving civilian now dumps all stats and conditions (`CivilianEntity.debugInfoLines`, shared with `/empire debug civilian info`) to chat without waking sleeping civilians.
 
 ## Verification (2026-11-20)
 

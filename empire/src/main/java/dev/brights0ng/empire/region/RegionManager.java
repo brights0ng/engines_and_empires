@@ -162,6 +162,7 @@ public final class RegionManager {
         }
         for (RegionRecord region : data.allRegions()) {
             if (region.isWithinInflatedBounds(pos, 1)) {
+                region.bumpRevision();
                 prodRegion(overworld, region);
             }
         }
@@ -292,6 +293,7 @@ public final class RegionManager {
             }
             reconcileInhabitants(overworld, data, region);
             if (shapeChanged || becameValid) {
+                region.bumpRevision();
                 RegionNetwork.pushToEmpire(overworld, region.empireId());
             }
         } else {
@@ -307,6 +309,7 @@ public final class RegionManager {
         if (reason == RegionInvalidReason.NONE) {
             if (!region.valid()) {
                 region.markValid();
+                region.bumpRevision();
                 SCHEDULED_EXPIRIES.remove(region.id());
                 data.setDirty();
                 RegionNetwork.pushToEmpire(overworld, region.empireId());
@@ -323,6 +326,7 @@ public final class RegionManager {
         region.markInvalid(reason, gameTime);
         scheduleExpiryIfNeeded(region);
         if (wasValid || prevReason != reason) {
+            region.bumpRevision();
             data.setDirty();
         }
         if (wasValid) {

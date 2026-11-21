@@ -57,6 +57,8 @@ public final class RegionRecord {
     private boolean dirty;
     /** Transient game time of the most recent update, for 1-second cooldown throttling. */
     private long lastUpdateGameTime = Long.MIN_VALUE;
+    /** Transient revision bumped when blocks in/adjacent to this region change or its shape/validity updates. */
+    private long revision;
 
     public RegionRecord(UUID id, UUID empireId, RegionType type, RegionOrigin origin, Collection<Long> initialBlocks) {
         this(id, empireId, type, origin, firstBlockOrZero(initialBlocks), initialBlocks);
@@ -269,6 +271,14 @@ public final class RegionRecord {
 
     public void setLastUpdateGameTime(long gameTime) {
         this.lastUpdateGameTime = gameTime;
+    }
+
+    public long revision() {
+        return revision;
+    }
+
+    public void bumpRevision() {
+        this.revision++;
     }
 
     public CompoundTag save() {

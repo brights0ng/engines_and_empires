@@ -10,10 +10,12 @@ import dev.brights0ng.empire.civilian.CivilianBeds;
 import dev.brights0ng.empire.civilian.CivilianEntity;
 import dev.brights0ng.empire.civilian.CivilianRoster;
 import dev.brights0ng.empire.civilian.CivilianSpawning;
+import dev.brights0ng.empire.civilian.TravellerArrivals;
 import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.CivilianSleepNbt;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
+import dev.brights0ng.empire.region.RegionManager;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianSleep;
@@ -23,16 +25,21 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.ai.village.poi.PoiTypes;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -639,6 +646,203 @@ public final class CivilianSleepGameTests {
             }
             helper.succeed();
         });
+    }
+
+    private static void placeDoor(ServerLevel level, BlockPos lower, Direction facing, List<BlockPos> placed) {
+        BlockState lowerState = Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(DoorBlock.FACING, facing)
+                .setValue(DoorBlock.HALF, DoubleBlockHalf.LOWER)
+                .setValue(DoorBlock.OPEN, false);
+        BlockState upperState = lowerState.setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER);
+        int flags = Block.UPDATE_ALL | Block.UPDATE_KNOWN_SHAPE;
+        level.setBlock(lower, lowerState, flags);
+        level.setBlock(lower.above(), upperState, flags);
+        placed.add(lower);
+        placed.add(lower.above());
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = "civilian_sleep_recheck_walk", timeoutTicks = 220)
+    public static void rechecksHomeBedWhileWalkingToBonfire(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        long savedTime = level.getDayTime();
+        List<BlockPos> placed = new ArrayList<>();
+        BlockPos main = mainPos(helper);
+        buildFloor(level, main, 14, placed);
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+
+        // Build a room outside the GameTest barrier roof (x in -1..7) with a west door, initially missing a roof block.
+        BlockPos room = buildHomeRoom(level, main.offset(7, 0, -2), 5, 2, 5, placed);
+        placeDoor(level, room.offset(-1, 0, 2), Direction.EAST, placed);
+        BlockPos roofGap = room.offset(2, 2, 2);
+        level.setBlock(roofGap, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        BlockPos bedHead = placeBed(level, room.offset(3, 0, 2), Direction.EAST, placed);
+
+        // Start citizen well away from the bonfire so it spends multiple ticks walking toward the bonfire.
+        CivilianEntity civilian = citizen(helper, empire, main.offset(-12, 0, 0));
+        level.setDayTime(CivilianSleep.ownBedtime(TEST_NIGHT, civilian.sleepNeedTicks()));
+
+        boolean[] walkingAt15 = {false};
+        // While walking to the bonfire, repair the roof so the HOME becomes valid.
+        helper.runAtTickTime(15, () -> {
+            walkingAt15[0] = !civilian.isLyingDown();
+            level.setBlock(roofGap, Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
+            RegionManager.onBlockChanged(level, roofGap);
+        });
+
+        helper.runAtTickTime(200, () -> {
+            try {
+                helper.assertTrue(walkingAt15[0], "citizen still walking toward bonfire before repair");
+                helper.assertTrue(bedHead.equals(civilian.claimedBed()),
+                        "citizen claimed repaired HOME bed while walking to bonfire: " + civilian.claimedBed());
+                helper.assertTrue(civilian.isSleeping(), "citizen slept in repaired HOME bed instead of rough");
+                helper.assertFalse(civilian.isRoughSleeping(), "not rough sleeping");
+            } finally {
+                level.setDayTime(savedTime);
+                civilian.discard();
+                disband(helper, empire);
+                clearBlocks(level, placed);
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = "civilian_sleep_rough_then_woken", timeoutTicks = 220)
+    public static void roughSleeperStaysPutUntilWokenThenClaimsHomeBed(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        long savedTime = level.getDayTime();
+        List<BlockPos> placed = new ArrayList<>();
+        BlockPos main = mainPos(helper);
+        buildFloor(level, main, 12, placed);
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+
+        // Citizen starts next to bonfire with no HOME bed and lies down rough.
+        CivilianEntity civilian = citizen(helper, empire, main.offset(2, 0, 0));
+        level.setDayTime(CivilianSleep.ownBedtime(TEST_NIGHT, civilian.sleepNeedTicks()));
+
+        BlockPos[] bedHeadHolder = {null};
+        boolean[] roughAt40 = {false};
+        boolean[] stillRoughAt90 = {false};
+        boolean[] noBedAt90 = {false};
+        // Once rough sleeping, build a valid HOME room with a door and bed nearby (outside the GameTest barrier roof).
+        helper.runAtTickTime(40, () -> {
+            roughAt40[0] = civilian.isRoughSleeping();
+            BlockPos room = buildHomeRoom(level, main.offset(7, 0, -2), 5, 2, 5, placed);
+            placeDoor(level, room.offset(-1, 0, 2), Direction.EAST, placed);
+            bedHeadHolder[0] = placeBed(level, room.offset(3, 0, 2), Direction.EAST, placed);
+        });
+
+        // 50 ticks later, still rough sleeping — must NOT get up on its own.
+        helper.runAtTickTime(90, () -> {
+            stillRoughAt90[0] = civilian.isRoughSleeping();
+            noBedAt90[0] = civilian.claimedBed() == null;
+            // Wake the citizen (without cooldown so it immediately re-evaluates sleep).
+            civilian.wakeUp(false);
+        });
+
+        helper.runAtTickTime(200, () -> {
+            try {
+                helper.assertTrue(roughAt40[0], "citizen settled into rough sleep by bonfire");
+                helper.assertTrue(stillRoughAt90[0], "rough sleeper does not move once asleep");
+                helper.assertTrue(noBedAt90[0], "rough sleeper did not claim bed while asleep");
+                helper.assertTrue(bedHeadHolder[0] != null && bedHeadHolder[0].equals(civilian.claimedBed()),
+                        "woken rough sleeper claimed available HOME bed: " + civilian.claimedBed());
+                helper.assertTrue(civilian.isSleeping(), "woken rough sleeper moved to bed and slept");
+                helper.assertFalse(civilian.isRoughSleeping(), "no longer rough sleeping");
+            } finally {
+                level.setDayTime(savedTime);
+                civilian.discard();
+                disband(helper, empire);
+                clearBlocks(level, placed);
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = "civilian_sleep_unreachable_retry", timeoutTicks = 860)
+    public static void unreachableBedSkippedUntilRegionUpdated(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        long savedTime = level.getDayTime();
+        List<BlockPos> placed = new ArrayList<>();
+        BlockPos main = mainPos(helper);
+        buildFloor(level, main, 14, placed);
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+
+        // Fully sealed HOME room (no door yet, outside the GameTest barrier roof) so the bed is valid & claimable, but unreachable.
+        BlockPos room = buildHomeRoom(level, main.offset(7, 0, -2), 5, 2, 5, placed);
+        BlockPos bedHead = placeBed(level, room.offset(3, 0, 2), Direction.EAST, placed);
+        CivilianEntity civilian = citizen(helper, empire, main.offset(0, 0, 2));
+        level.setDayTime(TEST_NIGHT * CivilianSleep.DAY_LENGTH + 1000L);
+
+        boolean[] claimedInitially = {false};
+        boolean[] markedUnreachable = {false};
+        boolean[] fellBackToRough = {false};
+        String[] timeoutDiag = {""};
+
+        helper.runAtTickTime(3, () -> {
+            CivilianBeds.ensureOrClaimBed(level, empire, civilian);
+            claimedInitially[0] = bedHead.equals(civilian.claimedBed());
+            level.setDayTime(CivilianSleep.ownBedtime(TEST_NIGHT, civilian.sleepNeedTicks()));
+        });
+
+        // After REACH_TIMEOUT (600 ticks) + walk back to bonfire, citizen should mark the bed unreachable and lie down rough.
+        helper.runAtTickTime(700, () -> {
+            markedUnreachable[0] = bedHead.equals(civilian.unreachableBedFor(TEST_NIGHT));
+            fellBackToRough[0] = civilian.isRoughSleeping();
+            timeoutDiag[0] = "unreach=" + civilian.unreachableBedFor(TEST_NIGHT)
+                    + " rough=" + civilian.isRoughSleeping() + " sleeping=" + civilian.isSleeping()
+                    + " pos=" + civilian.blockPosition();
+
+            // Open a doorway in the HOME wall (updates the region revision) and wake citizen to retry.
+            BlockPos doorPos = room.offset(-1, 0, 2);
+            placeDoor(level, doorPos, Direction.EAST, placed);
+            RegionManager.onBlockChanged(level, doorPos);
+            civilian.wakeUp(false);
+        });
+
+        helper.runAtTickTime(840, () -> {
+            try {
+                helper.assertTrue(claimedInitially[0], "claimed bed inside sealed HOME");
+                helper.assertTrue(markedUnreachable[0], "sealed bed recorded as unreachable after timeout: " + timeoutDiag[0]);
+                helper.assertTrue(fellBackToRough[0], "citizen fell back to rough sleep after timeout: " + timeoutDiag[0]);
+                helper.assertTrue(civilian.isSleeping(), "citizen retried and slept in bed after region update");
+                helper.assertTrue(civilian.unreachableBedFor(TEST_NIGHT) == null, "unreachable mark cleared on sleep");
+            } finally {
+                level.setDayTime(savedTime);
+                civilian.discard();
+                disband(helper, empire);
+                clearBlocks(level, placed);
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH_CIVILIANS)
+    public static void debugInfoLinesCoversAllStats(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+        CivilianEntity citizen = citizen(helper, empire, mainPos(helper));
+        CivilianEntity traveller = TravellerArrivals.spawnTraveller(empire, level, mainPos(helper).east());
+        try {
+            citizen.inventory().setItem(0, new ItemStack(Items.BREAD, 3));
+            List<Component> citizenLines = citizen.debugInfoLines(level);
+            String joined = String.join("\n", citizenLines.stream().map(Component::getString).toList());
+            helper.assertTrue(joined.contains("(CITIZEN)"), "citizen status present");
+            helper.assertTrue(joined.contains("Abilities: END 10"), "abilities present");
+            helper.assertTrue(joined.contains("HP:") && joined.contains("Food:"), "vitals present");
+            helper.assertTrue(joined.contains("3x minecraft:bread"), "inventory present");
+            helper.assertTrue(joined.contains("Sleep:") && joined.contains("Sleep flags:"), "sleep info present");
+            helper.assertTrue(joined.contains("Bed:"), "bed info present");
+
+            List<Component> travellerLines = traveller.debugInfoLines(level);
+            String travellerJoined = String.join("\n", travellerLines.stream().map(Component::getString).toList());
+            helper.assertTrue(travellerJoined.contains("(TRAVELLER)") && travellerJoined.contains("Traveller: wants"),
+                    "traveller want info present");
+        } finally {
+            citizen.discard();
+            traveller.discard();
+            disband(helper, empire);
+        }
+        helper.succeed();
     }
 
     private CivilianSleepGameTests() {

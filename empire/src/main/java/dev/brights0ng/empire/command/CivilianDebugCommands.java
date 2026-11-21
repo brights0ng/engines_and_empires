@@ -28,15 +28,11 @@ import dev.brights0ng.empire.data.TravellerSlot;
 import dev.brights0ng.empire.rules.ArrivalRule;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianAbilities;
-import dev.brights0ng.empire.rules.CivilianFood;
 import dev.brights0ng.empire.rules.CivilianLines;
-import dev.brights0ng.empire.rules.CivilianSleep;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -283,44 +279,8 @@ public final class CivilianDebugCommands {
         if (civilian == null) {
             return 0;
         }
-        String name = civilian.getName().getString();
-        String code = civilian.appearance().code();
-        String home = civilian.home() != null ? civilian.home().toShortString() : "none";
-        UUID empireId = civilian.travellerEmpire();
-        if (civilian.civilianId() != null) {
-            CivilianRecord record = EmpireSavedData.of(source.getServer()).civilian(civilian.civilianId());
-            empireId = record != null ? record.empire() : null;
-        }
-        String empire = empireId != null ? empireId.toString() : "none";
-        String id = civilian.civilianId() != null ? civilian.civilianId().toString() : "none";
-        String status = civilian.status().name();
-        source.sendSuccess(() -> Component.literal(name + ": " + status + ", look " + code + ", home " + home
-                + ", civilian id " + id + ", empire " + empire), false);
-        source.sendSuccess(() -> Component.literal("Abilities " + civilian.abilities().code() + ", mean "
-                + String.format(Locale.ROOT, "%.1f", civilian.abilities().mean())), false);
-        CivilianFood food = civilian.food();
-        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
-                "Food %d, saturation %.1f, exhaustion %.2f, health %.1f/%.1f, eaten today %d / yesterday %d, active ticks %d",
-                food.foodLevel(), food.saturation(), food.exhaustion(), civilian.getHealth(), civilian.getMaxHealth(),
-                food.foodEatenToday(), food.foodEatenYesterday(), food.activeTicks())), false);
-        List<String> pockets = new ArrayList<>();
-        for (int slot = 0; slot < civilian.inventory().getContainerSize(); slot++) {
-            ItemStack stack = civilian.inventory().getItem(slot);
-            if (!stack.isEmpty()) pockets.add(stack.getCount() + "× " + BuiltInRegistries.ITEM.getKey(stack.getItem()));
-        }
-        source.sendSuccess(() -> Component.literal("Inventory: " + (pockets.isEmpty() ? "empty" : String.join(", ", pockets))), false);
-        CivilianSleep sleep = civilian.sleep();
-        int need = civilian.sleepNeedTicks();
-        String sleepState = civilian.isSleeping() ? "sleeping in bed"
-                : civilian.isRoughSleeping() ? "sleeping rough" : "awake";
-        String bed = civilian.claimedBed() != null ? civilian.claimedBed().toShortString() : "none";
-        String lastNight = Float.isNaN(sleep.lastNight()) ? "none" : String.format(Locale.ROOT, "%.2f", sleep.lastNight());
-        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
-                "Sleep %s, bed %s, need %d (%d->%d), slept %d (credit %.1f), lastNight %s",
-                sleepState, bed, need, CivilianSleep.bedtime(need), CivilianSleep.wakeTime(need),
-                sleep.sleptTicks(), sleep.creditTicks(), lastNight)), false);
-        if (civilian.isUsingItem()) {
-            source.sendSuccess(() -> Component.literal("eating " + BuiltInRegistries.ITEM.getKey(civilian.getUseItem().getItem())), false);
+        for (Component line : civilian.debugInfoLines(source.getLevel())) {
+            source.sendSuccess(() -> line, false);
         }
         return 1;
     }
