@@ -1,5 +1,5 @@
 // Written by Gemini; members, the main bonfire's 3x3 rule, the public core chunk, the divine index, main bonfire assignment, protection pushes, the civilian roster and the growth clock by Claude.
-// Extended with registry-aware civilian inventory persistence by ChatGPT.
+// Extended with registry-aware civilian inventory persistence by ChatGPT; regions and spatial index by Gemini.
 package dev.brights0ng.empire.data;
 
 import java.util.Collection;
@@ -25,6 +25,7 @@ import dev.brights0ng.empire.rules.StakeResult;
 import dev.brights0ng.empire.rules.UnstakeResult;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongIterator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -40,8 +41,8 @@ import net.minecraft.world.level.saveddata.SavedData;
 public final class EmpireSavedData extends SavedData {
 
     public static final String FILE_NAME = "empire_empires";
-    /** The save format's version (4: the growth clock). */
-    public static final int SAVE_VERSION = 4;
+    /** The save format's version (5: regions). */
+    public static final int SAVE_VERSION = 5;
 
     private final Map<UUID, EmpireRecord> empires = new HashMap<>();
     private final Map<UUID, UUID> memberToEmpire = new HashMap<>();
@@ -57,6 +58,12 @@ public final class EmpireSavedData extends SavedData {
     private final Map<UUID, TravellerSlot> travellers = new HashMap<>();
     /** When each staked chunk was last growing, for the catch-up ({@code growth.GrowthCatchUp}). */
     private final GrowthClock growth = new GrowthClock();
+    /** Every empire's regions, by region id. */
+    private final Map<UUID, RegionRecord> regions = new HashMap<>();
+    /** Empire to its regions' ids. Not saved: rebuilt on load. */
+    private final Map<UUID, Set<UUID>> regionsByEmpire = new HashMap<>();
+    /** Packed block coordinate to region id. Not saved: rebuilt on load. */
+    private final Long2ObjectMap<UUID> blockToRegion = new Long2ObjectOpenHashMap<>();
 
     public static EmpireSavedData of(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(
@@ -185,6 +192,7 @@ public final class EmpireSavedData extends SavedData {
         if (result == UnstakeResult.OK) {
             chunkIndex.remove(chunk);
             growth.forget(chunk);
+            markRegionsDirtyInChunk(record.id(), chunk);
             setDirty();
         }
         return result;
@@ -205,6 +213,10 @@ public final class EmpireSavedData extends SavedData {
                 removed.add(civilians.remove(civilianId));
             }
             civiliansByEmpire.remove(empireId);
+            for (UUID regionId : List.copyOf(regionsByEmpire.getOrDefault(empireId, Set.of()))) {
+                removeRegion(regionId);
+            }
+            regionsByEmpire.remove(empireId);
             TravellerSlot traveller = travellers.remove(empireId);
             rebuildDivineIndex();
             setDirty();
@@ -439,6 +451,112 @@ public final class EmpireSavedData extends SavedData {
         return growth;
     }
 
+    /** Adds (or replaces by id) a region and updates the empire and block spatial indices. */
+    public void addRegion(RegionRecord region) {
+        removeRegion(region.id());
+        regions.put(region.id(), region);
+        regionsByEmpire.computeIfAbsent(region.empireId(), k -> new HashSet<>()).add(region.id());
+        LongIterator it = region.blocks().iterator();
+        while (it.hasNext()) {
+            blockToRegion.put(it.nextLong(), region.id());
+        }
+        setDirty();
+    }
+
+    /** Removes a region by id and cleans up the empire and block spatial indices. */
+    @Nullable
+    public RegionRecord removeRegion(UUID regionId) {
+        RegionRecord removed = regions.remove(regionId);
+        if (removed != null) {
+            Set<UUID> ids = regionsByEmpire.get(removed.empireId());
+            if (ids != null) {
+                ids.remove(regionId);
+                if (ids.isEmpty()) {
+                    regionsByEmpire.remove(removed.empireId());
+                }
+            }
+            LongIterator it = removed.blocks().iterator();
+            while (it.hasNext()) {
+                long pos = it.nextLong();
+                if (regionId.equals(blockToRegion.get(pos))) {
+                    blockToRegion.remove(pos);
+                }
+            }
+            setDirty();
+        }
+        return removed;
+    }
+
+    @Nullable
+    public RegionRecord region(UUID regionId) {
+        return regions.get(regionId);
+    }
+
+    /** The region containing {@code packedPos}, or null. */
+    @Nullable
+    public RegionRecord regionAt(long packedPos) {
+        UUID id = blockToRegion.get(packedPos);
+        return id != null ? regions.get(id) : null;
+    }
+
+    /** The region containing {@code pos}, or null. */
+    @Nullable
+    public RegionRecord regionAt(BlockPos pos) {
+        return regionAt(pos.asLong());
+    }
+
+    /** All regions belonging to {@code empireId}. */
+    public List<RegionRecord> regionsOf(UUID empireId) {
+        List<RegionRecord> list = new ArrayList<>();
+        for (UUID id : regionsByEmpire.getOrDefault(empireId, Set.of())) {
+            RegionRecord r = regions.get(id);
+            if (r != null) {
+                list.add(r);
+            }
+        }
+        return Collections.unmodifiableList(list);
+    }
+
+    public Collection<RegionRecord> allRegions() {
+        return Collections.unmodifiableCollection(regions.values());
+    }
+
+    /** True if any packed block coordinate in {@code blocks} belongs to an existing region other than {@code ignoreId}. */
+    public boolean overlapsAnyRegion(Collection<Long> blocks, @Nullable UUID ignoreId) {
+        for (long pos : blocks) {
+            UUID existing = blockToRegion.get(pos);
+            if (existing != null && !existing.equals(ignoreId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Detaches {@code civilianId} from every region of {@code empireId} it inhabits. */
+    public boolean detachInhabitant(UUID empireId, UUID civilianId) {
+        boolean changed = false;
+        for (UUID id : regionsByEmpire.getOrDefault(empireId, Set.of())) {
+            RegionRecord r = regions.get(id);
+            if (r != null && r.removeInhabitant(civilianId)) {
+                changed = true;
+            }
+        }
+        if (changed) {
+            setDirty();
+        }
+        return changed;
+    }
+
+    /** Marks every region of {@code empireId} that touches {@code chunk} dirty for re-validation. */
+    public void markRegionsDirtyInChunk(UUID empireId, long chunk) {
+        for (UUID id : regionsByEmpire.getOrDefault(empireId, Set.of())) {
+            RegionRecord r = regions.get(id);
+            if (r != null && r.touchesChunk(chunk)) {
+                r.setDirtyFlag(true);
+            }
+        }
+    }
+
     public static EmpireSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         EmpireSavedData data = new EmpireSavedData();
         ListTag empiresTag = tag.getList("empires", Tag.TAG_COMPOUND);
@@ -471,6 +589,19 @@ public final class EmpireSavedData extends SavedData {
         for (int i = 0; i < Math.min(chunks.length, times.length); i++) {
             if (data.chunkIndex.containsKey(chunks[i])) {
                 data.growth.set(chunks[i], times[i]);
+            }
+        }
+        // Version 4 files have no regions list: they load cleanly with no regions.
+        ListTag regionsTag = tag.getList("regions", Tag.TAG_COMPOUND);
+        for (int i = 0; i < regionsTag.size(); i++) {
+            RegionRecord region = RegionRecord.load(regionsTag.getCompound(i));
+            if (region != null && data.empires.containsKey(region.empireId())) {
+                data.regions.put(region.id(), region);
+                data.regionsByEmpire.computeIfAbsent(region.empireId(), k -> new HashSet<>()).add(region.id());
+                LongIterator it = region.blocks().iterator();
+                while (it.hasNext()) {
+                    data.blockToRegion.putIfAbsent(it.nextLong(), region.id());
+                }
             }
         }
         return data;
@@ -514,6 +645,11 @@ public final class EmpireSavedData extends SavedData {
         growthTag.put("chunks", new LongArrayTag(chunks));
         growthTag.put("times", new LongArrayTag(times));
         tag.put("growth", growthTag);
+        ListTag regionsTag = new ListTag();
+        for (RegionRecord region : regions.values()) {
+            regionsTag.add(region.save());
+        }
+        tag.put("regions", regionsTag);
         return tag;
     }
 }

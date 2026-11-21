@@ -1,3 +1,4 @@
+# Updated by Gemini: added Odyssey Quests (heracles) required dependency.
 # This is an example neoforge.mods.toml file. It contains the data relating to the loading mods.
 # There are several mandatory fields (#mandatory), and many more that are optional (#optional).
 # The overall format is standard TOML format, v0.5.0.
@@ -188,6 +189,14 @@ Core mod for the Engines and Empires modpack.
     modId="encumbered"
     type="required"
     versionRange="${encumbered_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+# Odyssey Quests (Heracles). The core mod provides questing integration for the pack.
+[[dependencies.${mod_id}]]
+    modId="heracles"
+    type="required"
+    versionRange="${odyssey_quests_version_range}"
     ordering="AFTER"
     side="BOTH"
 

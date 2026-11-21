@@ -1,3 +1,4 @@
+// Edited by Claude: sends only to clients that have the channel (GreedyFluids M7b b4).
 package dev.brights0ng.meteodyne.rain;
 
 import dev.brights0ng.meteodyne.Meteodyne;
@@ -18,6 +19,9 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
  * Sends each player the wind and temperature around them once a second ({@link WeatherSyncPayload}), so their client
  * works out rain and snow the way the server does. Overworld only (where the pack's weather lives; sent even with the
  * pack's weather turned off, so clients learn that); it costs 25 temperature lookups per player per second.
+ *
+ * <p>The payload is optional, so a client without the channel (no Meteodyne, or a game test's mock player) is
+ * skipped: NeoForge throws when a payload goes to a connection that never agreed to it.
  */
 @EventBusSubscriber(modid = Meteodyne.MODID)
 public final class WeatherNetwork {
@@ -43,7 +47,9 @@ public final class WeatherNetwork {
         }
         LocalWeather.tickWind(level);
         for (ServerPlayer player : level.players()) {
-            PacketDistributor.sendToPlayer(player, build(level, player.getX(), player.getZ()));
+            if (player.connection != null && player.connection.hasChannel(WeatherSyncPayload.TYPE)) {
+                PacketDistributor.sendToPlayer(player, build(level, player.getX(), player.getZ()));
+            }
         }
     }
 

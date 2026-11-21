@@ -1,3 +1,4 @@
+// Updated by Claude: the air-source flag now only feeds the scan format; the local-air domains are gone (GreedyFluids M7f f3).
 // Updated by Claude: classified blocks that request local-air coverage in any of their states.
 // Updated by ChatGPT: classified source, material and physical geometry changes for snapshot invalidation.
 package dev.brights0ng.meteodyne.heat.world;
@@ -111,8 +112,9 @@ public final class HeatTables {
     }
 
     /**
-     * Whether a placed {@code block} asks for local-air coverage in any state: it has a driven variant, or a placed
-     * (not natural) variant that heats or cools the air. Unlike {@link #power}, an unlit campfire or furnace counts.
+     * Whether a placed {@code block} is an air source in any state (the scan format's source flag): it has a driven
+     * variant, or a placed (not natural) variant that heats or cools the air. Unlike {@link #power}, an unlit campfire
+     * or furnace counts.
      */
     public static synchronized boolean airSourceCandidate(Block block) {
         HeatPowerData d = data(block);

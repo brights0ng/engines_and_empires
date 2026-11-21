@@ -1,13 +1,17 @@
-// Written by Claude; extended with abilities, needs and inventory persistence by ChatGPT.
+// Written by Claude; extended with abilities, needs and inventory persistence by ChatGPT; extended with sleep and bed persistence by Gemini.
 package dev.brights0ng.empire.data;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
+
+import javax.annotation.Nullable;
 
 import dev.brights0ng.empire.civilian.CivilianEntity;
 import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianFood;
+import dev.brights0ng.empire.rules.CivilianSleep;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -35,6 +39,9 @@ public final class CivilianRecord {
     private int appearance;
     private int abilities;
     private CivilianFood.Saved food = new CivilianFood().save();
+    private CivilianSleep.Saved sleep = new CivilianSleep().save();
+    @Nullable
+    private BlockPos bed;
     /** NaN in older records means to keep the body's health. */
     private float health = Float.NaN;
     private final NonNullList<ItemStack> inventory = NonNullList.withSize(CivilianEntity.INVENTORY_SIZE, ItemStack.EMPTY);
@@ -106,7 +113,24 @@ public final class CivilianRecord {
     }
 
     public void setFood(CivilianFood.Saved food) {
-        this.food = java.util.Objects.requireNonNull(food);
+        this.food = Objects.requireNonNull(food);
+    }
+
+    public CivilianSleep.Saved sleep() {
+        return sleep;
+    }
+
+    public void setSleep(CivilianSleep.Saved sleep) {
+        this.sleep = Objects.requireNonNull(sleep);
+    }
+
+    @Nullable
+    public BlockPos bed() {
+        return bed;
+    }
+
+    public void setBed(@Nullable BlockPos bed) {
+        this.bed = bed != null ? bed.immutable() : null;
     }
 
     public float health() {
@@ -155,6 +179,10 @@ public final class CivilianRecord {
         tag.putInt("appearance", appearance);
         tag.putInt("abilities", abilities);
         tag.put("food", CivilianFoodNbt.save(food));
+        tag.put("sleep", CivilianSleepNbt.save(sleep));
+        if (bed != null) {
+            tag.putLong("bed", bed.asLong());
+        }
         tag.putFloat("health", health);
         tag.put("inventory", ContainerHelper.saveAllItems(new CompoundTag(), inventory, registries));
         tag.putLong("last_pos", lastPos.asLong());
@@ -175,6 +203,10 @@ public final class CivilianRecord {
             }
         }
         record.setFood(CivilianFoodNbt.load(tag.getCompound("food")));
+        record.setSleep(CivilianSleepNbt.load(tag.getCompound("sleep")));
+        if (tag.contains("bed", net.minecraft.nbt.Tag.TAG_LONG)) {
+            record.setBed(BlockPos.of(tag.getLong("bed")));
+        }
         ContainerHelper.loadAllItems(tag.getCompound("inventory"), record.inventory, registries);
         if (tag.contains("health", net.minecraft.nbt.Tag.TAG_ANY_NUMERIC)) {
             record.setHealth(tag.getFloat("health"));

@@ -1,4 +1,5 @@
-// Updated by Gemini: removed CurseMaven repository; updated by Claude: requireMod also loads the required mod's requiredRuntimeElements.
+// Updated by Gemini: removed CurseMaven repository; updated by Claude: requireMod also loads the required mod's requiredRuntimeElements;
+// updated by Claude: the pinned GreedyFluids repository (GreedyFluids M7b).
 // What every project of the family's build shares, whether it builds a mod or only runs mods (split step 4b): Java,
 // the repositories, NeoForge and Parchment, the helpers that bind other projects' mods to this project's runs
 // (requireMod, loadMod), run logging, and one Minecraft run at a time. eae.mod-conventions applies it and adds the
@@ -32,6 +33,24 @@ repositories {
         }
         filter {
             includeGroup("maven.modrinth")
+        }
+    }
+}
+
+// GreedyFluids (dev.brights0ng:greedyfluids), our own air and heat library, used by Meteodyne: a pinned copy committed in
+// meteodyne/vendor/maven by tools/greedyfluids-update.sh (GreedyFluids M7b; docs/PROJECT.md). Every project can resolve
+// it, since the projects that require Meteodyne load it in their runs (Meteodyne's requiredRuntimeElements). Nothing
+// else is looked up there, and it is looked up nowhere else.
+repositories {
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'GreedyFluidsPinned'
+                url = rootProject.file('meteodyne/vendor/maven')
+            }
+        }
+        filter {
+            includeModule('dev.brights0ng', 'greedyfluids')
         }
     }
 }

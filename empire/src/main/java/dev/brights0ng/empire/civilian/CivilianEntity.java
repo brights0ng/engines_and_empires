@@ -1,8 +1,9 @@
-// Written by Claude; extended with abilities, inspection, ticking needs, inventory, eating and client eating sync by ChatGPT.
+// Written by Claude; extended with abilities, inspection, ticking needs, inventory, eating and client eating sync by ChatGPT; extended with sleep persistence and behavior by Gemini.
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.random.RandomGenerator;
@@ -13,14 +14,18 @@ import dev.brights0ng.empire.EmpireConfig;
 import dev.brights0ng.empire.civilian.CivilianNetwork.CivilianSpeechPayload;
 import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.CivilianFoodNbt;
+import dev.brights0ng.empire.data.CivilianSleepNbt;
+import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianFood;
 import dev.brights0ng.empire.rules.CivilianLines;
 import dev.brights0ng.empire.rules.CivilianNames;
+import dev.brights0ng.empire.rules.CivilianSleep;
 import dev.brights0ng.empire.rules.TravellerWants;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.chat.Component;
@@ -43,6 +48,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -112,6 +118,8 @@ public class CivilianEntity extends PathfinderMob {
     public static final int INVENTORY_SIZE = 9;
     /** PROVISIONAL: active ticks between attempts to eat without wasting nutrition. */
     public static final int EAT_CHECK_INTERVAL = 20;
+    /** Ticks after being woken by damage or a click before lying down again (confirmed). */
+    public static final int WAKE_COOLDOWN = 200;
 
     /** What a civilian is to the empires (saved). */
     public enum Status {
@@ -135,10 +143,15 @@ public class CivilianEntity extends PathfinderMob {
 
     private static final EntityDataAccessor<Integer> APPEARANCE =
             SynchedEntityData.defineId(CivilianEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> ROUGH_SLEEPING =
+            SynchedEntityData.defineId(CivilianEntity.class, EntityDataSerializers.BOOLEAN);
 
     private static final String TAG_APPEARANCE = "Appearance";
     private static final String TAG_ABILITIES = "Abilities";
     private static final String TAG_FOOD = "Food";
+    private static final String TAG_SLEEP = "Sleep";
+    private static final String TAG_BED = "Bed";
+    private static final String TAG_ROUGH_SLEEPING = "RoughSleeping";
     private static final String TAG_HOME = "Home";
     private static final String TAG_STATUS = "Status";
     private static final String TAG_CIVILIAN_ID = "CivilianId";
@@ -163,6 +176,9 @@ public class CivilianEntity extends PathfinderMob {
     private CivilianAbilities abilities = new CivilianAbilities(3, 3, 3, 3, 3, 3);
     private boolean abilitiesPreset;
     private CivilianFood food = new CivilianFood();
+    private CivilianSleep sleep = new CivilianSleep();
+    @Nullable
+    private BlockPos claimedBed;
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE);
     /** Only meals moved out of our pockets are returned when use ends; future tools are left alone. */
     private boolean inventoryMeal;
@@ -194,6 +210,10 @@ public class CivilianEntity extends PathfinderMob {
     private int leaveTicks;
     @Nullable
     private Vec3 leaveTarget;
+    // Sleep runtime state; transient.
+    private boolean sleepClockReady;
+    private int wakeCooldownUntil = Integer.MIN_VALUE / 2;
+    private long roughOnlyNight = CivilianSleep.NO_NIGHT;
 
     private static final class Conversation {
         final CivilianEntity partner;
@@ -226,6 +246,7 @@ public class CivilianEntity extends PathfinderMob {
         goalSelector.addGoal(0, new FloatGoal(this));
         goalSelector.addGoal(1, new CivilianFaceGoal(this));
         goalSelector.addGoal(2, new OpenDoorGoal(this, true));
+        goalSelector.addGoal(3, new CivilianSleepGoal(this));
         goalSelector.addGoal(4, new MoveTowardsRestrictionGoal(this, 0.6));
         goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.5) {
             @Override
@@ -241,6 +262,7 @@ public class CivilianEntity extends PathfinderMob {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(APPEARANCE, 0);
+        builder.define(ROUGH_SLEEPING, false);
     }
 
     public CivilianAppearance appearance() {
@@ -292,6 +314,132 @@ public class CivilianEntity extends PathfinderMob {
         return food;
     }
 
+    public CivilianSleep sleep() {
+        return sleep;
+    }
+
+    @Nullable
+    public BlockPos claimedBed() {
+        return claimedBed;
+    }
+
+    public void setClaimedBed(@Nullable BlockPos pos) {
+        this.claimedBed = pos != null ? pos.immutable() : null;
+        syncNeedsToRecord();
+    }
+
+    public void setLastNight(float value) {
+        sleep.setLastNight(value);
+        syncNeedsToRecord();
+    }
+
+    public int sleepNeedTicks() {
+        return CivilianSleep.neededTicks(abilities.endurance());
+    }
+
+    public boolean isRoughSleeping() {
+        return entityData.get(ROUGH_SLEEPING);
+    }
+
+    /** True while lying down either in a bed or rough on the ground. */
+    public boolean isLyingDown() {
+        return isSleeping() || isRoughSleeping();
+    }
+
+    public boolean isSleepWakeCooldown() {
+        return tickCount < wakeCooldownUntil;
+    }
+
+    boolean isRoughOnlyNight(long night) {
+        return roughOnlyNight == night;
+    }
+
+    void markRoughOnlyNight(long night) {
+        roughOnlyNight = night;
+    }
+
+    public void startRoughSleeping() {
+        if (isPassenger()) {
+            stopRiding();
+        }
+        if (isSleeping()) {
+            super.stopSleeping();
+        }
+        endConversation();
+        dialoguePlayer = null;
+        getNavigation().stop();
+        entityData.set(ROUGH_SLEEPING, true);
+        setPose(Pose.SLEEPING);
+        setDeltaMovement(Vec3.ZERO);
+        hasImpulse = true;
+    }
+
+    public void stopRoughSleeping() {
+        if (isRoughSleeping()) {
+            entityData.set(ROUGH_SLEEPING, false);
+            if (!isSleeping()) {
+                setPose(Pose.STANDING);
+            }
+        }
+    }
+
+    /** Wakes from bed or rough sleep; {@code applyCooldown} delays lying down again for {@link #WAKE_COOLDOWN} ticks. */
+    public void wakeUp(boolean applyCooldown) {
+        if (isSleeping()) {
+            super.stopSleeping();
+        }
+        stopRoughSleeping();
+        if (applyCooldown) {
+            wakeCooldownUntil = tickCount + WAKE_COOLDOWN;
+        }
+    }
+
+    @Override
+    public void startSleeping(BlockPos pos) {
+        stopRoughSleeping();
+        endConversation();
+        dialoguePlayer = null;
+        getNavigation().stop();
+        super.startSleeping(pos);
+    }
+
+    @Override
+    public void stopSleeping() {
+        super.stopSleeping();
+        stopRoughSleeping();
+    }
+
+    @Override
+    @Nullable
+    public Direction getBedOrientation() {
+        if (isRoughSleeping() && !isSleeping()) {
+            return null;
+        }
+        return super.getBedOrientation();
+    }
+
+    @Override
+    protected boolean isImmobile() {
+        return super.isImmobile() || isLyingDown();
+    }
+
+    @Override
+    public void push(Entity entity) {
+        if (!isLyingDown()) {
+            super.push(entity);
+        }
+    }
+
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        boolean wasLying = !level().isClientSide && isLyingDown();
+        boolean hurt = super.hurt(source, amount);
+        if (wasLying && (hurt || !isLyingDown())) {
+            wakeUp(true);
+        }
+        return hurt;
+    }
+
     public SimpleContainer inventory() {
         return inventory;
     }
@@ -299,6 +447,8 @@ public class CivilianEntity extends PathfinderMob {
     /** Applies a master snapshot without writing it back during join. */
     void restoreNeeds(CivilianRecord record) {
         food = CivilianFood.restore(record.food());
+        sleep = CivilianSleep.restore(record.sleep());
+        claimedBed = record.bed();
         for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
             inventory.setItem(slot, record.inventory().get(slot).copy());
         }
@@ -327,6 +477,7 @@ public class CivilianEntity extends PathfinderMob {
         EmpireSavedData data = EmpireSavedData.of(serverLevel);
         CivilianRecord record = ownRecord(data);
         CivilianFood.Saved saved = food.save();
+        CivilianSleep.Saved savedSleep = sleep.save();
         boolean inventoryChanged = false;
         if (record != null) {
             for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
@@ -336,8 +487,11 @@ public class CivilianEntity extends PathfinderMob {
                 }
             }
         }
-        if (record != null && (inventoryChanged || !saved.equals(record.food()) || Float.compare(getHealth(), record.health()) != 0)) {
+        if (record != null && (inventoryChanged || !saved.equals(record.food()) || !savedSleep.equals(record.sleep())
+                || !Objects.equals(claimedBed, record.bed()) || Float.compare(getHealth(), record.health()) != 0)) {
             record.setFood(saved);
+            record.setSleep(savedSleep);
+            record.setBed(claimedBed);
             record.setHealth(getHealth());
             record.setInventory(inventory.getItems());
             data.setDirty();
@@ -450,6 +604,13 @@ public class CivilianEntity extends PathfinderMob {
             return;
         }
         if (inventoryMeal) stopUsingItem();
+        wakeUp(false);
+        if (claimedBed != null && level() instanceof ServerLevel serverLevel) {
+            CivilianRecord leavingRecord = ownRecord(EmpireSavedData.of(serverLevel));
+            CivilianBeds.releaseAndDetach(serverLevel, leavingRecord != null ? leavingRecord.empire() : null,
+                    civilianId, claimedBed);
+            claimedBed = null;
+        }
         status = Status.LEAVING;
         clearRestriction();
         endConversation();
@@ -493,6 +654,13 @@ public class CivilianEntity extends PathfinderMob {
         super.addAdditionalSaveData(tag);
         syncNeedsToRecord();
         tag.put(TAG_FOOD, CivilianFoodNbt.save(food.save()));
+        tag.put(TAG_SLEEP, CivilianSleepNbt.save(sleep.save()));
+        if (claimedBed != null) {
+            tag.put(TAG_BED, NbtUtils.writeBlockPos(claimedBed));
+        }
+        if (isRoughSleeping()) {
+            tag.putBoolean(TAG_ROUGH_SLEEPING, true);
+        }
         tag.put("Inventory", ContainerHelper.saveAllItems(new CompoundTag(), inventory.getItems(), level().registryAccess()));
         tag.putInt(TAG_APPEARANCE, entityData.get(APPEARANCE));
         tag.putInt(TAG_ABILITIES, abilities.pack());
@@ -514,6 +682,14 @@ public class CivilianEntity extends PathfinderMob {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         food = CivilianFood.restore(CivilianFoodNbt.load(tag.getCompound(TAG_FOOD)));
+        sleep = CivilianSleep.restore(CivilianSleepNbt.load(tag.getCompound(TAG_SLEEP)));
+        claimedBed = NbtUtils.readBlockPos(tag, TAG_BED).orElse(null);
+        if (tag.getBoolean(TAG_ROUGH_SLEEPING) && !isSleeping()) {
+            entityData.set(ROUGH_SLEEPING, true);
+            setPose(Pose.SLEEPING);
+        } else {
+            entityData.set(ROUGH_SLEEPING, false);
+        }
         inventory.clearContent();
         ContainerHelper.loadAllItems(tag.getCompound("Inventory"), inventory.getItems(), level().registryAccess());
         CivilianAbilities loadedAbilities = null;
@@ -574,6 +750,7 @@ public class CivilianEntity extends PathfinderMob {
             if (result.healAmount() > 0.0F) heal(result.healAmount());
             if (result.starveDamage() > 0.0F) hurt(damageSources().starve(), result.starveDamage());
             if (tickCount % EAT_CHECK_INTERVAL == 0) tryEatFromInventory();
+            if (status == Status.CITIZEN) tickSleep(serverLevel);
             if (tickCount % RECORD_SYNC_INTERVAL == 0) syncNeedsToRecord();
         }
         tickDialogue();
@@ -582,8 +759,77 @@ public class CivilianEntity extends PathfinderMob {
         }
     }
 
+    private void tickSleep(ServerLevel serverLevel) {
+        long dayTime = serverLevel.getDayTime();
+        int need = sleepNeedTicks();
+        float prevLastNight = sleep.lastNight();
+        EmpireSavedData data = EmpireSavedData.of(serverLevel);
+        CivilianRecord record = ownRecord(data);
+        EmpireRecord empire = record != null ? data.getEmpire(record.empire()) : null;
+
+        long prev = sleep.lastDayTime();
+        if (!sleepClockReady) {
+            sleepClockReady = true;
+            if (prev != CivilianSleep.NO_DAY_TIME && dayTime > prev + 1) {
+                // D7 / R3: unloaded time counts at claimed-bed / rough rate without teleporting.
+                boolean hasBed = isSleeping() || (empire != null && CivilianBeds.isValidClaimedBed(serverLevel, empire, claimedBed));
+                sleep.catchUp(prev + 1, dayTime, hasBed, need);
+                if (isLyingDown() && (!CivilianSleep.isNight(dayTime) || sleep.isRestedFor(CivilianSleep.nightIndex(dayTime)))) {
+                    wakeUp(false);
+                }
+            } else if (prev != CivilianSleep.NO_DAY_TIME && dayTime < prev) {
+                sleep.catchUp(prev, dayTime, false, need);
+                if (isLyingDown() && !CivilianSleep.isNight(dayTime)) {
+                    wakeUp(false);
+                }
+            }
+        } else if (prev != CivilianSleep.NO_DAY_TIME && dayTime > prev + 1) {
+            boolean prevWasNight = CivilianSleep.isNight(prev);
+            long prevNight = CivilianSleep.nightIndex(prev);
+            boolean crossedNightEnd = prevWasNight && dayTime >= CivilianSleep.nightEnd(prevNight);
+            if (crossedNightEnd && !isLyingDown() && !sleep.isRestedFor(prevNight)) {
+                // D6 / R4: forward jump past night end while awake and not rested teleports to bed / rough spot.
+                BlockPos bed = empire != null ? CivilianBeds.ensureOrClaimBed(serverLevel, empire, this) : null;
+                if (bed != null) {
+                    Vec3 dest = CivilianBeds.bedTeleportPos(serverLevel, bed, this);
+                    teleportTo(dest.x, dest.y, dest.z);
+                    sleep.catchUp(prev + 1, dayTime, true, need);
+                } else {
+                    UUID seed = civilianId != null ? civilianId : getUUID();
+                    BlockPos rough = empire != null
+                            ? CivilianBeds.roughSpot(serverLevel, empire, seed, blockPosition()) : blockPosition();
+                    teleportTo(rough.getX() + 0.5, rough.getY(), rough.getZ() + 0.5);
+                    sleep.catchUp(prev + 1, dayTime, false, need);
+                }
+            } else {
+                boolean hasBed = isSleeping()
+                        || (!isRoughSleeping() && empire != null && CivilianBeds.isValidClaimedBed(serverLevel, empire, claimedBed));
+                sleep.catchUp(prev + 1, dayTime, hasBed, need);
+            }
+            if (isLyingDown() && (!CivilianSleep.isNight(dayTime) || sleep.isRestedFor(CivilianSleep.nightIndex(dayTime)))) {
+                wakeUp(false);
+            }
+        } else if (prev != CivilianSleep.NO_DAY_TIME && dayTime < prev) {
+            sleep.catchUp(prev, dayTime, false, need);
+            if (isLyingDown() && !CivilianSleep.isNight(dayTime)) {
+                wakeUp(false);
+            }
+        }
+
+        if (isRoughSleeping() && (isInWater() || isInLava())) {
+            wakeUp(true);
+        }
+        sleep.tick(dayTime, isLyingDown(), isSleeping(), need);
+        if (isLyingDown() && (!CivilianSleep.isNight(dayTime) || sleep.isRestedFor(CivilianSleep.nightIndex(dayTime)))) {
+            wakeUp(false);
+        }
+        if (Float.compare(prevLastNight, sleep.lastNight()) != 0) {
+            syncNeedsToRecord();
+        }
+    }
+
     private void tryEatFromInventory() {
-        if (isUsingItem() || !getMainHandItem().isEmpty()) return;
+        if (isLyingDown() || isUsingItem() || !getMainHandItem().isEmpty()) return;
         int missing = 20 - food.foodLevel();
         for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
             ItemStack stack = inventory.getItem(slot);
@@ -781,6 +1027,11 @@ public class CivilianEntity extends PathfinderMob {
             if (status == Status.LEAVING) {
                 return InteractionResult.CONSUME;
             }
+            if (isLyingDown()) {
+                wakeUp(true);
+                say(CivilianLines.Category.WOKEN);
+                return InteractionResult.SUCCESS;
+            }
             ItemStack held = player.getMainHandItem();
             if (status == Status.CITIZEN && held.getFoodProperties(this) != null) {
                 ItemStack remainder = inventory.addItem(held.copy());
@@ -831,6 +1082,9 @@ public class CivilianEntity extends PathfinderMob {
     }
 
     private void tickSpeech() {
+        if (isLyingDown()) {
+            return;
+        }
         if (nextLineTick < 0) {
             // The first wait is shorter and random, so a crowd does not speak in sync.
             nextLineTick = tickCount + random.nextInt(COOLDOWN_MIN + 1);
@@ -904,7 +1158,7 @@ public class CivilianEntity extends PathfinderMob {
 
     /** Whether this civilian can be drawn into a conversation. */
     private boolean available() {
-        return isAlive() && talkPartner == null && dialoguePlayer == null;
+        return isAlive() && !isLyingDown() && talkPartner == null && dialoguePlayer == null;
     }
 
     private boolean startConversation() {

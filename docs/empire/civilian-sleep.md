@@ -1,7 +1,7 @@
-<!-- Written by Claude (2026-10-26, revised 2026-10-27) from Bright's decisions in this session. -->
+<!-- Written by Claude (2026-10-26, revised 2026-10-27) from Bright's decisions in this session; updated with implementation and verification by Gemini (2026-11-20). -->
 # Empire: Civilian sleep
 
-**Date:** 2026-10-27 · **Status:** planned; implementation by Claude Code (prompts S1–S5), branch `civilian-sleep` off `main`.
+**Date:** 2026-10-27 (implemented 2026-11-20) · **Status:** built on branch `empire/civilian-sleep` (worktree `../EnginesAndEmpires-empire`). Client visuals (bed pose, rough-sleep ground lift, woken grumble bubbles) remain unchecked in a client; Bright checks them.
 **Scope:** civilians sleep in beds like players and villagers, sleep rough by the bonfire when they have no bed, and record how well they slept. This is the data source for the fulfilment **Sleep** meter (`claude/civilian-fulfilment.md`); the meter itself is wired with fulfilment, not here.
 
 ## Decisions (Bright, 2026-10-26/27)
@@ -19,6 +19,7 @@
   It is then credited for the skipped time at that rate. Civilians already lying down stay where they are.
 - **D7 Unloaded nights.** A night the civilian was loaded for but never slept counts as 0. A night spent entirely unloaded counts as slept: 1.0 with a claimed bed, 0.5 without.
 - Previously confirmed: only citizens claim beds, within 48 blocks of home. An occupied, unreachable (600 ticks) or missing bed means rough sleep for the rest of that night. Damage wakes a sleeper, who may lie down again after 200 ticks. A right-click wakes it with a grumble line. Forward time jumps that stay within the night are credited without a teleport. Fulfilment uses one provider per meter with a default of 0.5.
+- **Confirmed (Bright, 2026-11-20):** readings **R1, R3–R6** approved; `FREE` and `TRAVELLER` civilians do not sleep for now (only `CITIZEN`s sleep); sneak + right-click inspects abilities silently without waking a sleeping citizen, while normal right-click wakes it with a grumble line.
 
 ## Claude's readings (Bright to check)
 
@@ -77,3 +78,19 @@
 - The scheduler owns bedtime.
 - The fulfilment Sleep meter reads `lastNight`.
 - A "Zzz" bubble and other client polish.
+- In-game client check by Bright: bed sleeping pose, rough-sleep prone render and 0.15-block ground lift in `CivilianRenderer`, woken grumble bubbles, and `/empire debug civilian info` / `roster` sleep output.
+
+## Implementation notes and deviations (Gemini, 2026-11-20)
+
+- **Rough sleep vs. vanilla `LivingEntity` sleeping:** Vanilla `LivingEntity.tick()` calls `checkBedExists()` whenever `SLEEPING_POS_ID` is set and immediately wakes any entity not on a bed block. Rough sleep therefore uses a synced `ROUGH_SLEEPING` entity data flag plus `Pose.SLEEPING` without setting `SLEEPING_POS_ID`. `CivilianEntity.getBedOrientation()` returns `null` during rough sleep so `LivingEntityRenderer` lies the model flat along `yBodyRot` without the bed-pillow translation, and `CivilianRenderer` lifts the rough-sleeping pose by `0.15` blocks so the model rests on top of the floor (to be checked visually in-game).
+- **Immobility and wake handling:** `CivilianEntity.isImmobile()` returns `true` while lying down (`isSleeping() || isRoughSleeping()`), freezing movement, jumping, and goals cleanly. Sleep ticking, rested/morning wake-ups, and time-jump / unloaded catch-up run in `CivilianEntity.aiStep()` (which still ticks while immobile).
+- **`PoiManager` claiming and release:** In MC 1.21.1, `PoiManager.take` uses `.findFirst()` (not closest) and `PoiManager.release` throws if the POI was already removed. `CivilianBeds.claimNearest` locates the closest `HAS_SPACE` `PoiTypes.HOME` on staked empire chunks via `findClosest` before acquiring it with `take`, and `CivilianBeds.release` guards with `exists(...)`. Claimed bed POIs are released on death, empire disband, leaving, re-recruitment, debug clear, and `/empire debug civilian sleep release`.
+- **Woken grumble lines:** Added `CivilianLines.Category.WOKEN` (4 lines: `civilian.empire.line.woken.0..3` in `en_us.json`, added by Gemini; JSON cannot hold comments).
+- **Game test batch isolation:** Synchronous persistence and interaction tests run in batch `civilians`. Multi-tick bed/POI and day-time tests run in individual `civilian_sleep_*` batches so parallel tests never overwrite each other's world `dayTime` or overlap 3×3 staked empires; every time-changing test restores `dayTime` in `finally`.
+
+## Verification (2026-11-20)
+
+- Full check (`./gradlew compileJava compileTestJava test runGameTestServer --console=plain`): **BUILD SUCCESSFUL** (4m 29s).
+  - Unit tests across all modules: **1380 passed, 5 skipped** (pre-existing), **0 failed, 0 errors** (Empire: **164**, including **17** new tests in `CivilianSleepTest` and `WOKEN` lang-key coverage in `CivilianLinesTest`; `core`: 33 including `ArchitectureTest`).
+  - Game test servers (all 11 passing): aggregate **434/434**, coreless **384/384**, Empire **135/135** (+11 new tests in `CivilianSleepGameTests`), Frontier **17/17**, Meteodyne **125/125**, Paradyne Lib **3/3**, Sable Fixes **2/2**, Seismic **20/20**, Simple Spoilage **34/34**, Sparse Ores **13/13**, Sparse Ores + Create **13/13**.
+- No client visual verification was performed; bed pose, rough-sleep ground lift, woken grumble bubbles, and debug command output remain for Bright to check in-game.

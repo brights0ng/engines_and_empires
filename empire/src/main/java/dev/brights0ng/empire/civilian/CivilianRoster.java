@@ -1,4 +1,4 @@
-// Written by Claude; extended with ability, needs and inventory persistence by ChatGPT.
+// Written by Claude; extended with ability, needs and inventory persistence by ChatGPT; extended with sleep and bed lifecycle by Gemini.
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashMap;
@@ -139,7 +139,9 @@ public final class CivilianRoster {
         }
         ServerLevel overworld = server.overworld();
         for (CivilianRecord record : records) {
+            CivilianBeds.release(overworld, record.bed());
             if (overworld.getEntity(record.body()) instanceof CivilianEntity body) {
+                body.setClaimedBed(null);
                 body.startLeaving();
             }
         }
@@ -154,6 +156,8 @@ public final class CivilianRoster {
         if (civilian.status() == CivilianEntity.Status.CITIZEN) {
             CivilianRecord record = civilian.ownRecord(data);
             if (record != null) {
+                CivilianBeds.releaseAndDetach(level, record.empire(), record.id(),
+                        record.bed() != null ? record.bed() : civilian.claimedBed());
                 data.removeCivilian(record.id());
                 STRIKES.remove(record.id());
                 EmpireRecord empire = data.getEmpire(record.empire());
@@ -227,6 +231,8 @@ public final class CivilianRoster {
         } else if (civilian.status() == CivilianEntity.Status.CITIZEN) {
             CivilianRecord old = civilian.ownRecord(data);
             if (old != null) {
+                CivilianBeds.releaseAndDetach(level, old.empire(), old.id(), old.bed());
+                civilian.setClaimedBed(null);
                 data.removeCivilian(old.id());
             }
         }
@@ -235,6 +241,8 @@ public final class CivilianRoster {
                 civilian.appearance().pack(), civilian.blockPosition(), civilian.chunkPosition().toLong(), level.getGameTime());
         record.setAbilities(civilian.abilities().pack());
         record.setFood(civilian.food().save());
+        record.setSleep(civilian.sleep().save());
+        record.setBed(civilian.claimedBed());
         record.setHealth(civilian.getHealth());
         record.setInventory(civilian.inventory().getItems());
         data.addCivilian(record);

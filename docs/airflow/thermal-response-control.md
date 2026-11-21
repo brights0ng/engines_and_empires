@@ -1,9 +1,10 @@
 <!-- Written by ChatGPT. -->
+<!-- Links updated by Claude for the move to docs/history/local-air (GreedyFluids M7f f3). -->
 # Thermal response speed
 
-Follow-up: the [coupled response and elapsed-interval report](local-air-response-results.md) extends this historical Stage 1 evidence with chronological rate snapshots and numerical coupling checks. The live thermal-only control described here retains its existing behavior.
+Follow-up: the [coupled response and elapsed-interval report](../history/local-air/local-air-response-results.md) extends this historical Stage 1 evidence with chronological rate snapshots and numerical coupling checks. The live thermal-only control described here retains its existing behavior.
 
-Implemented 2026-10-19 as the response-scale portion of stage 1 in [the local air model plan](local-air-model-plan.md). The geometry/cache comparison is documented separately in [incremental geometry preparation](local-air-incremental-results.md). No airflow kernel has been added.
+Implemented 2026-10-19 as the response-scale portion of stage 1 in [the local air model plan](../history/local-air/local-air-model-plan.md). The geometry/cache comparison is documented separately in [incremental geometry preparation](../history/local-air/local-air-incremental-results.md). No airflow kernel has been added.
 
 ## Use
 

@@ -1,4 +1,14 @@
 // Updated by ChatGPT: added reloadable thermal response speed without changing weather time or wind units.
+// Updated by Claude: [heat] engine, the airflow/legacy switch (GreedyFluids M7b).
+// Updated by Claude: [heat] airflowMergeTiles and airflowMergeSettleSeconds, tiles run as one region (GreedyFluids M8b5b).
+// Updated by Claude: [seasons] obliquity and sunLatitude, the sun's strength through the year.
+// Updated by Claude: [heat] airflow speed limit and tile cap (GreedyFluids M7e).
+// Updated by Claude: [heat] airflow stone conductivity and heat capacity, and heat diffusivity (GreedyFluids M7f).
+// Updated by Claude: [heat] airflowSourceVelocityRadius, how far from a heat source the air's motion is always resolved
+// (GreedyFluids M8c c3).
+// Updated by Claude: [heat] engine defaults to AIRFLOW (GreedyFluids M7f f3).
+// Updated by Claude: [heat] airflow neighbour tiles, their threshold and reach (GreedyFluids M8b b4).
+// Updated by Claude: [heat] airflow surface film, a physical one (GreedyFluids M8a).
 package dev.brights0ng.meteodyne.rain;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -117,9 +127,10 @@ public final class WeatherConfig {
             .defineInRange("cap", 15.0, 0.0, 60.0);
 
     public static final ModConfigSpec.DoubleValue SUN_WARMTH_MAX = BUILDER
-            .comment("How much warmer it feels in full sun at noon under a clear sky, C (the NWS's figure for the",
-                    "heat index is up to 8). Smaller when the sun is low, a quarter behind glass or leaves, less",
-                    "through cloud, none in shade or at night. 0 turns sun warmth off.")
+            .comment("How much warmer it feels in full sun at noon under a clear sky at midsummer, C (the NWS's figure",
+                    "for the heat index is up to 8). Smaller when the sun is low, through the year as [seasons]",
+                    "obliquity and sunLatitude set it (half at midwinter by default), a quarter behind glass or",
+                    "leaves, less through cloud, none in shade or at night. 0 turns sun warmth off.")
             .defineInRange("sunWarmth", 8.0, 0.0, 30.0);
 
     public static final ModConfigSpec.IntValue SUN_BLOCK_REACH = BUILDER
@@ -183,6 +194,24 @@ public final class WeatherConfig {
                     "Serene Seasons' default year. The year starts (early spring) at day time 0.")
             .defineInRange("yearTicks", dev.brights0ng.meteodyne.climate.BuiltinCalendar.DEFAULT_YEAR_TICKS, 24000L,
                     24000L * 10000);
+
+    /** Earth's axial tilt, degrees. */
+    public static final double DEFAULT_OBLIQUITY = 23.44;
+    /** The latitude where Earth's tilt halves the noon sun from midsummer to midwinter, degrees. */
+    public static final double DEFAULT_SUN_LATITUDE = 37.55;
+
+    public static final ModConfigSpec.DoubleValue OBLIQUITY = BUILDER
+            .comment("The world's axial tilt, degrees (Earth's is 23.44). Through the year the noon sun stands this",
+                    "much higher at midsummer and lower at midwinter than at the equinoxes, so it sets how much",
+                    "weaker the sun's warmth is in winter (half with the defaults). 0: the same sun all year. A",
+                    "tilted sky will follow it later; for now the sun's path in the sky doesn't change.")
+            .defineInRange("obliquity", DEFAULT_OBLIQUITY, 0.0, 90.0);
+
+    public static final ModConfigSpec.DoubleValue SUN_LATITUDE = BUILDER
+            .comment("How far from the equator the world sits, degrees, for the noon sun's height: 90 - sunLatitude",
+                    "at the equinoxes, plus or minus obliquity at the solstices. 37.55 is where Earth's tilt halves",
+                    "the sun's warmth from midsummer to midwinter. A tilted sky will follow it later.")
+            .defineInRange("sunLatitude", DEFAULT_SUN_LATITUDE, 0.0, 90.0);
 
     static {
         BUILDER.pop().comment("Weather systems: the jet, lows (storms), highs and their fronts.").push("systems");
@@ -357,6 +386,93 @@ public final class WeatherConfig {
             .comment("Whether the heat simulation runs.")
             .define("enabled", true);
 
+    public static final ModConfigSpec.EnumValue<dev.brights0ng.meteodyne.airflow.Airflow.Engine> HEAT_ENGINE = BUILDER
+            .comment("Which simulation runs the air (GreedyFluids M7). Read when the server starts: a change needs a restart.",
+                    "AIRFLOW (the default): GreedyFluids air tiles around players; ships' rooms have no room heat.",
+                    "LEGACY: the heat regions around placed sources, ships' rooms included.",
+                    "The budget, threads and step settings below are LEGACY's.")
+            .defineEnum("engine", dev.brights0ng.meteodyne.airflow.Airflow.Engine.AIRFLOW);
+
+    public static final ModConfigSpec.DoubleValue AIRFLOW_SPEED_LIMIT = BUILDER
+            .comment("AIRFLOW: a player moving faster than this, blocks a second over the last 2 s, opens no new air",
+                    "tile (walking is 4.3, running 5.6); a tile they are already in keeps running at any speed. 0: no",
+                    "limit.")
+            .defineInRange("airflowSpeedLimit", 5.5, 0.0, 1000.0);
+
+    public static final ModConfigSpec.EnumValue<dev.brights0ng.meteodyne.airflow.AirflowLimits.CapMode> AIRFLOW_CAP_MODE =
+            BUILDER.comment("AIRFLOW: how airflowTileCap counts. SERVER: tiles on the whole server. PER_PLAYER: tiles per",
+                    "player, a tile belonging to the player last in it.")
+            .defineEnum("airflowTileCapMode", dev.brights0ng.meteodyne.airflow.AirflowLimits.CapMode.SERVER);
+
+    public static final ModConfigSpec.IntValue AIRFLOW_TILE_CAP = BUILDER
+            .comment("AIRFLOW: the most air tiles that run at once (see airflowTileCapMode). Past it, the tiles empty",
+                    "longest close early; a tile with a player in it always runs.")
+            .defineInRange("airflowTileCap", 12, 1, 1024);
+
+    public static final ModConfigSpec.EnumValue<dev.brights0ng.meteodyne.airflow.AirflowNeighbourTiles.Mode>
+            AIRFLOW_NEIGHBOUR_TILES = BUILDER
+            .comment("AIRFLOW: tiles that run beside a player's tile where the enclosed air the player stands in (a",
+                    "room, a cave) crosses a tile border, so it is simulated on both sides of the border. A player",
+                    "outdoors keeps none. ON: they run. REPORT: /meteodyne airflow status and the recorder count which",
+                    "would, at 2, 4 and 8 cells, without running them. OFF: neither. They count toward airflowTileCap.")
+            .defineEnum("airflowNeighbourTiles", dev.brights0ng.meteodyne.airflow.AirflowNeighbourTiles.Mode.ON);
+
+    public static final ModConfigSpec.IntValue AIRFLOW_NEIGHBOUR_MIN_CELLS = BUILDER
+            .comment("AIRFLOW: how many block faces of the player's enclosed air a tile border must cut before the",
+                    "tile across runs beside the player's.")
+            .defineInRange("airflowNeighbourMinCells", 4, 1, 4096);
+
+    public static final ModConfigSpec.IntValue AIRFLOW_NEIGHBOUR_REACH = BUILDER
+            .comment("AIRFLOW: how far the player's enclosed air is followed, blocks walked (shut doors stop it).")
+            .defineInRange("airflowNeighbourReach", 32, 1, 64);
+
+    public static final ModConfigSpec.EnumValue<dev.brights0ng.meteodyne.airflow.AirflowMerge.Mode> AIRFLOW_MERGE_TILES =
+            BUILDER.comment("AIRFLOW: tiles run as one region, so air crosses the borders between them (a room or cave",
+                            "cut by a border; at most 4 tiles, in a box). LINKED: the tiles the enclosed air a player",
+                            "stands in reaches (see airflowNeighbourTiles). ADJACENT: also any running tiles joined to",
+                            "a player's face to face. OFF: every tile runs alone.")
+                    .defineEnum("airflowMergeTiles", dev.brights0ng.meteodyne.airflow.AirflowMerge.Mode.LINKED);
+
+    public static final ModConfigSpec.DoubleValue AIRFLOW_MERGE_SETTLE = BUILDER
+            .comment("AIRFLOW: how long tiles must call for merging (or no longer call for it) before they merge (or",
+                    "split), seconds. Each merge or split rebuilds the region: the heat carries over, the air's motion",
+                    "starts again from still.")
+            .defineInRange("airflowMergeSettleSeconds", 5.0, 0.0, 600.0);
+
+    public static final ModConfigSpec.DoubleValue AIRFLOW_STONE_CONDUCTIVITY = BUILDER
+            .comment("AIRFLOW: stone's thermal conductivity, W/(m·K) (real rock is about 2-3); the insulation table's",
+                    "values are relative to it, a block a metre thick. Lower keeps rooms warm longer. The old game",
+                    "scale was 42. Applies from the next /reload or restart.")
+            .defineInRange("airflowStoneConductivity", 2.5, 0.01, 1000.0);
+
+    public static final ModConfigSpec.DoubleValue AIRFLOW_STONE_HEAT_CAPACITY = BUILDER
+            .comment("AIRFLOW: stone's heat capacity, MJ/(m³·K) (real rock is about 2; air's is 0.0012); the insulation",
+                    "table's values are relative to it. Higher makes walls slower to warm and to cool. The old game",
+                    "scale was 0.0042. Applies from the next /reload or restart.")
+            .defineInRange("airflowStoneHeatCapacity", 2.0, 0.0001, 100.0);
+
+    public static final ModConfigSpec.DoubleValue AIRFLOW_SURFACE_FILM = BUILDER
+            .comment("AIRFLOW: the still-air film on each face of a wall, door or floor, m²·K/W (an indoor wall's is",
+                    "about 0.13, an outside face's in wind about 0.04). It is in series with the block itself, so higher",
+                    "keeps rooms warm longer and slows walls and doors to follow the air. GreedyFluids' own default is",
+                    "0.000124. Applies from the next /reload or restart.")
+            .defineInRange("airflowSurfaceFilm", dev.brights0ng.meteodyne.airflow.AirflowCells.Table.DEFAULT_SURFACE_FILM,
+                    0.00001, 10.0);
+
+    public static final ModConfigSpec.DoubleValue AIRFLOW_HEAT_DIFFUSIVITY = BUILDER
+            .comment("AIRFLOW: how fast heat spreads through the air by mixing alone, m²/s (indoor air mixes at about",
+                    "0.01-0.1). Lower lets warm air rise and gather under ceilings and fires draw up chimneys; higher",
+                    "evens a room out. GreedyFluids' own default is 1. Applies to tiles built after the change.")
+            .defineInRange("airflowHeatDiffusivity", 0.05, 0.001, 10.0);
+
+    public static final ModConfigSpec.IntValue AIRFLOW_SOURCE_VELOCITY_RADIUS = BUILDER
+            .comment("AIRFLOW: how far from a heat source (a fire, furnace, lava or magma) the air's motion is always",
+                    "worked out in full, blocks. Farther out it is worked out only where neighbouring air differs in",
+                    "temperature, which is what keeps windy open ground cheap. Larger places plumes and warm air",
+                    "around a base more faithfully and costs more around sources; 0 leaves it to the contrast alone.",
+                    "Applies to tiles built after the change.")
+            .defineInRange("airflowSourceVelocityRadius", 12, 0, 32);
+
     public static final ModConfigSpec.DoubleValue HEAT_BUDGET = BUILDER
             .comment("CPU cores the simulation may use on average (its own threads, not the server thread). When it",
                     "needs more, rooms are stepped less often in longer steps: warming stays on time, a little coarser.")
@@ -411,6 +527,77 @@ public final class WeatherConfig {
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 
+    /** Which simulation runs the air (GreedyFluids M7b); AIRFLOW before the config loads. {@code Airflow} reads it at server start. */
+    public static dev.brights0ng.meteodyne.airflow.Airflow.Engine heatEngine() {
+        return SPEC.isLoaded() ? HEAT_ENGINE.get() : dev.brights0ng.meteodyne.airflow.Airflow.Engine.AIRFLOW;
+    }
+
+    /** AIRFLOW: the speed over which a player opens no new tile, blocks a second (0: none). */
+    public static double airflowSpeedLimit() {
+        return SPEC.isLoaded() ? AIRFLOW_SPEED_LIMIT.get() : 5.5;
+    }
+
+    /** AIRFLOW: how the tile cap counts. */
+    public static dev.brights0ng.meteodyne.airflow.AirflowLimits.CapMode airflowCapMode() {
+        return SPEC.isLoaded() ? AIRFLOW_CAP_MODE.get() : dev.brights0ng.meteodyne.airflow.AirflowLimits.CapMode.SERVER;
+    }
+
+    /** AIRFLOW: the most tiles that run at once. */
+    public static int airflowTileCap() {
+        return SPEC.isLoaded() ? AIRFLOW_TILE_CAP.get() : 12;
+    }
+
+    /** AIRFLOW: whether tiles run beside players' where rooms cross borders (M8b b4). */
+    public static dev.brights0ng.meteodyne.airflow.AirflowNeighbourTiles.Mode airflowNeighbourTiles() {
+        return SPEC.isLoaded() ? AIRFLOW_NEIGHBOUR_TILES.get() : dev.brights0ng.meteodyne.airflow.AirflowNeighbourTiles.Mode.ON;
+    }
+
+    /** AIRFLOW: the enclosed cells a border must cut before the tile across runs (M8b b4). */
+    public static int airflowNeighbourMinCells() {
+        return SPEC.isLoaded() ? AIRFLOW_NEIGHBOUR_MIN_CELLS.get() : 4;
+    }
+
+    /** AIRFLOW: how far the player's enclosed air is followed, blocks (M8b b4, G2). */
+    public static int airflowNeighbourReach() {
+        return SPEC.isLoaded() ? AIRFLOW_NEIGHBOUR_REACH.get() : 32;
+    }
+
+    /** AIRFLOW: which tiles run as one region (M8b5b). */
+    public static dev.brights0ng.meteodyne.airflow.AirflowMerge.Mode airflowMergeTiles() {
+        return SPEC.isLoaded() ? AIRFLOW_MERGE_TILES.get() : dev.brights0ng.meteodyne.airflow.AirflowMerge.Mode.LINKED;
+    }
+
+    /** AIRFLOW: how long a merge or split waits, seconds (M8b5b). */
+    public static double airflowMergeSettleSeconds() {
+        return SPEC.isLoaded() ? AIRFLOW_MERGE_SETTLE.get() : 5.0;
+    }
+
+    /** AIRFLOW: stone's thermal conductivity, W/(m·K). */
+    public static double airflowStoneConductivity() {
+        return SPEC.isLoaded() ? AIRFLOW_STONE_CONDUCTIVITY.get() : 2.5;
+    }
+
+    /** AIRFLOW: stone's heat capacity, MJ/(m³·K). */
+    public static double airflowStoneHeatCapacity() {
+        return SPEC.isLoaded() ? AIRFLOW_STONE_HEAT_CAPACITY.get() : 2.0;
+    }
+
+    /** AIRFLOW: the surface film on each face of a solid, m²·K/W. */
+    public static double airflowSurfaceFilm() {
+        return SPEC.isLoaded() ? AIRFLOW_SURFACE_FILM.get() : dev.brights0ng.meteodyne.airflow.AirflowCells.Table.DEFAULT_SURFACE_FILM;
+    }
+
+    /** AIRFLOW: the air's heat diffusivity, m²/s. */
+    public static double airflowHeatDiffusivity() {
+        return SPEC.isLoaded() ? AIRFLOW_HEAT_DIFFUSIVITY.get() : 0.05;
+    }
+
+    /** AIRFLOW: how far from a heat source the air's motion is always resolved, blocks (M8c c3). */
+    public static int airflowSourceVelocityRadius() {
+        return SPEC.isLoaded() ? AIRFLOW_SOURCE_VELOCITY_RADIUS.get()
+                : dev.brights0ng.greedyfluids.refine.AdaptiveMesh3D.DEFAULT_SOURCE_VELOCITY_RADIUS;
+    }
+
     /** The height cooling, C per 100 blocks. */
     public static double heightCoolingPer100() {
         return SPEC.isLoaded() ? HEIGHT_COOLING_PER_100.get() : DEFAULT_HEIGHT_COOLING_PER_100;
@@ -432,6 +619,16 @@ public final class WeatherConfig {
     /** How far toward the sun blocks and ships can shade a person, blocks. */
     public static int sunBlockReach() {
         return SPEC.isLoaded() ? SUN_BLOCK_REACH.get() : 96;
+    }
+
+    /** The world's axial tilt, degrees. */
+    public static double obliquity() {
+        return SPEC.isLoaded() ? OBLIQUITY.get() : DEFAULT_OBLIQUITY;
+    }
+
+    /** The world's latitude for the noon sun's height, degrees. */
+    public static double sunLatitude() {
+        return SPEC.isLoaded() ? SUN_LATITUDE.get() : DEFAULT_SUN_LATITUDE;
     }
 
     /** The height cooling as a multiple of the standard atmosphere's (what {@code Temperature.heightCorrection} takes). */

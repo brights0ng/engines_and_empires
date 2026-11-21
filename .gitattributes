@@ -3,3 +3,7 @@
 # are changed when only line endings change.
 src/generated/**/.cache/* text eol=lf
 src/generated/**/*.json text eol=lf
+# Shell scripts run in Git Bash on Windows too: keep LF so bash doesn't read a carriage return (added by Claude, GreedyFluids M7b).
+*.sh text eol=lf
+# The pinned GreedyFluids (meteodyne/vendor/maven) is kept byte for byte, so its checksum files stay true (added by Claude, GreedyFluids M7b).
+meteodyne/vendor/** binary

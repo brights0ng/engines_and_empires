@@ -104,6 +104,26 @@ final class SableHeatShips implements HeatShips {
         return new AABB(b.minX(), b.minY(), b.minZ(), b.maxX(), b.maxY(), b.maxZ());
     }
 
+    /** Added by Claude (GreedyFluids M7b b3). */
+    @Override
+    public boolean aboard(ServerLevel level, Vec3 pos, double margin) {
+        ServerSubLevelContainer container = SubLevelContainer.getContainer(level);
+        if (container == null) {
+            return false;
+        }
+        for (ServerSubLevel ship : container.getAllSubLevels()) {
+            if (ship.isRemoved()) {
+                continue;
+            }
+            BoundingBox3dc b = ship.boundingBox();
+            if (pos.x >= b.minX() - margin && pos.x <= b.maxX() + margin && pos.y >= b.minY() - margin
+                    && pos.y <= b.maxY() + margin && pos.z >= b.minZ() - margin && pos.z <= b.maxZ() + margin) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public HeatWorld.ShipAir shipAir(ServerLevel level, Object handle, List<Vec3> people, double near) {
         SubLevel ship = (SubLevel) handle;
