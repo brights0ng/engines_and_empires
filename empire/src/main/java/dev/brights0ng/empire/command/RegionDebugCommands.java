@@ -104,12 +104,14 @@ public final class RegionDebugCommands {
         source.sendSuccess(() -> Component.literal(regions.size() + " region" + (regions.size() == 1 ? "" : "s")), false);
         for (RegionRecord region : regions) {
             String cap = region.type() == RegionType.HOME
-                    ? region.inhabitants().size() + "/" + RegionRules.homeCapacity(region.blockCount())
+                    ? region.inhabitants().size() + "/" + RegionRules.homeCapacity(region.effectiveVolume())
                     : String.valueOf(region.inhabitants().size());
             String status = region.valid() ? "VALID" : "INVALID(" + region.invalidReason().id() + ")";
             source.sendSuccess(() -> Component.literal("[" + shortId(region.id()) + "] "
                     + region.type().id() + " (" + region.origin().id() + ") " + status
-                    + ", blocks=" + region.blockCount() + ", inhabitants=" + cap
+                    + ", blocks=" + region.effectiveVolume() + "/" + region.blockCount()
+                    + ", rooms=" + region.rooms().size()
+                    + ", inhabitants=" + cap
                     + ", bounds=(" + region.minX() + "," + region.minY() + "," + region.minZ()
                     + ")..(" + region.maxX() + "," + region.maxY() + "," + region.maxZ() + ")"), false);
         }
@@ -131,18 +133,71 @@ public final class RegionDebugCommands {
         String status = region.valid() ? "VALID"
                 : "INVALID (" + region.invalidReason().id() + ", since tick " + region.invalidSinceGameTime() + ")";
         String cap = region.type() == RegionType.HOME
-                ? region.inhabitants().size() + "/" + RegionRules.homeCapacity(region.blockCount())
+                ? region.inhabitants().size() + "/" + RegionRules.homeCapacity(region.effectiveVolume())
                 : String.valueOf(region.inhabitants().size());
         source.sendSuccess(() -> Component.literal("Region [" + shortId(region.id()) + "] "
                 + region.type().id() + " (" + region.origin().id() + ") — " + status), false);
         long seed = region.seed();
         source.sendSuccess(() -> Component.literal("Blocks: " + region.blockCount()
+                + " (effective: " + region.effectiveVolume() + ", separators: " + region.separators().size() + ")"
                 + ", chunks: " + region.chunks().size()
                 + ", inhabitants: " + cap
                 + ", seed: (" + BlockKeys.getX(seed) + "," + BlockKeys.getY(seed) + "," + BlockKeys.getZ(seed) + ")"
                 + ", bounds: (" + region.minX() + "," + region.minY() + "," + region.minZ()
                 + ")..(" + region.maxX() + "," + region.maxY() + "," + region.maxZ() + ")"), false);
+
+        List<RegionRecord.RoomRecord> rooms = region.rooms();
+        int indoorCount = 0;
+        int outdoorCount = 0;
+        for (RegionRecord.RoomRecord room : rooms) {
+            if (room.isOutdoor()) {
+                outdoorCount++;
+            } else if (room.isIndoor()) {
+                indoorCount++;
+            }
+        }
+        String here;
+        if (region.isSeparator(pos)) {
+            here = "separator";
+        } else {
+            RegionRecord.RoomRecord standingRoom = region.roomAt(pos);
+            here = standingRoom != null
+                    ? "room #" + standingRoom.index() + " " + formatLabels(standingRoom) + " (" + standingRoom.blockCount() + " blocks)"
+                    : "unassigned";
+        }
+        int inRooms = indoorCount;
+        int outRooms = outdoorCount;
+        source.sendSuccess(() -> Component.literal("Rooms: " + rooms.size()
+                + " (" + inRooms + " indoor, " + outRooms + " outdoor) — here: " + here), false);
+        if (!rooms.isEmpty()) {
+            StringBuilder summary = new StringBuilder("  ");
+            for (int i = 0; i < rooms.size(); i++) {
+                if (i > 0) {
+                    summary.append(", ");
+                }
+                RegionRecord.RoomRecord room = rooms.get(i);
+                summary.append('#').append(room.index()).append(' ').append(formatLabels(room))
+                        .append('(').append(room.blockCount()).append(')');
+            }
+            source.sendSuccess(() -> Component.literal(summary.toString()), false);
+        }
         return 1;
+    }
+
+    private static String formatLabels(RegionRecord.RoomRecord room) {
+        if (room.labels().isEmpty()) {
+            return "[]";
+        }
+        StringBuilder sb = new StringBuilder("[");
+        boolean first = true;
+        for (var label : room.labels()) {
+            if (!first) {
+                sb.append(',');
+            }
+            first = false;
+            sb.append(label.id());
+        }
+        return sb.append(']').toString();
     }
 
     private static int scanHome(CommandSourceStack source, RegionOrigin origin) {
@@ -165,9 +220,10 @@ public final class RegionDebugCommands {
         RegionRecord created = scan.region();
         data.addRegion(created);
         RegionNetwork.pushToEmpire(overworld, empire.id());
-        int cap = RegionRules.homeCapacity(created.blockCount());
+        int cap = RegionRules.homeCapacity(created.effectiveVolume());
         source.sendSuccess(() -> Component.literal("Created " + origin.id() + " HOME [" + shortId(created.id())
-                + "]: " + created.blockCount() + " blocks, capacity " + cap), true);
+                + "]: " + created.effectiveVolume() + " indoor/" + created.blockCount() + " total blocks, "
+                + created.rooms().size() + " room(s), capacity " + cap), true);
         return 1;
     }
 

@@ -28,7 +28,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 @EventBusSubscriber(modid = Empire.MODID)
 public final class RegionNetwork {
 
-    private static final String VERSION = "1";
+    private static final String VERSION = "2";
     /** Minimum ticks between answering explicit client requests from the same player. */
     private static final int ANSWER_GAP = 5;
     /** Default chunk radius used when pushing region updates to online empire members. */
@@ -119,7 +119,8 @@ public final class RegionNetwork {
                     region.valid(),
                     region.minX(),
                     region.minZ(),
-                    region.blocks().toLongArray()));
+                    region.renderBlocks(),
+                    region.renderSeparators()));
         }
         return new RegionPayloads.Sync(out);
     }

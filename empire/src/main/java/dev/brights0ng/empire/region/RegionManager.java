@@ -285,6 +285,10 @@ public final class RegionManager {
             if (shapeChanged) {
                 data.replaceRegionBlocks(region, rescan.blocks());
             }
+            boolean roomsChanged = region.setRooms(rescan.partition());
+            if (roomsChanged) {
+                data.setDirty();
+            }
             boolean becameValid = !region.valid();
             if (becameValid) {
                 region.markValid();
@@ -292,7 +296,7 @@ public final class RegionManager {
                 data.setDirty();
             }
             reconcileInhabitants(overworld, data, region);
-            if (shapeChanged || becameValid) {
+            if (shapeChanged || roomsChanged || becameValid) {
                 region.bumpRevision();
                 RegionNetwork.pushToEmpire(overworld, region.empireId());
             }
@@ -303,14 +307,22 @@ public final class RegionManager {
 
     private static void updateFixedRegion(ServerLevel overworld, EmpireSavedData data, EmpireRecord empire,
                                           RegionRecord region, long gameTime) {
+        boolean roomsChanged = region.type() == RegionType.HOME
+                && HomeRegionScanner.refreshRooms(overworld, region);
         RegionInvalidReason reason = switch (region.type()) {
             case HOME -> HomeRegionScanner.validate(overworld, data, empire, region);
         };
         if (reason == RegionInvalidReason.NONE) {
-            if (!region.valid()) {
+            boolean becameValid = !region.valid();
+            if (becameValid) {
                 region.markValid();
-                region.bumpRevision();
                 SCHEDULED_EXPIRIES.remove(region.id());
+            }
+            if (roomsChanged) {
+                reconcileInhabitants(overworld, data, region);
+            }
+            if (becameValid || roomsChanged) {
+                region.bumpRevision();
                 data.setDirty();
                 RegionNetwork.pushToEmpire(overworld, region.empireId());
             }
@@ -346,28 +358,28 @@ public final class RegionManager {
     }
 
     /**
-     * After an {@code AUTO} {@code HOME} reshapes, detaches any inhabitant whose claimed bed was cut off from the
-     * region, then evicts excess inhabitants (most recently added first) if the new volume has lower capacity.
+     * After a {@code HOME} reshapes or its rooms change, detaches any inhabitant whose claimed bed was cut off or
+     * turned outdoor, then evicts excess inhabitants (most recently added first) if effective indoor volume shrank.
      */
     private static void reconcileInhabitants(ServerLevel overworld, EmpireSavedData data, RegionRecord region) {
         if (region.inhabitants().isEmpty()) {
             return;
         }
         boolean changed = false;
-        // 1. Detach inhabitants whose claimed bed is missing or cut off outside the updated region.
+        // 1. Detach inhabitants whose claimed bed is missing, cut off, or now in an OUTDOOR room / separator.
         for (UUID civilianId : List.copyOf(region.inhabitants())) {
             CivilianRecord record = data.civilian(civilianId);
             BlockPos bed = record != null ? record.bed() : null;
             if (bed == null && record != null && overworld.getEntity(record.body()) instanceof CivilianEntity body) {
                 bed = body.claimedBed();
             }
-            if (bed == null || !region.containsBlock(bed)) {
+            if (bed == null || !region.containsBlock(bed) || !region.isIndoorBlock(bed)) {
                 detachSingleInhabitant(overworld, data, region, civilianId);
                 changed = true;
             }
         }
         // 2. If capacity shrank below remaining inhabitant count, evict excess inhabitants (newest first).
-        int capacity = RegionRules.homeCapacity(region.blockCount());
+        int capacity = RegionRules.homeCapacity(region.effectiveVolume());
         if (region.inhabitants().size() > capacity) {
             List<UUID> ordered = new ArrayList<>(region.inhabitants());
             for (int i = ordered.size() - 1; i >= capacity; i--) {

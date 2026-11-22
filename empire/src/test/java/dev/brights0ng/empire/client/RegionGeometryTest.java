@@ -171,14 +171,17 @@ class RegionGeometryTest {
     }
 
     @Test
-    void styleMappingCoversInvalidAndEveryRegionType() {
+    void styleMappingCoversInvalidSeparatorAndEveryRegionType() {
         assertEquals(RegionGeometry.STYLE_INVALID, RegionGeometry.styleFor(RegionType.HOME, false));
         assertEquals(RegionGeometry.STYLE_INVALID, RegionGeometry.styleFor(null, true));
         assertNull(RegionGeometry.typeForStyle(RegionGeometry.STYLE_INVALID));
+        assertNull(RegionGeometry.typeForStyle(RegionGeometry.STYLE_SEPARATOR));
+        assertNotEquals(RegionGeometry.STYLE_INVALID, RegionGeometry.STYLE_SEPARATOR);
 
         for (RegionType type : RegionType.values()) {
             int style = RegionGeometry.styleFor(type, true);
             assertNotEquals(RegionGeometry.STYLE_INVALID, style);
+            assertNotEquals(RegionGeometry.STYLE_SEPARATOR, style);
             assertEquals(type, RegionGeometry.typeForStyle(style));
         }
     }

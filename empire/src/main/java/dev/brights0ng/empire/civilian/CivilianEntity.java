@@ -506,7 +506,7 @@ public class CivilianEntity extends PathfinderMob {
         if (claimedBed != null) {
             RegionRecord region = data.regionAt(claimedBed);
             if (region != null) {
-                int cap = RegionRules.homeCapacity(region.blockCount());
+                int cap = RegionRules.homeCapacity(region.effectiveVolume());
                 String validity = region.valid() ? "VALID" : "INVALID:" + region.invalidReason().id();
                 bedLine.append(" | HomeRegion: ").append(region.id().toString(), 0, 8)
                         .append(" (").append(validity)

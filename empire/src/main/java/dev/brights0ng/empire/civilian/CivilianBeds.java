@@ -64,7 +64,8 @@ public final class CivilianBeds {
         }
         RegionRecord region = EmpireSavedData.of(level).regionAt(pos);
         if (region == null || !region.empireId().equals(empire.id())
-                || region.type() != RegionType.HOME || !region.valid()) {
+                || region.type() != RegionType.HOME || !region.valid()
+                || !region.isIndoorBlock(pos)) {
             return false;
         }
         if (level.hasChunkAt(pos)) {
@@ -117,10 +118,11 @@ public final class CivilianBeds {
             if (existing != null) {
                 if (!existing.empireId().equals(empire.id())
                         || existing.type() != RegionType.HOME
-                        || !existing.valid()) {
+                        || !existing.valid()
+                        || !existing.isIndoorBlock(target)) {
                     continue;
                 }
-                int capacity = RegionRules.homeCapacity(existing.blockCount());
+                int capacity = RegionRules.homeCapacity(existing.effectiveVolume());
                 boolean alreadyMember = civilianId != null && existing.inhabitants().contains(civilianId);
                 if (!alreadyMember && existing.inhabitants().size() >= capacity) {
                     continue;
@@ -155,7 +157,8 @@ public final class CivilianBeds {
                     continue;
                 }
                 RegionRecord created = scan.region();
-                if (RegionRules.homeCapacity(created.blockCount()) < 1) {
+                if (!created.isIndoorBlock(target)
+                        || RegionRules.homeCapacity(created.effectiveVolume()) < 1) {
                     RegionManager.markFailedBed(level, target);
                     continue;
                 }
@@ -226,7 +229,7 @@ public final class CivilianBeds {
                     if (region.inhabitants().contains(civilianId)) {
                         return current;
                     }
-                    if (region.inhabitants().size() < RegionRules.homeCapacity(region.blockCount())) {
+                    if (region.inhabitants().size() < RegionRules.homeCapacity(region.effectiveVolume())) {
                         region.addInhabitant(civilianId);
                         data.setDirty();
                         return current;

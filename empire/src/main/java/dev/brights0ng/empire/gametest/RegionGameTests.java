@@ -2,6 +2,8 @@
 package dev.brights0ng.empire.gametest;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -17,12 +19,16 @@ import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
 import dev.brights0ng.empire.region.HomeRegionScanner;
 import dev.brights0ng.empire.region.RegionManager;
+import dev.brights0ng.empire.region.RegionRoomScanner;
 import dev.brights0ng.empire.rules.BlockKeys;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.RegionInvalidReason;
 import dev.brights0ng.empire.rules.RegionOrigin;
+import dev.brights0ng.empire.rules.RegionRooms;
 import dev.brights0ng.empire.rules.RegionRules;
 import dev.brights0ng.empire.rules.RegionType;
+import dev.brights0ng.empire.rules.RoomLabel;
+import dev.brights0ng.empire.rules.RoomSeparator;
 import dev.brights0ng.empire.rules.StakeResult;
 import dev.brights0ng.empire.rules.UnstakeResult;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
@@ -135,9 +141,16 @@ public final class RegionGameTests {
         EmpireRecord empire = fresh.createEmpire(founder, ChunkKeys.pack(0, 0), new BlockPos(4, 64, 4), 100L);
         long b1 = BlockPos.asLong(1, 64, 1);
         long b2 = BlockPos.asLong(1, 65, 1);
+        long sep = BlockPos.asLong(2, 64, 1);
+        long out = BlockPos.asLong(3, 64, 1);
         UUID citizenId = UUID.randomUUID();
         RegionRecord region = new RegionRecord(UUID.randomUUID(), empire.id(), RegionType.HOME, RegionOrigin.MANUAL,
-                b2, Set.of(b1, b2));
+                b2, Set.of(b1, b2, sep, out));
+        region.setRooms(new RegionRooms.Partition(
+                List.of(
+                        new RegionRooms.Room(0, Set.of(b1, b2), Set.of(RoomLabel.INDOOR)),
+                        new RegionRooms.Room(1, Set.of(out), Set.of(RoomLabel.OUTDOOR))),
+                Set.of(sep)));
         region.addInhabitant(citizenId);
         region.markInvalid(RegionInvalidReason.TOO_DARK, 500L);
         fresh.addRegion(region);
@@ -151,8 +164,14 @@ public final class RegionGameTests {
         helper.assertTrue(reloaded.origin() == RegionOrigin.MANUAL, "origin preserved");
         helper.assertTrue(reloaded.type() == RegionType.HOME, "type preserved");
         helper.assertTrue(reloaded.seed() == b2, "seed preserved");
-        helper.assertTrue(reloaded.blockCount() == 2 && reloaded.containsBlock(b1) && reloaded.containsBlock(b2),
+        helper.assertTrue(reloaded.blockCount() == 4 && reloaded.containsBlock(b1) && reloaded.containsBlock(b2)
+                && reloaded.containsBlock(sep) && reloaded.containsBlock(out),
                 "blocks preserved");
+        helper.assertTrue(reloaded.rooms().size() == 2 && reloaded.separators().contains(sep),
+                "rooms and separators preserved");
+        helper.assertTrue(reloaded.isIndoorBlock(b1) && reloaded.isOutdoorBlock(out) && reloaded.isSeparator(sep),
+                "room labels and lookup index preserved");
+        helper.assertTrue(reloaded.effectiveVolume() == 2, "effectiveVolume preserved");
         helper.assertTrue(reloaded.inhabitants().contains(citizenId), "inhabitants preserved");
         helper.assertFalse(reloaded.valid(), "invalid state preserved");
         helper.assertTrue(reloaded.invalidReason() == RegionInvalidReason.TOO_DARK, "invalid reason preserved");
@@ -781,6 +800,207 @@ public final class RegionGameTests {
             }
             helper.succeed();
         });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = "region_rooms_porch", timeoutTicks = 25)
+    public static void homeRoomsSeparateByDoorsIgnoreOutdoorPorchAndDetachWhenTurnedOutdoor(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        List<BlockPos> placed = new ArrayList<>();
+        BlockPos main = mainPos(helper);
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+        EmpireSavedData data = EmpireSavedData.of(level);
+
+        // Indoor room A: 5x2x5 = 50 blocks (lit, has bed1).
+        BlockPos roomA = buildRoom(level, main.offset(2, 0, -2), 5, 2, 5, Blocks.STONE, true, placed);
+        BlockPos bed1 = placeBed(level, roomA.offset(0, 0, 0), Direction.EAST, placed);
+
+        // Covered porch B directly east of roomA (x=6..8, y=0..1, z=0..4 -> 3x2x5 = 30 blocks), UNLIT, open to sky on
+        // its east side (x=9), separated from roomA by an OPEN oak door at x=5, z=2.
+        for (int dx = 6; dx <= 8; dx++) {
+            for (int dz = 0; dz < 5; dz++) {
+                BlockPos floor = roomA.offset(dx, -1, dz);
+                BlockPos roof = roomA.offset(dx, 2, dz);
+                level.setBlock(floor, Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
+                level.setBlock(roof, Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
+                placed.add(floor);
+                placed.add(roof);
+                for (int dy = 0; dy < 2; dy++) {
+                    BlockPos air = roomA.offset(dx, dy, dz);
+                    level.setBlock(air, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                    placed.add(air);
+                }
+            }
+        }
+        // Place a bed on the covered porch — must NOT be claimable or satisfy NO_BED.
+        BlockPos porchBed = placeBed(level, roomA.offset(6, 0, 0), Direction.EAST, placed);
+
+        // Place an OPEN oak door between roomA and porch B (open state still separates equally).
+        BlockPos doorLower = roomA.offset(5, 0, 2);
+        BlockPos doorUpper = roomA.offset(5, 1, 2);
+        int doorFlags = Block.UPDATE_ALL | Block.UPDATE_KNOWN_SHAPE;
+        level.setBlock(doorLower, Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.DoorBlock.OPEN, true), doorFlags);
+        level.setBlock(doorUpper, Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.DoorBlock.HALF,
+                        net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER)
+                .setValue(net.minecraft.world.level.block.DoorBlock.OPEN, true), doorFlags);
+
+        CivilianEntity c1 = citizen(helper, empire, main.offset(0, 0, 0));
+        CivilianEntity c2 = citizen(helper, empire, main.offset(0, 0, 0));
+
+        helper.runAtTickTime(4, () -> {
+            try {
+                // Scan HOME from bed1: roomA (50 indoor) + door (2 separators) + porch (30 outdoor) = 82 total blocks.
+                // Effective volume must be 50 (cap 1), NOT 82 (cap 2), and dark porch must NOT fail TOO_DARK.
+                HomeRegionScanner.ScanResult scan = HomeRegionScanner.scan(level, data, empire, bed1, RegionOrigin.AUTO);
+                helper.assertTrue(scan.succeeded(), "HOME with dark covered porch is valid: " + scan.failure());
+                RegionRecord home = scan.region();
+                helper.assertTrue(home.blockCount() == 82, "expected 82 total blocks, got " + home.blockCount());
+                helper.assertTrue(home.effectiveVolume() == 50, "expected 50 effective indoor blocks, got " + home.effectiveVolume());
+                helper.assertTrue(home.rooms().size() == 2, "expected 2 rooms, got " + home.rooms().size());
+                helper.assertTrue(home.separators().size() == 2
+                        && home.isSeparator(doorLower) && home.isSeparator(doorUpper),
+                        "open door blocks are separators");
+                helper.assertTrue(home.isIndoorBlock(bed1), "roomA bed is INDOOR");
+                helper.assertTrue(home.isOutdoorBlock(porchBed), "porch bed is OUTDOOR");
+                helper.assertTrue(home.renderBlocks().length == 50, "only INDOOR room rendered (" + home.renderBlocks().length + ")");
+                helper.assertTrue(home.renderSeparators().length == 2, "2 separator blocks rendered");
+                data.addRegion(home);
+
+                // c1 claims bed1; c2 must NOT claim porchBed (outdoor + capacity 1).
+                BlockPos claimed1 = CivilianBeds.ensureOrClaimBed(level, empire, c1);
+                BlockPos claimed2 = CivilianBeds.ensureOrClaimBed(level, empire, c2);
+                helper.assertTrue(bed1.equals(claimed1), "c1 claimed indoor bed1: " + claimed1);
+                helper.assertTrue(claimed2 == null, "c2 cannot claim outdoor porch bed: " + claimed2);
+                helper.assertFalse(CivilianBeds.isValidClaimedBed(level, empire, porchBed),
+                        "porch bed is never a valid claimed bed");
+
+                // Break the door separating roomA from the outdoor porch -> roomA merges with porch and becomes OUTDOOR!
+                // Effective volume drops to 0 -> HOME invalidates and c1 is detached + bed released.
+                level.setBlock(doorLower, Blocks.AIR.defaultBlockState(), doorFlags);
+                level.setBlock(doorUpper, Blocks.AIR.defaultBlockState(), doorFlags);
+                RegionManager.updateRegion(level, data, home, level.getGameTime());
+
+                helper.assertFalse(home.valid(), "breaking exterior door to porch invalidates HOME");
+                helper.assertTrue(home.inhabitants().isEmpty(), "c1 detached when room turned OUTDOOR");
+                helper.assertTrue(c1.claimedBed() == null, "c1 claimedBed cleared");
+                helper.assertTrue(level.getPoiManager().getFreeTickets(bed1) == 1, "bed1 POI released");
+            } finally {
+                c1.discard();
+                c2.discard();
+                disband(helper, empire);
+                clearBlocks(level, placed);
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = "region_rooms_partial_outdoor", timeoutTicks = 25)
+    public static void turningOneRoomOutdoorDetachesItsCivilianWhileOtherIndoorRoomStaysValid(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        List<BlockPos> placed = new ArrayList<>();
+        BlockPos main = mainPos(helper);
+        EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
+        EmpireSavedData data = EmpireSavedData.of(level);
+
+        // Two adjacent 5x2x5 indoor rooms (A at x=0..4, B at x=6..10) separated by a stone wall at x=5 with a door at z=2.
+        BlockPos roomA = buildRoom(level, main.offset(2, 0, -2), 5, 2, 5, Blocks.STONE, true, placed);
+        BlockPos bedA = placeBed(level, roomA.offset(0, 0, 0), Direction.EAST, placed);
+        BlockPos roomB = buildRoom(level, roomA.offset(6, 0, 0), 5, 2, 5, Blocks.STONE, true, placed);
+        BlockPos bedB = placeBed(level, roomB.offset(3, 0, 0), Direction.EAST, placed);
+
+        BlockPos doorLower = roomA.offset(5, 0, 2);
+        BlockPos doorUpper = roomA.offset(5, 1, 2);
+        int flags = Block.UPDATE_ALL | Block.UPDATE_KNOWN_SHAPE;
+        level.setBlock(doorLower, Blocks.OAK_DOOR.defaultBlockState(), flags);
+        level.setBlock(doorUpper, Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.DoorBlock.HALF,
+                        net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER), flags);
+
+        CivilianEntity c1 = citizen(helper, empire, main.offset(0, 0, 0));
+        CivilianEntity c2 = citizen(helper, empire, main.offset(0, 0, 0));
+
+        helper.runAtTickTime(4, () -> {
+            try {
+                BlockPos claimed1 = CivilianBeds.ensureOrClaimBed(level, empire, c1);
+                BlockPos claimed2 = CivilianBeds.ensureOrClaimBed(level, empire, c2);
+                helper.assertTrue(bedA.equals(claimed1), "c1 claimed bedA: " + claimed1);
+                helper.assertTrue(bedB.equals(claimed2), "c2 claimed bedB: " + claimed2);
+
+                RegionRecord home = data.regionAt(bedA);
+                helper.assertTrue(home != null && home.effectiveVolume() == 100 && home.rooms().size() == 2,
+                        "two-room HOME has 100 effective indoor blocks and 2 rooms");
+
+                // Break a hole in roomB's exterior east wall (exposing roomB to sky-exposed air outside) ->
+                // roomB becomes OUTDOOR, while roomA stays INDOOR (50 effective blocks, cap 1).
+                level.setBlock(roomB.offset(5, 0, 2), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                RegionManager.updateRegion(level, data, home, level.getGameTime());
+
+                helper.assertTrue(home.valid(), "HOME stays VALID via indoor roomA: " + home.invalidReason());
+                helper.assertTrue(home.effectiveVolume() == 50, "effective volume dropped to 50, got " + home.effectiveVolume());
+                helper.assertTrue(home.isIndoorBlock(bedA), "bedA remains INDOOR");
+                helper.assertTrue(home.isOutdoorBlock(bedB), "bedB is now OUTDOOR");
+                helper.assertTrue(home.inhabitants().contains(c1.civilianId()), "c1 in roomA kept");
+                helper.assertFalse(home.inhabitants().contains(c2.civilianId()), "c2 in outdoor roomB detached");
+                helper.assertTrue(c2.claimedBed() == null, "c2 claimedBed cleared");
+                helper.assertTrue(level.getPoiManager().getFreeTickets(bedB) == 1, "bedB POI released");
+            } finally {
+                c1.discard();
+                c2.discard();
+                disband(helper, empire);
+                clearBlocks(level, placed);
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = "region_rooms_separators", timeoutTicks = 20)
+    public static void roomScannerSupportsTrapdoorsAndFenceGatesButNotFences(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        List<BlockPos> placed = new ArrayList<>();
+        BlockPos origin = mainPos(helper).offset(2, 0, -2);
+        int flags = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
+
+        // 3x1x1 strip: (0,0,0) air, (1,0,0) separator candidate, (2,0,0) air.
+        BlockPos left = origin;
+        BlockPos mid = origin.offset(1, 0, 0);
+        BlockPos right = origin.offset(2, 0, 0);
+        level.setBlock(left, Blocks.AIR.defaultBlockState(), flags);
+        level.setBlock(right, Blocks.AIR.defaultBlockState(), flags);
+        placed.add(left);
+        placed.add(mid);
+        placed.add(right);
+
+        Set<Long> strip = new HashSet<>();
+        strip.add(left.asLong());
+        strip.add(mid.asLong());
+        strip.add(right.asLong());
+
+        try {
+            // Trapdoor separates when TRAPDOOR is enabled.
+            level.setBlock(mid, Blocks.OAK_TRAPDOOR.defaultBlockState(), flags);
+            RegionRooms.Partition trap = RegionRoomScanner.partition(
+                    level, strip, EnumSet.of(RoomSeparator.TRAPDOOR), false, null);
+            helper.assertTrue(trap.rooms().size() == 2 && trap.separators().contains(mid.asLong()),
+                    "trapdoor separates two rooms");
+
+            // Fence gate separates when FENCE_GATE is enabled.
+            level.setBlock(mid, Blocks.OAK_FENCE_GATE.defaultBlockState(), flags);
+            RegionRooms.Partition gate = RegionRoomScanner.partition(
+                    level, strip, EnumSet.of(RoomSeparator.FENCE_GATE), false, null);
+            helper.assertTrue(gate.rooms().size() == 2 && gate.separators().contains(mid.asLong()),
+                    "fence gate separates two rooms");
+
+            // Regular fence is NOT a separator even with all RoomSeparator categories enabled.
+            level.setBlock(mid, Blocks.OAK_FENCE.defaultBlockState(), flags);
+            RegionRooms.Partition fence = RegionRoomScanner.partition(
+                    level, strip, EnumSet.allOf(RoomSeparator.class), false, null);
+            helper.assertTrue(fence.separators().isEmpty() && fence.rooms().size() == 1,
+                    "regular fence is not a separator");
+        } finally {
+            clearBlocks(level, placed);
+        }
+        helper.succeed();
     }
 
     private RegionGameTests() {

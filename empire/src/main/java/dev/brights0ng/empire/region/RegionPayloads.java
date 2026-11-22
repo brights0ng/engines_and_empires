@@ -69,17 +69,34 @@ public final class RegionPayloads {
         }
     }
 
-    /** Compact client-side view of one region: id, type, validity, mesh origin and packed block coordinates. */
-    public record RegionSnapshot(UUID id, RegionType type, boolean valid, int originX, int originZ, long[] blocks) {
+    /** Compact client-side view of one region: id, type, validity, mesh origin, rendered room blocks and separator blocks. */
+    public record RegionSnapshot(UUID id, RegionType type, boolean valid, int originX, int originZ,
+                                 long[] blocks, long[] separators) {
 
-        public static final StreamCodec<ByteBuf, RegionSnapshot> STREAM_CODEC = StreamCodec.composite(
-                UUIDUtil.STREAM_CODEC, RegionSnapshot::id,
-                REGION_TYPE_CODEC, RegionSnapshot::type,
-                ByteBufCodecs.BOOL, RegionSnapshot::valid,
-                ByteBufCodecs.VAR_INT, RegionSnapshot::originX,
-                ByteBufCodecs.VAR_INT, RegionSnapshot::originZ,
-                LONG_ARRAY_CODEC, RegionSnapshot::blocks,
-                RegionSnapshot::new);
+        public static final StreamCodec<ByteBuf, RegionSnapshot> STREAM_CODEC = new StreamCodec<>() {
+            @Override
+            public RegionSnapshot decode(ByteBuf buf) {
+                UUID id = UUIDUtil.STREAM_CODEC.decode(buf);
+                RegionType type = REGION_TYPE_CODEC.decode(buf);
+                boolean valid = buf.readBoolean();
+                int originX = VarInt.read(buf);
+                int originZ = VarInt.read(buf);
+                long[] blocks = LONG_ARRAY_CODEC.decode(buf);
+                long[] separators = LONG_ARRAY_CODEC.decode(buf);
+                return new RegionSnapshot(id, type, valid, originX, originZ, blocks, separators);
+            }
+
+            @Override
+            public void encode(ByteBuf buf, RegionSnapshot value) {
+                UUIDUtil.STREAM_CODEC.encode(buf, value.id());
+                REGION_TYPE_CODEC.encode(buf, value.type());
+                buf.writeBoolean(value.valid());
+                VarInt.write(buf, value.originX());
+                VarInt.write(buf, value.originZ());
+                LONG_ARRAY_CODEC.encode(buf, value.blocks());
+                LONG_ARRAY_CODEC.encode(buf, value.separators());
+            }
+        };
     }
 
     /** Server sends the player's empire's nearby regions for rendering. */

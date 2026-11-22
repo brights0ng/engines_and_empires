@@ -1,5 +1,5 @@
-<!-- Written by Gemini (2026-11-20) from Bright's decisions in this session; updated with implementation and verification by Gemini (2026-11-20); updated with shared veil/chalk region rendering by Gemini (2026-11-20); updated with whitelist expansion and H3+W3 region updates by Gemini (2026-11-21). -->
-# Empire: Regions (framework, `HOME`, and in-world rendering)
+<!-- Written by Gemini (2026-11-20) from Bright's decisions in this session; updated with implementation and verification by Gemini (2026-11-20); updated with shared veil/chalk region rendering by Gemini (2026-11-20); updated with whitelist expansion and H3+W3 region updates by Gemini (2026-11-21); updated with Rooms & INDOOR/OUTDOOR labelling by Gemini (2026-11-21). -->
+# Empire: Regions (framework, `HOME`, rooms, and in-world rendering)
 
 **Date:** 2026-11-20 · **Status:** built (phases R1–R4 + shared veil/chalk rendering). In-game visual check remains for Bright.
 **Scope:** arbitrary 3D `BlockPos` plots of empire land assigned to a purpose, a pure flood-fill engine, lifecycle/invalidation, the first region type (`HOME`) wired into citizen bed claiming (`CivilianBeds`), and in-world 3D region rendering sharing the boundary chalk/veil renderer.
@@ -47,6 +47,11 @@
     - `LevelChunkRegionMixin` (`LevelChunk.setBlockState`) notifies `RegionManager` on every Overworld chunk block change (player edits, explosions, fire, pistons, `/setblock`, Create contraptions). Any region whose buffered bounding box (`bounds.inflate(1)`) contains the changed block is prodded; chunk unstaking and direct interactions (civilian bed use, future Ledger) also prod.
     - **Throttle:** 1-second (`20`-tick) cooldown per region — first prod runs on the next tick (letting multi-block edits and lighting settle); any prod during cooldown coalesces into one trailing update when the cooldown expires.
     - **Expiry:** Invalidated `AUTO` regions follow normal updates plus a one-shot trigger at `invalidSinceGameTime + 72_000`.
+- **D10 Rooms & `INDOOR`/`OUTDOOR` labelling (Bright, 2026-11-21):**
+  - **Partitioning:** Regions partition into 6-connected rooms separated by region-configured separator blocks (`RoomSeparator`: `DOOR` (`#minecraft:doors`), `TRAPDOOR` (`#minecraft:trapdoors`), `FENCE_GATE` (`#minecraft:fence_gates`); fences/walls are obstructions, not separators). Open and closed separator blockstates separate equally. Separator blocks belong to neither room they border.
+  - **General `INDOOR`/`OUTDOOR` labelling:** Opt-in per region type (`RoomLabel`: `INDOOR`, `OUTDOOR`). Any room containing or 6-adjacent to a non-separator whitelisted block with direct sky access is labelled `OUTDOOR`; all other rooms are `INDOOR`.
+  - **`HOME` rooms:** Separated by **doors only**, with `INDOOR`/`OUTDOOR` labelling enabled. `OUTDOOR` rooms remain in `region.blocks()` (not pruned), do **not** count toward `HOME` effective volume (50–500 min / capacity 1–4), and are skipped by `TOO_DARK` and `NO_BED`. Beds in `OUTDOOR` rooms cannot be claimed or slept in; if a wall/door breaks and turns a claimed room `OUTDOOR`, civilians in that room are detached and their beds released.
+  - **Rendering & debug:** Talc region rendering draws only `INDOOR` rooms (ignoring `OUTDOOR` rooms), and highlights separator blocks in yellow (matching Empire protected boundaries). `/empire debug region info` reports room counts, labels, separator count, and effective volume.
 
 ---
 
@@ -114,7 +119,6 @@
 
 ## Open / Future passes
 
-- **Rooms sub-pass:** Split each `HOME` into sub-rooms separated by doors, and prune any room that borders sky access so covered decks and overhangs are excluded from the `HOME`.
 - **Administration Ledger item:** Manual region outlining, auto-fill trigger, naming/re-typing, and management UI.
 - **Cots:** Beds/cots that citizens can sleep in anywhere outside a `HOME`.
 - **Citizen self-repair:** Before detaching from an invalidated region, citizens attempt to fix the issue (replace a broken block, break a placed hazard, re-light) first.

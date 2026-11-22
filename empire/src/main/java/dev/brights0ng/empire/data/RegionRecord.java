@@ -1,9 +1,12 @@
 // Written by Gemini.
 package dev.brights0ng.empire.data;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -12,7 +15,10 @@ import javax.annotation.Nullable;
 import dev.brights0ng.empire.rules.BlockKeys;
 import dev.brights0ng.empire.rules.RegionInvalidReason;
 import dev.brights0ng.empire.rules.RegionOrigin;
+import dev.brights0ng.empire.rules.RegionRooms;
 import dev.brights0ng.empire.rules.RegionType;
+import dev.brights0ng.empire.rules.RoomLabel;
+import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
@@ -22,6 +28,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.LongArrayTag;
 import net.minecraft.nbt.NbtUtils;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 
 /**
@@ -30,7 +37,62 @@ import net.minecraft.nbt.Tag;
  */
 public final class RegionRecord {
 
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
+
+    /** One connected room inside a region, with its own block set and {@link RoomLabel}s. */
+    public static final class RoomRecord {
+
+        private final int index;
+        private final LongOpenHashSet blocks;
+        private final Set<RoomLabel> labels;
+
+        public RoomRecord(int index, Collection<Long> blocks, Set<RoomLabel> labels) {
+            this.index = index;
+            this.blocks = new LongOpenHashSet(blocks.size());
+            for (long key : blocks) {
+                this.blocks.add(key);
+            }
+            this.labels = labels.isEmpty()
+                    ? Collections.emptySet()
+                    : Collections.unmodifiableSet(EnumSet.copyOf(labels));
+        }
+
+        public RoomRecord(int index, long[] blocks, Set<RoomLabel> labels) {
+            this.index = index;
+            this.blocks = new LongOpenHashSet(blocks);
+            this.labels = labels.isEmpty()
+                    ? Collections.emptySet()
+                    : Collections.unmodifiableSet(EnumSet.copyOf(labels));
+        }
+
+        public int index() {
+            return index;
+        }
+
+        public int blockCount() {
+            return blocks.size();
+        }
+
+        public LongSet blocks() {
+            return LongSets.unmodifiable(blocks);
+        }
+
+        public Set<RoomLabel> labels() {
+            return labels;
+        }
+
+        public boolean hasLabel(RoomLabel label) {
+            return labels.contains(label);
+        }
+
+        public boolean isIndoor() {
+            return labels.contains(RoomLabel.INDOOR);
+        }
+
+        public boolean isOutdoor() {
+            return labels.contains(RoomLabel.OUTDOOR);
+        }
+    }
 
     private final UUID id;
     private final UUID empireId;
@@ -42,6 +104,15 @@ public final class RegionRecord {
     private final LongOpenHashSet blocks = new LongOpenHashSet();
     /** Cached packed {@link dev.brights0ng.empire.rules.ChunkKeys} touched by {@link #blocks}. Not saved. */
     private final LongOpenHashSet chunks = new LongOpenHashSet();
+    /** Connected rooms partitioned out of {@link #blocks} (excluding {@link #separators}). */
+    private final List<RoomRecord> rooms = new ArrayList<>();
+    /** Packed coordinates of room-separator blocks inside {@link #blocks} (belong to no room). */
+    private final LongOpenHashSet separators = new LongOpenHashSet();
+    /** Transient lookup: packed block coordinate -> index in {@link #rooms}, or {@code -1} if separator/unpartitioned. */
+    private final Long2IntOpenHashMap blockToRoom = new Long2IntOpenHashMap();
+    {
+        blockToRoom.defaultReturnValue(-1);
+    }
     private int minX;
     private int minY;
     private int minZ;
@@ -158,6 +229,183 @@ public final class RegionRecord {
 
     public int blockCount() {
         return blocks.size();
+    }
+
+    /** Replaces the room partition and rebuilds the block-to-room lookup index. Returns true if rooms or separators changed. */
+    public boolean setRooms(RegionRooms.Partition partition) {
+        boolean changed = !roomsMatch(partition);
+        rooms.clear();
+        separators.clear();
+        blockToRoom.clear();
+        if (partition == null) {
+            return changed;
+        }
+        for (long sep : partition.separators()) {
+            separators.add(sep);
+        }
+        for (RegionRooms.Room room : partition.rooms()) {
+            RoomRecord rec = new RoomRecord(rooms.size(), room.blocks(), room.labels());
+            int idx = rec.index();
+            rooms.add(rec);
+            LongIterator it = rec.blocks.iterator();
+            while (it.hasNext()) {
+                blockToRoom.put(it.nextLong(), idx);
+            }
+        }
+        return changed;
+    }
+
+    /** True if this region's current rooms and separators match {@code partition} (ignoring room index ordering). */
+    private boolean roomsMatch(RegionRooms.Partition partition) {
+        if (partition == null) {
+            return rooms.isEmpty() && separators.isEmpty();
+        }
+        if (separators.size() != partition.separators().size()
+                || rooms.size() != partition.rooms().size()) {
+            return false;
+        }
+        for (long sep : partition.separators()) {
+            if (!separators.contains(sep)) {
+                return false;
+            }
+        }
+        for (RegionRooms.Room incoming : partition.rooms()) {
+            if (incoming.blocks().isEmpty()) {
+                continue;
+            }
+            long sample = incoming.blocks().iterator().next();
+            int existingIdx = blockToRoom.get(sample);
+            if (existingIdx < 0 || existingIdx >= rooms.size()) {
+                return false;
+            }
+            RoomRecord existing = rooms.get(existingIdx);
+            if (existing.blockCount() != incoming.size()
+                    || !existing.labels().equals(incoming.labels())) {
+                return false;
+            }
+            for (long key : incoming.blocks()) {
+                if (!existing.blocks.contains(key)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    public List<RoomRecord> rooms() {
+        return Collections.unmodifiableList(rooms);
+    }
+
+    public LongSet separators() {
+        return LongSets.unmodifiable(separators);
+    }
+
+    public boolean isSeparator(long packedPos) {
+        return separators.contains(packedPos);
+    }
+
+    public boolean isSeparator(BlockPos pos) {
+        return separators.contains(pos.asLong());
+    }
+
+    @Nullable
+    public RoomRecord roomAt(long packedPos) {
+        int idx = blockToRoom.get(packedPos);
+        return idx >= 0 && idx < rooms.size() ? rooms.get(idx) : null;
+    }
+
+    @Nullable
+    public RoomRecord roomAt(BlockPos pos) {
+        return roomAt(pos.asLong());
+    }
+
+    public boolean hasRoomLabel(long packedPos, RoomLabel label) {
+        RoomRecord room = roomAt(packedPos);
+        return room != null && room.hasLabel(label);
+    }
+
+    public boolean hasRoomLabel(BlockPos pos, RoomLabel label) {
+        return hasRoomLabel(pos.asLong(), label);
+    }
+
+    public boolean isOutdoorBlock(long packedPos) {
+        return hasRoomLabel(packedPos, RoomLabel.OUTDOOR);
+    }
+
+    public boolean isOutdoorBlock(BlockPos pos) {
+        return hasRoomLabel(pos.asLong(), RoomLabel.OUTDOOR);
+    }
+
+    /**
+     * True if {@code packedPos} belongs to a non-separator, non-outdoor room of this region (or, for legacy
+     * unpartitioned regions without room data, is contained in {@link #blocks}).
+     */
+    public boolean isIndoorBlock(long packedPos) {
+        if (rooms.isEmpty() && separators.isEmpty()) {
+            return blocks.contains(packedPos);
+        }
+        RoomRecord room = roomAt(packedPos);
+        return room != null && !room.isOutdoor();
+    }
+
+    public boolean isIndoorBlock(BlockPos pos) {
+        return isIndoorBlock(pos.asLong());
+    }
+
+    /**
+     * Effective usable volume of this region: sum of block counts across all non-outdoor rooms (excluding
+     * {@link RoomLabel#OUTDOOR} rooms and separator blocks). Falls back to {@link #blockCount()} for legacy saves
+     * that have not yet been partitioned into rooms.
+     */
+    public int effectiveVolume() {
+        if (rooms.isEmpty() && separators.isEmpty()) {
+            return blocks.size();
+        }
+        int total = 0;
+        for (RoomRecord room : rooms) {
+            if (!room.isOutdoor()) {
+                total += room.blockCount();
+            }
+        }
+        return total;
+    }
+
+    /** Blocks to render for the region veil: only non-outdoor rooms when valid; non-separator blocks when invalid so the warning outline stays visible. */
+    public long[] renderBlocks() {
+        if (rooms.isEmpty() && separators.isEmpty()) {
+            return blocks.toLongArray();
+        }
+        if (!valid) {
+            LongOpenHashSet out = new LongOpenHashSet(blocks.size());
+            LongIterator it = blocks.iterator();
+            while (it.hasNext()) {
+                long key = it.nextLong();
+                if (!separators.contains(key)) {
+                    out.add(key);
+                }
+            }
+            return out.toLongArray();
+        }
+        int count = effectiveVolume();
+        if (count == 0) {
+            return new long[0];
+        }
+        long[] out = new long[count];
+        int pos = 0;
+        for (RoomRecord room : rooms) {
+            if (!room.isOutdoor()) {
+                LongIterator it = room.blocks.iterator();
+                while (it.hasNext()) {
+                    out[pos++] = it.nextLong();
+                }
+            }
+        }
+        return out;
+    }
+
+    /** Separator blocks to render with a yellow highlight. */
+    public long[] renderSeparators() {
+        return separators.isEmpty() ? new long[0] : separators.toLongArray();
     }
 
     public LongSet blocks() {
@@ -290,6 +538,23 @@ public final class RegionRecord {
         tag.putString("origin", origin.id());
         tag.putLong("seed", seed);
         tag.put("blocks", new LongArrayTag(blocks.toLongArray()));
+        if (!separators.isEmpty()) {
+            tag.put("separators", new LongArrayTag(separators.toLongArray()));
+        }
+        if (!rooms.isEmpty()) {
+            ListTag roomsTag = new ListTag();
+            for (RoomRecord room : rooms) {
+                CompoundTag rt = new CompoundTag();
+                rt.put("blocks", new LongArrayTag(room.blocks.toLongArray()));
+                ListTag labelsTag = new ListTag();
+                for (RoomLabel label : room.labels) {
+                    labelsTag.add(StringTag.valueOf(label.id()));
+                }
+                rt.put("labels", labelsTag);
+                roomsTag.add(rt);
+            }
+            tag.put("rooms", roomsTag);
+        }
         ListTag inhabitantsTag = new ListTag();
         for (UUID inhabitant : inhabitants) {
             inhabitantsTag.add(NbtUtils.createUUID(inhabitant));
@@ -319,6 +584,33 @@ public final class RegionRecord {
                 origin,
                 loadedSeed,
                 loadedBlocks);
+        if (tag.contains("separators", Tag.TAG_LONG_ARRAY)) {
+            for (long sep : tag.getLongArray("separators")) {
+                record.separators.add(sep);
+            }
+        }
+        if (tag.contains("rooms", Tag.TAG_LIST)) {
+            ListTag roomsTag = tag.getList("rooms", Tag.TAG_COMPOUND);
+            for (int i = 0; i < roomsTag.size(); i++) {
+                CompoundTag rt = roomsTag.getCompound(i);
+                long[] roomBlocks = rt.getLongArray("blocks");
+                EnumSet<RoomLabel> labels = EnumSet.noneOf(RoomLabel.class);
+                ListTag labelsTag = rt.getList("labels", Tag.TAG_STRING);
+                for (int j = 0; j < labelsTag.size(); j++) {
+                    RoomLabel label = RoomLabel.byId(labelsTag.getString(j));
+                    if (label != null) {
+                        labels.add(label);
+                    }
+                }
+                RoomRecord room = new RoomRecord(record.rooms.size(), roomBlocks, labels);
+                int idx = room.index();
+                record.rooms.add(room);
+                LongIterator it = room.blocks.iterator();
+                while (it.hasNext()) {
+                    record.blockToRoom.put(it.nextLong(), idx);
+                }
+            }
+        }
         ListTag inhabitantsTag = tag.getList("inhabitants", Tag.TAG_INT_ARRAY);
         for (int i = 0; i < inhabitantsTag.size(); i++) {
             record.inhabitants.add(NbtUtils.loadUUID(inhabitantsTag.get(i)));

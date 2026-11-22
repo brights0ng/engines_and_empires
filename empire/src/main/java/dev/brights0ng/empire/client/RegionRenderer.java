@@ -110,10 +110,19 @@ public final class RegionRenderer {
         }
         List<VeilMesh> built = new ArrayList<>(snapshots.size());
         for (RegionPayloads.RegionSnapshot snap : snapshots) {
-            int style = RegionGeometry.styleFor(snap.type(), snap.valid());
-            VeilMesh mesh = RegionGeometry.build(snap.blocks(), style, snap.originX(), snap.originZ());
-            if (mesh.quadCount() > 0) {
-                built.add(mesh);
+            if (snap.blocks().length > 0) {
+                int style = RegionGeometry.styleFor(snap.type(), snap.valid());
+                VeilMesh mesh = RegionGeometry.build(snap.blocks(), style, snap.originX(), snap.originZ());
+                if (mesh.quadCount() > 0) {
+                    built.add(mesh);
+                }
+            }
+            if (snap.separators().length > 0) {
+                VeilMesh sepMesh = RegionGeometry.build(
+                        snap.separators(), RegionGeometry.STYLE_SEPARATOR, snap.originX(), snap.originZ());
+                if (sepMesh.quadCount() > 0) {
+                    built.add(sepMesh);
+                }
             }
         }
         return built;
@@ -127,6 +136,15 @@ public final class RegionRenderer {
 
     /** Chalk RGB in out[0..2], veil RGB in out[3..5]. Each {@link RegionType} has its own palette entry. */
     private static void colors(int style, boolean tarnished, int[] out) {
+        if (style == RegionGeometry.STYLE_SEPARATOR) {
+            // Room separator blocks: burnished gold/yellow matching Empire protected boundaries
+            if (tarnished) {
+                set(out, 225, 180, 70, 235, 195, 95);
+            } else {
+                set(out, 255, 200, 55, 255, 215, 90);
+            }
+            return;
+        }
         RegionType type = RegionGeometry.typeForStyle(style);
         if (type == null) {
             // Invalid region: crimson warning

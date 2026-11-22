@@ -20,6 +20,8 @@ import dev.brights0ng.empire.rules.RegionType;
  */
 public final class RegionGeometry {
 
+    /** Style id used for room separator blocks (drawn in yellow, matching Empire protected boundaries). */
+    public static final int STYLE_SEPARATOR = -1;
     /** Style id used for invalid regions (drawn in crimson/red). Valid regions use {@code type.ordinal() + 1}. */
     public static final int STYLE_INVALID = 0;
 

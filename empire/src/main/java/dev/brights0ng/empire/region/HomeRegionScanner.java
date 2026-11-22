@@ -1,6 +1,8 @@
 // Written by Gemini.
 package dev.brights0ng.empire.region;
 
+import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
@@ -16,8 +18,10 @@ import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.RegionFloodFill;
 import dev.brights0ng.empire.rules.RegionInvalidReason;
 import dev.brights0ng.empire.rules.RegionOrigin;
+import dev.brights0ng.empire.rules.RegionRooms;
 import dev.brights0ng.empire.rules.RegionRules;
 import dev.brights0ng.empire.rules.RegionType;
+import dev.brights0ng.empire.rules.RoomSeparator;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -47,6 +51,8 @@ public final class HomeRegionScanner {
 
     /** Minimum block light required on spawnable floor spots (provisional default, D5). */
     public static final int MIN_BLOCK_LIGHT = 1;
+    /** Room separator categories for {@link RegionType#HOME}: doors only. */
+    public static final Set<RoomSeparator> HOME_SEPARATORS = EnumSet.of(RoomSeparator.DOOR);
 
     private static final int[] DX = {1, -1, 0, 0, 0, 0};
     private static final int[] DY = {0, 0, 1, -1, 0, 0};
@@ -59,11 +65,18 @@ public final class HomeRegionScanner {
         }
     }
 
-    public record RescanResult(Set<Long> blocks, long seed, RegionInvalidReason failure) {
+    public record RescanResult(Set<Long> blocks, RegionRooms.Partition partition, long seed,
+                               RegionInvalidReason failure) {
 
         public boolean succeeded() {
             return failure == RegionInvalidReason.NONE && !blocks.isEmpty();
         }
+    }
+
+    /** Partitions a {@code HOME} block set into door-separated rooms labelled {@code INDOOR} or {@code OUTDOOR}. */
+    public static RegionRooms.Partition partitionRooms(ServerLevel level, Set<Long> regionBlocks) {
+        return RegionRoomScanner.partition(
+                level, regionBlocks, HOME_SEPARATORS, true, (pos, state) -> isInterior(level, pos, state));
     }
 
     /**
@@ -118,7 +131,8 @@ public final class HomeRegionScanner {
 
         RegionRecord candidate = new RegionRecord(
                 UUID.randomUUID(), empire.id(), RegionType.HOME, origin, start.asLong(), fill.blocks());
-        RegionInvalidReason reason = validate(level, data, empire, candidate);
+        candidate.setRooms(partitionRooms(level, fill.blocks()));
+        RegionInvalidReason reason = validatePartitioned(level, data, empire, candidate);
         if (reason != RegionInvalidReason.NONE) {
             return new ScanResult(null, reason);
         }
@@ -127,55 +141,69 @@ public final class HomeRegionScanner {
 
     /**
      * Re-flood-fills an existing {@code AUTO} {@link RegionType#HOME} from its seed coordinate (migrating the seed to
-     * another bed currently in {@code region}'s block set if the original seed is no longer a bed, or keeping it fixed
-     * otherwise) and validates the resulting shape against all D5 rules.
+     * another indoor bed currently in {@code region}'s block set if the original seed is no longer an indoor bed, or
+     * keeping it fixed otherwise), partitions rooms, and validates the resulting shape against all D5 rules.
      */
     public static RescanResult rescan(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
                                       RegionRecord region) {
         long seed = resolveSeed(level, region);
         if (!empire.state().staked().contains(BlockKeys.chunkKey(seed))) {
-            return new RescanResult(Set.of(), seed, RegionInvalidReason.UNSTAKED);
+            return new RescanResult(Set.of(), RegionRooms.Partition.EMPTY, seed, RegionInvalidReason.UNSTAKED);
         }
         RegionFloodFill.Result fill = floodFill(
                 level, data, empire, BlockKeys.getX(seed), BlockKeys.getY(seed), BlockKeys.getZ(seed), region.id());
         if (!fill.succeeded()) {
-            return new RescanResult(Set.of(), seed, fill.failure());
+            return new RescanResult(Set.of(), RegionRooms.Partition.EMPTY, seed, fill.failure());
         }
+        RegionRooms.Partition partition = partitionRooms(level, fill.blocks());
         RegionRecord candidate = new RegionRecord(
                 region.id(), region.empireId(), region.type(), region.origin(), seed, fill.blocks());
-        RegionInvalidReason reason = validate(level, data, empire, candidate);
+        candidate.setRooms(partition);
+        RegionInvalidReason reason = validatePartitioned(level, data, empire, candidate);
         if (reason != RegionInvalidReason.NONE) {
-            return new RescanResult(Set.of(), seed, reason);
+            return new RescanResult(Set.of(), partition, seed, reason);
         }
-        return new RescanResult(fill.blocks(), seed, RegionInvalidReason.NONE);
+        return new RescanResult(fill.blocks(), partition, seed, RegionInvalidReason.NONE);
     }
 
     /**
-     * Resolves the flood-fill seed for {@code region}: keeps {@code region.seed()} if it is still a bed head,
-     * otherwise migrates to another bed head already in {@code region.blocks()} (lowest packed coordinate for
-     * determinism), or keeps {@code region.seed()} fixed if no other bed exists in the region.
+     * Resolves the flood-fill seed for {@code region}: keeps {@code region.seed()} if it is still an indoor bed head,
+     * otherwise migrates to another indoor bed head (or any bed head as fallback) already in {@code region.blocks()}
+     * (lowest packed coordinate for determinism), or keeps {@code region.seed()} fixed if no bed exists.
      */
     public static long resolveSeed(ServerLevel level, RegionRecord region) {
         long currentSeed = region.seed();
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos(
                 BlockKeys.getX(currentSeed), BlockKeys.getY(currentSeed), BlockKeys.getZ(currentSeed));
-        if (level.hasChunkAt(cursor) && CivilianBeds.isBedHead(level.getBlockState(cursor))) {
+        if (level.hasChunkAt(cursor) && CivilianBeds.isBedHead(level.getBlockState(cursor))
+                && region.isIndoorBlock(currentSeed)) {
             return currentSeed;
         }
-        long migrated = Long.MAX_VALUE;
-        boolean found = false;
+        long indoorMigrated = Long.MAX_VALUE;
+        boolean foundIndoor = false;
+        long anyMigrated = Long.MAX_VALUE;
+        boolean foundAny = false;
         LongIterator it = region.blocks().iterator();
         while (it.hasNext()) {
             long key = it.nextLong();
             cursor.set(BlockKeys.getX(key), BlockKeys.getY(key), BlockKeys.getZ(key));
             if (level.hasChunkAt(cursor) && CivilianBeds.isBedHead(level.getBlockState(cursor))) {
-                if (!found || key < migrated) {
-                    migrated = key;
-                    found = true;
+                if (region.isIndoorBlock(key)) {
+                    if (!foundIndoor || key < indoorMigrated) {
+                        indoorMigrated = key;
+                        foundIndoor = true;
+                    }
+                }
+                if (!foundAny || key < anyMigrated) {
+                    anyMigrated = key;
+                    foundAny = true;
                 }
             }
         }
-        return found ? migrated : currentSeed;
+        if (foundIndoor) {
+            return indoorMigrated;
+        }
+        return foundAny ? anyMigrated : currentSeed;
     }
 
     private static RegionFloodFill.Result floodFill(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
@@ -212,17 +240,38 @@ public final class HomeRegionScanner {
     }
 
     /**
-     * Validates an existing or candidate {@link RegionType#HOME} against all D5 rules:
-     * volume, height, territory, disjointness, sky exposure, block light, hazards (inside or 6-adjacent), and bed presence.
+     * Re-partitions {@code region}'s current fixed block set into rooms and updates {@code region}.
+     * Returns true if the room partition or labels changed.
+     */
+    public static boolean refreshRooms(ServerLevel level, RegionRecord region) {
+        Set<Long> blockSet = new HashSet<>(Math.max(16, (int) (region.blockCount() / 0.75f) + 1));
+        LongIterator it = region.blocks().iterator();
+        while (it.hasNext()) {
+            blockSet.add(it.nextLong());
+        }
+        return region.setRooms(partitionRooms(level, blockSet));
+    }
+
+    /**
+     * Refreshes {@code region}'s rooms and validates it against all D5 + room rules:
+     * total cap, effective indoor volume, height, territory, disjointness, sky exposure, indoor block light,
+     * hazards (inside or 6-adjacent), and indoor bed presence.
      */
     public static RegionInvalidReason validate(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
                                                RegionRecord region) {
-        int count = region.blockCount();
-        if (count < RegionRules.HOME_MIN_BLOCKS) {
-            return RegionInvalidReason.TOO_SMALL;
-        }
-        if (count > RegionRules.HOME_MAX_BLOCKS) {
+        refreshRooms(level, region);
+        return validatePartitioned(level, data, empire, region);
+    }
+
+    private static RegionInvalidReason validatePartitioned(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
+                                                           RegionRecord region) {
+        int totalCount = region.blockCount();
+        if (totalCount > RegionRules.HOME_MAX_BLOCKS) {
             return RegionInvalidReason.TOO_LARGE;
+        }
+        int effectiveCount = region.effectiveVolume();
+        if (effectiveCount < RegionRules.HOME_MIN_BLOCKS) {
+            return RegionInvalidReason.TOO_SMALL;
         }
         if (region.maxY() - region.minY() + 1 < RegionRules.HOME_MIN_HEIGHT) {
             return RegionInvalidReason.TOO_SHORT;
@@ -255,7 +304,9 @@ public final class HomeRegionScanner {
             int z = BlockKeys.getZ(key);
             cursor.set(x, y, z);
 
-            if (!hasTallColumn && region.containsBlock(BlockKeys.pack(x, y + 1, z))) {
+            boolean indoor = region.isIndoorBlock(key);
+
+            if (!hasTallColumn && indoor && region.isIndoorBlock(BlockKeys.pack(x, y + 1, z))) {
                 hasTallColumn = true;
             }
 
@@ -268,7 +319,8 @@ public final class HomeRegionScanner {
                 return RegionInvalidReason.HAZARD;
             }
 
-            if (!hasBed && CivilianBeds.isBedHead(state)) {
+            // NO_BED skips outdoor rooms (and separator blocks).
+            if (!hasBed && indoor && CivilianBeds.isBedHead(state)) {
                 hasBed = true;
             }
 
@@ -286,8 +338,9 @@ public final class HomeRegionScanner {
                 }
             }
 
-            // Monster-spawn lighting check on spawnable floor spots.
-            if (state.getCollisionShape(level, cursor).isEmpty()
+            // Monster-spawn lighting check on spawnable floor spots (skips outdoor rooms and separators).
+            if (indoor
+                    && state.getCollisionShape(level, cursor).isEmpty()
                     && !state.is(BlockTags.WOOL_CARPETS)
                     && !region.containsBlock(BlockKeys.pack(x, y - 1, z))) {
                 below.set(x, y - 1, z);
