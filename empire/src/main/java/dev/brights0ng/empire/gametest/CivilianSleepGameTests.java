@@ -17,8 +17,8 @@ import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.region.RegionManager;
 import dev.brights0ng.empire.rules.ChunkKeys;
-import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianSleep;
+import dev.brights0ng.empire.rules.CivilianTraits;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -55,7 +55,6 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class CivilianSleepGameTests {
 
     private static final String BATCH_CIVILIANS = "civilians";
-    private static final CivilianAbilities AVG_ABILITIES = new CivilianAbilities(10, 10, 10, 10, 10, 10, 10);
     private static final long TEST_NIGHT = 10L;
 
     private static BlockPos mainPos(GameTestHelper helper) {
@@ -76,7 +75,7 @@ public final class CivilianSleepGameTests {
 
     private static CivilianEntity citizen(GameTestHelper helper, EmpireRecord empire, BlockPos pos) {
         CivilianEntity civilian = CivilianSpawning.spawn(helper.getLevel(), Vec3.atBottomCenterOf(pos), null);
-        civilian.setAbilities(AVG_ABILITIES);
+        civilian.setTraits(CivilianTraits.NEUTRAL);
         CivilianRoster.recruit(civilian, empire, helper.getLevel());
         return civilian;
     }
@@ -827,7 +826,8 @@ public final class CivilianSleepGameTests {
             List<Component> citizenLines = citizen.debugInfoLines(level);
             String joined = String.join("\n", citizenLines.stream().map(Component::getString).toList());
             helper.assertTrue(joined.contains("(CITIZEN)"), "citizen status present");
-            helper.assertTrue(joined.contains("Abilities: END 10"), "abilities present");
+            helper.assertTrue(joined.contains("Abilities: BRA 11 END 11"), "abilities present");
+            helper.assertTrue(joined.contains("Quirks:"), "quirks present");
             helper.assertTrue(joined.contains("HP:") && joined.contains("Food:"), "vitals present");
             helper.assertTrue(joined.contains("3x minecraft:bread"), "inventory present");
             helper.assertTrue(joined.contains("Sleep:") && joined.contains("Sleep flags:"), "sleep info present");

@@ -1,4 +1,4 @@
-// Written by Claude; extended with replacement abilities and needs by ChatGPT.
+// Written by Claude; extended with replacement abilities and needs by ChatGPT; updated to traits by Gemini.
 package dev.brights0ng.empire.civilian;
 
 import java.util.function.Consumer;
@@ -10,7 +10,7 @@ import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.CivilianAppearance;
-import dev.brights0ng.empire.rules.CivilianAbilities;
+import dev.brights0ng.empire.rules.CivilianTraits;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -40,7 +40,7 @@ public final class CivilianSpawning {
     }
 
     private static CivilianEntity spawn(ServerLevel level, Vec3 pos, @Nullable CivilianAppearance appearance,
-                                        @Nullable CivilianAbilities abilities, Consumer<CivilianEntity> beforeAdd) {
+                                        @Nullable CivilianTraits traits, Consumer<CivilianEntity> beforeAdd) {
         CivilianEntity civilian = EmpireContent.CIVILIAN.get().create(level);
         if (civilian == null) {
             throw new IllegalStateException("could not create a civilian");
@@ -48,8 +48,8 @@ public final class CivilianSpawning {
         if (appearance != null) {
             civilian.presetAppearance(appearance);
         }
-        if (abilities != null) {
-            civilian.presetAbilities(abilities);
+        if (traits != null) {
+            civilian.presetTraits(traits);
         }
         civilian.moveTo(pos.x, pos.y, pos.z, level.random.nextFloat() * 360.0F, 0.0F);
         civilian.finalizeSpawn(level, level.getCurrentDifficultyAt(BlockPos.containing(pos)), MobSpawnType.COMMAND, null);
@@ -75,7 +75,7 @@ public final class CivilianSpawning {
         } catch (IllegalArgumentException e) {
             look = null;
         }
-        return spawn(level, pos, look, CivilianAbilities.unpack(record.abilities()), civilian -> {
+        return spawn(level, pos, look, record.traits(), civilian -> {
             civilian.setCustomName(Component.literal(record.name()));
             civilian.becomeCitizen(record.id(), home);
             civilian.restoreNeeds(record);

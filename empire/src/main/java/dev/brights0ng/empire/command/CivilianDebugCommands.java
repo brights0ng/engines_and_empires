@@ -1,4 +1,4 @@
-// Written by Claude; extended with ability, needs, inventory and eating commands by ChatGPT; extended with sleep, bed cleanup and fulfilment commands by Gemini.
+// Written by Claude; extended with ability, needs, inventory and eating commands by ChatGPT; extended with sleep, bed cleanup, fulfilment and traits commands by Gemini.
 package dev.brights0ng.empire.command;
 
 import java.util.ArrayList;
@@ -29,10 +29,11 @@ import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.TravellerSlot;
 import dev.brights0ng.empire.rules.ArrivalRule;
 import dev.brights0ng.empire.rules.CivilianAppearance;
-import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianFood;
 import dev.brights0ng.empire.rules.CivilianFulfilment;
 import dev.brights0ng.empire.rules.CivilianLines;
+import dev.brights0ng.empire.rules.CivilianTraits;
+import dev.brights0ng.empire.rules.CivilianTraits.BaseTrait;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -88,9 +89,20 @@ public final class CivilianDebugCommands {
                                 .then(Commands.argument("saturation", FloatArgumentType.floatArg())
                                         .executes(ctx -> food(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "level"),
                                                 FloatArgumentType.getFloat(ctx, "saturation"))))))
-                .then(Commands.literal("abilities")
-                        .then(Commands.argument("code", StringArgumentType.word())
-                                .executes(ctx -> abilities(ctx.getSource(), code(ctx)))))
+                .then(Commands.literal("traits")
+                        .executes(ctx -> traitsInfo(ctx.getSource()))
+                        .then(Commands.literal("set")
+                                .then(Commands.argument("trait", StringArgumentType.word())
+                                        .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(baseTraitIds(), builder))
+                                        .then(Commands.argument("value", IntegerArgumentType.integer(
+                                                CivilianTraits.MIN_VALUE, CivilianTraits.MAX_VALUE))
+                                                .executes(ctx -> traitsSet(ctx.getSource(),
+                                                        StringArgumentType.getString(ctx, "trait"),
+                                                        IntegerArgumentType.getInteger(ctx, "value"))))))
+                        .then(Commands.literal("neutral")
+                                .executes(ctx -> traitsNeutral(ctx.getSource())))
+                        .then(Commands.literal("reroll")
+                                .executes(ctx -> traitsReroll(ctx.getSource()))))
                 .then(Commands.literal("sleep")
                         .then(Commands.literal("claim")
                                 .executes(ctx -> sleepClaim(ctx.getSource())))
@@ -271,20 +283,59 @@ public final class CivilianDebugCommands {
         return 1;
     }
 
-    private static int abilities(CommandSourceStack source, String code) {
-        CivilianAbilities abilities;
-        try {
-            abilities = CivilianAbilities.parse(code);
-        } catch (IllegalArgumentException e) {
-            source.sendFailure(Component.literal("Ability codes are six scores 3-18 separated by hyphens: " + code));
+    private static List<String> baseTraitIds() {
+        List<String> ids = new ArrayList<>(CivilianTraits.TRAIT_COUNT);
+        for (BaseTrait t : BaseTrait.values()) {
+            ids.add(t.id());
+        }
+        return ids;
+    }
+
+    private static int traitsInfo(CommandSourceStack source) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        for (Component line : civilian.traitsDebugLines()) {
+            source.sendSuccess(() -> line, false);
+        }
+        return 1;
+    }
+
+    private static int traitsSet(CommandSourceStack source, String traitName, int value) {
+        BaseTrait trait = BaseTrait.byId(traitName);
+        if (trait == null) {
+            source.sendFailure(Component.literal("Unknown trait: " + traitName + " (" + String.join(", ", baseTraitIds()) + ")"));
             return 0;
         }
         CivilianEntity civilian = nearest(source);
         if (civilian == null) {
             return 0;
         }
-        civilian.setAbilities(abilities);
-        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " abilities " + abilities.code()), true);
+        civilian.setTraits(civilian.traits().with(trait, value));
+        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " " + trait.id() + " = " + value
+                + " (abilities " + civilian.abilities().code() + ")"), true);
+        return 1;
+    }
+
+    private static int traitsNeutral(CommandSourceStack source) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        civilian.setTraits(CivilianTraits.NEUTRAL);
+        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " traits reset to neutral"), true);
+        return 1;
+    }
+
+    private static int traitsReroll(CommandSourceStack source) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        civilian.setTraits(CivilianTraits.roll(source.getLevel().random::nextLong));
+        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " traits rerolled (abilities "
+                + civilian.abilities().code() + ")"), true);
         return 1;
     }
 
@@ -466,11 +517,12 @@ public final class CivilianDebugCommands {
         source.sendSuccess(() -> Component.literal(records.size() + " record" + (records.size() == 1 ? "" : "s")), false);
         for (CivilianRecord civilian : records) {
             boolean loaded = overworld.getEntity(civilian.body()) != null;
+            double maxHp = civilian.traits().derivedStats().maxHealth();
             source.sendSuccess(() -> Component.literal(civilian.name() + " [" + civilian.id().toString().substring(0, 8)
                     + "] body " + (loaded ? "loaded" : "not loaded") + ", last at " + civilian.lastPos().toShortString()
                     + ", food " + civilian.food().foodLevel() + ", hp "
                     + (Float.isNaN(civilian.health()) ? "unknown" : String.format(Locale.ROOT, "%.1f", civilian.health()))
-                    + "/30, sleep "
+                    + String.format(Locale.ROOT, "/%.0f, sleep ", maxHp)
                     + (Float.isNaN(civilian.sleep().lastNight()) ? "none" : String.format(Locale.ROOT, "%.2f", civilian.sleep().lastNight()))
                     + String.format(Locale.ROOT, ", griev %.2f", civilian.fulfilment().grievance())
                     + (civilian.bed() != null ? ", bed " + civilian.bed().toShortString() : "")), false);

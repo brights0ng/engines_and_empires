@@ -1,9 +1,8 @@
-// Written by Claude; extended with abilities, needs and inventory persistence by ChatGPT; extended with sleep, bed and fulfilment persistence by Gemini.
+// Written by Claude; extended with abilities, needs and inventory persistence by ChatGPT; extended with sleep, bed, fulfilment and traits persistence by Gemini.
 package dev.brights0ng.empire.data;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Random;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -14,6 +13,7 @@ import dev.brights0ng.empire.rules.CivilianFood;
 import dev.brights0ng.empire.rules.CivilianFulfilment;
 import dev.brights0ng.empire.rules.CivilianPreferences;
 import dev.brights0ng.empire.rules.CivilianSleep;
+import dev.brights0ng.empire.rules.CivilianTraits;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -30,7 +30,7 @@ import net.minecraft.world.item.ItemStack;
 public final class CivilianRecord {
 
     /** The saved form's version; bump it when fields change meaning. */
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
     private final UUID id;
     private final UUID empire;
@@ -39,7 +39,7 @@ public final class CivilianRecord {
     private String name;
     /** {@code CivilianAppearance.pack()}. */
     private int appearance;
-    private int abilities;
+    private CivilianTraits traits;
     private CivilianFood.Saved food = new CivilianFood().save();
     private CivilianSleep.Saved sleep = new CivilianSleep().save();
     private CivilianFulfilment.Saved fulfilment;
@@ -60,7 +60,7 @@ public final class CivilianRecord {
         this.body = body;
         this.name = name;
         this.appearance = appearance;
-        this.abilities = defaultAbilities(id);
+        this.traits = CivilianTraits.defaultFor(id);
         this.fulfilment = CivilianFulfilment.Saved.empty(CivilianPreferences.defaultFor(id));
         this.lastPos = lastPos.immutable();
         this.lastChunk = lastChunk;
@@ -99,17 +99,17 @@ public final class CivilianRecord {
         this.appearance = appearance;
     }
 
-    public int abilities() {
-        return abilities;
+    public CivilianTraits traits() {
+        return traits;
     }
 
-    public void setAbilities(int abilities) {
-        CivilianAbilities.unpack(abilities);
-        this.abilities = abilities;
+    public void setTraits(CivilianTraits traits) {
+        this.traits = Objects.requireNonNull(traits, "traits");
     }
 
-    private static int defaultAbilities(UUID id) {
-        return CivilianAbilities.roll(new Random(id.getMostSignificantBits() ^ id.getLeastSignificantBits())).pack();
+    /** Derived player-facing 7-score abilities computed from {@link #traits()}. */
+    public CivilianAbilities abilities() {
+        return traits.abilities();
     }
 
     public CivilianFood.Saved food() {
@@ -189,7 +189,7 @@ public final class CivilianRecord {
         tag.putUUID("body", body);
         tag.putString("name", name);
         tag.putInt("appearance", appearance);
-        tag.putInt("abilities", abilities);
+        tag.put("traits", CivilianTraitsNbt.save(traits));
         tag.put("food", CivilianFoodNbt.save(food));
         tag.put("sleep", CivilianSleepNbt.save(sleep));
         tag.put("fulfilment", CivilianFulfilmentNbt.save(fulfilment));
@@ -208,12 +208,9 @@ public final class CivilianRecord {
         CivilianRecord record = new CivilianRecord(tag.getUUID("id"), tag.getUUID("empire"), tag.getUUID("body"), tag.getString("name"),
                 tag.getInt("appearance"), BlockPos.of(tag.getLong("last_pos")), tag.getLong("last_chunk"),
                 tag.getLong("joined"));
-        if (tag.contains("abilities", net.minecraft.nbt.Tag.TAG_INT)) {
-            try {
-                record.setAbilities(tag.getInt("abilities"));
-            } catch (IllegalArgumentException ignored) {
-                // Keep the same stable default as an older record if the saved bits are corrupt.
-            }
+        if (tag.contains("traits", net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+            record.setTraits(CivilianTraitsNbt.load(
+                    tag.getCompound("traits"), () -> CivilianTraits.defaultFor(record.id())));
         }
         record.setFood(CivilianFoodNbt.load(tag.getCompound("food")));
         record.setSleep(CivilianSleepNbt.load(tag.getCompound("sleep")));

@@ -17,6 +17,7 @@ import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
+import dev.brights0ng.empire.rules.CivilianDerivedStats;
 import dev.brights0ng.empire.rules.CivilianFulfilment;
 import dev.brights0ng.empire.rules.CivilianPreferences;
 import dev.brights0ng.empire.rules.FulfilmentModel;
@@ -113,11 +114,12 @@ public final class CivilianFulfilmentMeters {
         }
         double room = provider.room(level, civilian.position().add(0.0, BODY_MIDDLE_Y, 0.0));
         double tempC = air + (Double.isFinite(room) ? room : 0.0);
+        CivilianDerivedStats stats = civilian.derivedStats();
         double score = FulfilmentModel.comfortFromTemp(
                 tempC,
-                EmpireConfig.fulfilmentComfortMinC(),
-                EmpireConfig.fulfilmentComfortMaxC(),
-                EmpireConfig.fulfilmentComfortDangerMarginC());
+                stats.comfortMinC(EmpireConfig.fulfilmentComfortMinC()),
+                stats.comfortMaxC(EmpireConfig.fulfilmentComfortMaxC()),
+                stats.comfortDangerMarginC(EmpireConfig.fulfilmentComfortDangerMarginC()));
         if (!Double.isFinite(score)) {
             return false;
         }
@@ -189,12 +191,13 @@ public final class CivilianFulfilmentMeters {
     public static Evaluation stepSlot(ServerLevel level, CivilianEntity civilian, long deltaTicks, boolean memberOnline) {
         sampleComfort(level, civilian);
         Evaluation eval = evaluate(level, civilian);
+        CivilianDerivedStats stats = civilian.derivedStats();
         double nextGrievance = FulfilmentModel.stepGrievance(
                 civilian.fulfilment().grievance(),
                 eval.fulfilment(),
                 EmpireConfig.fulfilmentGrievanceThreshold(),
-                EmpireConfig.fulfilmentGrievanceBuildPerDay(),
-                EmpireConfig.fulfilmentGrievanceDrainPerDay(),
+                EmpireConfig.fulfilmentGrievanceBuildPerDay() * stats.grievanceBuildMultiplier(),
+                EmpireConfig.fulfilmentGrievanceDrainPerDay() * stats.grievanceDrainMultiplier(),
                 deltaTicks,
                 memberOnline);
         civilian.fulfilment().setGrievance((float) nextGrievance);
@@ -236,8 +239,12 @@ public final class CivilianFulfilmentMeters {
         if (!f.hasComfortSamples()) {
             return MeterReading.placeholder(placeholderDefault, "no climate samples");
         }
+        CivilianDerivedStats stats = civilian.derivedStats();
         double avg = f.averageComfort();
-        return MeterReading.live(avg, f.comfortSampleCount() + " sample" + (f.comfortSampleCount() == 1 ? "" : "s"));
+        return MeterReading.live(avg, String.format(Locale.ROOT, "%d sample%s (%.1f..%.1fC)",
+                f.comfortSampleCount(), f.comfortSampleCount() == 1 ? "" : "s",
+                stats.comfortMinC(EmpireConfig.fulfilmentComfortMinC()),
+                stats.comfortMaxC(EmpireConfig.fulfilmentComfortMaxC())));
     }
 
     public static MeterReading shelterMeter(CivilianEntity civilian, EmpireSavedData data, @Nullable EmpireRecord empire) {
@@ -253,18 +260,23 @@ public final class CivilianFulfilmentMeters {
         }
         int floor = region.indoorFloorArea();
         int occupants = Math.max(1, region.inhabitants().size());
-        double val = FulfilmentModel.shelter(true, floor, occupants);
-        return MeterReading.live(val, String.format(Locale.ROOT, "%d floor / %d occ", floor, occupants));
+        double perOcc = civilian.derivedStats().shelterFloorPerOccupant();
+        double val = FulfilmentModel.shelter(true, floor, occupants, perOcc);
+        return MeterReading.live(val, String.format(Locale.ROOT, "%d floor / %d occ (target %.0f/occ)", floor, occupants, perOcc));
     }
 
     public static MeterReading communityMeter(CivilianEntity civilian) {
         int people = civilian.fulfilment().distinctCommunityPeople();
-        return MeterReading.live(FulfilmentModel.community(people), people + "/10 people (3d)");
+        double target = civilian.derivedStats().communityTargetPeople();
+        return MeterReading.live(FulfilmentModel.community(people, target),
+                String.format(Locale.ROOT, "%d/%.1f people (3d)", people, target));
     }
 
     public static MeterReading socializingMeter(CivilianEntity civilian) {
         int talks = civilian.fulfilment().socializingCount();
-        return MeterReading.live(FulfilmentModel.socializing(talks), talks + "/5 talks (3d)");
+        double target = civilian.derivedStats().socializingTargetInteractions();
+        return MeterReading.live(FulfilmentModel.socializing(talks, target),
+                String.format(Locale.ROOT, "%d/%.1f talks (3d)", talks, target));
     }
 
     public static MeterReading commitmentMeter(CivilianEntity civilian) {

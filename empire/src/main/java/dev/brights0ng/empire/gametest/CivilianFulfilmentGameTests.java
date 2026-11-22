@@ -21,6 +21,7 @@ import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.CivilianFulfilment;
 import dev.brights0ng.empire.rules.CivilianPreferences;
 import dev.brights0ng.empire.rules.CivilianPreferences.Activity;
+import dev.brights0ng.empire.rules.CivilianTraits;
 import dev.brights0ng.empire.rules.FulfilmentModel;
 import dev.brights0ng.empire.rules.FulfilmentModel.Evaluation;
 import dev.brights0ng.empire.rules.FulfilmentModel.Meter;
@@ -182,6 +183,7 @@ public final class CivilianFulfilmentGameTests {
         List<BlockPos> placed = new ArrayList<>();
         BlockPos main = mainPos(helper);
         CivilianEntity c = citizen(helper, empire, main);
+        c.setTraits(CivilianTraits.NEUTRAL);
         // Center the 5x5x2 room squarely inside the staked founding chunk regardless of random GameTest origin.
         BlockPos origin = new BlockPos(((main.getX() >> 4) << 4) + 3, main.getY(), ((main.getZ() >> 4) << 4) + 3);
         BlockPos bedHead = buildEnclosedHome(level, origin, placed);
@@ -381,6 +383,7 @@ public final class CivilianFulfilmentGameTests {
 
             // 2. Verify explicit TemperatureProvider sampling math (20 C -> 1.0, -5 C -> 0.0)
             CivilianEntity c2 = citizen(helper, empire, mainPos(helper));
+            c2.setTraits(CivilianTraits.NEUTRAL);
             try {
                 TemperatureProvider warm = new TemperatureProvider() {
                     @Override public double air(ServerLevel lvl, BlockPos pos) { return 20.0; }

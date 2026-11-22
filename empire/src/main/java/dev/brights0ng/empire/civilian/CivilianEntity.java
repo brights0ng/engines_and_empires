@@ -1,4 +1,4 @@
-// Written by Claude; extended with abilities, inspection, ticking needs, inventory, eating and client eating sync by ChatGPT; extended with sleep persistence, behavior, fulfilment and debug inspection by Gemini.
+// Written by Claude; extended with abilities, inspection, ticking needs, inventory, eating and client eating sync by ChatGPT; extended with sleep persistence, behavior, fulfilment, traits and live derived mechanics by Gemini.
 package dev.brights0ng.empire.civilian;
 
 import java.util.ArrayList;
@@ -12,30 +12,38 @@ import java.util.random.RandomGenerator;
 
 import javax.annotation.Nullable;
 
+import dev.brights0ng.empire.Empire;
 import dev.brights0ng.empire.EmpireConfig;
 import dev.brights0ng.empire.civilian.CivilianNetwork.CivilianSpeechPayload;
 import dev.brights0ng.empire.data.CivilianFulfilmentNbt;
 import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.CivilianFoodNbt;
 import dev.brights0ng.empire.data.CivilianSleepNbt;
+import dev.brights0ng.empire.data.CivilianTraitsNbt;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianAbilities;
+import dev.brights0ng.empire.rules.CivilianDerivedStats;
 import dev.brights0ng.empire.rules.CivilianFood;
 import dev.brights0ng.empire.rules.CivilianFulfilment;
 import dev.brights0ng.empire.rules.CivilianLines;
 import dev.brights0ng.empire.rules.CivilianNames;
 import dev.brights0ng.empire.rules.CivilianPreferences;
+import dev.brights0ng.empire.rules.CivilianQuirk;
 import dev.brights0ng.empire.rules.CivilianSleep;
+import dev.brights0ng.empire.rules.CivilianTraits;
+import dev.brights0ng.empire.rules.CivilianTraits.BaseTrait;
 import dev.brights0ng.empire.rules.RegionRules;
 import dev.brights0ng.empire.rules.TravellerWants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -60,6 +68,9 @@ import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.SpawnGroupData;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
@@ -156,8 +167,10 @@ public class CivilianEntity extends PathfinderMob {
     private static final EntityDataAccessor<Boolean> ROUGH_SLEEPING =
             SynchedEntityData.defineId(CivilianEntity.class, EntityDataSerializers.BOOLEAN);
 
+    private static final ResourceLocation HUNGER_WEAKNESS_MODIFIER_ID = Empire.id("hunger_weakness");
+
     private static final String TAG_APPEARANCE = "Appearance";
-    private static final String TAG_ABILITIES = "Abilities";
+    private static final String TAG_TRAITS = "Traits";
     private static final String TAG_FOOD = "Food";
     private static final String TAG_SLEEP = "Sleep";
     private static final String TAG_FULFILMENT = "Fulfilment";
@@ -184,8 +197,12 @@ public class CivilianEntity extends PathfinderMob {
     private long leaveAt;
     /** Set when the look was chosen before spawning (debug commands), so finalizeSpawn keeps it. */
     private boolean appearancePreset;
-    private CivilianAbilities abilities = new CivilianAbilities(3, 3, 3, 3, 3, 3, 3);
-    private boolean abilitiesPreset;
+    private CivilianTraits traits = CivilianTraits.NEUTRAL;
+    private CivilianAbilities abilities = CivilianTraits.NEUTRAL.abilities();
+    private List<CivilianQuirk> quirks = List.of();
+    private CivilianDerivedStats derivedStats = CivilianDerivedStats.NEUTRAL;
+    private boolean traitsPreset;
+    private double appliedHungerWeakness = 0.0;
     private CivilianFood food = new CivilianFood();
     private CivilianSleep sleep = new CivilianSleep();
     private CivilianFulfilment fulfilment = new CivilianFulfilment(CivilianPreferences.defaultFor(getUUID()));
@@ -255,9 +272,18 @@ public class CivilianEntity extends PathfinderMob {
 
     public static AttributeSupplier.Builder createAttributes() {
         return Mob.createMobAttributes()
-                .add(Attributes.MAX_HEALTH, 30.0)
-                .add(Attributes.MOVEMENT_SPEED, 0.5)
-                .add(Attributes.FOLLOW_RANGE, 32.0);
+                .add(Attributes.MAX_HEALTH, CivilianDerivedStats.BASE_MAX_HEALTH)
+                .add(Attributes.MOVEMENT_SPEED, CivilianDerivedStats.BASE_MOVEMENT_SPEED)
+                .add(Attributes.FOLLOW_RANGE, CivilianDerivedStats.BASE_FOLLOW_RANGE)
+                .add(Attributes.JUMP_STRENGTH, CivilianDerivedStats.BASE_JUMP_STRENGTH)
+                .add(Attributes.SAFE_FALL_DISTANCE, CivilianDerivedStats.BASE_SAFE_FALL_DISTANCE)
+                .add(Attributes.FALL_DAMAGE_MULTIPLIER, 1.0)
+                .add(Attributes.KNOCKBACK_RESISTANCE, CivilianDerivedStats.BASE_KNOCKBACK_RESISTANCE)
+                .add(Attributes.ATTACK_DAMAGE, CivilianDerivedStats.BASE_ATTACK_DAMAGE)
+                .add(Attributes.ATTACK_KNOCKBACK, CivilianDerivedStats.BASE_ATTACK_KNOCKBACK)
+                .add(Attributes.MOVEMENT_EFFICIENCY, CivilianDerivedStats.BASE_MOVEMENT_EFFICIENCY)
+                .add(Attributes.WATER_MOVEMENT_EFFICIENCY, CivilianDerivedStats.BASE_WATER_MOVEMENT_EFFICIENCY)
+                .add(Attributes.OXYGEN_BONUS, CivilianDerivedStats.BASE_OXYGEN_BONUS);
     }
 
     // Temporary vanilla goals until the real civilian AI exists.
@@ -309,26 +335,97 @@ public class CivilianEntity extends PathfinderMob {
         appearancePreset = true;
     }
 
+    public CivilianTraits traits() {
+        return traits;
+    }
+
     public CivilianAbilities abilities() {
         return abilities;
     }
 
-    /** Sets scores and writes through to this citizen's master record. */
-    public void setAbilities(CivilianAbilities abilities) {
-        this.abilities = java.util.Objects.requireNonNull(abilities);
-        if (status == Status.CITIZEN && level() instanceof ServerLevel serverLevel) {
+    public List<CivilianQuirk> quirks() {
+        return quirks;
+    }
+
+    public CivilianDerivedStats derivedStats() {
+        return derivedStats;
+    }
+
+    /** Sets underlying 11 traits, recalculates derived scores/quirks/attributes, and writes through to the record. */
+    public void setTraits(CivilianTraits traits) {
+        applyTraits(traits, false, true);
+    }
+
+    /** Fixes traits before {@link #finalizeSpawn} so they are not rolled and spawn health starts at full max HP. */
+    void presetTraits(CivilianTraits traits) {
+        applyTraits(traits, true, false);
+        traitsPreset = true;
+    }
+
+    private void applyTraits(CivilianTraits traits, boolean healToFull, boolean writeThrough) {
+        this.traits = Objects.requireNonNull(traits, "traits");
+        this.abilities = traits.abilities();
+        this.quirks = traits.quirks();
+        this.derivedStats = traits.derivedStats();
+        applyTraitAttributes(healToFull);
+        if (writeThrough && status == Status.CITIZEN && level() instanceof ServerLevel serverLevel) {
             EmpireSavedData data = EmpireSavedData.of(serverLevel);
             CivilianRecord record = ownRecord(data);
-            if (record != null && record.abilities() != abilities.pack()) {
-                record.setAbilities(abilities.pack());
+            if (record != null && !traits.equals(record.traits())) {
+                record.setTraits(traits);
                 data.setDirty();
             }
         }
     }
 
-    void presetAbilities(CivilianAbilities abilities) {
-        setAbilities(abilities);
-        abilitiesPreset = true;
+    private void applyTraitAttributes(boolean healToFull) {
+        setAttributeBase(Attributes.MAX_HEALTH, derivedStats.maxHealth());
+        setAttributeBase(Attributes.MOVEMENT_SPEED, derivedStats.movementSpeed());
+        setAttributeBase(Attributes.JUMP_STRENGTH, derivedStats.jumpStrength());
+        setAttributeBase(Attributes.SAFE_FALL_DISTANCE, derivedStats.safeFallDistance());
+        setAttributeBase(Attributes.FALL_DAMAGE_MULTIPLIER, derivedStats.fallDamageMultiplier());
+        setAttributeBase(Attributes.KNOCKBACK_RESISTANCE, derivedStats.knockbackResistance());
+        setAttributeBase(Attributes.ATTACK_DAMAGE, derivedStats.attackDamage());
+        setAttributeBase(Attributes.ATTACK_KNOCKBACK, derivedStats.attackKnockback());
+        setAttributeBase(Attributes.MOVEMENT_EFFICIENCY, derivedStats.movementEfficiency());
+        setAttributeBase(Attributes.WATER_MOVEMENT_EFFICIENCY, derivedStats.waterMovementEfficiency());
+        setAttributeBase(Attributes.OXYGEN_BONUS, derivedStats.oxygenBonus());
+        setAttributeBase(Attributes.FOLLOW_RANGE, derivedStats.followRange());
+        if (healToFull) {
+            setHealth(getMaxHealth());
+        } else if (getHealth() > getMaxHealth()) {
+            setHealth(getMaxHealth());
+        }
+        updateHungerStrengthModifier();
+    }
+
+    private void setAttributeBase(Holder<Attribute> attribute, double value) {
+        AttributeInstance inst = getAttribute(attribute);
+        if (inst != null && Double.compare(inst.getBaseValue(), value) != 0) {
+            inst.setBaseValue(value);
+        }
+    }
+
+    /** Applies or clears the transient hunger-weakness modifier on attack damage when food is below threshold. */
+    void updateHungerStrengthModifier() {
+        AttributeInstance atk = getAttribute(Attributes.ATTACK_DAMAGE);
+        if (atk == null) {
+            return;
+        }
+        double factor = derivedStats.hungerStrengthFactor(food.foodLevel());
+        double delta = factor < 1.0 - 1e-6 ? factor - 1.0 : 0.0;
+        boolean hasMod = atk.hasModifier(HUNGER_WEAKNESS_MODIFIER_ID);
+        if (delta == 0.0) {
+            if (hasMod) {
+                atk.removeModifier(HUNGER_WEAKNESS_MODIFIER_ID);
+            }
+            appliedHungerWeakness = 0.0;
+        } else if (!hasMod || Math.abs(delta - appliedHungerWeakness) > 1e-6) {
+            atk.removeModifier(HUNGER_WEAKNESS_MODIFIER_ID);
+            atk.addTransientModifier(new AttributeModifier(
+                    HUNGER_WEAKNESS_MODIFIER_ID, delta, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+            appliedHungerWeakness = delta;
+        }
     }
 
     public CivilianFood food() {
@@ -374,7 +471,7 @@ public class CivilianEntity extends PathfinderMob {
     }
 
     public int sleepNeedTicks() {
-        return CivilianSleep.neededTicks(abilities.endurance());
+        return derivedStats.sleepNeedTicks();
     }
 
     public boolean isRoughSleeping() {
@@ -462,6 +559,16 @@ public class CivilianEntity extends PathfinderMob {
                 "Abilities: BRA %d END %d PRE %d RES %d WIT %d ORG %d TEA %d (mean %.1f)",
                 abilities.brawn(), abilities.endurance(), abilities.precision(), abilities.resolve(),
                 abilities.wits(), abilities.organization(), abilities.teamwork(), abilities.mean())));
+        String quirkList = quirks.isEmpty() ? "none"
+                : String.join(", ", quirks.stream().map(CivilianQuirk::displayName).toList());
+        lines.add(Component.literal("Quirks: " + quirkList));
+        lines.add(Component.literal(String.format(Locale.ROOT,
+                "Stats: Comfort %.1f..%.1fC | Hunger %.2fx basal / %.2fx act | Reach %.1fb | Speed %.2f | StrMult %.2fx",
+                derivedStats.comfortMinC(EmpireConfig.fulfilmentComfortMinC()),
+                derivedStats.comfortMaxC(EmpireConfig.fulfilmentComfortMaxC()),
+                derivedStats.basalExhaustionMultiplier(), derivedStats.activityExhaustionMultiplier(),
+                derivedStats.blockReach(), derivedStats.movementSpeed(),
+                derivedStats.hungerStrengthFactor(food.foodLevel()))));
         lines.add(Component.literal(String.format(Locale.ROOT,
                 "HP: %.1f/%.1f | Food: %d/20, Sat: %.1f, Exh: %.2f | Eaten: %d today / %d yest | Active: %dt",
                 getHealth(), getMaxHealth(), food.foodLevel(), food.saturation(), food.exhaustion(),
@@ -565,6 +672,56 @@ public class CivilianEntity extends PathfinderMob {
         return lines;
     }
 
+    /** Full breakdown of hidden base traits, quirks, derived abilities, and derived stats for debug inspection. */
+    public List<Component> traitsDebugLines() {
+        List<Component> lines = new ArrayList<>();
+        CivilianDerivedStats s = derivedStats;
+        lines.add(Component.literal("=== Traits: " + getName().getString() + " (" + status.name() + ") ==="));
+        lines.add(Component.literal(String.format(Locale.ROOT,
+                "Big Five: O=%+d C=%+d E=%+d A=%+d N=%+d",
+                traits.raw(BaseTrait.OPENNESS), traits.raw(BaseTrait.CONSCIENTIOUSNESS),
+                traits.raw(BaseTrait.EXTRAVERSION), traits.raw(BaseTrait.AGREEABLENESS),
+                traits.raw(BaseTrait.NEUROTICISM))));
+        lines.add(Component.literal(String.format(Locale.ROOT,
+                "Orthogonality: AS=%+d MR=%+d CF=%+d AE=%+d EC=%+d MS=%+d",
+                traits.raw(BaseTrait.ALLOMETRIC_SCALE), traits.raw(BaseTrait.METABOLIC_RESERVE),
+                traits.raw(BaseTrait.CONTRACTILE_FORCE), traits.raw(BaseTrait.AEROBIC_STAMINA),
+                traits.raw(BaseTrait.ELASTIC_COMPLIANCE), traits.raw(BaseTrait.MOTOR_SENSORY))));
+        String quirkStr = quirks.isEmpty() ? "none"
+                : String.join(", ", quirks.stream().map(CivilianQuirk::displayName).toList());
+        lines.add(Component.literal("Quirks: " + quirkStr));
+        lines.add(Component.literal(String.format(Locale.ROOT,
+                "Abilities: BRA %d END %d PRE %d RES %d WIT %d ORG %d TEA %d (mean %.1f)",
+                abilities.brawn(), abilities.endurance(), abilities.precision(), abilities.resolve(),
+                abilities.wits(), abilities.organization(), abilities.teamwork(), abilities.mean())));
+        lines.add(Component.literal(String.format(Locale.ROOT,
+                "Attributes: HP %.1f | Spd %.3f | Jump %.3f | Fall %.1fb (%.2fx) | KBRes %.2f | Atk %.2f (KB %.2f) | MoveEff %.2f | Water %.2f | O2 %.2f | Follow %.1f",
+                s.maxHealth(), s.movementSpeed(), s.jumpStrength(), s.safeFallDistance(), s.fallDamageMultiplier(),
+                s.knockbackResistance(), s.attackDamage(), s.attackKnockback(), s.movementEfficiency(),
+                s.waterMovementEfficiency(), s.oxygenBonus(), s.followRange())));
+        lines.add(Component.literal(String.format(Locale.ROOT,
+                "Needs: Basal %.2fx | Act %.2fx | HealInt %.2fx | StarveInt %.2fx | Weak<%d (floor %.2fx, now %.2fx)",
+                s.basalExhaustionMultiplier(), s.activityExhaustionMultiplier(),
+                s.healingIntervalMultiplier(), s.starvationIntervalMultiplier(),
+                s.hungerPenaltyThreshold(), s.hungerStrengthFloor(), s.hungerStrengthFactor(food.foodLevel()))));
+        lines.add(Component.literal(String.format(Locale.ROOT,
+                "Sleep/Fulfil: Need %dt | Rough %.2f | WakeCd %dt | Comfort %+.1fC (margin %.2fx) | Comm %.1f | Soc %.1f | Shelter %.1f | Griev +%.2fx/-%.2fx | Speech cd %.2fx talk %.2f",
+                s.sleepNeedTicks(), s.roughSleepCreditRate(), s.wakeCooldownTicks(),
+                s.comfortTempShiftC(), s.comfortDangerMarginMultiplier(),
+                s.communityTargetPeople(), s.socializingTargetInteractions(), s.shelterFloorPerOccupant(),
+                s.grievanceBuildMultiplier(), s.grievanceDrainMultiplier(),
+                s.speechCooldownMultiplier(), s.talkChance())));
+        lines.add(Component.literal(String.format(Locale.ROOT,
+                "Jobs/Combat: Reach %.2fb/%.2fb | Torque %.2fx RPM %.2fx SustLabor %.2fx | Carry %.2fx | Heavy %.2fx Fine %.2fx ColdSens %.2fx | Fumble %.2fx Aim %.2fx | Learn %.2fx/%.2fx | Route %.2fx Team %.2fx | Brave %.2f Bleed %.2fx",
+                s.blockReach(), s.meleeReach(), s.mechanicalTorqueMultiplier(), s.mechanicalSpeedMultiplier(),
+                s.sustainedLaborStamina(), s.carryCapacityMultiplier(), s.heavyLaborSpeedMultiplier(),
+                s.fineWorkSpeedMultiplier(), s.coldFatiguePrecisionSensitivity(), s.fumbleRateMultiplier(),
+                s.rangedAccuracyMultiplier(), s.cognitiveLearningMultiplier(), s.motorLearningMultiplier(),
+                s.routingEfficiencyMultiplier(), s.teamworkSynergyMultiplier(),
+                s.braveryScore(), s.bleedOutDurationMultiplier())));
+        return lines;
+    }
+
     private static String formatStack(ItemStack stack) {
         if (stack.isEmpty()) {
             return "empty";
@@ -597,14 +754,14 @@ public class CivilianEntity extends PathfinderMob {
         }
     }
 
-    /** Wakes from bed or rough sleep; {@code applyCooldown} delays lying down again for {@link #WAKE_COOLDOWN} ticks. */
+    /** Wakes from bed or rough sleep; {@code applyCooldown} delays lying down again by this civilian's wake cooldown. */
     public void wakeUp(boolean applyCooldown) {
         if (isSleeping()) {
             super.stopSleeping();
         }
         stopRoughSleeping();
         if (applyCooldown) {
-            wakeCooldownUntil = tickCount + WAKE_COOLDOWN;
+            wakeCooldownUntil = tickCount + derivedStats.wakeCooldownTicks();
         }
     }
 
@@ -670,6 +827,7 @@ public class CivilianEntity extends PathfinderMob {
         if (!Float.isNaN(record.health())) {
             setHealth(Math.clamp(record.health(), 1.0F, getMaxHealth()));
         }
+        updateHungerStrengthModifier();
     }
 
     /** Debug edit: preserve timers and intake history, and immediately write through for citizens. */
@@ -679,6 +837,7 @@ public class CivilianEntity extends PathfinderMob {
         food = CivilianFood.restore(new CivilianFood.Saved(clamped,
                 Math.clamp(Float.isFinite(saturation) ? saturation : 0.0F, 0.0F, (float) clamped),
                 saved.exhaustion(), saved.tickTimer(), saved.foodEatenToday(), saved.foodEatenYesterday(), saved.activeTicks()));
+        updateHungerStrengthModifier();
         syncNeedsToRecord();
     }
 
@@ -748,7 +907,7 @@ public class CivilianEntity extends PathfinderMob {
     public void jumpFromGround() {
         super.jumpFromGround();
         if (!level().isClientSide && status != Status.LEAVING) {
-            food.addExhaustion(0.05F);
+            food.addExhaustion((float) (0.05F * derivedStats.activityExhaustionMultiplier()));
         }
     }
 
@@ -765,7 +924,7 @@ public class CivilianEntity extends PathfinderMob {
             if (submerged || isInWater()) {
                 int centimetres = Math.round((float) Math.sqrt(dx * dx + dz * dz + (submerged ? dy * dy : 0.0)) * 100.0F);
                 if (centimetres > 0) {
-                    food.addExhaustion(0.01F * centimetres * 0.01F);
+                    food.addExhaustion((float) (0.01F * centimetres * 0.01F * derivedStats.activityExhaustionMultiplier()));
                 }
             }
         }
@@ -863,12 +1022,16 @@ public class CivilianEntity extends PathfinderMob {
         if (!appearancePreset) {
             setAppearance(CivilianAppearance.random(random::nextLong));
         }
-        if (!abilitiesPreset) {
-            setAbilities(CivilianAbilities.roll(random::nextLong));
+        if (!traitsPreset) {
+            applyTraits(CivilianTraits.roll(random::nextLong), true, false);
+        } else {
+            applyTraitAttributes(true);
         }
         if (!preferencesPreset) {
             fulfilment.setPreferences(CivilianPreferences.roll(
-                    random::nextLong, CivilianFulfilmentMeters.resolveFavouriteFoodPool()));
+                    random::nextLong,
+                    CivilianFulfilmentMeters.resolveFavouriteFoodPool(),
+                    traits.norm(BaseTrait.OPENNESS)));
         }
         setCustomName(Component.literal(CivilianNames.pick(random::nextLong)));
         setCustomNameVisible(true);
@@ -895,7 +1058,7 @@ public class CivilianEntity extends PathfinderMob {
         }
         tag.put("Inventory", ContainerHelper.saveAllItems(new CompoundTag(), inventory.getItems(), level().registryAccess()));
         tag.putInt(TAG_APPEARANCE, entityData.get(APPEARANCE));
-        tag.putInt(TAG_ABILITIES, abilities.pack());
+        tag.put(TAG_TRAITS, CivilianTraitsNbt.save(traits));
         if (home != null) {
             tag.put(TAG_HOME, NbtUtils.writeBlockPos(home));
         }
@@ -913,11 +1076,19 @@ public class CivilianEntity extends PathfinderMob {
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
+        // Load traits first so derived attributes and fallback Openness-based preferences are ready.
+        CivilianTraits loadedTraits = tag.contains(TAG_TRAITS, Tag.TAG_COMPOUND)
+                ? CivilianTraitsNbt.load(tag.getCompound(TAG_TRAITS), () -> CivilianTraits.roll(random::nextLong))
+                : CivilianTraits.roll(random::nextLong);
+        applyTraits(loadedTraits, false, false);
         food = CivilianFood.restore(CivilianFoodNbt.load(tag.getCompound(TAG_FOOD)));
         sleep = CivilianSleep.restore(CivilianSleepNbt.load(tag.getCompound(TAG_SLEEP)));
         fulfilment = CivilianFulfilment.restore(CivilianFulfilmentNbt.load(
                 tag.getCompound(TAG_FULFILMENT),
-                () -> CivilianPreferences.roll(random::nextLong, CivilianFulfilmentMeters.resolveFavouriteFoodPool())));
+                () -> CivilianPreferences.roll(
+                        random::nextLong,
+                        CivilianFulfilmentMeters.resolveFavouriteFoodPool(),
+                        traits.norm(BaseTrait.OPENNESS))));
         claimedBed = NbtUtils.readBlockPos(tag, TAG_BED).orElse(null);
         if (tag.getBoolean(TAG_ROUGH_SLEEPING) && !isSleeping()) {
             entityData.set(ROUGH_SLEEPING, true);
@@ -927,15 +1098,7 @@ public class CivilianEntity extends PathfinderMob {
         }
         inventory.clearContent();
         ContainerHelper.loadAllItems(tag.getCompound("Inventory"), inventory.getItems(), level().registryAccess());
-        CivilianAbilities loadedAbilities = null;
-        if (tag.contains(TAG_ABILITIES, net.minecraft.nbt.Tag.TAG_INT)) {
-            try {
-                loadedAbilities = CivilianAbilities.unpack(tag.getInt(TAG_ABILITIES));
-            } catch (IllegalArgumentException ignored) {
-                // Missing or corrupt scores get a fresh roll; a citizen's master copy wins on join.
-            }
-        }
-        abilities = loadedAbilities != null ? loadedAbilities : CivilianAbilities.roll(random::nextLong);
+        updateHungerStrengthModifier();
         if (tag.contains(TAG_APPEARANCE)) {
             try {
                 setAppearance(CivilianAppearance.unpack(tag.getInt(TAG_APPEARANCE)));
@@ -980,12 +1143,15 @@ public class CivilianEntity extends PathfinderMob {
             if (food.countActiveTick()) {
                 fulfilment.advanceDay();
             }
-            food.addExhaustion((float) EmpireConfig.civilianBasalExhaustionPerTick());
+            food.addExhaustion((float) (EmpireConfig.civilianBasalExhaustionPerTick() * derivedStats.basalExhaustionMultiplier()));
             CivilianFood.TickResult result = food.tick(getHealth(), getMaxHealth(),
                     serverLevel.getGameRules().getBoolean(GameRules.RULE_NATURAL_REGENERATION),
-                    serverLevel.getDifficulty() == Difficulty.PEACEFUL);
+                    serverLevel.getDifficulty() == Difficulty.PEACEFUL,
+                    derivedStats.healingIntervalMultiplier(),
+                    derivedStats.starvationIntervalMultiplier());
             if (result.healAmount() > 0.0F) heal(result.healAmount());
             if (result.starveDamage() > 0.0F) hurt(damageSources().starve(), result.starveDamage());
+            updateHungerStrengthModifier();
             if (tickCount % EAT_CHECK_INTERVAL == 0) tryEatFromInventory();
             if (status == Status.CITIZEN) {
                 tickSleep(serverLevel);
@@ -1003,6 +1169,7 @@ public class CivilianEntity extends PathfinderMob {
     private void tickSleep(ServerLevel serverLevel) {
         long dayTime = serverLevel.getDayTime();
         int need = sleepNeedTicks();
+        float roughRate = derivedStats.roughSleepCreditRate();
         float prevLastNight = sleep.lastNight();
         EmpireSavedData data = EmpireSavedData.of(serverLevel);
         CivilianRecord record = ownRecord(data);
@@ -1014,12 +1181,12 @@ public class CivilianEntity extends PathfinderMob {
             if (prev != CivilianSleep.NO_DAY_TIME && dayTime > prev + 1) {
                 // D7 / R3: unloaded time counts at claimed-bed / rough rate without teleporting.
                 boolean hasBed = isSleeping() || (empire != null && CivilianBeds.isValidClaimedBed(serverLevel, empire, claimedBed));
-                sleep.catchUp(prev + 1, dayTime, hasBed, need);
+                sleep.catchUp(prev + 1, dayTime, hasBed, need, roughRate);
                 if (isLyingDown() && (!CivilianSleep.isNight(dayTime) || sleep.isRestedFor(CivilianSleep.nightIndex(dayTime)))) {
                     wakeUp(false);
                 }
             } else if (prev != CivilianSleep.NO_DAY_TIME && dayTime < prev) {
-                sleep.catchUp(prev, dayTime, false, need);
+                sleep.catchUp(prev, dayTime, false, need, roughRate);
                 if (isLyingDown() && !CivilianSleep.isNight(dayTime)) {
                     wakeUp(false);
                 }
@@ -1034,24 +1201,24 @@ public class CivilianEntity extends PathfinderMob {
                 if (bed != null) {
                     Vec3 dest = CivilianBeds.bedTeleportPos(serverLevel, bed, this);
                     teleportTo(dest.x, dest.y, dest.z);
-                    sleep.catchUp(prev + 1, dayTime, true, need);
+                    sleep.catchUp(prev + 1, dayTime, true, need, roughRate);
                 } else {
                     UUID seed = civilianId != null ? civilianId : getUUID();
                     BlockPos rough = empire != null
                             ? CivilianBeds.roughSpot(serverLevel, empire, seed, blockPosition()) : blockPosition();
                     teleportTo(rough.getX() + 0.5, rough.getY(), rough.getZ() + 0.5);
-                    sleep.catchUp(prev + 1, dayTime, false, need);
+                    sleep.catchUp(prev + 1, dayTime, false, need, roughRate);
                 }
             } else {
                 boolean hasBed = isSleeping()
                         || (!isRoughSleeping() && empire != null && CivilianBeds.isValidClaimedBed(serverLevel, empire, claimedBed));
-                sleep.catchUp(prev + 1, dayTime, hasBed, need);
+                sleep.catchUp(prev + 1, dayTime, hasBed, need, roughRate);
             }
             if (isLyingDown() && (!CivilianSleep.isNight(dayTime) || sleep.isRestedFor(CivilianSleep.nightIndex(dayTime)))) {
                 wakeUp(false);
             }
         } else if (prev != CivilianSleep.NO_DAY_TIME && dayTime < prev) {
-            sleep.catchUp(prev, dayTime, false, need);
+            sleep.catchUp(prev, dayTime, false, need, roughRate);
             if (isLyingDown() && !CivilianSleep.isNight(dayTime)) {
                 wakeUp(false);
             }
@@ -1060,7 +1227,7 @@ public class CivilianEntity extends PathfinderMob {
         if (isRoughSleeping() && (isInWater() || isInLava())) {
             wakeUp(true);
         }
-        sleep.tick(dayTime, isLyingDown(), isSleeping(), need);
+        sleep.tick(dayTime, isLyingDown(), isSleeping(), need, roughRate);
         if (isLyingDown() && (!CivilianSleep.isNight(dayTime) || sleep.isRestedFor(CivilianSleep.nightIndex(dayTime)))) {
             wakeUp(false);
         }
@@ -1360,7 +1527,8 @@ public class CivilianEntity extends PathfinderMob {
         }
         if (nextLineTick < 0) {
             // The first wait is shorter and random, so a crowd does not speak in sync.
-            nextLineTick = tickCount + random.nextInt(COOLDOWN_MIN + 1);
+            int scaledMin = Math.max(SPEECH_INTERVAL, (int) Math.round(COOLDOWN_MIN * derivedStats.speechCooldownMultiplier()));
+            nextLineTick = tickCount + random.nextInt(scaledMin + 1);
         }
         if (talkPartner != null) {
             tickConversation();
@@ -1379,7 +1547,7 @@ public class CivilianEntity extends PathfinderMob {
         if (tickCount < nextLineTick) {
             return;
         }
-        if (random.nextDouble() < TALK_CHANCE && startConversation()) {
+        if (random.nextDouble() < derivedStats.talkChance() && startConversation()) {
             return;
         }
         say(ambientCategory());
@@ -1426,7 +1594,10 @@ public class CivilianEntity extends PathfinderMob {
     }
 
     private void resetLineCooldown() {
-        nextLineTick = tickCount + COOLDOWN_MIN + random.nextInt(COOLDOWN_MAX - COOLDOWN_MIN + 1);
+        double mult = derivedStats.speechCooldownMultiplier();
+        int min = Math.max(SPEECH_INTERVAL, (int) Math.round(COOLDOWN_MIN * mult));
+        int max = Math.max(min, (int) Math.round(COOLDOWN_MAX * mult));
+        nextLineTick = tickCount + min + random.nextInt(max - min + 1);
     }
 
     /** Whether this civilian can be drawn into a conversation. */

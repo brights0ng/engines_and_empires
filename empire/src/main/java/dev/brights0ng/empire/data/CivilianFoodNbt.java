@@ -1,4 +1,4 @@
-// Written by ChatGPT.
+// Written by ChatGPT; widened tick_timer clamp for trait-scaled starvation/regen intervals by Gemini.
 package dev.brights0ng.empire.data;
 
 import dev.brights0ng.empire.rules.CivilianFood;
@@ -24,7 +24,7 @@ public final class CivilianFoodNbt {
         float saturation = number(tag, "saturation", 5.0F, level);
         float exhaustion = number(tag, "exhaustion", 0.0F, 40.0F);
         return new CivilianFood.Saved(level, saturation, exhaustion,
-                Math.clamp(tag.getInt("tick_timer"), 0, 80), Math.max(0, tag.getInt("eaten_today")),
+                Math.clamp(tag.getInt("tick_timer"), 0, 200), Math.max(0, tag.getInt("eaten_today")),
                 Math.max(0, tag.getInt("eaten_yesterday")), Math.max(0L, tag.getLong("active_ticks")));
     }
 

@@ -1,4 +1,4 @@
-// Written by Claude; extended with ability, needs and inventory persistence by ChatGPT; extended with sleep and bed lifecycle by Gemini.
+// Written by Claude; extended with ability, needs and inventory persistence by ChatGPT; extended with sleep, bed lifecycle and traits persistence by Gemini.
 package dev.brights0ng.empire.civilian;
 
 import java.util.HashMap;
@@ -16,7 +16,6 @@ import dev.brights0ng.empire.data.TravellerSlot;
 import dev.brights0ng.empire.rules.ArrivalRule;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.CivilianAppearance;
-import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.TravellerWants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -83,7 +82,7 @@ public final class CivilianRoster {
                     return;
                 }
                 civilian.setCustomName(Component.literal(record.name()));
-                civilian.setAbilities(CivilianAbilities.unpack(record.abilities()));
+                civilian.setTraits(record.traits());
                 civilian.restoreNeeds(record);
                 try {
                     civilian.setAppearance(CivilianAppearance.unpack(record.appearance()));
@@ -239,7 +238,7 @@ public final class CivilianRoster {
         String name = civilian.getCustomName() != null ? civilian.getCustomName().getString() : civilian.getName().getString();
         CivilianRecord record = new CivilianRecord(UUID.randomUUID(), empire.id(), civilian.getUUID(), name,
                 civilian.appearance().pack(), civilian.blockPosition(), civilian.chunkPosition().toLong(), level.getGameTime());
-        record.setAbilities(civilian.abilities().pack());
+        record.setTraits(civilian.traits());
         record.setFood(civilian.food().save());
         record.setSleep(civilian.sleep().save());
         civilian.fulfilment().resetForNewEmpire();

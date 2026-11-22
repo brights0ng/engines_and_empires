@@ -1,4 +1,4 @@
-// Written by ChatGPT; empire setup and cleanup adapted from Claude's CivilianRosterGameTests.
+// Written by ChatGPT; empire setup and cleanup adapted from Claude's CivilianRosterGameTests; updated for CivilianTraits persistence and neutral baselines by Gemini.
 package dev.brights0ng.empire.gametest;
 
 import java.util.UUID;
@@ -15,8 +15,8 @@ import dev.brights0ng.empire.data.CivilianFoodNbt;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.ChunkKeys;
-import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianFood;
+import dev.brights0ng.empire.rules.CivilianTraits;
 import dev.brights0ng.empire.rules.TravellerWants;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
@@ -40,7 +40,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class CivilianNeedsGameTests {
     private static final String BATCH = "civilians";
-    private static final String KNOWN_CODE = "13-12-9-11-10-14-8";
+    private static final CivilianTraits KNOWN_TRAITS = CivilianTraits.of(25, -40, 70, 15, -65, -35, 50, 80, -20, 45, 60);
 
     private static BlockPos mainPos(GameTestHelper helper) {
         return helper.absolutePos(new BlockPos(1, 1, 1));
@@ -58,9 +58,10 @@ public final class CivilianNeedsGameTests {
         data.onBonfireRemoved(mainPos(helper), null);
     }
 
-    /** Keep needs tests independent of navigation, falling and nearby fixtures. */
+    /** Keep needs tests independent of navigation, falling, nearby fixtures and random trait multipliers. */
     private static CivilianEntity needsBody(GameTestHelper helper, int food, float saturation, float health) {
         CivilianEntity civilian = CivilianSpawning.spawn(helper.getLevel(), Vec3.atBottomCenterOf(mainPos(helper)), null);
+        civilian.setTraits(CivilianTraits.NEUTRAL);
         civilian.setNoAi(true);
         civilian.setNoGravity(true);
         civilian.setFood(food, saturation);
@@ -511,12 +512,13 @@ public final class CivilianNeedsGameTests {
         EmpireRecord empire = found(helper, helper.makeMockPlayer(GameType.SURVIVAL));
         CivilianEntity traveller = TravellerArrivals.spawnTraveller(empire, helper.getLevel(), mainPos(helper).east());
         try {
-            CivilianAbilities rolled = traveller.abilities();
+            CivilianTraits rolled = traveller.traits();
             CivilianRecord record = CivilianRoster.recruit(traveller, empire, helper.getLevel());
-            helper.assertTrue(rolled.pack() == record.abilities(), "recruit copies traveller scores");
-            traveller.setAbilities(CivilianAbilities.parse(KNOWN_CODE));
-            helper.assertTrue(record.abilities() == traveller.abilities().pack(), "setter writes through");
-            helper.assertTrue(CivilianRecord.load(record.save(helper.getLevel().registryAccess()), helper.getLevel().registryAccess()).abilities() == record.abilities(), "record NBT round trip");
+            helper.assertTrue(rolled.equals(record.traits()), "recruit copies traveller traits");
+            helper.assertTrue(rolled.abilities().equals(record.abilities()), "record derives matching abilities");
+            traveller.setTraits(KNOWN_TRAITS);
+            helper.assertTrue(record.traits().equals(KNOWN_TRAITS), "setter writes traits through");
+            helper.assertTrue(CivilianRecord.load(record.save(helper.getLevel().registryAccess()), helper.getLevel().registryAccess()).traits().equals(record.traits()), "record NBT round trip");
         } finally {
             traveller.discard();
             disband(helper, empire);
@@ -531,7 +533,7 @@ public final class CivilianNeedsGameTests {
         CivilianRecord record = CivilianRoster.recruit(civilian, empire, helper.getLevel());
         CivilianEntity replacement = null;
         try {
-            civilian.setAbilities(CivilianAbilities.parse(KNOWN_CODE));
+            civilian.setTraits(KNOWN_TRAITS);
             UUID oldBody = civilian.getUUID();
             civilian.discard();
             CivilianRoster.runMissingCheck(helper.getLevel());
@@ -540,7 +542,8 @@ public final class CivilianNeedsGameTests {
             helper.assertFalse(record.body().equals(oldBody), "second check replaces the body");
             helper.assertTrue(helper.getLevel().getEntity(record.body()) instanceof CivilianEntity, "replacement exists");
             replacement = (CivilianEntity) helper.getLevel().getEntity(record.body());
-            helper.assertTrue(KNOWN_CODE.equals(replacement.abilities().code()), "replacement keeps scores");
+            helper.assertTrue(KNOWN_TRAITS.equals(replacement.traits()), "replacement keeps traits");
+            helper.assertTrue(KNOWN_TRAITS.abilities().equals(replacement.abilities()), "replacement keeps derived abilities");
         } finally {
             civilian.discard();
             if (replacement != null) replacement.discard();
@@ -555,30 +558,39 @@ public final class CivilianNeedsGameTests {
         CompoundTag tag = new CivilianRecord(id, UUID.randomUUID(), UUID.randomUUID(), "Legacy", 0,
                 BlockPos.ZERO, 0, 0).save(helper.getLevel().registryAccess());
         tag.putInt("version", 1);
-        tag.remove("abilities");
+        tag.remove("traits");
         CivilianRecord first = CivilianRecord.load(tag, helper.getLevel().registryAccess());
         CivilianRecord second = CivilianRecord.load(tag, helper.getLevel().registryAccess());
-        helper.assertTrue(first.abilities() == second.abilities(), "legacy migration is stable");
-        int expected = CivilianAbilities.roll(new java.util.Random(id.getMostSignificantBits() ^ id.getLeastSignificantBits())).pack();
-        helper.assertTrue(first.abilities() == expected, "legacy migration uses the civilian id seed");
-        tag.putInt("abilities", -1);
-        helper.assertTrue(CivilianRecord.load(tag, helper.getLevel().registryAccess()).abilities() == expected, "corrupt scores use the stable default");
+        helper.assertTrue(first.traits().equals(second.traits()), "legacy migration is stable");
+        CivilianTraits expected = CivilianTraits.defaultFor(id);
+        helper.assertTrue(first.traits().equals(expected), "legacy migration uses the civilian id seed");
+        CompoundTag corrupt = new CompoundTag();
+        corrupt.putInt("openness", 999);
+        tag.put("traits", corrupt);
+        helper.assertTrue(CivilianRecord.load(tag, helper.getLevel().registryAccess()).traits().equals(expected), "corrupt traits use the stable default");
         helper.succeed();
     }
 
     @GameTest(template = GameTestStructures.EMPTY, batch = BATCH)
     public static void entitySavesAbilitiesAndRepairsMissingOrCorrupt(GameTestHelper helper) {
         CivilianEntity civilian = EmpireContent.CIVILIAN.get().create(helper.getLevel());
-        civilian.setAbilities(CivilianAbilities.parse(KNOWN_CODE));
+        civilian.setTraits(KNOWN_TRAITS);
         CompoundTag tag = civilian.saveWithoutId(new CompoundTag());
         CivilianEntity loaded = EmpireContent.CIVILIAN.get().create(helper.getLevel());
         loaded.load(tag);
-        helper.assertTrue(KNOWN_CODE.equals(loaded.abilities().code()), "entity NBT keeps scores");
+        helper.assertTrue(KNOWN_TRAITS.equals(loaded.traits()), "entity NBT keeps traits");
+        helper.assertTrue(KNOWN_TRAITS.abilities().equals(loaded.abilities()), "entity NBT keeps derived abilities");
         for (boolean corrupt : new boolean[]{false, true}) {
-            tag.remove("Abilities");
-            if (corrupt) tag.putInt("Abilities", -1);
+            tag.remove("Traits");
+            if (corrupt) {
+                CompoundTag bad = new CompoundTag();
+                bad.putInt("openness", -999);
+                tag.put("Traits", bad);
+            }
             loaded.load(tag);
-            helper.assertTrue(loaded.abilities().mean() >= 8 && loaded.abilities().mean() <= 13, "missing/corrupt scores rerolled");
+            helper.assertTrue(loaded.abilities().mean() >= CivilianTraits.REROLL_MIN_ABILITY_MEAN
+                    && loaded.abilities().mean() <= CivilianTraits.REROLL_MAX_ABILITY_MEAN,
+                    "missing/corrupt traits rerolled within balanced bounds");
         }
         helper.succeed();
     }
