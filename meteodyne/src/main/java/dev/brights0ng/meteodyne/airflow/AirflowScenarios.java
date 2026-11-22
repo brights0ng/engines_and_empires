@@ -2,7 +2,7 @@
 // the two bars the realistic surface film moved out of, re-centred; M8b4: a block broken beside lava, with its bar
 // under F1; M8b5a: a tall cave, whole and cut by a tile border; M8e: lava under each fixed-wall surface, and h's lava
 // bar re-centred on the adopted one; M8e e3b: the dynamic start's calibration; M8e e3c: the dynamic start in the
-// region's build).
+// region's build; M8e4: l and m opt-in, l over keep-fine radii only).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.Supplier;
 
-import dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface;
 import dev.brights0ng.greedyfluids.region.AirRegion;
 import dev.brights0ng.greedyfluids.solve.Background3D;
 import dev.brights0ng.greedyfluids.solve.SteadyHeat3D;
@@ -568,23 +567,30 @@ public final class AirflowScenarios {
 
     private static final BlockState LAVA = Blocks.LAVA.defaultBlockState();
 
-    /** One of l's fixed-wall settings: a surface and a keep-fine radius around lava facing air, cells. */
-    private record LWalls(FixedSurface surface, int keepFine) {
+    /** One of l's fixed-wall settings: a keep-fine radius around lava facing air, cells. */
+    private record LWalls(int keepFine) {
         @Override
         public String toString() {
-            return surface + (keepFine > 0 ? " K" + keepFine : "");
+            return "K" + keepFine;
         }
     }
 
-    /** l's settings: RAY as before; FILM and CONVECTION, with and without keep-fine cubes. */
-    private static final LWalls[] L_WALLS = {new LWalls(FixedSurface.RAY, 0), new LWalls(FixedSurface.FILM, 0),
-            new LWalls(FixedSurface.CONVECTION, 0), new LWalls(FixedSurface.FILM, 3),
-            new LWalls(FixedSurface.CONVECTION, 1), new LWalls(FixedSurface.CONVECTION, 3)};
+    /** l's settings: no keep-fine cubes, the default radius 1, and 3 (M8e4: RAY and FILM are gone). */
+    private static final LWalls[] L_WALLS = {new LWalls(0), new LWalls(1), new LWalls(3)};
 
     /**
-     * l (GreedyFluids M8e, Bright 2026-11-20: lava should heat its surroundings "pretty hot"; only the film (FILM) and
-     * free convection off the hot face (CONVECTION) are tried, after the fix that couples a fixed wall through its own
-     * face rather than half the stone behind it). Each case runs under RAY (as before), FILM and CONVECTION:
+     * Whether the opt-in scenarios run ({@code -Pmeteodyne.airflowCalibration}; M8e4, Bright 2026-11-22): l and m are
+     * records of how lava's surface and the dynamic start were chosen (m alone takes about 2.5 min), so the ordinary
+     * game test runs pass them at once.
+     */
+    private static boolean calibration() {
+        return System.getProperty("meteodyne.airflowCalibration") != null;
+    }
+
+    /**
+     * l (GreedyFluids M8e, Bright 2026-11-20: lava should heat its surroundings "pretty hot"; free convection off the
+     * hot face, after the fix that couples a fixed wall through its own face rather than half the stone behind it; RAY
+     * and FILM, compared here until M8e4, are gone). Each case runs with keep-fine radius 0, 1 and 3:
      * <ul>
      *   <li>h's house with its 2 × 2 lava pool in the floor, still outside air at 5 C, 10 min: the inside's offset, the
      *       air over the pool, the hottest inside air;</li>
@@ -596,12 +602,16 @@ public final class AirflowScenarios {
      *       in a 3 m/s wind along +x, 10 min: the air just over the pool and 3 blocks up, 3–5 blocks downwind, and
      *       the hottest.</li>
      * </ul>
-     * Each runs as built so far, then (M8e, the lava-heated house and cave stayed one box: no plume) with keep-fine cubes
-     * around the lava faces facing air: FILM with radius 3, CONVECTION with radius 1 and 3.
-     * <b>Report only</b>: finite values, and FILM and CONVECTION at least as warm over the pool as RAY.
+     * Without keep-fine cubes the lava-heated house and cave stayed one box (no plume; M8e).
+     * <b>Report only, opt-in</b> ({@link #calibration}): finite values, and keep-fine cubes at least as warm over the
+     * house's pool as none.
      */
     @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_scenario_lava_surface")
     public static void lavaUnderEachSurface(GameTestHelper helper) {
+        if (!calibration()) {
+            helper.succeed();
+            return;
+        }
         List<String> failures = new ArrayList<>();
         double[] overPool = new double[L_WALLS.length];
         for (int i = 0; i < L_WALLS.length; i++) {
@@ -617,14 +627,14 @@ public final class AirflowScenarios {
         for (int i = 1; i < L_WALLS.length; i++) {
             warmer &= overPool[i] >= overPool[0];
         }
-        helper.assertTrue(warmer, "l. FILM and CONVECTION warm the air over the house's pool at least as much as RAY: "
+        helper.assertTrue(warmer, "l. keep-fine cubes warm the air over the house's pool at least as much as none: "
                 + java.util.Arrays.toString(overPool));
         helper.succeed();
     }
 
     /** l's house with h's lava pool; returns the air over the pool at 10 min, C. */
     private static double lavaPoolInTheHouse(LWalls w, List<String> failures) {
-        AirflowScene scene = house().fill(15, G - 1, 15, 16, G - 1, 16, LAVA).fixedWalls(w.surface(), w.keepFine());
+        AirflowScene scene = house().fill(15, G - 1, 15, 16, G - 1, 16, LAVA).fixedKeepFine(w.keepFine());
         AirflowScene.Run run = scene.build(STILL, 0, 0);
         AirflowScene.Report report = new AirflowScene.Report("l lava pool in the house, " + w);
         double over = Double.NaN;
@@ -644,7 +654,7 @@ public final class AirflowScenarios {
     private static void lavaFaceInTheTallCave(LWalls w, List<String> failures) {
         AirflowScene scene = new AirflowScene(N, K_TOP, N).fill(0, 0, 0, N - 1, K_TOP - 1, N - 1, STONE)
                 .fill(4, 4, 8, 19, 33, 23, Blocks.AIR.defaultBlockState()).fill(3, 4, 14, 3, 6, 17, LAVA)
-                .fixedWalls(w.surface(), w.keepFine());
+                .fixedKeepFine(w.keepFine());
         AirflowScene.Run run = scene.build(K_BACKGROUND, 0, 0);
         AirflowScene.Report report = new AirflowScene.Report("l lava face in the tall cave, " + w);
         for (int t : new int[] {120, 600, 1200}) {
@@ -662,7 +672,7 @@ public final class AirflowScenarios {
     private static void closedLavaCave(LWalls w, List<String> failures) {
         AirflowScene scene = new AirflowScene(N, K_TOP, N).fill(0, 0, 0, N - 1, K_TOP - 1, N - 1, STONE)
                 .fill(10, 10, 10, 20, 15, 20, Blocks.AIR.defaultBlockState()).fill(14, 9, 14, 16, 9, 16, LAVA)
-                .fixedWalls(w.surface(), w.keepFine());
+                .fixedKeepFine(w.keepFine());
         AirflowScene.Run run = scene.build(K_BACKGROUND, 0, 0);
         AirflowScene.Report report = new AirflowScene.Report("l closed cave with a 3x3 lava pool, " + w);
         report.add("t0 mean", run.meanTemperature(10, 10, 10, 20, 15, 20));
@@ -679,7 +689,7 @@ public final class AirflowScenarios {
 
     /** l's lava pool in open ground, in still air or a wind of {@code wind} m/s along +x. */
     private static void openLavaPool(LWalls w, double wind, List<String> failures) {
-        AirflowScene scene = ground(G).fill(14, G - 1, 14, 16, G - 1, 16, LAVA).fixedWalls(w.surface(), w.keepFine());
+        AirflowScene scene = ground(G).fill(14, G - 1, 14, 16, G - 1, 16, LAVA).fixedKeepFine(w.keepFine());
         AirflowScene.Run run = scene.build(STILL, wind, 0);
         AirflowScene.Report report = new AirflowScene.Report("l open lava pool, wind " + (int) wind + " m/s, "
                 + w);
@@ -806,10 +816,14 @@ public final class AirflowScenarios {
      * </ul>
      * Bright's bar: in enclosed cases the estimate's mean and store mean within ±15 % of the reference's rise; in
      * every case, after 2 min both the volume's mean and the reader nearer the target than from cold. <b>Report
-     * only</b>: finite values; the bar is logged as PASS or MISS per κ.
+     * only, opt-in</b> ({@link #calibration}): finite values; the bar is logged as PASS or MISS per κ.
      */
     @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_scenario_start")
     public static void dynamicStartCalibration(GameTestHelper helper) {
+        if (!calibration()) {
+            helper.succeed();
+            return;
+        }
         List<String> failures = new ArrayList<>();
         for (MCase c : M_CASES) {
             mCase(c, failures);

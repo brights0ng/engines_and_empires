@@ -2,7 +2,7 @@
 // running scene, for the model soak; the outside air sent ahead of an edit, as the manager does); edited by Claude
 // (M8a: tiles cut from a larger scene, for the straddle scenarios; M8b: neighbouring tiles stepped together; M8b5b:
 // neighbours of any size; M8e: fixed walls of its own, and the hottest air in a box; M8e e3: the dynamic start, off
-// unless asked for, and a reopen later than the save).
+// unless asked for, and a reopen later than the save; M8e4: only the keep-fine radius, the surface choice gone).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -10,7 +10,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
-import dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface;
 import dev.brights0ng.greedyfluids.grid.CellGrid3D.Side;
 import dev.brights0ng.greedyfluids.region.AirFrame;
 import dev.brights0ng.meteodyne.Meteodyne;
@@ -43,10 +42,8 @@ final class AirflowScene {
     final int ox, oy, oz;
     /** A tile's column tops from the whole scene's columns (the world's heightmap beyond the tile); null: its own. */
     private final int[] worldTops;
-    /** How lava and magma meet their air here (M8e); null: the config's, as the cell table has it. */
-    private FixedSurface fixedSurface;
-    /** Keep-fine cube radius around lava and magma facing air (M8e), with {@link #fixedSurface}. */
-    private int fixedKeepFine;
+    /** Keep-fine cube radius around lava and magma facing air here (M8e); negative: the cell table's. */
+    private int fixedKeepFine = -1;
     /**
      * Whether the region starts from the dynamic start's estimate (M8e e3): off, so every scenario's bar keeps its cold
      * start, unless the scenario asks ({@link #dynamicStart}).
@@ -92,7 +89,6 @@ final class AirflowScene {
             }
         }
         AirflowScene t = new AirflowScene(tnx, tny, tnz, ox + x0, oy + y0, oz + z0, cut);
-        t.fixedSurface = fixedSurface;
         t.fixedKeepFine = fixedKeepFine;
         t.dynamicStart = dynamicStart;
         for (int y = 0; y < tny; y++) {
@@ -105,12 +101,9 @@ final class AirflowScene {
         return t;
     }
 
-    /**
-     * Builds this scene (and tiles cut from it afterwards) with fixed-wall surface {@code surface} and keep-fine cubes
-     * of radius {@code keepFine} around fixed walls facing air (M8e).
-     */
-    AirflowScene fixedWalls(FixedSurface surface, int keepFine) {
-        fixedSurface = surface;
+    /** Builds this scene (and tiles cut from it afterwards) with keep-fine cubes of radius {@code keepFine} around fixed walls facing air (M8e). */
+    AirflowScene fixedKeepFine(int keepFine) {
+        if (keepFine < 0) throw new IllegalArgumentException("keep-fine radius must not be negative: " + keepFine);
         fixedKeepFine = keepFine;
         return this;
     }
@@ -223,8 +216,8 @@ final class AirflowScene {
             }
         }
         AirflowCells.Table table = AirflowCells.table(); // after the codes: coding may add to it
-        if (fixedSurface != null) {
-            table = table.withFixedWalls(fixedSurface, fixedKeepFine);
+        if (fixedKeepFine >= 0) {
+            table = table.withFixedKeepFine(fixedKeepFine);
         }
         table = table.withDynamicStart(dynamicStart);
         List<Integer> cells = new ArrayList<>();

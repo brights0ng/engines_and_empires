@@ -2,7 +2,8 @@
 // A': the source-velocity radius CGS2–CGS24 and CGSB4, CGSB8; its shapes, cap and band; the lone campfire;
 // time-averaged error and REFTWIN; c3: DEFAULT is the contrast gate with R 12, BG the old default, the alternatives gone;
 // c4: the weather sent, per 10 s; M8e: the fixed walls' surface, FILM and CONV, and the air's mean and hottest at the
-// end).
+// end; M8e4: FILM and CONV gone with the surface choice, K0 and K3 for the keep-fine radius, OMEGA12 for the heat
+// sweeps' relaxation).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,10 +40,9 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
  *   <li>GATE05, GATE10: the thermal gate at 0.5 and 1 °C instead of 0.25 (W2);</li>
  *   <li>EPSU1, EPSU2: the velocity indicator's threshold at 1 and 2 m/s instead of 0.5 (W3);</li>
  *   <li>HOLDFLOW: the hold's flow test tolerates 50 % instead of 25 % (W4);</li>
- *   <li>FILM, CONV (M8e): lava and magma couple to their air through the film alone, or by free convection off the hot
- *       face ({@link CellGrid3D.FixedSurface}), against DEFAULT's RAY: a change of physics, so their drift is the
- *       change it makes, not an error; FILMK3, CONVK1, CONVK3 as FILM and CONV with keep-fine cubes of radius 3 or 1
- *       around the fixed walls facing air;</li>
+ *   <li>K0, K3 (M8e): keep-fine cubes of radius 0 (none) or 3 around lava and magma facing air, against DEFAULT's 1;</li>
+ *   <li>OMEGA12 (M8e4): the heat sweeps over-relaxed at 1.2 (W12, D3's default from M6e3 until the runaway fix of
+ *       2026-11-21), against DEFAULT's plain sweeps (1.0);</li>
  *   <li>REFTWIN: REF with its remesh cadence shifted by 16 steps: how far two equally fine runs drift apart, the floor
  *       under any error against REF;</li>
  *   <li>REF: no thermal gate and no velocity hold: velocity refines everywhere and steps every step (the M7a
@@ -65,23 +65,17 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 class AirflowLeverReplayTest {
 
     enum Lever { DEFAULT, TWIN, BG, CG, CGS2, CGS4, CGS8, CGS12, CGS16, CGS24, GATE05, GATE10, EPSU1, EPSU2, HOLDFLOW,
-        FILM, CONV, FILMK3, CONVK1, CONVK3, REFTWIN, REF }
+        K0, K3, OMEGA12, REFTWIN, REF }
 
-    /** The fixed-wall surface a lever builds its region with (M8e); null: the recording's table (RAY). */
-    static CellGrid3D.FixedSurface surface(Lever lever) {
-        return switch (lever) {
-            case FILM, FILMK3 -> CellGrid3D.FixedSurface.FILM;
-            case CONV, CONVK1, CONVK3 -> CellGrid3D.FixedSurface.CONVECTION;
-            default -> null;
-        };
-    }
-
-    /** The keep-fine cube radius around fixed walls facing air a lever builds its region with, cells (M8e). */
+    /**
+     * The keep-fine cube radius around fixed walls facing air a lever builds its region with, cells (M8e); negative:
+     * the recording's table (the library's default, 1).
+     */
     static int keepFine(Lever lever) {
         return switch (lever) {
-            case FILMK3, CONVK3 -> 3;
-            case CONVK1 -> 1;
-            default -> 0;
+            case K0 -> 0;
+            case K3 -> 3;
+            default -> -1;
         };
     }
 
@@ -102,6 +96,7 @@ class AirflowLeverReplayTest {
             case EPSU1 -> m.setVelocityThreshold(1.0);
             case EPSU2 -> m.setVelocityThreshold(2.0);
             case HOLDFLOW -> m.setAdaptiveHold(0.5, AirRegion.HOLD_DELTA_T);
+            case OMEGA12 -> m.setThermalRelaxation(1.2);
             case REF, REFTWIN -> {
                 m.setThermalVelocityGate(Double.NaN);
                 m.setVelocityHold(AirRegion.HOLD_REFRESH, 0, AirRegion.HOLD_WAKE);
@@ -174,8 +169,8 @@ class AirflowLeverReplayTest {
         List<Run> runs = new ArrayList<>();
         for (Lever l : levers) {
             AirflowRegionModel.Spec spec = AirflowReplayTest.spec(build, palette, variant);
-            if (surface(l) != null) {
-                spec = spec.withTable(spec.table().withFixedWalls(surface(l), keepFine(l)));
+            if (keepFine(l) >= 0) {
+                spec = spec.withTable(spec.table().withFixedKeepFine(keepFine(l)));
             }
             AirflowRegionModel m = AirflowRegionModel.build(spec);
             apply(l, m.region().mesh());

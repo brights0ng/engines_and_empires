@@ -80,9 +80,11 @@ neoForge {
                 systemProperty 'meteodyne.airflowSoakOutput', layout.buildDirectory.dir('reports/airflow-soak').get().asFile.absolutePath
             }
             // GreedyFluids M7b b2 (Claude): -Pmeteodyne.airflowSnapshots=<scans folder> runs the opt-in airflow mapping
-            // check (AirflowGameTests.snapshotMappingCheck).
+            // check (AirflowGameTests.snapshotMappingCheck). M8e4 (Claude): -Pmeteodyne.airflowCalibration runs
+            // scenarios l and m (AirflowScenarios.lavaUnderEachSurface, dynamicStartCalibration), which pass at once
+            // without it.
             ['meteodyne.climatologyDays', 'meteodyne.climatologyX', 'meteodyne.climatologyZ',
-             'meteodyne.airflowSnapshots'].each { key ->
+             'meteodyne.airflowSnapshots', 'meteodyne.airflowCalibration'].each { key ->
                 if (project.hasProperty(key)) {
                     systemProperty key, project.property(key).toString()
                 }
