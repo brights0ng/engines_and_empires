@@ -2,6 +2,7 @@
 // M7e: the speed limit's and the cap's counts; M8b: heat across a tile's borders; b4: secondaries; M8b5b: merged
 // regions; M8c c4: stand-ins).
 // Edited by Claude: the status line counts fresh rebuilds after a runaway (2026-11-21).
+// Edited by Claude: hottest, the hottest separate spots of air in a region (M8e4).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.nio.file.Path;
@@ -10,6 +11,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.brights0ng.meteodyne.Meteodyne;
 import dev.brights0ng.meteodyne.heat.scan.ScanRecorder;
@@ -32,6 +34,9 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  *   <li>{@code record start|stop|mark <text>}: the smoke recorder ({@link AirflowRecorder}), into
  *       {@code greedyfluids-scans/airflow/<stamp>/}.</li>
  *   <li>{@code show}: toggles the debug view for the player running it ({@link AirflowView}).</li>
+ *   <li>{@code hottest [n]} (M8e4): the hottest spots of air in the region where the source stands, up to {@code n}
+ *       (default {@link #HOTTEST_DEFAULT}), each the hottest air cell at least {@link AirflowHotSpots#SEPARATION} blocks
+ *       from the spots listed before it, so one pocket doesn't fill the list.</li>
  *   <li>{@code standin [list]}, {@code standin add <name> [pos]}, {@code standin remove <name>},
  *       {@code standin clear} (M8c c4): fixed points that keep tiles alive as players do
  *       ({@link AirflowRegions#addStandIn}); default position: where the source stands.</li>
@@ -41,6 +46,8 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 public final class AirflowCommand {
 
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+    /** {@code hottest}: spots listed by default, and at most. */
+    static final int HOTTEST_DEFAULT = 10, HOTTEST_MAX = 50;
 
     @SubscribeEvent
     static void register(RegisterCommandsEvent event) {
@@ -48,6 +55,11 @@ public final class AirflowCommand {
                 .then(Commands.literal("airflow")
                         .then(Commands.literal("status").executes(c -> status(c.getSource())))
                         .then(Commands.literal("show").executes(c -> show(c.getSource())))
+                        .then(Commands.literal("hottest")
+                                .executes(c -> hottest(c.getSource(), c.getSource().getPosition(), HOTTEST_DEFAULT))
+                                .then(Commands.argument("n", IntegerArgumentType.integer(1, HOTTEST_MAX))
+                                        .executes(c -> hottest(c.getSource(), c.getSource().getPosition(),
+                                                IntegerArgumentType.getInteger(c, "n")))))
                         .then(Commands.literal("standin")
                                 .executes(c -> standIns(c.getSource()))
                                 .then(Commands.literal("list").executes(c -> standIns(c.getSource())))
@@ -306,6 +318,35 @@ public final class AirflowCommand {
         }
         rec.mark(text);
         reply(source, "Marked at " + rec.seconds() + " s");
+        return 1;
+    }
+
+    /**
+     * M8e4: the hottest spots of air in the region whose tile holds {@code at}, from its latest frame (Bright's look at
+     * lava pockets: a merged cave's hottest air reached 840 °C in the replays).
+     */
+    static int hottest(CommandSourceStack source, Vec3 at, int n) {
+        AirflowRegions r = AirflowRegions.get();
+        if (r == null) {
+            reply(source, "Airflow is off: [heat] engine is " + Airflow.engine());
+            return 0;
+        }
+        AirflowRegions.Region g = r.regionAt(at.x, at.y, at.z);
+        AirflowRuntime.Frame f = r.frameAt(at.x, at.y, at.z);
+        if (g == null || f == null) {
+            fail(source, String.format(Locale.ROOT, "No airflow frame covers %.1f %.1f %.1f", at.x, at.y, at.z));
+            return 0;
+        }
+        AirflowHotSpots spots = AirflowHotSpots.of(f.frame(), n, AirflowHotSpots.SEPARATION);
+        reply(source, String.format(Locale.ROOT,
+                "Hottest air in region #%d (%d tile%s, frame %.1f s old): mean %.1f °C over %d air cells", g.id(),
+                g.tiles(), g.tiles() == 1 ? "" : "s", (r.level().getGameTime() - f.tick()) * AirflowRuntime.TICK_SECONDS,
+                spots.mean(), spots.airCells()));
+        for (int[] c : spots.cells()) {
+            reply(source, String.format(Locale.ROOT, "  %.1f °C at %d %d %d",
+                    f.frame().temperature(c[0] + 0.5, c[1] + 0.5, c[2] + 0.5), g.x0() + c[0], g.y0() + c[1],
+                    g.z0() + c[2]));
+        }
         return 1;
     }
 
