@@ -1,4 +1,4 @@
-// Written by Gemini; god, sacrifice count, current demand, members, the god's hunger, the kept core chunk, the next traveller time and the last member-online time added by Claude.
+// Written by Gemini; god, sacrifice count, current demand, members, the god's hunger, the kept core chunk, the next traveller time and the last member-online time added by Claude; safety hit tracker added by Gemini.
 package dev.brights0ng.empire.data;
 
 import java.util.ArrayList;
@@ -14,6 +14,7 @@ import javax.annotation.Nullable;
 
 import dev.brights0ng.empire.rules.DemandLine;
 import dev.brights0ng.empire.rules.ChunkKeys;
+import dev.brights0ng.empire.rules.EmpireSafetyTracker;
 import dev.brights0ng.empire.rules.EmpireState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -54,6 +55,8 @@ public final class EmpireRecord {
      * server time after it (Bright, D11). {@link #UNKNOWN} until first set (records saved before it existed).
      */
     private long lastMemberOnline = UNKNOWN;
+    /** Empire-wide 3-day rolling hostile-hit counter feeding civilian Safety fulfilment. */
+    private EmpireSafetyTracker safety = new EmpireSafetyTracker();
 
     /** {@link #lastMemberOnline} not yet known. */
     public static final long UNKNOWN = -1L;
@@ -147,6 +150,11 @@ public final class EmpireRecord {
         this.lastMemberOnline = gameTime;
     }
 
+    /** Empire-wide 3-day rolling hostile hit tracker for the Safety fulfilment meter. */
+    public EmpireSafetyTracker safety() {
+        return safety;
+    }
+
     public long foundedGameTime() {
         return foundedGameTime;
     }
@@ -238,6 +246,11 @@ public final class EmpireRecord {
         tag.putLong("core_chunk", coreChunk());
         tag.putLong("next_traveller", nextTravellerTime);
         tag.putLong("last_member_online", lastMemberOnline);
+        EmpireSafetyTracker.Saved savedSafety = safety.save();
+        CompoundTag safetyTag = new CompoundTag();
+        safetyTag.putIntArray("hits", new int[] {savedSafety.day0(), savedSafety.day1(), savedSafety.day2()});
+        safetyTag.putLong("active_ticks", savedSafety.activeTicks());
+        tag.put("safety", safetyTag);
         return tag;
     }
 
@@ -283,6 +296,15 @@ public final class EmpireRecord {
         record.lastMemberOnline = tag.contains("last_member_online", Tag.TAG_LONG) ? tag.getLong("last_member_online") : UNKNOWN;
         if (tag.contains("core_chunk", Tag.TAG_LONG)) {
             record.coreChunk = tag.getLong("core_chunk");
+        }
+        if (tag.contains("safety", Tag.TAG_COMPOUND)) {
+            CompoundTag safetyTag = tag.getCompound("safety");
+            int[] hits = safetyTag.getIntArray("hits");
+            int d0 = hits.length > 0 ? Math.max(0, hits[0]) : 0;
+            int d1 = hits.length > 1 ? Math.max(0, hits[1]) : 0;
+            int d2 = hits.length > 2 ? Math.max(0, hits[2]) : 0;
+            long activeTicks = Math.max(0L, safetyTag.getLong("active_ticks"));
+            record.safety = EmpireSafetyTracker.restore(new EmpireSafetyTracker.Saved(d0, d1, d2, activeTicks));
         }
         ListTag demandTag = tag.getList("demand", Tag.TAG_COMPOUND);
         for (int i = 0; i < demandTag.size(); i++) {

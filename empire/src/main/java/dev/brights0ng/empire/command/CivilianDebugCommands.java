@@ -1,4 +1,4 @@
-// Written by Claude; extended with ability, needs, inventory and eating commands by ChatGPT; extended with sleep commands and bed cleanup by Gemini.
+// Written by Claude; extended with ability, needs, inventory and eating commands by ChatGPT; extended with sleep, bed cleanup and fulfilment commands by Gemini.
 package dev.brights0ng.empire.command;
 
 import java.util.ArrayList;
@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -18,6 +19,7 @@ import com.mojang.brigadier.context.CommandContext;
 import dev.brights0ng.empire.civilian.CivilianBeds;
 import dev.brights0ng.empire.civilian.CivilianChunkLoading;
 import dev.brights0ng.empire.civilian.CivilianEntity;
+import dev.brights0ng.empire.civilian.CivilianFulfilmentMeters;
 import dev.brights0ng.empire.civilian.CivilianRoster;
 import dev.brights0ng.empire.civilian.CivilianSpawning;
 import dev.brights0ng.empire.civilian.TravellerArrivals;
@@ -28,6 +30,8 @@ import dev.brights0ng.empire.data.TravellerSlot;
 import dev.brights0ng.empire.rules.ArrivalRule;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianAbilities;
+import dev.brights0ng.empire.rules.CivilianFood;
+import dev.brights0ng.empire.rules.CivilianFulfilment;
 import dev.brights0ng.empire.rules.CivilianLines;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -95,6 +99,16 @@ public final class CivilianDebugCommands {
                         .then(Commands.literal("lastnight")
                                 .then(Commands.argument("value", FloatArgumentType.floatArg(0.0F, 1.0F))
                                         .executes(ctx -> sleepLastNight(ctx.getSource(), FloatArgumentType.getFloat(ctx, "value"))))))
+                .then(Commands.literal("fulfilment")
+                        .executes(ctx -> fulfilment(ctx.getSource()))
+                        .then(Commands.literal("eval")
+                                .executes(ctx -> fulfilmentEval(ctx.getSource())))
+                        .then(Commands.literal("grievance")
+                                .then(Commands.argument("value", FloatArgumentType.floatArg(0.0F, 1.0F))
+                                        .executes(ctx -> fulfilmentGrievance(ctx.getSource(), FloatArgumentType.getFloat(ctx, "value")))))
+                        .then(Commands.literal("days")
+                                .then(Commands.argument("days", DoubleArgumentType.doubleArg(0.0, 10000.0))
+                                        .executes(ctx -> fulfilmentDays(ctx.getSource(), DoubleArgumentType.getDouble(ctx, "days"))))))
                 .then(Commands.literal("traveller")
                         .then(playerArgument()
                                 .executes(ctx -> traveller(ctx.getSource(), player(ctx)))))
@@ -348,6 +362,53 @@ public final class CivilianDebugCommands {
         return 1;
     }
 
+    private static int fulfilment(CommandSourceStack source) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        for (Component line : CivilianFulfilmentMeters.formatDebugReport(source.getLevel(), civilian)) {
+            source.sendSuccess(() -> line, false);
+        }
+        return 1;
+    }
+
+    private static int fulfilmentEval(CommandSourceStack source) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        CivilianFulfilmentMeters.stepSlot(source.getLevel(), civilian, CivilianFulfilment.SLOT_TICKS);
+        for (Component line : CivilianFulfilmentMeters.formatDebugReport(source.getLevel(), civilian)) {
+            source.sendSuccess(() -> line, false);
+        }
+        return 1;
+    }
+
+    private static int fulfilmentGrievance(CommandSourceStack source, float value) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        civilian.fulfilment().setGrievance(value);
+        civilian.syncNeedsToRecord();
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "%s grievance %.3f",
+                civilian.getName().getString(), civilian.fulfilment().grievance())), true);
+        return 1;
+    }
+
+    private static int fulfilmentDays(CommandSourceStack source, double days) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        civilian.fulfilment().setCitizenActiveTicks(Math.round(days * CivilianFood.DAY_LENGTH));
+        civilian.syncNeedsToRecord();
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "%s days lived %.1f",
+                civilian.getName().getString(), civilian.fulfilment().daysLived())), true);
+        return 1;
+    }
+
     /** Forces an arrival for the player's empire now: skips the day timer only. */
     private static int traveller(CommandSourceStack source, String playerArg) {
         EmpireRecord record = empireOf(source, playerArg);
@@ -411,6 +472,7 @@ public final class CivilianDebugCommands {
                     + (Float.isNaN(civilian.health()) ? "unknown" : String.format(Locale.ROOT, "%.1f", civilian.health()))
                     + "/30, sleep "
                     + (Float.isNaN(civilian.sleep().lastNight()) ? "none" : String.format(Locale.ROOT, "%.2f", civilian.sleep().lastNight()))
+                    + String.format(Locale.ROOT, ", griev %.2f", civilian.fulfilment().grievance())
                     + (civilian.bed() != null ? ", bed " + civilian.bed().toShortString() : "")), false);
         }
         TravellerSlot slot = data.traveller(record.id());

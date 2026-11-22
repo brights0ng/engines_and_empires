@@ -242,6 +242,8 @@ public final class CivilianRoster {
         record.setAbilities(civilian.abilities().pack());
         record.setFood(civilian.food().save());
         record.setSleep(civilian.sleep().save());
+        civilian.fulfilment().resetForNewEmpire();
+        record.setFulfilment(civilian.fulfilment().save());
         record.setBed(civilian.claimedBed());
         record.setHealth(civilian.getHealth());
         record.setInventory(civilian.inventory().getItems());

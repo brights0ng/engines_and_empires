@@ -1,4 +1,4 @@
-// Written by ChatGPT.
+// Written by ChatGPT; active-day rollover return value added by Gemini.
 package dev.brights0ng.empire.rules;
 
 /**
@@ -75,13 +75,18 @@ public final class CivilianFood {
         return TickResult.NONE;
     }
 
-    /** Unloaded time does not count; the day boundary follows the civilian rather than world time. */
-    public void countActiveTick() {
+    /**
+     * Unloaded time does not count; the day boundary follows the civilian rather than world time.
+     * Returns {@code true} when an active day rolls over (shared by fulfilment's 3-day windows).
+     */
+    public boolean countActiveTick() {
         activeTicks++;
         if (activeTicks % DAY_LENGTH == 0) {
             foodEatenYesterday = foodEatenToday;
             foodEatenToday = 0;
+            return true;
         }
+        return false;
     }
 
     public int foodLevel() {

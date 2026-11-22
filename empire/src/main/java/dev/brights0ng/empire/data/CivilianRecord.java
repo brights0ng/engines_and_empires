@@ -1,4 +1,4 @@
-// Written by Claude; extended with abilities, needs and inventory persistence by ChatGPT; extended with sleep and bed persistence by Gemini.
+// Written by Claude; extended with abilities, needs and inventory persistence by ChatGPT; extended with sleep, bed and fulfilment persistence by Gemini.
 package dev.brights0ng.empire.data;
 
 import java.util.List;
@@ -11,6 +11,8 @@ import javax.annotation.Nullable;
 import dev.brights0ng.empire.civilian.CivilianEntity;
 import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianFood;
+import dev.brights0ng.empire.rules.CivilianFulfilment;
+import dev.brights0ng.empire.rules.CivilianPreferences;
 import dev.brights0ng.empire.rules.CivilianSleep;
 
 import net.minecraft.core.BlockPos;
@@ -40,6 +42,7 @@ public final class CivilianRecord {
     private int abilities;
     private CivilianFood.Saved food = new CivilianFood().save();
     private CivilianSleep.Saved sleep = new CivilianSleep().save();
+    private CivilianFulfilment.Saved fulfilment;
     @Nullable
     private BlockPos bed;
     /** NaN in older records means to keep the body's health. */
@@ -58,6 +61,7 @@ public final class CivilianRecord {
         this.name = name;
         this.appearance = appearance;
         this.abilities = defaultAbilities(id);
+        this.fulfilment = CivilianFulfilment.Saved.empty(CivilianPreferences.defaultFor(id));
         this.lastPos = lastPos.immutable();
         this.lastChunk = lastChunk;
         this.joinedGameTime = joinedGameTime;
@@ -124,6 +128,14 @@ public final class CivilianRecord {
         this.sleep = Objects.requireNonNull(sleep);
     }
 
+    public CivilianFulfilment.Saved fulfilment() {
+        return fulfilment;
+    }
+
+    public void setFulfilment(CivilianFulfilment.Saved fulfilment) {
+        this.fulfilment = Objects.requireNonNull(fulfilment);
+    }
+
     @Nullable
     public BlockPos bed() {
         return bed;
@@ -180,6 +192,7 @@ public final class CivilianRecord {
         tag.putInt("abilities", abilities);
         tag.put("food", CivilianFoodNbt.save(food));
         tag.put("sleep", CivilianSleepNbt.save(sleep));
+        tag.put("fulfilment", CivilianFulfilmentNbt.save(fulfilment));
         if (bed != null) {
             tag.putLong("bed", bed.asLong());
         }
@@ -204,6 +217,8 @@ public final class CivilianRecord {
         }
         record.setFood(CivilianFoodNbt.load(tag.getCompound("food")));
         record.setSleep(CivilianSleepNbt.load(tag.getCompound("sleep")));
+        record.setFulfilment(CivilianFulfilmentNbt.load(
+                tag.getCompound("fulfilment"), () -> CivilianPreferences.defaultFor(record.id())));
         if (tag.contains("bed", net.minecraft.nbt.Tag.TAG_LONG)) {
             record.setBed(BlockPos.of(tag.getLong("bed")));
         }

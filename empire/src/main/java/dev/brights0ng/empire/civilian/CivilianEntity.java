@@ -1,4 +1,4 @@
-// Written by Claude; extended with abilities, inspection, ticking needs, inventory, eating and client eating sync by ChatGPT; extended with sleep persistence, behavior and debug inspection by Gemini.
+// Written by Claude; extended with abilities, inspection, ticking needs, inventory, eating and client eating sync by ChatGPT; extended with sleep persistence, behavior, fulfilment and debug inspection by Gemini.
 package dev.brights0ng.empire.civilian;
 
 import java.util.ArrayList;
@@ -14,6 +14,7 @@ import javax.annotation.Nullable;
 
 import dev.brights0ng.empire.EmpireConfig;
 import dev.brights0ng.empire.civilian.CivilianNetwork.CivilianSpeechPayload;
+import dev.brights0ng.empire.data.CivilianFulfilmentNbt;
 import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.CivilianFoodNbt;
 import dev.brights0ng.empire.data.CivilianSleepNbt;
@@ -23,8 +24,10 @@ import dev.brights0ng.empire.data.RegionRecord;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianFood;
+import dev.brights0ng.empire.rules.CivilianFulfilment;
 import dev.brights0ng.empire.rules.CivilianLines;
 import dev.brights0ng.empire.rules.CivilianNames;
+import dev.brights0ng.empire.rules.CivilianPreferences;
 import dev.brights0ng.empire.rules.CivilianSleep;
 import dev.brights0ng.empire.rules.RegionRules;
 import dev.brights0ng.empire.rules.TravellerWants;
@@ -37,6 +40,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
@@ -156,6 +160,7 @@ public class CivilianEntity extends PathfinderMob {
     private static final String TAG_ABILITIES = "Abilities";
     private static final String TAG_FOOD = "Food";
     private static final String TAG_SLEEP = "Sleep";
+    private static final String TAG_FULFILMENT = "Fulfilment";
     private static final String TAG_BED = "Bed";
     private static final String TAG_ROUGH_SLEEPING = "RoughSleeping";
     private static final String TAG_HOME = "Home";
@@ -183,6 +188,8 @@ public class CivilianEntity extends PathfinderMob {
     private boolean abilitiesPreset;
     private CivilianFood food = new CivilianFood();
     private CivilianSleep sleep = new CivilianSleep();
+    private CivilianFulfilment fulfilment = new CivilianFulfilment(CivilianPreferences.defaultFor(getUUID()));
+    private boolean preferencesPreset;
     @Nullable
     private BlockPos claimedBed;
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE);
@@ -330,6 +337,25 @@ public class CivilianEntity extends PathfinderMob {
 
     public CivilianSleep sleep() {
         return sleep;
+    }
+
+    public CivilianFulfilment fulfilment() {
+        return fulfilment;
+    }
+
+    /** Stable identity UUID for community/socializing deduplication: master record ID for citizens, entity UUID otherwise. */
+    public UUID identityUuid() {
+        return civilianId != null ? civilianId : getUUID();
+    }
+
+    public void setPreferences(CivilianPreferences preferences) {
+        fulfilment.setPreferences(preferences);
+        syncNeedsToRecord();
+    }
+
+    void presetPreferences(CivilianPreferences preferences) {
+        fulfilment.setPreferences(preferences);
+        preferencesPreset = true;
     }
 
     @Nullable
@@ -535,6 +561,7 @@ public class CivilianEntity extends PathfinderMob {
             }
             lines.add(Component.literal("Social: " + String.join(", ", social)));
         }
+        lines.addAll(CivilianFulfilmentMeters.formatSummaryLines(serverLevel, this));
         return lines;
     }
 
@@ -635,6 +662,7 @@ public class CivilianEntity extends PathfinderMob {
     void restoreNeeds(CivilianRecord record) {
         food = CivilianFood.restore(record.food());
         sleep = CivilianSleep.restore(record.sleep());
+        fulfilment = CivilianFulfilment.restore(record.fulfilment());
         claimedBed = record.bed();
         for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
             inventory.setItem(slot, record.inventory().get(slot).copy());
@@ -665,6 +693,7 @@ public class CivilianEntity extends PathfinderMob {
         CivilianRecord record = ownRecord(data);
         CivilianFood.Saved saved = food.save();
         CivilianSleep.Saved savedSleep = sleep.save();
+        CivilianFulfilment.Saved savedFulfilment = fulfilment.save();
         boolean inventoryChanged = false;
         if (record != null) {
             for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
@@ -675,9 +704,11 @@ public class CivilianEntity extends PathfinderMob {
             }
         }
         if (record != null && (inventoryChanged || !saved.equals(record.food()) || !savedSleep.equals(record.sleep())
+                || !savedFulfilment.equals(record.fulfilment())
                 || !Objects.equals(claimedBed, record.bed()) || Float.compare(getHealth(), record.health()) != 0)) {
             record.setFood(saved);
             record.setSleep(savedSleep);
+            record.setFulfilment(savedFulfilment);
             record.setBed(claimedBed);
             record.setHealth(getHealth());
             record.setInventory(inventory.getItems());
@@ -701,6 +732,15 @@ public class CivilianEntity extends PathfinderMob {
         // Player charges only damage reaching health, after armor, magic and absorption.
         if (!level().isClientSide && status != Status.LEAVING && getHealth() < before) {
             food.addExhaustion(source.getFoodExhaustion());
+            if (status == Status.CITIZEN && level() instanceof ServerLevel serverLevel) {
+                EmpireSavedData data = EmpireSavedData.of(serverLevel);
+                CivilianRecord record = ownRecord(data);
+                EmpireRecord empire = record != null ? data.getEmpire(record.empire()) : null;
+                if (empire != null && CivilianFulfilmentMeters.isSafetyHitSource(source, empire)) {
+                    empire.safety().recordHit();
+                    data.setDirty();
+                }
+            }
         }
     }
 
@@ -826,6 +866,10 @@ public class CivilianEntity extends PathfinderMob {
         if (!abilitiesPreset) {
             setAbilities(CivilianAbilities.roll(random::nextLong));
         }
+        if (!preferencesPreset) {
+            fulfilment.setPreferences(CivilianPreferences.roll(
+                    random::nextLong, CivilianFulfilmentMeters.resolveFavouriteFoodPool()));
+        }
         setCustomName(Component.literal(CivilianNames.pick(random::nextLong)));
         setCustomNameVisible(true);
 
@@ -842,6 +886,7 @@ public class CivilianEntity extends PathfinderMob {
         syncNeedsToRecord();
         tag.put(TAG_FOOD, CivilianFoodNbt.save(food.save()));
         tag.put(TAG_SLEEP, CivilianSleepNbt.save(sleep.save()));
+        tag.put(TAG_FULFILMENT, CivilianFulfilmentNbt.save(fulfilment.save()));
         if (claimedBed != null) {
             tag.put(TAG_BED, NbtUtils.writeBlockPos(claimedBed));
         }
@@ -870,6 +915,9 @@ public class CivilianEntity extends PathfinderMob {
         super.readAdditionalSaveData(tag);
         food = CivilianFood.restore(CivilianFoodNbt.load(tag.getCompound(TAG_FOOD)));
         sleep = CivilianSleep.restore(CivilianSleepNbt.load(tag.getCompound(TAG_SLEEP)));
+        fulfilment = CivilianFulfilment.restore(CivilianFulfilmentNbt.load(
+                tag.getCompound(TAG_FULFILMENT),
+                () -> CivilianPreferences.roll(random::nextLong, CivilianFulfilmentMeters.resolveFavouriteFoodPool())));
         claimedBed = NbtUtils.readBlockPos(tag, TAG_BED).orElse(null);
         if (tag.getBoolean(TAG_ROUGH_SLEEPING) && !isSleeping()) {
             entityData.set(ROUGH_SLEEPING, true);
@@ -929,7 +977,9 @@ public class CivilianEntity extends PathfinderMob {
             return;
         }
         if (isAlive() && !isRemoved()) {
-            food.countActiveTick();
+            if (food.countActiveTick()) {
+                fulfilment.advanceDay();
+            }
             food.addExhaustion((float) EmpireConfig.civilianBasalExhaustionPerTick());
             CivilianFood.TickResult result = food.tick(getHealth(), getMaxHealth(),
                     serverLevel.getGameRules().getBoolean(GameRules.RULE_NATURAL_REGENERATION),
@@ -937,7 +987,11 @@ public class CivilianEntity extends PathfinderMob {
             if (result.healAmount() > 0.0F) heal(result.healAmount());
             if (result.starveDamage() > 0.0F) hurt(damageSources().starve(), result.starveDamage());
             if (tickCount % EAT_CHECK_INTERVAL == 0) tryEatFromInventory();
-            if (status == Status.CITIZEN) tickSleep(serverLevel);
+            if (status == Status.CITIZEN) {
+                tickSleep(serverLevel);
+                fulfilment.countCitizenActiveTick();
+                tickFulfilment(serverLevel);
+            }
             if (tickCount % RECORD_SYNC_INTERVAL == 0) syncNeedsToRecord();
         }
         tickDialogue();
@@ -1015,6 +1069,24 @@ public class CivilianEntity extends PathfinderMob {
         }
     }
 
+    private void tickFulfilment(ServerLevel serverLevel) {
+        EmpireSavedData data = EmpireSavedData.of(serverLevel);
+        CivilianRecord record = ownRecord(data);
+        EmpireRecord empire = record != null ? data.getEmpire(record.empire()) : null;
+        if (empire != null && empire.safety().countActiveTickIfNew(serverLevel.getGameTime())) {
+            data.setDirty();
+        }
+        if ((tickCount + getId()) % CivilianFulfilment.COMMUNITY_SCAN_TICKS == 0) {
+            CivilianFulfilmentMeters.scanCommunity(serverLevel, this, empire);
+        }
+        if (!fulfilment.hasComfortSamples()) {
+            CivilianFulfilmentMeters.sampleComfort(serverLevel, this);
+        }
+        if (fulfilment.isSlotDue()) {
+            CivilianFulfilmentMeters.stepSlot(serverLevel, this, fulfilment.consumeSlotTicks());
+        }
+    }
+
     private void tryEatFromInventory() {
         if (isLyingDown() || isUsingItem() || !getMainHandItem().isEmpty()) return;
         int missing = 20 - food.foodLevel();
@@ -1049,7 +1121,13 @@ public class CivilianEntity extends PathfinderMob {
 
     @Override
     public ItemStack eat(Level level, ItemStack stack, FoodProperties properties) {
-        if (!level.isClientSide) food.eat(properties.nutrition(), properties.saturation());
+        if (!level.isClientSide) {
+            food.eat(properties.nutrition(), properties.saturation());
+            ResourceLocation itemKey = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            if (itemKey != null && fulfilment.preferences().likesFood(itemKey.toString())) {
+                fulfilment.recordLikedMeal();
+            }
+        }
         ItemStack result = super.eat(level, stack, properties);
         // In 1.21.1 this conversion belongs to Player.eat, not LivingEntity or Item.finishUsingItem.
         if (!level.isClientSide && !hasInfiniteMaterials() && properties.usingConvertsTo().isPresent()) {
@@ -1226,6 +1304,7 @@ public class CivilianEntity extends PathfinderMob {
                 ItemStack remainder = inventory.addItem(held.copy());
                 int moved = held.getCount() - remainder.getCount();
                 if (!player.getAbilities().instabuild) held.shrink(moved);
+                fulfilment.recordSocialInteraction(player.getUUID(), food.activeTicks());
                 syncNeedsToRecord();
                 sayKey(moved > 0 ? "civilian.empire.citizen.food_given" : "civilian.empire.citizen.pockets_full");
                 return InteractionResult.SUCCESS;
@@ -1244,8 +1323,13 @@ public class CivilianEntity extends PathfinderMob {
             dialoguePlayer = player.getUUID();
             lastClickTick = tickCount;
             awayTicks = 0;
-            if (!travellerSpoke && tickCount - lastLineTick >= CLICK_GAP) {
-                say(started ? CivilianLines.Category.GREETING : CivilianLines.Category.REPLY);
+            if (!travellerSpoke) {
+                if (fulfilment.recordSocialInteraction(player.getUUID(), food.activeTicks())) {
+                    syncNeedsToRecord();
+                }
+                if (tickCount - lastLineTick >= CLICK_GAP) {
+                    say(started ? CivilianLines.Category.GREETING : CivilianLines.Category.REPLY);
+                }
             }
         }
         return InteractionResult.sidedSuccess(level().isClientSide);
@@ -1370,6 +1454,8 @@ public class CivilianEntity extends PathfinderMob {
         partner.talkPartner = this;
         partner.conversation = null;
         c.nextTick = tickCount;
+        fulfilment.recordSocialInteraction(partner.identityUuid(), food.activeTicks());
+        partner.fulfilment.recordSocialInteraction(identityUuid(), partner.food.activeTicks());
         tickConversation();
         return true;
     }

@@ -1,0 +1,33 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:cooked_porkchop",
+    "minecraft:cooked_mutton",
+    "minecraft:cooked_beef",
+    "minecraft:cooked_chicken",
+    "minecraft:cooked_cod",
+    "minecraft:cooked_salmon",
+    "minecraft:cooked_rabbit",
+    "minecraft:bread",
+    "minecraft:baked_potato",
+    "minecraft:dried_kelp",
+    "minecraft:cookie",
+    "minecraft:pumpkin_pie",
+    "minecraft:mushroom_stew",
+    "minecraft:beetroot_soup",
+    "minecraft:rabbit_stew",
+    "minecraft:honey_bottle",
+    "minecraft:apple",
+    "minecraft:melon_slice",
+    "minecraft:sweet_berries",
+    "minecraft:glow_berries",
+    "minecraft:carrot",
+    "minecraft:beetroot",
+    { "id": "naturalist:cooked_venison", "required": false },
+    { "id": "naturalist:cooked_duck", "required": false },
+    { "id": "naturalist:cooked_catfish", "required": false },
+    { "id": "naturalist:cooked_bass", "required": false },
+    { "id": "naturalist:cooked_lizard_tail", "required": false },
+    { "id": "naturalist:cooked_egg", "required": false }
+  ]
+}
