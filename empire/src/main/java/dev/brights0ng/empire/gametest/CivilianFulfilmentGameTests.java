@@ -456,4 +456,29 @@ public final class CivilianFulfilmentGameTests {
             disband(helper, empire);
         }
     }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = BATCH_CIVILIANS)
+    public static void travellerWantIsAlwaysALikedFood(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        Player founder = helper.makeMockPlayer(GameType.SURVIVAL);
+        EmpireRecord empire = found(helper, founder);
+        List<CivilianEntity> spawned = new ArrayList<>();
+        try {
+            for (int i = 0; i < 10; i++) {
+                CivilianEntity traveller = dev.brights0ng.empire.civilian.TravellerArrivals.spawnTraveller(
+                        empire, level, mainPos(helper));
+                spawned.add(traveller);
+                String wantedItem = dev.brights0ng.empire.rules.TravellerWants.WANTS.get(traveller.want()).itemId();
+                helper.assertTrue(traveller.fulfilment().preferences().likesFood(wantedItem),
+                        "traveller want " + wantedItem + " must be in favouriteFoods "
+                                + traveller.fulfilment().preferences().favouriteFoods());
+            }
+            helper.succeed();
+        } finally {
+            for (CivilianEntity t : spawned) {
+                if (!t.isRemoved()) t.discard();
+            }
+            disband(helper, empire);
+        }
+    }
 }
