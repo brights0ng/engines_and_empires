@@ -1,5 +1,6 @@
 // Written by Claude (GreedyFluids M7d d3); edited by Claude (M7c: the background is Temperature.at; M7e: the offset
 // the readers use; M8b5a: a running tile's air is read as it is, the offset taken from the readers' own air).
+// Edited by Claude: only a running tile's frame is live; a failed one's last frame may be what ran away (2026-11-21).
 package dev.brights0ng.meteodyne.airflow;
 
 import dev.brights0ng.meteodyne.climate.Temperature;
@@ -14,8 +15,9 @@ import net.minecraft.world.phys.Vec3;
  * The air at a point in airflow mode (M7d d3, M7e; Bright, 2026-11-15), as an offset from Meteodyne's air temperature
  * there ({@code Temperature.at}, what the readers start from):
  * <ol>
- *   <li>{@link Source#LIVE}: the running tile's latest frame, read as it is (M8b5a; Bright, 2026-11-17: a reading
- *       samples the air where it is, not the outside air plus the simulation's offset from its own background):
+ *   <li>{@link Source#LIVE}: the running tile's latest frame (not a failed tile's last, which may be what ran
+ *       away), read as it is (M8b5a; Bright, 2026-11-17: a reading samples the air where it is, not the outside air
+ *       plus the simulation's offset from its own background):
  *       the offset is the frame's air less {@code Temperature.at} at the point's block, so a reader that adds it to
  *       {@code Temperature.at} there gets the frame's air exactly, as the airflow view shows it;</li>
  *   <li>{@link Source#SAVED}: else what the point's chunk saved for that block, decayed toward the background
@@ -91,7 +93,8 @@ public final class AirflowTemperatures {
     private static double live(AirflowRegions regions, double x, double y, double z, long[] tick) {
         int bx = Mth.floor(x), by = Mth.floor(y), bz = Mth.floor(z);
         AirflowRegions.Region r = regions.regionAt(x, y, z);
-        AirflowRuntime.Frame f = r == null || r.slot() == null ? null : r.slot().frame();
+        AirflowRuntime.Frame f = r == null || r.slot() == null
+                || r.slot().status() != AirflowRuntime.Status.RUNNING ? null : r.slot().frame();
         if (f == null || f.frame() == null) {
             return Double.NaN;
         }

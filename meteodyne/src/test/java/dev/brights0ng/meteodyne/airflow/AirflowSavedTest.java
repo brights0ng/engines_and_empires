@@ -1,4 +1,5 @@
 // Written by Claude (GreedyFluids M7d d2); edited by Claude (M7f: stores one by one).
+// Edited by Claude: values out of the plausibility band are neither saved, restored nor read (2026-11-21).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,6 +43,35 @@ class AirflowSavedTest {
         assertTrue(Double.isNaN(s[0].offset((9 * 16 + 9) * 16 + 9, false, 100)), "no air value in a solid cell");
         assertTrue(Double.isNaN(s[0].offset((7 * 16 + 7) * 16 + 7, false, 100)), "under KEEP");
         assertEquals(-8, s[1].offset((1 * 16 + 2) * 16 + 4, false, 100), 1e-6);
+    }
+
+    /**
+     * 2026-11-21: a value out of AirflowPlausibility's band is not saved; one saved before the guard (a tile whose heat
+     * ran away saved offsets near the float limit) starts at the background when restored, and the readers ignore it.
+     */
+    @Test
+    void implausibleValuesAreNeitherSavedNorRestored() {
+        float[] air = new float[NX * NY * NZ], solid = new float[air.length];
+        Arrays.fill(air, 10f);
+        Arrays.fill(solid, Float.NaN);
+        air[cell(3, 4, 5)] = 3e38f;
+        air[cell(20, 1, 2)] = -500f;
+        air[cell(1, 1, 1)] = 30f;
+        air[cell(9, 9, 9)] = Float.NaN;
+        solid[cell(9, 9, 9)] = 5000f;
+        AirflowSaved.Section[] s = AirflowSaved.pack(new ThermalState(NX, NY, NZ, air, solid), c -> 10, 100);
+        int hot = (4 * 16 + 5) * 16 + 3, warm = (1 * 16 + 1) * 16 + 1;
+        assertTrue(Double.isNaN(s[0].offset(hot, false, 100)), "air that ran away isn't saved");
+        assertTrue(Double.isNaN(s[0].offset((9 * 16 + 9) * 16 + 9, true, 100)), "nor a wall");
+        assertEquals(0, s[1].cells().length, "nor air far below the band");
+        assertEquals(20, s[0].offset(warm, false, 100), 1e-6, "a plausible value is");
+
+        AirflowSaved.Section old = new AirflowSaved.Section(100, new int[] {warm, hot}, new float[] {20f, 3e38f});
+        assertTrue(Double.isNaN(old.offset(hot, false, 100)), "the readers ignore a saved runaway");
+        assertEquals(20, old.offset(warm, false, 100), 1e-6);
+        ThermalState back = AirflowSaved.unpack(new AirflowSaved.Section[] {old, null}, NX, NY, NZ, c -> 10, 100);
+        assertTrue(Float.isNaN(back.air(cell(3, 4, 5))), "a saved runaway starts at the background");
+        assertEquals(30, back.air(cell(1, 1, 1)), 1e-5, "the rest of the save is kept");
     }
 
     @Test

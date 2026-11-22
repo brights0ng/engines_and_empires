@@ -4,6 +4,7 @@
 // batch goes first, and door toggles refresh the follow weights; M8a: the surface film from the cell table; M8b: tile
 // borders; M8b5b: the far side from regions of any size across; M8c c3: the source-velocity radius from the spec; M8e:
 // the fixed walls' surface and keep-fine radius from the cell table; M8e e3: the dynamic start).
+// Edited by Claude: problem(), temperatures out of AirflowPlausibility's band as well as non-finite values (2026-11-21).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -727,10 +728,24 @@ final class AirflowRegionModel implements AirflowRuntime.Model {
         return region.dt();
     }
 
+    /** Whether nothing has run away ({@link #problem}). */
     @Override
     public boolean healthy() {
+        return problem() == null;
+    }
+
+    /**
+     * What has run away, or null (2026-11-21): non-finite speeds or energy, else the first air or wall temperature
+     * out of {@link AirflowPlausibility}'s band. Finite values alone let a tile run to about 1e70 °C with its speeds
+     * capped, and its save kept what it reached.
+     */
+    @Override
+    public String problem() {
         var stats = region.stats();
-        return Double.isFinite(stats.maxSpeed) && Double.isFinite(stats.deltaEnergy);
+        if (!Double.isFinite(stats.maxSpeed) || !Double.isFinite(stats.deltaEnergy)) {
+            return "non-finite values";
+        }
+        return AirflowPlausibility.check(region);
     }
 
     @Override

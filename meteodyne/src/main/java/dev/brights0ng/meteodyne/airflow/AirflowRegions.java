@@ -7,6 +7,8 @@
 // recorder's background dump).
 // Edited by Claude: the source-velocity radius from [heat] into each region's spec (GreedyFluids M8c c3).
 // Edited by Claude: stand-ins, fixed points that keep tiles alive as players do (GreedyFluids M8c c4).
+// Edited by Claude: a tile whose values run away loses its saves and is built again at once, fresh; only a running
+// region's frame is read (2026-11-21).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -74,7 +76,10 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  *       It is retired after {@link #GRACE_TICKS} with no player in it (so stepping back and forth across a border
  *       rebuilds nothing), or when one of its sections is dropped (a chunk unload, or a data-map or tag reload). A
  *       failed region is rebuilt from fresh codes after
- *       {@link AirflowRuntime#backoffTicks}. No window for a player aboard a ship, or spectating.</li>
+ *       {@link AirflowRuntime#backoffTicks}. A region whose values ran away ({@link AirflowRuntime.Slot#diverged};
+ *       Bright, 2026-11-21) is instead rebuilt at once without its saves, which are dropped from its chunks: what it
+ *       saved may be what ran away. If it runs away again within {@link #SAVE_TICKS} of that, it backs off as any
+ *       failure does. No window for a player aboard a ship, or spectating.</li>
  *   <li><b>Events:</b> block edits and source changes in a built region's tile go to its queue as they happen.</li>
  *   <li><b>Inputs (M7c):</b> the background field ({@link AirflowBackground}: the tile's lattice of Meteodyne's air
  *       temperature, read before the tile is built, and its column tops for the follow weights) and the surface
@@ -95,7 +100,8 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  *   <li><b>Saving (M7d d2):</b> a running region saves its temperatures into its chunks ({@link AirflowChunkData})
  *       every {@link #SAVE_TICKS}, when it retires and when the server stops; a region is built from what its
  *       chunks hold, decayed toward the background ({@link AirflowSaved}). A save that arrives after its chunk
- *       unloaded is lost; the chunk keeps the save before it.</li>
+ *       unloaded is lost; the chunk keeps the save before it. A save from a slot that has since run away is not
+ *       written.</li>
  *   <li><b>Stand-ins (M8c c4; Bright, 2026-11-20):</b> named fixed points that keep tiles alive as a player standing
  *       there would (traces, secondaries, merging, 500 W of body heat), so one player can profile several sites at
  *       once. Each holds a chunk ticket over the 3×3 tiles around it while it exists ({@link #STAND_IN_RADIUS}); not
@@ -173,6 +179,11 @@ public final class AirflowRegions implements AirflowSections.Listener {
         private long unchosenSince = -1, savedAt = -1;
         /** M8b5b: the merge or split it is being replaced in, or null. */
         private Transition transition;
+        /**
+         * Whether it was last built fresh after running away (2026-11-21); cleared after {@link #SAVE_TICKS} of
+         * running, so only a runaway soon after a fresh build backs off.
+         */
+        private boolean freshRebuild;
 
         private Region(int id, int x0, int y0, int z0, int tx, int ty, int tz) {
             this.id = id;
@@ -288,7 +299,7 @@ public final class AirflowRegions implements AirflowSections.Listener {
     private final AirflowLimits.Speeds speeds = new AirflowLimits.Speeds(AirflowLimits.WINDOW_TICKS);
     private int nextId = 1;
     private long managerNanos;
-    private long savesWritten, sectionsLost, restores, heldForSpeed, closedByCap;
+    private long savesWritten, sectionsLost, restores, heldForSpeed, closedByCap, freshRebuilds;
     /** M8b b4: the mode and threshold game tests set (null and 0: the config's). */
     private AirflowNeighbourTiles.Mode neighbourMode;
     private int neighbourMin;
@@ -409,6 +420,11 @@ public final class AirflowRegions implements AirflowSections.Listener {
     /** Regions built from saved state so far. */
     public long restores() {
         return restores;
+    }
+
+    /** Regions rebuilt fresh, their saves dropped, after their values ran away (2026-11-21). */
+    public long freshRebuilds() {
+        return freshRebuilds;
     }
 
     /** Matches where a player was too fast to open the tile they were in. */
@@ -633,10 +649,13 @@ public final class AirflowRegions implements AirflowSections.Listener {
         shiftY = 16 * Math.floorMod(sy - SectionPos.blockToSectionCoord(level.getMinBuildHeight()), WY / 16);
     }
 
-    /** The latest frame of the region whose tile holds (x, y, z), world blocks; or null. */
+    /**
+     * The latest frame of the running region whose tile holds (x, y, z), world blocks; or null (none, or it isn't
+     * running: a failed region's last frame may be what ran away).
+     */
     public AirflowRuntime.Frame frameAt(double x, double y, double z) {
         Region r = regionAt(x, y, z);
-        if (r == null || r.slot == null) {
+        if (r == null || r.slot == null || r.slot.status() != AirflowRuntime.Status.RUNNING) {
             return null;
         }
         AirflowRuntime.Frame f = r.slot.frame();
@@ -1362,7 +1381,21 @@ public final class AirflowRegions implements AirflowSections.Listener {
         }
         switch (r.slot.status()) {
             case FAILED -> {
-                if (r.retryAt < 0) {
+                if (r.slot.diverged() && !r.freshRebuild) {
+                    // its values ran away: what it saved may be what ran away, so the saves go and the tile is built
+                    // again at once, as if loaded for the first time (Bright, 2026-11-21)
+                    if (ready(r)) {
+                        dropSaves(r);
+                        Meteodyne.LOGGER.warn("Airflow: region {} ran away ({}); its tile's saves were dropped and it"
+                                + " is built again fresh", r.id, r.slot.failure());
+                        r.freshRebuild = true;
+                        freshRebuilds++;
+                        r.slot = runtime.replace(r.slot, factory(r));
+                        putLive(r);
+                        r.retryAt = -1;
+                        r.built = now;
+                    }
+                } else if (r.retryAt < 0) {
                     r.retryAt = now + AirflowRuntime.backoffTicks(r.slot.failures());
                 } else if (now >= r.retryAt && ready(r)) {
                     r.slot = runtime.replace(r.slot, factory(r));
@@ -1372,6 +1405,9 @@ public final class AirflowRegions implements AirflowSections.Listener {
                 }
             }
             case RUNNING -> {
+                if (r.freshRebuild && now - r.built >= SAVE_TICKS) {
+                    r.freshRebuild = false;
+                }
                 if ((now - r.built) % WEATHER_TICKS == 0) {
                     weather(r);
                     pollDriven(r);
@@ -1597,6 +1633,20 @@ public final class AirflowRegions implements AirflowSections.Listener {
         }
     }
 
+    /** Drops what the region's chunks hold for its sections (2026-11-21: after it ran away). */
+    private void dropSaves(Region r) {
+        for (long s : r.sections) {
+            LevelChunk chunk = level.getChunkSource().getChunkNow(SectionPos.x(s), SectionPos.z(s));
+            if (chunk != null && chunk.hasData(AirflowContent.CHUNK_DATA)) {
+                AirflowChunkData data = chunk.getData(AirflowContent.CHUNK_DATA);
+                if (data.section(SectionPos.y(s)) != null) {
+                    data.put(SectionPos.y(s), null);
+                    chunk.setUnsaved(true);
+                }
+            }
+        }
+    }
+
     /** What a section's chunk holds for it, or null (nothing saved, or the chunk isn't loaded). */
     private AirflowSaved.Section savedSection(long section) {
         LevelChunk chunk = level.getChunkSource().getChunkNow(SectionPos.x(section), SectionPos.z(section));
@@ -1613,6 +1663,9 @@ public final class AirflowRegions implements AirflowSections.Listener {
     private void writeSaves() {
         long now = level.getGameTime();
         for (AirflowRuntime.Save s; (s = runtime.pollSave()) != null; ) {
+            if (s.slot().diverged()) {
+                continue; // packed before its slot ran away, and its tile's saves are being dropped (2026-11-21)
+            }
             write(s.tile());
             for (Region r : regions) {
                 if (r.slot == s.slot()) {

@@ -1,9 +1,11 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (M7d d2: save and restore; M7f: stores one by one; M8c c3:
 // the source-velocity radius from the spec).
+// Edited by Claude: temperatures out of the plausibility band are a runaway (2026-11-21).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -63,6 +65,26 @@ class AirflowRegionModelTest {
 
     private static int cell(int x, int y, int z) {
         return (y * 16 + z) * 16 + x;
+    }
+
+    /** 2026-11-21: air or a wall out of AirflowPlausibility's band is a runaway, though every value is finite. */
+    @Test
+    void implausibleTemperaturesAreARunaway() {
+        AirflowRegionModel m = model(Map.of(), true, null, 0);
+        m.step();
+        assertNull(m.problem());
+        var s = m.region().mesh().solver();
+        s.setTemperature(0, 1e12);
+        assertFalse(m.healthy());
+        assertTrue(m.problem().startsWith("air at"), m.problem());
+        s.setTemperature(0, 10);
+        assertNull(m.problem());
+        var w = s.wallStore();
+        assertTrue(w.count() > 0 && !w.isFixed(0), "the closed room has wall stores");
+        w.setTemperature(0, -1e6);
+        assertTrue(m.problem().startsWith("a wall at"), m.problem());
+        w.setTemperature(0, AirflowPlausibility.HIGH_C);
+        assertNull(m.problem(), "the band's edge is in it");
     }
 
     @Test

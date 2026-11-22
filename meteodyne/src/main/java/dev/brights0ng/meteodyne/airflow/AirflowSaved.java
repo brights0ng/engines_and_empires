@@ -1,4 +1,5 @@
 // Written by Claude (GreedyFluids M7d d2); edited by Claude (M7f: wall stores saved one by one).
+// Edited by Claude: values out of AirflowPlausibility's band are neither saved, restored nor read (2026-11-21).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.Arrays;
@@ -15,6 +16,9 @@ import dev.brights0ng.greedyfluids.region.ThermalState;
  *       nearer 0 than {@link #KEEP} are left out (they read as the background).</li>
  *   <li><b>Decay:</b> read back, an offset shrinks by e^(−Δt / {@link #TAU_TICKS}) over the game ticks since it was
  *       saved and is added to the background <i>now</i>, so an area left alone drifts to today's weather.</li>
+ *   <li><b>Plausibility (2026-11-21):</b> a temperature out of {@link AirflowPlausibility}'s band is not saved; read
+ *       back, one out of it (or an offset no plausible temperature could have) is ignored, so that air starts at its
+ *       background. A save written before the guard by a tile whose heat ran away heals when it is loaded.</li>
  * </ul>
  * Pure Java (GreedyFluids, no Minecraft).
  */
@@ -48,10 +52,14 @@ public final class AirflowSaved {
             }
         }
 
-        /** The saved offset of an air (or, with {@code wall}, a wall) value at a local index, decayed to {@code now}; NaN if none. */
+        /**
+         * The saved offset of an air (or, with {@code wall}, a wall) value at a local index, decayed to {@code now};
+         * NaN if none, or if it is no offset a plausible temperature could have ({@link AirflowPlausibility}).
+         */
         public double offset(int local, boolean wall, long now) {
             int i = Arrays.binarySearch(cells, wall ? local | WALL : local);
-            return i < 0 ? Double.NaN : decay(offsets[i], now - tick);
+            return i < 0 || !AirflowPlausibility.plausibleOffset(offsets[i]) ? Double.NaN
+                    : decay(offsets[i], now - tick);
         }
 
         public boolean isEmpty() {
@@ -68,7 +76,10 @@ public final class AirflowSaved {
         return elapsed <= 0 ? offset : offset * Math.exp(-elapsed / TAU_TICKS);
     }
 
-    /** Splits a region's thermal state into sections of offsets from its background ({@code background.applyAsDouble(cell)}). */
+    /**
+     * Splits a region's thermal state into sections of offsets from its background ({@code background.applyAsDouble(cell)}),
+     * leaving out values out of {@link AirflowPlausibility}'s band.
+     */
     public static Section[] pack(ThermalState state, IntToDoubleFunction background, long tick) {
         int nx = state.nx(), ny = state.ny(), nz = state.nz();
         check(nx, ny, nz);
@@ -80,7 +91,7 @@ public final class AirflowSaved {
         for (int k = 0; k < state.stores(); k++) {
             int c = state.storeCell(k);
             float t = state.storeT(k);
-            if (!Float.isFinite(t) || Math.abs(t - background.applyAsDouble(c)) < KEEP) {
+            if (!AirflowPlausibility.plausible(t) || Math.abs(t - background.applyAsDouble(c)) < KEEP) {
                 continue;
             }
             int x = c % nx, z = c / nx % nz, y = c / (nx * nz);
@@ -105,7 +116,7 @@ public final class AirflowSaved {
                                 int local = (ly * 16 + lz) * 16 + lx;
                                 double bg = background.applyAsDouble(c);
                                 float a = state.air(c);
-                                if (Float.isFinite(a) && Math.abs(a - bg) >= KEEP) {
+                                if (AirflowPlausibility.plausible(a) && Math.abs(a - bg) >= KEEP) {
                                     cells[n] = local;
                                     offsets[n++] = (float) (a - bg);
                                 }
@@ -118,7 +129,7 @@ public final class AirflowSaved {
                         int c = ((16 * j + ly) * nz + 16 * k + lz) * nx + 16 * i + lx;
                         float s = state.solid(c);
                         double bg = background.applyAsDouble(c);
-                        if (Float.isFinite(s) && Math.abs(s - bg) >= KEEP) {
+                        if (AirflowPlausibility.plausible(s) && Math.abs(s - bg) >= KEEP) {
                             cells[n] = local | WALL;
                             offsets[n++] = (float) (s - bg);
                         }
@@ -140,8 +151,9 @@ public final class AirflowSaved {
 
     /**
      * The thermal state saved sections give a region now: each kept value decayed to {@code now} and added to the
-     * region's background; NaN where nothing is kept (the region starts there at its background). Sections may be
-     * null (nothing saved); returns null when all are.
+     * region's background; NaN where nothing is kept, or what is kept comes back out of {@link AirflowPlausibility}'s
+     * band (the region starts there at its background). Sections may be null (nothing saved); returns null when all
+     * are.
      */
     public static ThermalState unpack(Section[] sections, int nx, int ny, int nz, IntToDoubleFunction background,
             long now) {
@@ -177,6 +189,9 @@ public final class AirflowSaved {
                         int lx = local & 15, lz = (local >> 4) & 15, ly = local >> 8;
                         int c = ((16 * j + ly) * nz + 16 * k + lz) * nx + 16 * i + lx;
                         float t = (float) (background.applyAsDouble(c) + decay(s.offsets()[e], now - s.tick()));
+                        if (!AirflowPlausibility.plausible(t)) {
+                            continue; // a value that ran away (saved before the guard) starts at the background
+                        }
                         if ((key & STORE) != 0) {
                             storeCell[m] = c;
                             storeDir[m] = (byte) (key >> DIR_SHIFT);

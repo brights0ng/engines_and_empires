@@ -1,5 +1,7 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (b4: busy time and region counters; M7d d2: saves; M7f:
 // per-region busy time, held steps and edit-batch time for the profile; M8b: heat across the tile's borders).
+// Edited by Claude: a region whose values run away (non-finite or implausible) fails as Diverged, marked on its slot
+// (2026-11-21).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.util.ArrayList;
@@ -23,8 +25,11 @@ import dev.brights0ng.greedyfluids.region.AirFrame;
  *       model in order.</li>
  *   <li><b>Frames.</b> After every step the region's {@link AirFrame} and the tick it stands for go to the slot's
  *       volatile {@link Slot#frame}.</li>
- *   <li><b>Failure.</b> A region that throws, or whose values go non-finite, is {@link Status#FAILED} and dropped;
- *       its owner rebuilds it after {@link #backoffTicks} with {@link #replace}.</li>
+ *   <li><b>Failure.</b> A region that throws, or whose values run away ({@link Model#problem}: non-finite, or out of
+ *       {@link AirflowPlausibility}'s band) after a step or at its build, is {@link Status#FAILED} and dropped; a
+ *       runaway is a {@link Diverged}, marked on the slot ({@link Slot#diverged}). Its owner rebuilds it with
+ *       {@link #replace}, after {@link #backoffTicks} (the manager rebuilds a first runaway at once, without its
+ *       saves).</li>
  *   <li><b>Saves (M7d d2).</b> A running region's state is packed ({@link Model#save}) after the step that follows
  *       {@link Slot#requestSave}, when it is retired, and when the thread stops; the saves wait in
  *       {@link #pollSave} for the owner, who writes them on its own thread.</li>
@@ -55,6 +60,15 @@ public final class AirflowRuntime {
 
         /** Whether the values are still finite. */
         boolean healthy();
+
+        /**
+         * What has run away in the region, as a short description, or null when nothing has (2026-11-21): by default
+         * non-finite values ({@link #healthy}); the real region adds temperatures out of {@link AirflowPlausibility}'s
+         * band.
+         */
+        default String problem() {
+            return healthy() ? null : "non-finite values";
+        }
 
         /** A frame of the current state (may be null for test models). */
         AirFrame publish();
@@ -91,6 +105,13 @@ public final class AirflowRuntime {
 
     public enum Status { PENDING, RUNNING, FAILED, RETIRED }
 
+    /** A region's values ran away ({@link Model#problem}), as opposed to an error in its code or inputs (2026-11-21). */
+    public static final class Diverged extends IllegalStateException {
+        Diverged(String message) {
+            super(message);
+        }
+    }
+
     /** A published frame and the game tick it stands for. */
     public record Frame(AirFrame frame, long tick) {
     }
@@ -108,6 +129,7 @@ public final class AirflowRuntime {
         private volatile Frame frame;
         private volatile String failure;
         private volatile int failures;
+        private volatile boolean diverged;
         private volatile double lag, stepMs;
         private volatile int boxes;
         private volatile long steps, drops;
@@ -159,6 +181,11 @@ public final class AirflowRuntime {
         /** Failures of this region and the ones it replaced. */
         public int failures() {
             return failures;
+        }
+
+        /** Whether this slot failed because its values ran away ({@link Diverged}), not on an error. */
+        public boolean diverged() {
+            return diverged;
         }
 
         /** How far behind game time the region was at its last turn, s. */
@@ -385,6 +412,10 @@ public final class AirflowRuntime {
     private void build(Slot s) {
         try {
             Model m = s.factory.build();
+            String problem = m.problem();
+            if (problem != null) {
+                throw new Diverged(problem + " at the build");
+            }
             s.model = m;
             s.startTick = tick;
             s.boxes = m.boxes();
@@ -408,8 +439,9 @@ public final class AirflowRuntime {
                 s.model.apply(events);
             }
             s.model.step();
-            if (!s.model.healthy()) {
-                throw new IllegalStateException("non-finite values after a step");
+            String problem = s.model.problem();
+            if (problem != null) {
+                throw new Diverged(problem + " after a step");
             }
             double ms = (System.nanoTime() - start) / 1e6;
             s.stepMs = s.steps == 0 ? ms : 0.9 * s.stepMs + 0.1 * ms;
@@ -446,6 +478,7 @@ public final class AirflowRuntime {
         s.model = null;
         s.events.clear();
         s.failures++;
+        s.diverged = e instanceof Diverged;
         s.failure = e.toString();
         s.status = Status.FAILED;
         onFailure.accept(s, e);

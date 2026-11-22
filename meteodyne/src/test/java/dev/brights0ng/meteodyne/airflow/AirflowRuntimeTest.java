@@ -1,4 +1,5 @@
 // Written by Claude (GreedyFluids M7b b3); edited by Claude (M7d d2: saves).
+// Edited by Claude: runaways are marked Diverged, errors are not (2026-11-21).
 package dev.brights0ng.meteodyne.airflow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -227,6 +228,45 @@ class AirflowRuntimeTest {
         assertEquals(Status.FAILED, s.status());
         assertTrue(s.failure().contains("non-finite"));
         assertEquals(2, failed.size());
+    }
+
+    /** 2026-11-21: a region whose values run away fails as Diverged, marked on its slot; an error is not one. */
+    @Test
+    void aRunawayIsMarkedDivergedAndAnErrorIsNot() {
+        Fake away = new Fake("away", log);
+        away.badAt = 1;
+        Fake boom = new Fake("boom", log);
+        boom.throwAt = 1;
+        runtime.tick(0);
+        Slot a = runtime.create(() -> away), b = runtime.create(() -> boom);
+        runtime.runOnce();
+        runtime.runOnce();
+        runtime.tick(10);
+        drain();
+        assertEquals(Status.FAILED, a.status());
+        assertTrue(a.diverged());
+        assertTrue(a.failure().contains("non-finite values after a step"), a.failure());
+        assertEquals(Status.FAILED, b.status());
+        assertFalse(b.diverged(), "an error isn't a runaway");
+        Slot again = runtime.replace(a, () -> new Fake("fresh", log));
+        assertFalse(again.diverged(), "a rebuild starts unmarked");
+        assertEquals(1, again.failures(), "and keeps the count");
+    }
+
+    /** 2026-11-21: a region whose state has run away when it is built fails there, as Diverged, with no frame. */
+    @Test
+    void aRunawayAtTheBuildIsDiverged() {
+        Slot s = runtime.create(() -> new Fake("restored", log) {
+            @Override
+            public String problem() {
+                return "air at 3e+38 C (box 0)";
+            }
+        });
+        runtime.runOnce();
+        assertEquals(Status.FAILED, s.status());
+        assertTrue(s.diverged());
+        assertTrue(s.failure().contains("at the build"), s.failure());
+        assertNull(s.frame());
     }
 
     @Test

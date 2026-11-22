@@ -5,6 +5,7 @@
 // started by the server's own handlers; the surface film from the config; M8b b4: secondaries, and the tests that count
 // regions run without them; M8b5b: a cut room merges into one region and splits, the B3 test with merging off; M8c c0:
 // the recorder's background dump read back; M8c c4: a stand-in keeps a far tile alive).
+// Edited by Claude: a save that ran away heals when its tile is loaded (2026-11-21).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -1390,6 +1391,115 @@ public final class AirflowGameTests {
                             probe.getY() + 0.5, probe.getZ() + 0.5);
                     helper.assertTrue(none.source() == AirflowTemperatures.Source.BACKGROUND,
                             "the background once the save is gone: " + none);
+                })
+                .thenSucceed();
+    }
+
+    /**
+     * 2026-11-21: a tile whose chunks hold a save that ran away (every cell near the float limit, alternating in sign,
+     * as the tile that failed in game had kept) heals when it is loaded: the readers ignore the save, and the tile is
+     * built from it, keeps running and starts at its background, where before the guard it failed within a few steps
+     * at every rebuild.
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "airflow_runaway_save", timeoutTicks = 6000)
+    public static void aSaveThatRanAwayHealsWhenItsTileIsLoaded(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos stand = helper.absolutePos(new BlockPos(1, 2, 1));
+        AirflowRegions regions = new AirflowRegions(level);
+        regions.alignForTests(helper.absolutePos(BlockPos.ZERO));
+        regions.neighbourTiles(AirflowNeighbourTiles.Mode.OFF, 0); // counts restores
+        int[] o = regions.tileOf(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
+        Vec3 anchor = Vec3.atBottomCenterOf(stand);
+        List<long[]> forced = new ArrayList<>();
+        for (int cx = o[0] >> 4; cx < (o[0] + AirflowRegions.WX) >> 4; cx++) {
+            for (int cz = o[2] >> 4; cz < (o[2] + AirflowRegions.WZ) >> 4; cz++) {
+                if (level.setChunkForced(cx, cz, true)) {
+                    forced.add(new long[] {cx, cz});
+                }
+            }
+        }
+        Runnable forget = () -> { // other tests' saves, and this one's, stay out of later runs
+            for (int cx = o[0] >> 4; cx < (o[0] + AirflowRegions.WX) >> 4; cx++) {
+                for (int cz = o[2] >> 4; cz < (o[2] + AirflowRegions.WZ) >> 4; cz++) {
+                    LevelChunk c = level.getChunkSource().getChunkNow(cx, cz);
+                    if (c != null && c.hasData(AirflowContent.CHUNK_DATA)) {
+                        c.removeData(AirflowContent.CHUNK_DATA);
+                    }
+                }
+            }
+        };
+        forget.run();
+        int[] keys = new int[AirflowSections.SECTION_CELLS];
+        float[] offsets = new float[keys.length];
+        for (int i = 0; i < keys.length; i++) {
+            keys[i] = i;
+            offsets[i] = (i & 1) == 0 ? 3e38f : -3e38f;
+        }
+        AirflowSaved.Section ranAway = new AirflowSaved.Section(level.getGameTime(), keys, offsets);
+        for (int cx = o[0] >> 4; cx < (o[0] + AirflowRegions.WX) >> 4; cx++) {
+            for (int cz = o[2] >> 4; cz < (o[2] + AirflowRegions.WZ) >> 4; cz++) {
+                LevelChunk c = level.getChunk(cx, cz);
+                for (int sy = o[1] >> 4; sy < (o[1] + AirflowRegions.WY) >> 4; sy++) {
+                    c.getData(AirflowContent.CHUNK_DATA).put(sy, ranAway);
+                }
+                c.setUnsaved(true);
+            }
+        }
+        AirflowTemperatures.Reading before = AirflowTemperatures.at(regions, stand.getX() + 0.5, stand.getY() + 1.5,
+                stand.getZ() + 0.5);
+        helper.assertTrue(before.source() == AirflowTemperatures.Source.BACKGROUND,
+                "the readers ignore the save that ran away: " + before);
+        boolean opened = AirflowSections.get(level) == null;
+        regions.anchors(l -> List.of(anchor));
+        regions.start();
+        boolean[] stopped = {false};
+        helper.onEachTick(() -> {
+            if (!stopped[0]) {
+                regions.tick();
+            }
+        });
+        Runnable cleanup = () -> {
+            stopped[0] = true;
+            regions.stop();
+            forget.run();
+            for (long[] c : forced) {
+                level.setChunkForced((int) c[0], (int) c[1], false);
+            }
+            if (opened) {
+                AirflowSections.close(level);
+            }
+        };
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    AirflowRegions.Region r = regions.regionAt(anchor.x, anchor.y, anchor.z);
+                    helper.assertTrue(r != null && r.slot() != null && r.slot().steps() >= 4,
+                            "waiting for the tile to be built and stepped"
+                                    + (r == null || r.slot() == null ? "" : " (" + r.slot().status() + ", "
+                                    + r.slot().failures() + " failures: " + r.slot().failure() + ")"));
+                })
+                .thenExecute(() -> {
+                    AirflowRuntime.Slot s = regions.regionAt(anchor.x, anchor.y, anchor.z).slot();
+                    try {
+                        helper.assertTrue(regions.restores() == 1, "built from the save: " + regions.restores());
+                        helper.assertTrue(s.status() == AirflowRuntime.Status.RUNNING && s.failures() == 0,
+                                "running and never failed: " + s.status() + ", " + s.failure());
+                        helper.assertTrue(regions.freshRebuilds() == 0, "no runaway to rebuild after");
+                        AirFrame f = s.frame().frame();
+                        double worst = 0;
+                        for (int y = 0; y < f.ny(); y += 2) {
+                            for (int z = 0; z < f.nz(); z += 4) {
+                                for (int x = 0; x < f.nx(); x += 4) {
+                                    if (f.isAir(x + 0.5, y + 0.5, z + 0.5)) {
+                                        worst = Math.max(worst, Math.abs(f.temperature(x + 0.5, y + 0.5, z + 0.5)
+                                                - f.background().at(x, y, z)));
+                                    }
+                                }
+                            }
+                        }
+                        helper.assertTrue(worst < 5, "the air starts at its background: " + worst + " C off");
+                    } finally {
+                        cleanup.run();
+                    }
                 })
                 .thenSucceed();
     }
