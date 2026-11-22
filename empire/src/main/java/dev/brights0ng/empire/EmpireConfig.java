@@ -1,7 +1,11 @@
 // Written by Claude.
 // Civilian needs settings added by ChatGPT.
+// Civilian fulfilment settings added by Gemini.
 package dev.brights0ng.empire;
 
+import java.util.List;
+
+import dev.brights0ng.empire.rules.FulfilmentModel;
 import dev.brights0ng.empire.rules.LoadPlan;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
@@ -68,6 +72,70 @@ public final class EmpireConfig {
         BUILDER.pop();
     }
 
+    static {
+        BUILDER.comment("Civilian fulfilment, expectation, comfort and grievance.").push("civilianFulfilment");
+    }
+
+    /** PROVISIONAL: default value returned by meters whose source system is not built yet. */
+    public static final ModConfigSpec.DoubleValue FULFILMENT_PLACEHOLDER_DEFAULT = BUILDER
+            .comment("Default value (0-1) returned by fulfilment meters whose source system does not exist yet.")
+            .defineInRange("placeholderDefault", FulfilmentModel.DEFAULT_PLACEHOLDER, 0.0, 1.0);
+
+    /** Safety meter hit reference H_ref (default 10). */
+    public static final ModConfigSpec.DoubleValue FULFILMENT_SAFETY_H_REF = BUILDER
+            .comment("Safety meter hit reference H_ref: hits over the last 3 active days (minus 3 per guard) that drop Safety to 0.")
+            .defineInRange("safetyHitReference", FulfilmentModel.DEFAULT_SAFETY_H_REF, 1.0, 1000.0);
+
+    /** Comfort range lower bound (C). */
+    public static final ModConfigSpec.DoubleValue FULFILMENT_COMFORT_MIN_C = BUILDER
+            .comment("Lower bound of the comfortable temperature range for civilians, in degrees C.")
+            .defineInRange("comfortMinC", FulfilmentModel.DEFAULT_COMFORT_MIN_C, -100.0, 100.0);
+
+    /** Comfort range upper bound (C). */
+    public static final ModConfigSpec.DoubleValue FULFILMENT_COMFORT_MAX_C = BUILDER
+            .comment("Upper bound of the comfortable temperature range for civilians, in degrees C.")
+            .defineInRange("comfortMaxC", FulfilmentModel.DEFAULT_COMFORT_MAX_C, -100.0, 100.0);
+
+    /** Degrees C beyond comfort range at which Comfort reaches 0.0. */
+    public static final ModConfigSpec.DoubleValue FULFILMENT_COMFORT_DANGER_MARGIN_C = BUILDER
+            .comment("Degrees C beyond comfortMinC / comfortMaxC at which Comfort drops linearly to 0.0.")
+            .defineInRange("comfortDangerMarginC", FulfilmentModel.DEFAULT_COMFORT_DANGER_MARGIN_C, 1.0, 100.0);
+
+    /** Default hard cap on empire civilian population (50). */
+    public static final ModConfigSpec.IntValue FULFILMENT_POPULATION_CAP = BUILDER
+            .comment("Hard cap on the number of civilians an empire can hold.")
+            .defineInRange("populationCap", FulfilmentModel.DEFAULT_POPULATION_CAP, 1, 500);
+
+    private static final List<String> DEFAULT_EXPECTATION_ENTRIES = List.of(
+            "1:0.20", "5:0.35", "10:0.50", "15:0.60", "20:0.70", "25:0.80",
+            "30:0.90", "35:1.00", "40:1.10", "45:1.20", "50:1.30"
+    );
+
+    /** Empire-wide Expectation E(n) curve points, formatted as "n:E" and linearly interpolated. */
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> FULFILMENT_EXPECTATION_CURVE = BUILDER
+            .comment("Expectation E(n) curve points formatted as \"population:expectation\", linearly interpolated.")
+            .defineListAllowEmpty("expectationCurve", () -> DEFAULT_EXPECTATION_ENTRIES, () -> "1:0.20",
+                    o -> o instanceof String s && s.contains(":"));
+
+    /** Fulfilment threshold T below which grievance builds and above which it drains. */
+    public static final ModConfigSpec.DoubleValue FULFILMENT_GRIEVANCE_THRESHOLD = BUILDER
+            .comment("Fulfilment threshold T: grievance builds while below T and drains while above T (paused when no member is online).")
+            .defineInRange("grievanceThreshold", FulfilmentModel.DEFAULT_GRIEVANCE_THRESHOLD, 0.0, 2.0);
+
+    /** PROVISIONAL grievance build rate per active day times shortfall. */
+    public static final ModConfigSpec.DoubleValue FULFILMENT_GRIEVANCE_BUILD_PER_DAY = BUILDER
+            .comment("PROVISIONAL: grievance gained per active day per unit of Fulfilment shortfall below grievanceThreshold.")
+            .defineInRange("grievanceBuildPerDay", FulfilmentModel.DEFAULT_GRIEVANCE_BUILD_PER_DAY, 0.0, 100.0);
+
+    /** PROVISIONAL grievance drain rate per active day while above threshold. */
+    public static final ModConfigSpec.DoubleValue FULFILMENT_GRIEVANCE_DRAIN_PER_DAY = BUILDER
+            .comment("PROVISIONAL: grievance drained per active day while Fulfilment is above grievanceThreshold.")
+            .defineInRange("grievanceDrainPerDay", FulfilmentModel.DEFAULT_GRIEVANCE_DRAIN_PER_DAY, 0.0, 100.0);
+
+    static {
+        BUILDER.pop();
+    }
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     /** The setting, or its default before the config has loaded. */
@@ -93,6 +161,48 @@ public final class EmpireConfig {
     /** The setting, or the default before the config has loaded. */
     public static double civilianBasalExhaustionPerTick() {
         return SPEC.isLoaded() ? CIVILIAN_BASAL_EXHAUSTION_PER_TICK.get() : 0.0037;
+    }
+
+    public static double fulfilmentPlaceholderDefault() {
+        return SPEC.isLoaded() ? FULFILMENT_PLACEHOLDER_DEFAULT.get() : FulfilmentModel.DEFAULT_PLACEHOLDER;
+    }
+
+    public static double fulfilmentSafetyHitRef() {
+        return SPEC.isLoaded() ? FULFILMENT_SAFETY_H_REF.get() : FulfilmentModel.DEFAULT_SAFETY_H_REF;
+    }
+
+    public static double fulfilmentComfortMinC() {
+        return SPEC.isLoaded() ? FULFILMENT_COMFORT_MIN_C.get() : FulfilmentModel.DEFAULT_COMFORT_MIN_C;
+    }
+
+    public static double fulfilmentComfortMaxC() {
+        return SPEC.isLoaded() ? FULFILMENT_COMFORT_MAX_C.get() : FulfilmentModel.DEFAULT_COMFORT_MAX_C;
+    }
+
+    public static double fulfilmentComfortDangerMarginC() {
+        return SPEC.isLoaded() ? FULFILMENT_COMFORT_DANGER_MARGIN_C.get() : FulfilmentModel.DEFAULT_COMFORT_DANGER_MARGIN_C;
+    }
+
+    public static int fulfilmentPopulationCap() {
+        return SPEC.isLoaded() ? FULFILMENT_POPULATION_CAP.get() : FulfilmentModel.DEFAULT_POPULATION_CAP;
+    }
+
+    public static List<FulfilmentModel.ExpectationPoint> fulfilmentExpectationCurve() {
+        return SPEC.isLoaded()
+                ? FulfilmentModel.parseExpectationCurve(FULFILMENT_EXPECTATION_CURVE.get())
+                : FulfilmentModel.DEFAULT_EXPECTATION_CURVE;
+    }
+
+    public static double fulfilmentGrievanceThreshold() {
+        return SPEC.isLoaded() ? FULFILMENT_GRIEVANCE_THRESHOLD.get() : FulfilmentModel.DEFAULT_GRIEVANCE_THRESHOLD;
+    }
+
+    public static double fulfilmentGrievanceBuildPerDay() {
+        return SPEC.isLoaded() ? FULFILMENT_GRIEVANCE_BUILD_PER_DAY.get() : FulfilmentModel.DEFAULT_GRIEVANCE_BUILD_PER_DAY;
+    }
+
+    public static double fulfilmentGrievanceDrainPerDay() {
+        return SPEC.isLoaded() ? FULFILMENT_GRIEVANCE_DRAIN_PER_DAY.get() : FulfilmentModel.DEFAULT_GRIEVANCE_DRAIN_PER_DAY;
     }
 
     private EmpireConfig() {

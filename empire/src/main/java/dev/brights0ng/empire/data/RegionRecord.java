@@ -130,6 +130,8 @@ public final class RegionRecord {
     private long lastUpdateGameTime = Long.MIN_VALUE;
     /** Transient revision bumped when blocks in/adjacent to this region change or its shape/validity updates. */
     private long revision;
+    /** Cached walkable indoor floor block count; {@code -1} when needing recomputation. */
+    private int cachedIndoorFloorArea = -1;
 
     public RegionRecord(UUID id, UUID empireId, RegionType type, RegionOrigin origin, Collection<Long> initialBlocks) {
         this(id, empireId, type, origin, firstBlockOrZero(initialBlocks), initialBlocks);
@@ -170,6 +172,7 @@ public final class RegionRecord {
     }
 
     private void recomputeBoundsAndChunks() {
+        cachedIndoorFloorArea = -1;
         chunks.clear();
         if (blocks.isEmpty()) {
             minX = minY = minZ = 0;
@@ -234,6 +237,7 @@ public final class RegionRecord {
     /** Replaces the room partition and rebuilds the block-to-room lookup index. Returns true if rooms or separators changed. */
     public boolean setRooms(RegionRooms.Partition partition) {
         boolean changed = !roomsMatch(partition);
+        cachedIndoorFloorArea = -1;
         rooms.clear();
         separators.clear();
         blockToRoom.clear();
@@ -368,6 +372,33 @@ public final class RegionRecord {
             }
         }
         return total;
+    }
+
+    /**
+     * Walkable indoor floor block count: indoor cells {@code (x, y, z)} resting above a non-indoor floor surface
+     * ({@code !isIndoorBlock(x, y - 1, z)}) with at least two blocks of indoor headroom
+     * ({@code isIndoorBlock(x, y + 1, z)}). Cached until blocks or rooms change.
+     */
+    public int indoorFloorArea() {
+        if (cachedIndoorFloorArea >= 0) {
+            return cachedIndoorFloorArea;
+        }
+        int count = 0;
+        LongIterator it = blocks.iterator();
+        while (it.hasNext()) {
+            long key = it.nextLong();
+            if (!isIndoorBlock(key)) {
+                continue;
+            }
+            int x = BlockKeys.getX(key);
+            int y = BlockKeys.getY(key);
+            int z = BlockKeys.getZ(key);
+            if (!isIndoorBlock(BlockKeys.pack(x, y - 1, z)) && isIndoorBlock(BlockKeys.pack(x, y + 1, z))) {
+                count++;
+            }
+        }
+        cachedIndoorFloorArea = count;
+        return count;
     }
 
     /** Blocks to render for the region veil: only non-outdoor rooms when valid; non-separator blocks when invalid so the warning outline stays visible. */
@@ -624,6 +655,7 @@ public final class RegionRecord {
             record.invalidReason = RegionInvalidReason.NONE;
             record.invalidSinceGameTime = -1L;
         }
+        record.cachedIndoorFloorArea = -1;
         return record;
     }
 }

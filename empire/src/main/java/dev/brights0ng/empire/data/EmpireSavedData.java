@@ -348,6 +348,19 @@ public final class EmpireSavedData extends SavedData {
         }
     }
 
+    /** True if at least one member of {@code record} is currently online on {@code server}. */
+    public static boolean hasOnlineMember(EmpireRecord record, @Nullable MinecraftServer server) {
+        if (server == null) {
+            return false;
+        }
+        for (UUID member : record.members()) {
+            if (server.getPlayerList().getPlayer(member) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Adds (or replaces) a citizen's record. */
     public void addCivilian(CivilianRecord record) {
         removeCivilian(record.id());
