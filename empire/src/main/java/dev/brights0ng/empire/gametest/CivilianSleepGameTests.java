@@ -55,7 +55,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class CivilianSleepGameTests {
 
     private static final String BATCH_CIVILIANS = "civilians";
-    private static final CivilianAbilities AVG_ABILITIES = new CivilianAbilities(10, 10, 10, 10, 10, 10);
+    private static final CivilianAbilities AVG_ABILITIES = new CivilianAbilities(10, 10, 10, 10, 10, 10, 10);
     private static final long TEST_NIGHT = 10L;
 
     private static BlockPos mainPos(GameTestHelper helper) {

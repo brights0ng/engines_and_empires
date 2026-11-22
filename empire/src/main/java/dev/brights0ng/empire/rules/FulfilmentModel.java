@@ -325,20 +325,41 @@ public final class FulfilmentModel {
      * (occupants * 25), capped at 1.0.
      */
     public static double shelter(boolean hasValidHome, int walkableIndoorFloor, int occupants) {
+        return shelter(hasValidHome, walkableIndoorFloor, occupants, SHELTER_FLOOR_PER_OCCUPANT);
+    }
+
+    /** Security / Shelter with an individualized {@code floorPerOccupant} target. */
+    public static double shelter(boolean hasValidHome, int walkableIndoorFloor, int occupants, double floorPerOccupant) {
         if (!hasValidHome || walkableIndoorFloor <= 0 || occupants <= 0) {
             return 0.0;
         }
-        return clamp01(walkableIndoorFloor / (occupants * SHELTER_FLOOR_PER_OCCUPANT));
+        double perOcc = Double.isFinite(floorPerOccupant) && floorPerOccupant > 0.0
+                ? floorPerOccupant : SHELTER_FLOOR_PER_OCCUPANT;
+        return clamp01(walkableIndoorFloor / (occupants * perOcc));
     }
 
     /** Belonging / Community: distinct people within 16 blocks over 3 days / 10, capped at 1.0. */
     public static double community(int distinctPeople3Days) {
-        return clamp01(Math.max(0, distinctPeople3Days) / COMMUNITY_TARGET_PEOPLE);
+        return community(distinctPeople3Days, COMMUNITY_TARGET_PEOPLE);
+    }
+
+    /** Belonging / Community with an individualized {@code targetPeople} threshold. */
+    public static double community(int distinctPeople3Days, double targetPeople) {
+        double target = Double.isFinite(targetPeople) && targetPeople > 0.0
+                ? targetPeople : COMMUNITY_TARGET_PEOPLE;
+        return clamp01(Math.max(0, distinctPeople3Days) / target);
     }
 
     /** Belonging / Socializing: social interactions over 3 days / 5, capped at 1.0. */
     public static double socializing(int interactions3Days) {
-        return clamp01(Math.max(0, interactions3Days) / SOCIALIZING_TARGET_INTERACTIONS);
+        return socializing(interactions3Days, SOCIALIZING_TARGET_INTERACTIONS);
+    }
+
+    /** Belonging / Socializing with an individualized {@code targetInteractions} threshold. */
+    public static double socializing(int interactions3Days, double targetInteractions) {
+        double target = Double.isFinite(targetInteractions) && targetInteractions > 0.0
+                ? targetInteractions : SOCIALIZING_TARGET_INTERACTIONS;
+        return clamp01(Math.max(0, interactions3Days) / target);
     }
 
     /** Belonging / Commitment: long-term days/504 + newcomer bonus (+0.5 decaying linearly to 0 over 25 days), cap 1. */

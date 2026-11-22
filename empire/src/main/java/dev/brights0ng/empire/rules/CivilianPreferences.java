@@ -115,13 +115,22 @@ public record CivilianPreferences(List<String> favouriteFoods, List<Activity> fa
 
     /** Rolls 1–4 distinct favourite foods from {@code foodPool} (fallback {@link #DEFAULT_FOOD_POOL}) and 1–4 activities. */
     public static CivilianPreferences roll(RandomGenerator rng, List<String> foodPool) {
+        return roll(rng, foodPool, 0.0);
+    }
+
+    /**
+     * Rolls 1–4 distinct favourite foods and 1–4 activities, biasing count toward 1–2 for low {@code opennessNorm}
+     * (-1.0) and toward 3–4 for high {@code opennessNorm} (+1.0). Neutral (0.0) matches the baseline (1, 3, 3, 1)
+     * weights.
+     */
+    public static CivilianPreferences roll(RandomGenerator rng, List<String> foodPool, double opennessNorm) {
         Objects.requireNonNull(rng);
         List<String> pool = deduplicatedStrings(foodPool == null || foodPool.isEmpty() ? DEFAULT_FOOD_POOL : foodPool);
         if (pool.isEmpty()) {
             pool = DEFAULT_FOOD_POOL;
         }
 
-        int foodCount = Math.min(rollCount(rng), pool.size());
+        int foodCount = Math.min(rollCount(rng, opennessNorm), pool.size());
         List<String> foodCandidates = new ArrayList<>(pool);
         List<String> pickedFoods = new ArrayList<>(foodCount);
         for (int i = 0; i < foodCount; i++) {
@@ -130,7 +139,7 @@ public record CivilianPreferences(List<String> favouriteFoods, List<Activity> fa
         }
 
         Activity[] allActivities = Activity.values();
-        int actCount = Math.min(rollCount(rng), allActivities.length);
+        int actCount = Math.min(rollCount(rng, opennessNorm), allActivities.length);
         List<Activity> actCandidates = new ArrayList<>(List.of(allActivities));
         List<Activity> pickedActivities = new ArrayList<>(actCount);
         for (int i = 0; i < actCount; i++) {
@@ -148,13 +157,27 @@ public record CivilianPreferences(List<String> favouriteFoods, List<Activity> fa
     }
 
     /**
-     * Rolls a count in 1..4 with weights (1, 3, 3, 1): 12.5% for 1, 37.5% for 2, 37.5% for 3, 12.5% for 4.
+     * Rolls a count in 1..4 with baseline weights (1, 3, 3, 1): 12.5% for 1, 37.5% for 2, 37.5% for 3, 12.5% for 4.
      */
     static int rollCount(RandomGenerator rng) {
-        int r = rng.nextInt(8);
-        if (r == 0) return 1;
-        if (r <= 3) return 2;
-        if (r <= 6) return 3;
+        return rollCount(rng, 0.0);
+    }
+
+    /**
+     * Rolls a count in 1..4 with weights shifted continuously by {@code opennessNorm} in [-1.0, +1.0]:
+     * at 0.0 -> (1.0, 3.0, 3.0, 1.0); at -1.0 -> (1.8, 4.5, 1.5, 0.2); at +1.0 -> (0.2, 1.5, 4.5, 1.8).
+     */
+    static int rollCount(RandomGenerator rng, double opennessNorm) {
+        double o = Double.isFinite(opennessNorm) ? Math.max(-1.0, Math.min(1.0, opennessNorm)) : 0.0;
+        double w1 = Math.max(0.2, 1.0 - 0.8 * o);
+        double w2 = Math.max(0.5, 3.0 - 1.5 * o);
+        double w3 = Math.max(0.5, 3.0 + 1.5 * o);
+        double w4 = Math.max(0.2, 1.0 + 0.8 * o);
+        double total = w1 + w2 + w3 + w4;
+        double pick = rng.nextDouble() * total;
+        if (pick < w1) return 1;
+        if (pick < w1 + w2) return 2;
+        if (pick < w1 + w2 + w3) return 3;
         return 4;
     }
 

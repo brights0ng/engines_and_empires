@@ -242,6 +242,22 @@ class CivilianSleepTest {
     }
 
     @Test
+    void customRoughCreditRateAppliesLiveAndInCatchUp() {
+        int need = 6000;
+        CivilianSleep live = new CivilianSleep();
+        long start = CivilianSleep.ownBedtime(0, need);
+        for (int i = 0; i < need; i++) {
+            live.tick(start + i, true, false, need, 0.60F);
+        }
+        assertTrue(live.isRestedFor(0));
+        assertEquals(0.60F, live.lastNight(), 1e-5F);
+
+        CivilianSleep caught = new CivilianSleep();
+        caught.catchUp(1_000L, 24_000L + 6_000L, false, need, 0.40F);
+        assertEquals(0.40F, caught.lastNight(), 1e-5F);
+    }
+
+    @Test
     void savedFormAndCopyRoundTripIndependently() {
         CivilianSleep sleep = new CivilianSleep();
         sleep.tick(14_401L, true, true, 7200);

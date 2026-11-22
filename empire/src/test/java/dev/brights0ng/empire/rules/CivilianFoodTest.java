@@ -1,4 +1,4 @@
-// Written by ChatGPT.
+// Written by ChatGPT; trait-scaled interval tests added by Gemini.
 package dev.brights0ng.empire.rules;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -262,6 +262,23 @@ class CivilianFoodTest {
         copy.tick(20, 30, true, false);
         copy.countActiveTick();
         assertEquals(before, food.save());
+    }
+
+    @Test
+    void traitMultipliersScaleRegenerationAndStarvationIntervals() {
+        // Faster healing (0.70x -> fast regen at 7 ticks instead of 10, slow regen at 56 instead of 80)
+        CivilianFood fastHeal = state(20, 6);
+        for (int i = 0; i < 6; i++) {
+            assertEquals(0.0F, fastHeal.tick(20, 30, true, false, 0.70, 1.0).healAmount());
+        }
+        assertEquals(1.0F, fastHeal.tick(20, 30, true, false, 0.70, 1.0).healAmount());
+
+        // Slower starvation (1.50x -> starve tick at 120 instead of 80)
+        CivilianFood stoutStarve = state(0, 0);
+        for (int i = 0; i < 119; i++) {
+            assertEquals(0.0F, stoutStarve.tick(30, 30, true, false, 1.0, 1.50).starveDamage());
+        }
+        assertEquals(1.0F, stoutStarve.tick(30, 30, true, false, 1.0, 1.50).starveDamage());
     }
 
     private static CivilianFood state(int foodLevel, float saturation) {

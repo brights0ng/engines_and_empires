@@ -1,36 +1,109 @@
-// Written by ChatGPT.
+// Written by ChatGPT; expanded to 7 derived scores from CivilianTraits by Gemini.
 package dev.brights0ng.empire.rules;
 
 import java.util.Locale;
+import java.util.Objects;
 import java.util.random.RandomGenerator;
 
-/** Rolled raw ability scores, packed in declaration order and independent of gameplay effects. */
-public record CivilianAbilities(int endurance, int precision, int willpower, int wits, int organization, int teamwork) {
-    public static final double REROLL_MIN_MEAN = 8.0;
-    public static final double REROLL_MAX_MEAN = 13.0;
-    public static final int MAX_REROLLS = 1000;
+import dev.brights0ng.empire.rules.CivilianTraits.BaseTrait;
+
+/**
+ * Player-facing civilian ability scores (7 scores on 3..18: 3 Body + 4 Mind), derived monotonically from the 11 hidden
+ * base traits in {@link CivilianTraits}. Packed into 28 bits in declaration order. Pure rules; no Minecraft imports.
+ */
+public record CivilianAbilities(
+        int brawn,
+        int endurance,
+        int precision,
+        int resolve,
+        int wits,
+        int organization,
+        int teamwork) {
+
+    public static final int MIN_SCORE = 3;
+    public static final int MAX_SCORE = 18;
+    private static final double SCORE_MIDPOINT = 10.5;
+    /** Scale applied to L2-normalized composite traits so derived scores match a ~3d6 spread (sigma ~2.8). */
+    private static final double SCORE_SCALE = 7.0;
 
     public enum Ability {
-        ENDURANCE, PRECISION, WILLPOWER, WITS, ORGANIZATION, TEAMWORK;
+        BRAWN("BRA"),
+        ENDURANCE("END"),
+        PRECISION("PRE"),
+        RESOLVE("RES"),
+        WITS("WIT"),
+        ORGANIZATION("ORG"),
+        TEAMWORK("TEA");
+
+        private final String shortLabel;
+
+        Ability(String shortLabel) {
+            this.shortLabel = shortLabel;
+        }
 
         public String id() {
             return name().toLowerCase(Locale.ROOT);
         }
+
+        public String shortLabel() {
+            return shortLabel;
+        }
+
+        public String langKey() {
+            return "civilian.empire.ability." + id();
+        }
     }
 
     public CivilianAbilities {
-        for (int value : new int[]{endurance, precision, willpower, wits, organization, teamwork}) {
-            if (value < 3 || value > 18) {
+        for (int value : new int[]{brawn, endurance, precision, resolve, wits, organization, teamwork}) {
+            if (value < MIN_SCORE || value > MAX_SCORE) {
                 throw new IllegalArgumentException("ability score out of 3..18: " + value);
             }
         }
     }
 
+    /** Derives the 7 player-facing scores monotonically from {@code traits} using L2-normalized linear projections. */
+    public static CivilianAbilities derive(CivilianTraits traits) {
+        Objects.requireNonNull(traits, "traits");
+        double o = traits.norm(BaseTrait.OPENNESS);
+        double c = traits.norm(BaseTrait.CONSCIENTIOUSNESS);
+        double e = traits.norm(BaseTrait.EXTRAVERSION);
+        double a = traits.norm(BaseTrait.AGREEABLENESS);
+        double n = traits.norm(BaseTrait.NEUROTICISM);
+        double as = traits.norm(BaseTrait.ALLOMETRIC_SCALE);
+        double mr = traits.norm(BaseTrait.METABOLIC_RESERVE);
+        double cf = traits.norm(BaseTrait.CONTRACTILE_FORCE);
+        double ae = traits.norm(BaseTrait.AEROBIC_STAMINA);
+        double ec = traits.norm(BaseTrait.ELASTIC_COMPLIANCE);
+        double ms = traits.norm(BaseTrait.MOTOR_SENSORY);
+
+        int brawn = project(new double[]{0.65, -0.20, -0.15}, new double[]{cf, as, ec});
+        int endurance = project(new double[]{0.55, 0.25, 0.20}, new double[]{ae, mr, c});
+        int precision = project(new double[]{0.65, 0.15, 0.10, -0.10}, new double[]{ms, ec, c, n});
+        int resolve = project(new double[]{-0.65, 0.20, 0.15}, new double[]{n, c, e});
+        int wits = project(new double[]{0.65, 0.20, 0.15}, new double[]{o, ms, c});
+        int organization = project(new double[]{0.75, 0.15, 0.10}, new double[]{c, o, ms});
+        int teamwork = project(new double[]{0.55, 0.35, -0.10}, new double[]{a, e, n});
+        return new CivilianAbilities(brawn, endurance, precision, resolve, wits, organization, teamwork);
+    }
+
+    private static int project(double[] weights, double[] norms) {
+        double sum = 0.0;
+        double normSq = 0.0;
+        for (int i = 0; i < weights.length; i++) {
+            sum += weights[i] * norms[i];
+            normSq += weights[i] * weights[i];
+        }
+        double z = sum / Math.sqrt(normSq);
+        return Math.clamp((int) Math.round(SCORE_MIDPOINT + SCORE_SCALE * z), MIN_SCORE, MAX_SCORE);
+    }
+
     public int raw(Ability ability) {
         return switch (ability) {
+            case BRAWN -> brawn;
             case ENDURANCE -> endurance;
             case PRECISION -> precision;
-            case WILLPOWER -> willpower;
+            case RESOLVE -> resolve;
             case WITS -> wits;
             case ORGANIZATION -> organization;
             case TEAMWORK -> teamwork;
@@ -38,57 +111,49 @@ public record CivilianAbilities(int endurance, int precision, int willpower, int
     }
 
     public double normalized(Ability ability) {
-        return (raw(ability) - 3) / 15.0;
+        return (raw(ability) - MIN_SCORE) / (double) (MAX_SCORE - MIN_SCORE);
     }
 
     public double mean() {
-        return (endurance + precision + willpower + wits + organization + teamwork) / 6.0;
+        return (brawn + endurance + precision + resolve + wits + organization + teamwork) / 7.0;
     }
 
     private static CivilianAbilities of(int[] values) {
-        return new CivilianAbilities(values[0], values[1], values[2], values[3], values[4], values[5]);
+        return new CivilianAbilities(
+                values[0], values[1], values[2], values[3], values[4], values[5], values[6]);
     }
 
-    /** Initial roll plus at most MAX_REROLLS whole-set retries; keeps the last set at the cap. */
+    /** Rolls a fresh {@link CivilianTraits} and returns its derived scores. */
     public static CivilianAbilities roll(RandomGenerator random) {
-        CivilianAbilities result;
-        int rerolls = 0;
-        do {
-            int[] values = new int[Ability.values().length];
-            for (int i = 0; i < values.length; i++) {
-                values[i] = random.nextInt(6) + random.nextInt(6) + random.nextInt(6) + 3;
-            }
-            result = of(values);
-        } while ((result.mean() < REROLL_MIN_MEAN || result.mean() > REROLL_MAX_MEAN) && rerolls++ < MAX_REROLLS);
-        return result;
+        return CivilianTraits.roll(random).abilities();
     }
 
     public int pack() {
         int packed = 0;
         for (Ability ability : Ability.values()) {
-            packed |= (raw(ability) - 3) << (4 * ability.ordinal());
+            packed |= (raw(ability) - MIN_SCORE) << (4 * ability.ordinal());
         }
         return packed;
     }
 
     public static CivilianAbilities unpack(int packed) {
-        if ((packed & 0xff000000) != 0) {
-            throw new IllegalArgumentException("ability bits outside the packed 24 bits: " + packed);
+        if ((packed & 0xf0000000) != 0) {
+            throw new IllegalArgumentException("ability bits outside the packed 28 bits: " + packed);
         }
         int[] values = new int[Ability.values().length];
         for (int i = 0; i < values.length; i++) {
-            values[i] = ((packed >>> (4 * i)) & 15) + 3;
+            values[i] = ((packed >>> (4 * i)) & 15) + MIN_SCORE;
         }
         return of(values);
     }
 
     public String code() {
-        return endurance + "-" + precision + "-" + willpower + "-" + wits + "-" + organization + "-" + teamwork;
+        return brawn + "-" + endurance + "-" + precision + "-" + resolve + "-" + wits + "-" + organization + "-" + teamwork;
     }
 
     public static CivilianAbilities parse(String code) {
-        if (code == null || !code.matches("[0-9]+(?:-[0-9]+){5}")) {
-            throw new IllegalArgumentException("ability code must contain six raw scores separated by hyphens: " + code);
+        if (code == null || !code.matches("[0-9]+(?:-[0-9]+){6}")) {
+            throw new IllegalArgumentException("ability code must contain seven raw scores separated by hyphens: " + code);
         }
         String[] parts = code.split("-");
         int[] values = new int[parts.length];

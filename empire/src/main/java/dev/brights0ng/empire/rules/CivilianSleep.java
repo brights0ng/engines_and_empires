@@ -26,7 +26,7 @@ public final class CivilianSleep {
     private long sessionNight = NO_NIGHT;
     private long restedNight = NO_NIGHT;
     private int sleptTicks;
-    private float creditTicks;
+    private double creditTicks;
     private float lastNight = Float.NaN;
     private long lastDayTime = NO_DAY_TIME;
 
@@ -97,9 +97,15 @@ public final class CivilianSleep {
         return isPastBedtime(dayTime, need) && !isRestedFor(nightIndex(dayTime));
     }
 
-    /** Processes one active tick at {@code dayTime}. */
+    /** Processes one active tick at {@code dayTime} using the default rough-sleep rate ({@link #ROUGH_CREDIT_RATE}). */
     public void tick(long dayTime, boolean lyingDown, boolean inBed, int need) {
+        tick(dayTime, lyingDown, inBed, need, ROUGH_CREDIT_RATE);
+    }
+
+    /** Processes one active tick at {@code dayTime} with an explicit rough-sleep credit rate (in [0, 1]). */
+    public void tick(long dayTime, boolean lyingDown, boolean inBed, int need, float roughCreditRate) {
         validateNeed(need);
+        float safeRough = Float.isFinite(roughCreditRate) ? Math.clamp(roughCreditRate, 0.0F, 1.0F) : ROUGH_CREDIT_RATE;
         if (hasOpenSession() && (!isNight(dayTime) || nightIndex(dayTime) != sessionNight)) {
             finalise(need);
         }
@@ -111,7 +117,7 @@ public final class CivilianSleep {
                 }
                 if (lyingDown) {
                     sleptTicks++;
-                    creditTicks += inBed ? BED_CREDIT_RATE : ROUGH_CREDIT_RATE;
+                    creditTicks += inBed ? BED_CREDIT_RATE : safeRough;
                     if (sleptTicks >= need) {
                         finalise(need);
                         restedNight = night;
@@ -123,10 +129,17 @@ public final class CivilianSleep {
     }
 
     /**
-     * Catches up skipped or unloaded time in {@code [from, to)} in O(1), crediting every tick inside the civilian's
-     * own sleep period at the bed or rough rate and finalising at night boundaries.
+     * Catches up skipped or unloaded time in {@code [from, to)} in O(1) using the default rough-sleep rate.
      */
     public void catchUp(long from, long to, boolean hasBed, int need) {
+        catchUp(from, to, hasBed, need, ROUGH_CREDIT_RATE);
+    }
+
+    /**
+     * Catches up skipped or unloaded time in {@code [from, to)} in O(1), crediting every tick inside the civilian's
+     * own sleep period at the bed or trait-adjusted rough rate and finalising at night boundaries.
+     */
+    public void catchUp(long from, long to, boolean hasBed, int need, float roughCreditRate) {
         validateNeed(need);
         if (to <= from) {
             if (to < from) {
@@ -138,7 +151,8 @@ public final class CivilianSleep {
             return;
         }
 
-        float rate = hasBed ? BED_CREDIT_RATE : ROUGH_CREDIT_RATE;
+        float safeRough = Float.isFinite(roughCreditRate) ? Math.clamp(roughCreditRate, 0.0F, 1.0F) : ROUGH_CREDIT_RATE;
+        float rate = hasBed ? BED_CREDIT_RATE : safeRough;
         long k0 = nightIndex(from);
         long kStart = from >= nightEnd(k0) ? k0 + 1 : k0;
         long kEnd = nightIndex(to - 1);
@@ -195,7 +209,7 @@ public final class CivilianSleep {
     }
 
     private void finalise(int need) {
-        lastNight = Math.clamp(creditTicks / need, 0.0F, 1.0F);
+        lastNight = (float) Math.clamp(creditTicks / need, 0.0, 1.0);
         clearSession();
     }
 
@@ -224,7 +238,7 @@ public final class CivilianSleep {
     }
 
     public float creditTicks() {
-        return creditTicks;
+        return (float) creditTicks;
     }
 
     /** Finalised sleep quality from the most recent night in [0, 1], or {@code Float.NaN} before the first night. */
@@ -246,7 +260,7 @@ public final class CivilianSleep {
     }
 
     public Saved save() {
-        return new Saved(sessionNight, restedNight, sleptTicks, creditTicks, lastNight, lastDayTime);
+        return new Saved(sessionNight, restedNight, sleptTicks, (float) creditTicks, lastNight, lastDayTime);
     }
 
     /** Restores a saved snapshot verbatim; persistence callers handle missing or corrupt fields. */

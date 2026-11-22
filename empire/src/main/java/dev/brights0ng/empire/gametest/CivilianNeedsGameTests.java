@@ -40,7 +40,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class CivilianNeedsGameTests {
     private static final String BATCH = "civilians";
-    private static final String KNOWN_CODE = "12-9-11-10-14-8";
+    private static final String KNOWN_CODE = "13-12-9-11-10-14-8";
 
     private static BlockPos mainPos(GameTestHelper helper) {
         return helper.absolutePos(new BlockPos(1, 1, 1));

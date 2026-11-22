@@ -184,7 +184,7 @@ public class CivilianEntity extends PathfinderMob {
     private long leaveAt;
     /** Set when the look was chosen before spawning (debug commands), so finalizeSpawn keeps it. */
     private boolean appearancePreset;
-    private CivilianAbilities abilities = new CivilianAbilities(3, 3, 3, 3, 3, 3);
+    private CivilianAbilities abilities = new CivilianAbilities(3, 3, 3, 3, 3, 3, 3);
     private boolean abilitiesPreset;
     private CivilianFood food = new CivilianFood();
     private CivilianSleep sleep = new CivilianSleep();
@@ -459,8 +459,8 @@ public class CivilianEntity extends PathfinderMob {
                 blockPosition().toShortString(), chunkPosition().x, chunkPosition().z, homeStr, appearance().code())));
         lines.add(Component.literal("ID: " + idStr + " | Empire: " + empireStr));
         lines.add(Component.literal(String.format(Locale.ROOT,
-                "Abilities: END %d PRE %d WIL %d WIT %d ORG %d TEA %d (mean %.1f)",
-                abilities.endurance(), abilities.precision(), abilities.willpower(),
+                "Abilities: BRA %d END %d PRE %d RES %d WIT %d ORG %d TEA %d (mean %.1f)",
+                abilities.brawn(), abilities.endurance(), abilities.precision(), abilities.resolve(),
                 abilities.wits(), abilities.organization(), abilities.teamwork(), abilities.mean())));
         lines.add(Component.literal(String.format(Locale.ROOT,
                 "HP: %.1f/%.1f | Food: %d/20, Sat: %.1f, Exh: %.2f | Eaten: %d today / %d yest | Active: %dt",

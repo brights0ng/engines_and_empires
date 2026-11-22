@@ -1,4 +1,4 @@
-// Written by ChatGPT; active-day rollover return value added by Gemini.
+// Written by ChatGPT; active-day rollover return value and trait-scaled regen/starvation intervals added by Gemini.
 package dev.brights0ng.empire.rules;
 
 /**
@@ -32,8 +32,17 @@ public final class CivilianFood {
         foodEatenToday += nutrition;
     }
 
-    /** Processes one tick, preserving vanilla's branch order and shared regeneration/starvation timer. */
+    /** Processes one tick at neutral (1.0x) healing and starvation rates. */
     public TickResult tick(float health, float maxHealth, boolean naturalRegeneration, boolean peaceful) {
+        return tick(health, maxHealth, naturalRegeneration, peaceful, 1.0, 1.0);
+    }
+
+    /**
+     * Processes one tick, preserving vanilla's branch order and shared regeneration/starvation timer, with
+     * trait-scaled regeneration and starvation intervals (1.0 = vanilla 10 / 80 / 80 ticks).
+     */
+    public TickResult tick(float health, float maxHealth, boolean naturalRegeneration, boolean peaceful,
+                           double healingIntervalMultiplier, double starvationIntervalMultiplier) {
         if (exhaustion > 4.0F) {
             exhaustion -= 4.0F;
             if (saturation > 0.0F) {
@@ -43,11 +52,19 @@ public final class CivilianFood {
             }
         }
 
+        double healMult = Double.isFinite(healingIntervalMultiplier) && healingIntervalMultiplier > 0.0
+                ? healingIntervalMultiplier : 1.0;
+        double starveMult = Double.isFinite(starvationIntervalMultiplier) && starvationIntervalMultiplier > 0.0
+                ? starvationIntervalMultiplier : 1.0;
+        int fastRegenTicks = Math.max(1, (int) Math.round(10.0 * healMult));
+        int slowRegenTicks = Math.max(1, (int) Math.round(80.0 * healMult));
+        int starveTicks = Math.max(1, (int) Math.round(80.0 * starveMult));
+
         // Player.isHurt also excludes dead bodies.
         boolean isHurt = health > 0.0F && health < maxHealth;
         if (naturalRegeneration && saturation > 0.0F && isHurt && foodLevel >= 20) {
             tickTimer++;
-            if (tickTimer >= 10) {
+            if (tickTimer >= fastRegenTicks) {
                 float amount = Math.min(saturation, 6.0F);
                 addExhaustion(amount);
                 tickTimer = 0;
@@ -55,14 +72,14 @@ public final class CivilianFood {
             }
         } else if (naturalRegeneration && foodLevel >= 18 && isHurt) {
             tickTimer++;
-            if (tickTimer >= 80) {
+            if (tickTimer >= slowRegenTicks) {
                 addExhaustion(6.0F);
                 tickTimer = 0;
                 return new TickResult(1.0F, 0.0F);
             }
         } else if (foodLevel <= 0) {
             tickTimer++;
-            if (tickTimer >= 80) {
+            if (tickTimer >= starveTicks) {
                 float floor = maxHealth * STARVE_FLOOR_FRACTION;
                 tickTimer = 0;
                 if (health > floor) {

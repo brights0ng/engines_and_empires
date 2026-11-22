@@ -184,6 +184,14 @@ class FulfilmentModelTest {
         assertEquals(0.6, FulfilmentModel.socializing(3), EPS);
         assertEquals(1.0, FulfilmentModel.socializing(5), EPS);
 
+        // Individualized shelter, community & socializing thresholds
+        assertEquals(1.0, FulfilmentModel.shelter(true, 20, 1, 20.0), EPS);
+        assertEquals(0.5, FulfilmentModel.shelter(true, 15, 1, 30.0), EPS);
+        assertEquals(1.0, FulfilmentModel.community(4, 4.0), EPS);
+        assertEquals(0.5, FulfilmentModel.community(8, 16.0), EPS);
+        assertEquals(1.0, FulfilmentModel.socializing(2, 2.0), EPS);
+        assertEquals(0.5, FulfilmentModel.socializing(4, 8.0), EPS);
+
         // Commitment + newcomer bonus (§4)
         assertEquals(0.5, FulfilmentModel.commitment(0.0), EPS);
         assertEquals(0.25 + 12.5 / 504.0, FulfilmentModel.commitment(12.5), EPS);

@@ -48,6 +48,23 @@ class CivilianFulfilmentTest {
     }
 
     @Test
+    void opennessBiasesPreferenceCountDistribution() {
+        int trials = 2_000;
+        Random rngLow = new Random(77L);
+        Random rngHigh = new Random(77L);
+        double sumLow = 0;
+        double sumHigh = 0;
+        for (int i = 0; i < trials; i++) {
+            sumLow += CivilianPreferences.roll(rngLow, CivilianPreferences.DEFAULT_FOOD_POOL, -1.0).favouriteFoods().size();
+            sumHigh += CivilianPreferences.roll(rngHigh, CivilianPreferences.DEFAULT_FOOD_POOL, 1.0).favouriteFoods().size();
+        }
+        double meanLow = sumLow / trials;
+        double meanHigh = sumHigh / trials;
+        assertTrue(meanLow > 1.8 && meanLow < 2.2, "low openness mean=" + meanLow);
+        assertTrue(meanHigh > 2.8 && meanHigh < 3.2, "high openness mean=" + meanHigh);
+    }
+
+    @Test
     void rollingThreeDayWindowsExpireAfterThreeActiveDays() {
         CivilianFulfilment f = new CivilianFulfilment(new CivilianPreferences(List.of("minecraft:bread"), List.of(Activity.WALK)));
         UUID p1 = UUID.randomUUID();
