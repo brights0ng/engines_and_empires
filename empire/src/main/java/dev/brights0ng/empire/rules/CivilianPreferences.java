@@ -88,6 +88,23 @@ public record CivilianPreferences(List<String> favouriteFoods, List<Activity> fa
         return itemId != null && favouriteFoods.contains(itemId);
     }
 
+    /**
+     * Returns preferences guaranteed to include {@code itemId} as a favourite food, preserving the rolled count
+     * (replacing the last entry if not already present).
+     */
+    public CivilianPreferences withFavouriteFood(String itemId) {
+        if (itemId == null || itemId.isBlank() || likesFood(itemId)) {
+            return this;
+        }
+        List<String> updated = new ArrayList<>(favouriteFoods);
+        if (updated.isEmpty()) {
+            updated.add(itemId);
+        } else {
+            updated.set(updated.size() - 1, itemId);
+        }
+        return new CivilianPreferences(updated, favouriteActivities);
+    }
+
     public boolean likesActivity(Activity activity) {
         return activity != null && favouriteActivities.contains(activity);
     }

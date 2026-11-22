@@ -170,4 +170,22 @@ class CivilianFulfilmentTest {
         }
         assertEquals(2, rollovers);
     }
+
+    @Test
+    void travellerWantMatchesOrInjectsFavouriteFood() {
+        Random rng = new Random(99L);
+        List<String> matching = List.of("minecraft:apple", "minecraft:bread");
+        int idx = TravellerWants.pickMatching(rng, matching);
+        assertTrue(idx >= 0);
+        assertEquals("minecraft:bread", TravellerWants.WANTS.get(idx).itemId());
+
+        List<String> noMatch = List.of("minecraft:apple", "minecraft:carrot");
+        assertEquals(-1, TravellerWants.pickMatching(rng, noMatch));
+
+        CivilianPreferences prefs = new CivilianPreferences(noMatch, List.of(Activity.WALK));
+        CivilianPreferences updated = prefs.withFavouriteFood("minecraft:cooked_cod");
+        assertEquals(2, updated.favouriteFoods().size());
+        assertTrue(updated.likesFood("minecraft:cooked_cod"));
+        assertEquals(updated, updated.withFavouriteFood("minecraft:cooked_cod"));
+    }
 }

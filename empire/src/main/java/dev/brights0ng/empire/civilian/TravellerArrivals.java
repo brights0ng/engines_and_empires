@@ -1,4 +1,4 @@
-// Written by Claude.
+// Written by Claude; traveller want aligned with liked foods by Gemini.
 package dev.brights0ng.empire.civilian;
 
 import java.util.ArrayList;
@@ -204,9 +204,15 @@ public final class TravellerArrivals {
     public static CivilianEntity spawnTraveller(EmpireRecord record, ServerLevel level, BlockPos pos) {
         EmpireSavedData data = EmpireSavedData.of(level);
         long now = level.getGameTime();
-        int want = TravellerWants.pick(level.random::nextLong);
         BlockPos home = CivilianRoster.homeFor(record, level, pos.getY());
         CivilianEntity traveller = CivilianSpawning.spawn(level, Vec3.atBottomCenterOf(pos), null, civilian -> {
+            int want = TravellerWants.pickMatching(level.random::nextLong,
+                    civilian.fulfilment().preferences().favouriteFoods());
+            if (want < 0) {
+                want = TravellerWants.pick(level.random::nextLong);
+                civilian.setPreferences(civilian.fulfilment().preferences()
+                        .withFavouriteFood(TravellerWants.WANTS.get(want).itemId()));
+            }
             civilian.becomeTraveller(record.id(), want, now + TRAVELLER_WAIT, home);
             data.setTraveller(record.id(), new TravellerSlot(civilian.getUUID(), want, now + TRAVELLER_WAIT));
         });
