@@ -243,6 +243,8 @@ public final class CivilianRoster {
         record.setSleep(civilian.sleep().save());
         civilian.fulfilment().resetForNewEmpire();
         record.setFulfilment(civilian.fulfilment().save());
+        civilian.resetScheduleForNewEmpire();
+        record.setSchedule(civilian.saveScheduleBundle());
         record.setBed(civilian.claimedBed());
         record.setHealth(civilian.getHealth());
         record.setInventory(civilian.inventory().getItems());

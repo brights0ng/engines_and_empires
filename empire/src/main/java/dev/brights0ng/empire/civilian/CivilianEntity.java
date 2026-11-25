@@ -18,11 +18,13 @@ import dev.brights0ng.empire.civilian.CivilianNetwork.CivilianSpeechPayload;
 import dev.brights0ng.empire.data.CivilianFulfilmentNbt;
 import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.CivilianFoodNbt;
+import dev.brights0ng.empire.data.CivilianScheduleNbt;
 import dev.brights0ng.empire.data.CivilianSleepNbt;
 import dev.brights0ng.empire.data.CivilianTraitsNbt;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
+import dev.brights0ng.empire.data.WorkAssignment;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianDerivedStats;
@@ -32,10 +34,13 @@ import dev.brights0ng.empire.rules.CivilianLines;
 import dev.brights0ng.empire.rules.CivilianNames;
 import dev.brights0ng.empire.rules.CivilianPreferences;
 import dev.brights0ng.empire.rules.CivilianQuirk;
+import dev.brights0ng.empire.rules.CivilianSchedule;
 import dev.brights0ng.empire.rules.CivilianSleep;
 import dev.brights0ng.empire.rules.CivilianTraits;
 import dev.brights0ng.empire.rules.CivilianTraits.BaseTrait;
+import dev.brights0ng.empire.rules.CrowdMemory;
 import dev.brights0ng.empire.rules.RegionRules;
+import dev.brights0ng.empire.rules.RouteMemory;
 import dev.brights0ng.empire.rules.TravellerWants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -174,6 +179,7 @@ public class CivilianEntity extends PathfinderMob {
     private static final String TAG_FOOD = "Food";
     private static final String TAG_SLEEP = "Sleep";
     private static final String TAG_FULFILMENT = "Fulfilment";
+    private static final String TAG_SCHEDULE = "Schedule";
     private static final String TAG_BED = "Bed";
     private static final String TAG_ROUGH_SLEEPING = "RoughSleeping";
     private static final String TAG_HOME = "Home";
@@ -207,6 +213,11 @@ public class CivilianEntity extends PathfinderMob {
     private CivilianSleep sleep = new CivilianSleep();
     private CivilianFulfilment fulfilment = new CivilianFulfilment(CivilianPreferences.defaultFor(getUUID()));
     private boolean preferencesPreset;
+    private CivilianSchedule schedule = new CivilianSchedule();
+    private RouteMemory routeMemory = new RouteMemory();
+    private CrowdMemory crowdMemory = new CrowdMemory();
+    @Nullable
+    private WorkAssignment workAssignment;
     @Nullable
     private BlockPos claimedBed;
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE);
@@ -438,6 +449,49 @@ public class CivilianEntity extends PathfinderMob {
 
     public CivilianFulfilment fulfilment() {
         return fulfilment;
+    }
+
+    public CivilianSchedule schedule() {
+        return schedule;
+    }
+
+    public RouteMemory routeMemory() {
+        return routeMemory;
+    }
+
+    public CrowdMemory crowdMemory() {
+        return crowdMemory;
+    }
+
+    @Nullable
+    public WorkAssignment workAssignment() {
+        return workAssignment;
+    }
+
+    public void setWorkAssignment(@Nullable WorkAssignment workAssignment) {
+        this.workAssignment = workAssignment;
+        syncNeedsToRecord();
+    }
+
+    /** Resets empire-specific schedule, route/crowd memory, and work assignment when joining a new empire. */
+    void resetScheduleForNewEmpire() {
+        schedule = new CivilianSchedule();
+        routeMemory = new RouteMemory();
+        crowdMemory = new CrowdMemory();
+        workAssignment = null;
+    }
+
+    public CivilianScheduleNbt.SavedBundle saveScheduleBundle() {
+        return new CivilianScheduleNbt.SavedBundle(
+                schedule.save(), routeMemory.save(), crowdMemory.save(), workAssignment);
+    }
+
+    private void restoreScheduleBundle(CivilianScheduleNbt.SavedBundle bundle) {
+        CivilianScheduleNbt.SavedBundle safe = bundle != null ? bundle : CivilianScheduleNbt.SavedBundle.EMPTY;
+        schedule = CivilianSchedule.restore(safe.schedule());
+        routeMemory = RouteMemory.restore(safe.routes());
+        crowdMemory = CrowdMemory.restore(safe.crowd());
+        workAssignment = safe.work();
     }
 
     /** Stable identity UUID for community/socializing deduplication: master record ID for citizens, entity UUID otherwise. */
@@ -820,6 +874,7 @@ public class CivilianEntity extends PathfinderMob {
         food = CivilianFood.restore(record.food());
         sleep = CivilianSleep.restore(record.sleep());
         fulfilment = CivilianFulfilment.restore(record.fulfilment());
+        restoreScheduleBundle(record.schedule());
         claimedBed = record.bed();
         for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
             inventory.setItem(slot, record.inventory().get(slot).copy());
@@ -853,6 +908,7 @@ public class CivilianEntity extends PathfinderMob {
         CivilianFood.Saved saved = food.save();
         CivilianSleep.Saved savedSleep = sleep.save();
         CivilianFulfilment.Saved savedFulfilment = fulfilment.save();
+        CivilianScheduleNbt.SavedBundle savedSchedule = saveScheduleBundle();
         boolean inventoryChanged = false;
         if (record != null) {
             for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
@@ -863,11 +919,12 @@ public class CivilianEntity extends PathfinderMob {
             }
         }
         if (record != null && (inventoryChanged || !saved.equals(record.food()) || !savedSleep.equals(record.sleep())
-                || !savedFulfilment.equals(record.fulfilment())
+                || !savedFulfilment.equals(record.fulfilment()) || !savedSchedule.equals(record.schedule())
                 || !Objects.equals(claimedBed, record.bed()) || Float.compare(getHealth(), record.health()) != 0)) {
             record.setFood(saved);
             record.setSleep(savedSleep);
             record.setFulfilment(savedFulfilment);
+            record.setSchedule(savedSchedule);
             record.setBed(claimedBed);
             record.setHealth(getHealth());
             record.setInventory(inventory.getItems());
@@ -1050,6 +1107,7 @@ public class CivilianEntity extends PathfinderMob {
         tag.put(TAG_FOOD, CivilianFoodNbt.save(food.save()));
         tag.put(TAG_SLEEP, CivilianSleepNbt.save(sleep.save()));
         tag.put(TAG_FULFILMENT, CivilianFulfilmentNbt.save(fulfilment.save()));
+        tag.put(TAG_SCHEDULE, CivilianScheduleNbt.save(saveScheduleBundle()));
         if (claimedBed != null) {
             tag.put(TAG_BED, NbtUtils.writeBlockPos(claimedBed));
         }
@@ -1089,6 +1147,7 @@ public class CivilianEntity extends PathfinderMob {
                         random::nextLong,
                         CivilianFulfilmentMeters.resolveFavouriteFoodPool(),
                         traits.norm(BaseTrait.OPENNESS))));
+        restoreScheduleBundle(CivilianScheduleNbt.load(tag.getCompound(TAG_SCHEDULE)));
         claimedBed = NbtUtils.readBlockPos(tag, TAG_BED).orElse(null);
         if (tag.getBoolean(TAG_ROUGH_SLEEPING) && !isSleeping()) {
             entityData.set(ROUGH_SLEEPING, true);

@@ -30,7 +30,7 @@ import net.minecraft.world.item.ItemStack;
 public final class CivilianRecord {
 
     /** The saved form's version; bump it when fields change meaning. */
-    public static final int VERSION = 3;
+    public static final int VERSION = 4;
 
     private final UUID id;
     private final UUID empire;
@@ -43,6 +43,7 @@ public final class CivilianRecord {
     private CivilianFood.Saved food = new CivilianFood().save();
     private CivilianSleep.Saved sleep = new CivilianSleep().save();
     private CivilianFulfilment.Saved fulfilment;
+    private CivilianScheduleNbt.SavedBundle schedule = CivilianScheduleNbt.SavedBundle.EMPTY;
     @Nullable
     private BlockPos bed;
     /** NaN in older records means to keep the body's health. */
@@ -136,6 +137,14 @@ public final class CivilianRecord {
         this.fulfilment = Objects.requireNonNull(fulfilment);
     }
 
+    public CivilianScheduleNbt.SavedBundle schedule() {
+        return schedule;
+    }
+
+    public void setSchedule(CivilianScheduleNbt.SavedBundle schedule) {
+        this.schedule = Objects.requireNonNull(schedule, "schedule");
+    }
+
     @Nullable
     public BlockPos bed() {
         return bed;
@@ -193,6 +202,7 @@ public final class CivilianRecord {
         tag.put("food", CivilianFoodNbt.save(food));
         tag.put("sleep", CivilianSleepNbt.save(sleep));
         tag.put("fulfilment", CivilianFulfilmentNbt.save(fulfilment));
+        tag.put("schedule", CivilianScheduleNbt.save(schedule));
         if (bed != null) {
             tag.putLong("bed", bed.asLong());
         }
@@ -216,6 +226,9 @@ public final class CivilianRecord {
         record.setSleep(CivilianSleepNbt.load(tag.getCompound("sleep")));
         record.setFulfilment(CivilianFulfilmentNbt.load(
                 tag.getCompound("fulfilment"), () -> CivilianPreferences.defaultFor(record.id())));
+        if (tag.contains("schedule", net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+            record.setSchedule(CivilianScheduleNbt.load(tag.getCompound("schedule")));
+        }
         if (tag.contains("bed", net.minecraft.nbt.Tag.TAG_LONG)) {
             record.setBed(BlockPos.of(tag.getLong("bed")));
         }
