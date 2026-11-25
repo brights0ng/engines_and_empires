@@ -305,6 +305,31 @@ public final class CivilianSchedule {
     }
 
     /**
+     * Marks any uncompleted anchor completed if a later anchor in today's skeleton has already started (e.g. after a
+     * forward {@code /time set} jump within the same schedule day).
+     */
+    public boolean expireSkippedAnchors(int nowTick) {
+        boolean changed = false;
+        int now = Math.clamp(nowTick, 0, ScheduleClock.DAY_TICKS_INT);
+        for (int i = 0; i < anchors.size() - 1; i++) {
+            Anchor a = anchors.get(i);
+            if (a.completed()) {
+                continue;
+            }
+            for (int j = i + 1; j < anchors.size(); j++) {
+                Anchor later = anchors.get(j);
+                if (!later.completed() && now >= later.startTick()) {
+                    anchors.set(i, a.withCompleted(true));
+                    preemptiveBreakUsedThisGap = false;
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        return changed;
+    }
+
+    /**
      * Handles arriving at a scheduled anchor at {@code arrivalTick}. If the anchor is shiftable (Lunch/Dinner) and the
      * civilian arrived late, shifts the meal window forward while preventing collision with the following anchor.
      */

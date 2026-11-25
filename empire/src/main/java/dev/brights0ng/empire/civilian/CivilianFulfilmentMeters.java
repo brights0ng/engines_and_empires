@@ -130,17 +130,20 @@ public final class CivilianFulfilmentMeters {
     /**
      * Scans within {@link CivilianFulfilment#COMMUNITY_RADIUS} blocks for other live non-leaving civilians and online
      * non-spectator members of {@code empire}, recording their distinct identities in today's Community bucket.
+     * Returns {@code true} if at least one other person was seen nearby.
      */
-    public static void scanCommunity(ServerLevel level, CivilianEntity civilian, @Nullable EmpireRecord empire) {
+    public static boolean scanCommunity(ServerLevel level, CivilianEntity civilian, @Nullable EmpireRecord empire) {
         double r = CivilianFulfilment.COMMUNITY_RADIUS;
         double r2 = r * r;
         AABB box = civilian.getBoundingBox().inflate(r);
         CivilianFulfilment fulfilment = civilian.fulfilment();
+        boolean sawAnyone = false;
 
         for (CivilianEntity other : level.getEntitiesOfClass(CivilianEntity.class, box)) {
             if (other != civilian && other.isAlive() && other.status() != CivilianEntity.Status.LEAVING
                     && civilian.distanceToSqr(other) <= r2) {
                 fulfilment.recordNearbyPerson(other.identityUuid());
+                sawAnyone = true;
             }
         }
         if (empire != null) {
@@ -148,9 +151,11 @@ public final class CivilianFulfilmentMeters {
                 if (!player.isSpectator() && player.isAlive() && empire.isMember(player.getUUID())
                         && civilian.distanceToSqr(player) <= r2) {
                     fulfilment.recordNearbyPerson(player.getUUID());
+                    sawAnyone = true;
                 }
             }
         }
+        return sawAnyone;
     }
 
     /** Computes a fresh {@link Evaluation} for {@code civilian} using all eleven meter providers. */

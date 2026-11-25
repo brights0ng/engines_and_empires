@@ -15,6 +15,8 @@ import javax.annotation.Nullable;
 import dev.brights0ng.empire.Empire;
 import dev.brights0ng.empire.EmpireConfig;
 import dev.brights0ng.empire.civilian.CivilianNetwork.CivilianSpeechPayload;
+import dev.brights0ng.empire.civilian.ai.CivilianAiController;
+import dev.brights0ng.empire.civilian.ai.CivilianAiGoal;
 import dev.brights0ng.empire.data.CivilianFulfilmentNbt;
 import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.CivilianFoodNbt;
@@ -261,7 +263,7 @@ public class CivilianEntity extends PathfinderMob {
     private UUID unreachableRegionId;
     private long unreachableRegionRevision;
     @Nullable
-    private CivilianSleepGoal sleepGoal;
+    private CivilianAiController aiController;
 
     private static final class Conversation {
         final CivilianEntity partner;
@@ -297,19 +299,23 @@ public class CivilianEntity extends PathfinderMob {
                 .add(Attributes.OXYGEN_BONUS, CivilianDerivedStats.BASE_OXYGEN_BONUS);
     }
 
-    // Temporary vanilla goals until the real civilian AI exists.
     @Override
     protected void registerGoals() {
+        aiController = new CivilianAiController(this);
         goalSelector.addGoal(0, new FloatGoal(this));
         goalSelector.addGoal(1, new CivilianFaceGoal(this));
         goalSelector.addGoal(2, new OpenDoorGoal(this, true));
-        sleepGoal = new CivilianSleepGoal(this);
-        goalSelector.addGoal(3, sleepGoal);
-        goalSelector.addGoal(4, new MoveTowardsRestrictionGoal(this, 0.6));
+        goalSelector.addGoal(3, new CivilianAiGoal(this, aiController));
+        goalSelector.addGoal(4, new MoveTowardsRestrictionGoal(this, 0.6) {
+            @Override
+            public boolean canUse() {
+                return status != Status.CITIZEN && status != Status.LEAVING && super.canUse();
+            }
+        });
         goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 0.5) {
             @Override
             public boolean canUse() {
-                return status != Status.LEAVING && super.canUse();
+                return status != Status.CITIZEN && status != Status.LEAVING && super.canUse();
             }
         });
         goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 6.0F));
@@ -468,9 +474,20 @@ public class CivilianEntity extends PathfinderMob {
         return workAssignment;
     }
 
+    public CivilianAiController aiController() {
+        if (aiController == null) {
+            aiController = new CivilianAiController(this);
+        }
+        return aiController;
+    }
+
     public void setWorkAssignment(@Nullable WorkAssignment workAssignment) {
         this.workAssignment = workAssignment;
-        syncNeedsToRecord();
+        if (status == Status.CITIZEN && level() instanceof ServerLevel serverLevel) {
+            aiController().onWorkAssignmentChanged(serverLevel);
+        } else {
+            syncNeedsToRecord();
+        }
     }
 
     /** Resets empire-specific schedule, route/crowd memory, and work assignment when joining a new empire. */
@@ -545,14 +562,14 @@ public class CivilianEntity extends PathfinderMob {
         return Math.max(0, wakeCooldownUntil - tickCount);
     }
 
-    void markUnreachableBed(long night, BlockPos bedPos, @Nullable RegionRecord region) {
+    public void markUnreachableBed(long night, BlockPos bedPos, @Nullable RegionRecord region) {
         unreachableNight = night;
         unreachableBed = bedPos.immutable();
         unreachableRegionId = region != null ? region.id() : null;
         unreachableRegionRevision = region != null ? region.revision() : 0L;
     }
 
-    void clearUnreachableBed() {
+    public void clearUnreachableBed() {
         unreachableNight = CivilianSleep.NO_NIGHT;
         unreachableBed = null;
         unreachableRegionId = null;
@@ -563,7 +580,7 @@ public class CivilianEntity extends PathfinderMob {
      * True if {@code bedPos} timed out as unreachable earlier on {@code night} and its region has not been updated
      * since. Automatically clears the suppression if the region changed or a new night began.
      */
-    boolean isBedUnreachable(long night, @Nullable BlockPos bedPos, @Nullable RegionRecord region) {
+    public boolean isBedUnreachable(long night, @Nullable BlockPos bedPos, @Nullable RegionRecord region) {
         if (unreachableNight != night || unreachableBed == null || !unreachableBed.equals(bedPos)) {
             return false;
         }
@@ -660,13 +677,15 @@ public class CivilianEntity extends PathfinderMob {
 
         int need = sleepNeedTicks();
         String sleepState;
+        BlockPos sleepTarget = aiController().sleepTargetPos();
         if (isSleeping()) {
             sleepState = "sleeping in bed";
         } else if (isRoughSleeping()) {
             sleepState = "sleeping rough";
-        } else if (sleepGoal != null && sleepGoal.isActive() && sleepGoal.targetPos() != null) {
-            sleepState = (sleepGoal.isTargetingBed() ? "walking to bed " : "walking to bonfire ")
-                    + "(" + sleepGoal.targetPos().toShortString() + ")";
+        } else if (aiController().isWalkingToBed() && sleepTarget != null) {
+            sleepState = "walking to bed (" + sleepTarget.toShortString() + ")";
+        } else if (aiController().isWalkingToRoughSpot() && sleepTarget != null) {
+            sleepState = "walking to bonfire (" + sleepTarget.toShortString() + ")";
         } else {
             sleepState = "awake";
         }
@@ -723,6 +742,9 @@ public class CivilianEntity extends PathfinderMob {
             lines.add(Component.literal("Social: " + String.join(", ", social)));
         }
         lines.addAll(CivilianFulfilmentMeters.formatSummaryLines(serverLevel, this));
+        if (status == Status.CITIZEN) {
+            lines.add(aiController().formatSummaryLine(serverLevel));
+        }
         return lines;
     }
 
@@ -1048,6 +1070,9 @@ public class CivilianEntity extends PathfinderMob {
         }
         if (inventoryMeal) stopUsingItem();
         wakeUp(false);
+        if (level() instanceof ServerLevel serverLevel) {
+            aiController().stopAll(serverLevel);
+        }
         if (claimedBed != null && level() instanceof ServerLevel serverLevel) {
             CivilianRecord leavingRecord = ownRecord(EmpireSavedData.of(serverLevel));
             CivilianBeds.releaseAndDetach(serverLevel, leavingRecord != null ? leavingRecord.empire() : null,
@@ -1065,7 +1090,7 @@ public class CivilianEntity extends PathfinderMob {
 
     /** This citizen's record, if this civilian is still its body. */
     @Nullable
-    CivilianRecord ownRecord(EmpireSavedData data) {
+    public CivilianRecord ownRecord(EmpireSavedData data) {
         CivilianRecord record = civilianId != null ? data.civilian(civilianId) : null;
         return record != null && record.body().equals(getUUID()) ? record : null;
     }
@@ -1211,7 +1236,12 @@ public class CivilianEntity extends PathfinderMob {
             if (result.healAmount() > 0.0F) heal(result.healAmount());
             if (result.starveDamage() > 0.0F) hurt(damageSources().starve(), result.starveDamage());
             updateHungerStrengthModifier();
-            if (tickCount % EAT_CHECK_INTERVAL == 0) tryEatFromInventory();
+            if (tickCount % EAT_CHECK_INTERVAL == 0) {
+                // Citizens normally eat during scheduled MEAL slots; outside mealtime only eat at/below emergency floor.
+                if (status != Status.CITIZEN || food.foodLevel() <= aiController().emergencyFoodThreshold()) {
+                    tryEatFromInventory();
+                }
+            }
             if (status == Status.CITIZEN) {
                 tickSleep(serverLevel);
                 fulfilment.countCitizenActiveTick();
@@ -1303,7 +1333,9 @@ public class CivilianEntity extends PathfinderMob {
             data.setDirty();
         }
         if ((tickCount + getId()) % CivilianFulfilment.COMMUNITY_SCAN_TICKS == 0) {
-            CivilianFulfilmentMeters.scanCommunity(serverLevel, this, empire);
+            if (CivilianFulfilmentMeters.scanCommunity(serverLevel, this, empire)) {
+                aiController().recordNearbyPersonSighting(serverLevel, empire);
+            }
         }
         if (!fulfilment.hasComfortSamples()) {
             CivilianFulfilmentMeters.sampleComfort(serverLevel, this);
@@ -1313,21 +1345,61 @@ public class CivilianEntity extends PathfinderMob {
         }
     }
 
-    private void tryEatFromInventory() {
-        if (isLyingDown() || isUsingItem() || !getMainHandItem().isEmpty()) return;
+    /** True if the civilian carries at least one pocket food item whose nutrition fits missing food without waste. */
+    public boolean hasFittingPocketFood() {
+        return findFittingPocketFoodSlot(false) >= 0;
+    }
+
+    /**
+     * Attempts to start eating one fitting food item from pockets through vanilla item use. When {@code preferLiked}
+     * is true, checks the civilian's favourite foods first before falling back to any fitting food.
+     */
+    public boolean startEatingFromInventory(boolean preferLiked) {
+        if (isLyingDown() || isUsingItem() || !getMainHandItem().isEmpty()) {
+            return false;
+        }
+        int slot = findFittingPocketFoodSlot(preferLiked);
+        if (slot < 0) {
+            return false;
+        }
+        setItemInHand(InteractionHand.MAIN_HAND, inventory.removeItem(slot, 1));
+        inventoryMeal = true;
+        startUsingItem(InteractionHand.MAIN_HAND);
+        // NeoForge can cancel the start-use event. The food still belongs in the pockets.
+        if (!isUsingItem()) {
+            returnInventoryMeal();
+            return false;
+        }
+        return true;
+    }
+
+    private int findFittingPocketFoodSlot(boolean preferLiked) {
         int missing = 20 - food.foodLevel();
+        if (missing <= 0) {
+            return -1;
+        }
+        int firstAny = -1;
         for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
             ItemStack stack = inventory.getItem(slot);
             FoodProperties properties = stack.getFoodProperties(this);
             if (!stack.isEmpty() && properties != null && properties.nutrition() <= missing) {
-                setItemInHand(InteractionHand.MAIN_HAND, inventory.removeItem(slot, 1));
-                inventoryMeal = true;
-                startUsingItem(InteractionHand.MAIN_HAND);
-                // NeoForge can cancel the start-use event. The food still belongs in the pockets.
-                if (!isUsingItem()) returnInventoryMeal();
-                return;
+                if (firstAny < 0) {
+                    firstAny = slot;
+                }
+                if (!preferLiked) {
+                    return slot;
+                }
+                ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+                if (key != null && fulfilment.preferences().likesFood(key.toString())) {
+                    return slot;
+                }
             }
         }
+        return firstAny;
+    }
+
+    private void tryEatFromInventory() {
+        startEatingFromInventory(false);
     }
 
     // LivingEntity detects equipment before aiStep starts eating, so the use flag reaches the client before the hand item.
@@ -1664,18 +1736,18 @@ public class CivilianEntity extends PathfinderMob {
         return isAlive() && !isLyingDown() && talkPartner == null && dialoguePlayer == null;
     }
 
-    private boolean startConversation() {
-        CivilianEntity partner = null;
-        double best = Double.MAX_VALUE;
-        for (CivilianEntity other : level().getEntitiesOfClass(CivilianEntity.class, getBoundingBox().inflate(TALK_RADIUS))) {
-            double d2 = distanceToSqr(other);
-            if (other != this && other.available() && d2 <= (double) TALK_RADIUS * TALK_RADIUS && d2 < best
-                    && hasLineOfSight(other)) {
-                partner = other;
-                best = d2;
-            }
+    /** The civilian this entity is currently conversing with, or null. */
+    @Nullable
+    public CivilianEntity talkPartner() {
+        return talkPartner;
+    }
+
+    /** Attempts to start a scripted conversation with {@code partner} if both sides are available and within range. */
+    public boolean tryStartConversationWith(CivilianEntity partner) {
+        if (partner == null || partner == this || !available() || !partner.available()) {
+            return false;
         }
-        if (partner == null) {
+        if (distanceToSqr(partner) > (double) TALK_RADIUS * TALK_RADIUS || !hasLineOfSight(partner)) {
             return false;
         }
         Conversation c = new Conversation(partner, random.nextInt(CivilianLines.TALK_LENGTHS.length));
@@ -1688,6 +1760,20 @@ public class CivilianEntity extends PathfinderMob {
         partner.fulfilment.recordSocialInteraction(identityUuid(), partner.food.activeTicks());
         tickConversation();
         return true;
+    }
+
+    private boolean startConversation() {
+        CivilianEntity partner = null;
+        double best = Double.MAX_VALUE;
+        for (CivilianEntity other : level().getEntitiesOfClass(CivilianEntity.class, getBoundingBox().inflate(TALK_RADIUS))) {
+            double d2 = distanceToSqr(other);
+            if (other != this && other.available() && d2 <= (double) TALK_RADIUS * TALK_RADIUS && d2 < best
+                    && hasLineOfSight(other)) {
+                partner = other;
+                best = d2;
+            }
+        }
+        return partner != null && tryStartConversationWith(partner);
     }
 
     private void tickConversation() {
