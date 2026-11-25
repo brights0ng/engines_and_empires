@@ -34,6 +34,7 @@ public final class CivilianFulfilmentNbt {
     private static final String KEY_SOCIALIZING = "socializing_days";
     private static final String KEY_SOCIAL_COOLDOWNS = "social_cooldowns";
     private static final String KEY_LIKED_MEALS = "liked_meals_days";
+    private static final String KEY_LIKED_HOBBY_TICKS = "liked_hobby_ticks_days";
     private static final String KEY_COMFORT_SAMPLES = "comfort_samples";
     private static final String KEY_GRIEVANCE = "grievance";
     private static final String KEY_TICKS_SINCE_SLOT = "ticks_since_slot";
@@ -83,6 +84,9 @@ public final class CivilianFulfilmentNbt {
         tag.putIntArray(KEY_LIKED_MEALS, new int[] {
                 state.likedMealsDay0(), state.likedMealsDay1(), state.likedMealsDay2()
         });
+        tag.putLongArray(KEY_LIKED_HOBBY_TICKS, new long[] {
+                state.likedHobbyTicksDay0(), state.likedHobbyTicksDay1(), state.likedHobbyTicksDay2()
+        });
 
         ListTag comfortTag = new ListTag();
         for (float sample : state.comfortSamples()) {
@@ -118,7 +122,10 @@ public final class CivilianFulfilmentNbt {
         if (tag.contains(KEY_FAVOURITE_ACTIVITIES, Tag.TAG_LIST)) {
             ListTag list = tag.getList(KEY_FAVOURITE_ACTIVITIES, Tag.TAG_STRING);
             for (int i = 0; i < list.size(); i++) {
-                CivilianPreferences.Activity act = CivilianPreferences.Activity.byId(list.getString(i));
+                String rawId = list.getString(i);
+                CivilianPreferences.Activity act = "pub_chat".equalsIgnoreCase(rawId)
+                        ? CivilianPreferences.Activity.READING
+                        : CivilianPreferences.Activity.byId(rawId);
                 if (act != null) {
                     activities.add(act);
                 }
@@ -186,6 +193,12 @@ public final class CivilianFulfilmentNbt {
         int meal1 = meals.length > 1 ? Math.max(0, meals[1]) : 0;
         int meal2 = meals.length > 2 ? Math.max(0, meals[2]) : 0;
 
+        long[] hobbyTicks = tag.contains(KEY_LIKED_HOBBY_TICKS, Tag.TAG_LONG_ARRAY)
+                ? tag.getLongArray(KEY_LIKED_HOBBY_TICKS) : new long[0];
+        long hobby0 = hobbyTicks.length > 0 ? Math.max(0L, hobbyTicks[0]) : 0L;
+        long hobby1 = hobbyTicks.length > 1 ? Math.max(0L, hobbyTicks[1]) : 0L;
+        long hobby2 = hobbyTicks.length > 2 ? Math.max(0L, hobbyTicks[2]) : 0L;
+
         List<Float> comfortSamples = new ArrayList<>();
         if (tag.contains(KEY_COMFORT_SAMPLES, Tag.TAG_LIST)) {
             ListTag list = tag.getList(KEY_COMFORT_SAMPLES, Tag.TAG_FLOAT);
@@ -212,6 +225,7 @@ public final class CivilianFulfilmentNbt {
                 soc0, soc1, soc2,
                 Collections.unmodifiableMap(cooldowns),
                 meal0, meal1, meal2,
+                hobby0, hobby1, hobby2,
                 List.copyOf(comfortSamples),
                 grievance,
                 ticksSinceSlot

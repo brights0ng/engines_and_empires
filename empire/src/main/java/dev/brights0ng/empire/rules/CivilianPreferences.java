@@ -22,7 +22,7 @@ public record CivilianPreferences(List<String> favouriteFoods, List<Activity> fa
 
     public enum Activity {
         FISHING("fishing"),
-        PUB_CHAT("pub_chat"),
+        READING("reading"),
         RELAX_AT_HOME("relax_at_home"),
         WALK("walk");
 

@@ -44,6 +44,8 @@ public final class CivilianFulfilment {
     private final Map<UUID, Long> lastSocialTickByPartner = new HashMap<>();
     /** Liked meals eaten per active day: index 0 = today, 1 = yesterday, 2 = day before. */
     private final int[] likedMealsDays = new int[WINDOW_DAYS];
+    /** Active ticks spent performing liked hobbies per active day: index 0 = today, 1 = yesterday, 2 = day before. */
+    private final long[] likedHobbyTicksDays = new long[WINDOW_DAYS];
     /** Recent per-slot comfort scores (0–1), capped at {@link #COMFORT_DAY_SLOTS}. */
     private final List<Float> comfortSamples = new ArrayList<>(COMFORT_DAY_SLOTS);
     /** Accumulated grievance (0–1). */
@@ -104,6 +106,10 @@ public final class CivilianFulfilment {
         likedMealsDays[2] = likedMealsDays[1];
         likedMealsDays[1] = likedMealsDays[0];
         likedMealsDays[0] = 0;
+
+        likedHobbyTicksDays[2] = likedHobbyTicksDays[1];
+        likedHobbyTicksDays[1] = likedHobbyTicksDays[0];
+        likedHobbyTicksDays[0] = 0L;
     }
 
     /** Records a nearby person (other civilian or empire member) seen within {@link #COMMUNITY_RADIUS} blocks today. */
@@ -156,6 +162,18 @@ public final class CivilianFulfilment {
 
     public int likedMealsCount() {
         return likedMealsDays[0] + likedMealsDays[1] + likedMealsDays[2];
+    }
+
+    /** Records active ticks spent performing one of this civilian's favourite hobbies today. */
+    public void recordLikedHobbyTicks(long ticks) {
+        if (ticks > 0L) {
+            likedHobbyTicksDays[0] += ticks;
+        }
+    }
+
+    /** Total ticks spent performing liked hobbies across today, yesterday, and the day before. */
+    public long likedHobbyTicksCount() {
+        return likedHobbyTicksDays[0] + likedHobbyTicksDays[1] + likedHobbyTicksDays[2];
     }
 
     /** Appends one slot's comfort score (0–1), keeping at most {@link #COMFORT_DAY_SLOTS} recent samples. */
@@ -223,6 +241,7 @@ public final class CivilianFulfilment {
                 socializingDays[0], socializingDays[1], socializingDays[2],
                 Collections.unmodifiableMap(new LinkedHashMap<>(lastSocialTickByPartner)),
                 likedMealsDays[0], likedMealsDays[1], likedMealsDays[2],
+                likedHobbyTicksDays[0], likedHobbyTicksDays[1], likedHobbyTicksDays[2],
                 List.copyOf(comfortSamples),
                 grievance,
                 ticksSinceLastSlot
@@ -245,6 +264,9 @@ public final class CivilianFulfilment {
         f.likedMealsDays[0] = Math.max(0, saved.likedMealsDay0());
         f.likedMealsDays[1] = Math.max(0, saved.likedMealsDay1());
         f.likedMealsDays[2] = Math.max(0, saved.likedMealsDay2());
+        f.likedHobbyTicksDays[0] = Math.max(0L, saved.likedHobbyTicksDay0());
+        f.likedHobbyTicksDays[1] = Math.max(0L, saved.likedHobbyTicksDay1());
+        f.likedHobbyTicksDays[2] = Math.max(0L, saved.likedHobbyTicksDay2());
         int start = Math.max(0, saved.comfortSamples().size() - COMFORT_DAY_SLOTS);
         for (int i = start; i < saved.comfortSamples().size(); i++) {
             float sample = saved.comfortSamples().get(i);
@@ -273,6 +295,9 @@ public final class CivilianFulfilment {
             int likedMealsDay0,
             int likedMealsDay1,
             int likedMealsDay2,
+            long likedHobbyTicksDay0,
+            long likedHobbyTicksDay1,
+            long likedHobbyTicksDay2,
             List<Float> comfortSamples,
             float grievance,
             long ticksSinceLastSlot

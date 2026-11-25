@@ -45,6 +45,8 @@ class CivilianFulfilmentTest {
         for (Activity a : Activity.values()) {
             assertEquals(a, Activity.byId(a.id()));
         }
+        assertEquals(Activity.READING, Activity.byId("reading"));
+        assertEquals(null, Activity.byId("pub_chat"));
     }
 
     @Test
@@ -79,18 +81,22 @@ class CivilianFulfilmentTest {
         assertTrue(f.recordSocialInteraction(p2, 500L)); // different partner allowed
         assertTrue(f.recordSocialInteraction(p1, 1300L)); // after cooldown
         f.recordLikedMeal();
+        f.recordLikedHobbyTicks(1_200L);
         assertEquals(1, f.distinctCommunityPeople());
         assertEquals(3, f.socializingCount());
         assertEquals(1, f.likedMealsCount());
+        assertEquals(1_200L, f.likedHobbyTicksCount());
 
         // Day 1: p1 seen again + p2 new
         f.advanceDay();
         f.recordNearbyPerson(p1);
         f.recordNearbyPerson(p2);
         f.recordLikedMeal();
+        f.recordLikedHobbyTicks(600L);
         assertEquals(2, f.distinctCommunityPeople());
         assertEquals(3, f.socializingCount());
         assertEquals(2, f.likedMealsCount());
+        assertEquals(1_800L, f.likedHobbyTicksCount());
 
         // Day 2: p3 new
         f.advanceDay();
@@ -98,17 +104,20 @@ class CivilianFulfilmentTest {
         assertEquals(3, f.distinctCommunityPeople());
         assertEquals(3, f.socializingCount());
         assertEquals(2, f.likedMealsCount());
+        assertEquals(1_800L, f.likedHobbyTicksCount());
 
-        // Day 3: Day 0 drops out (socializing 3 -> 0, liked meal on day 0 drops -> 1; p1 still in day 1 so union = {p1, p2, p3})
+        // Day 3: Day 0 drops out (socializing 3 -> 0, liked meal on day 0 drops -> 1, hobby 1200 drops -> 600)
         f.advanceDay();
         assertEquals(3, f.distinctCommunityPeople());
         assertEquals(0, f.socializingCount());
         assertEquals(1, f.likedMealsCount());
+        assertEquals(600L, f.likedHobbyTicksCount());
 
-        // Day 4: Day 1 drops out -> only p3 remains, liked meals 0
+        // Day 4: Day 1 drops out -> only p3 remains, liked meals 0, hobby ticks 0
         f.advanceDay();
         assertEquals(1, f.distinctCommunityPeople());
         assertEquals(0, f.likedMealsCount());
+        assertEquals(0L, f.likedHobbyTicksCount());
     }
 
     @Test
@@ -139,6 +148,7 @@ class CivilianFulfilmentTest {
         f.recordNearbyPerson(UUID.randomUUID());
         f.recordSocialInteraction(UUID.randomUUID(), 200L);
         f.recordLikedMeal();
+        f.recordLikedHobbyTicks(1_500L);
         f.recordComfortSample(0.8F);
         f.setGrievance(0.35F);
 
@@ -146,9 +156,11 @@ class CivilianFulfilmentTest {
         assertEquals(f.save(), copy.save());
 
         copy.recordLikedMeal();
+        copy.recordLikedHobbyTicks(600L);
         copy.setGrievance(0.9F);
         assertNotEquals(f.save(), copy.save());
         assertEquals(1, f.likedMealsCount());
+        assertEquals(1_500L, f.likedHobbyTicksCount());
         assertEquals(0.35F, f.grievance(), EPS);
     }
 

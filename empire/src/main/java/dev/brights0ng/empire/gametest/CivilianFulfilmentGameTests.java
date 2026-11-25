@@ -304,10 +304,29 @@ public final class CivilianFulfilmentGameTests {
             helper.assertTrue(c.fulfilment().likedMealsCount() == 1, "eating unliked apple does not increment liked meals");
 
             MeterReading enjoyment = CivilianFulfilmentMeters.enjoymentMeter(c, 0.5);
-            helper.assertTrue(enjoyment.source() == SourceKind.PARTIAL, "enjoyment flagged PARTIAL (activity placeholder)");
-            double expected = (1.0 / 12.0) + 0.25;
-            helper.assertTrue(Math.abs(enjoyment.value() - expected) < 1e-6,
-                    "expected enjoyment " + expected + ", got " + enjoyment.value());
+            helper.assertTrue(enjoyment.source() == SourceKind.LIVE, "enjoyment is now LIVE (food + hobby time)");
+            double expectedFoodOnly = 1.0 / 12.0;
+            helper.assertTrue(Math.abs(enjoyment.value() - expectedFoodOnly) < 1e-6,
+                    "expected enjoyment " + expectedFoodOnly + ", got " + enjoyment.value());
+
+            // Credit half of the 3-day liked-hobby target -> adds 0.25
+            c.fulfilment().recordLikedHobbyTicks(FulfilmentModel.ENJOYMENT_HOBBY_FULL_TICKS / 2);
+            MeterReading withHobbies = CivilianFulfilmentMeters.enjoymentMeter(c, 0.5);
+            double expectedWithHobbies = expectedFoodOnly + 0.25;
+            helper.assertTrue(Math.abs(withHobbies.value() - expectedWithHobbies) < 1e-6,
+                    "expected enjoyment with hobbies " + expectedWithHobbies + ", got " + withHobbies.value());
+
+            // Legacy "pub_chat" activity migrates to READING in NBT
+            CompoundTag legacyTag = CivilianFulfilmentNbt.save(c.fulfilment().save());
+            net.minecraft.nbt.ListTag legacyActs = new net.minecraft.nbt.ListTag();
+            legacyActs.add(net.minecraft.nbt.StringTag.valueOf("pub_chat"));
+            legacyTag.put("favourite_activities", legacyActs);
+            CivilianFulfilment.Saved migrated = CivilianFulfilmentNbt.load(legacyTag,
+                    () -> CivilianPreferences.defaultFor(UUID.randomUUID()));
+            helper.assertTrue(migrated.preferences().likesActivity(Activity.READING),
+                    "legacy pub_chat migrates to READING");
+            helper.assertTrue(migrated.likedHobbyTicksDay0() == FulfilmentModel.ENJOYMENT_HOBBY_FULL_TICKS / 2,
+                    "liked hobby ticks persist across NBT round-trip");
             helper.succeed();
         } finally {
             if (c != null && !c.isRemoved()) c.discard();
@@ -447,7 +466,7 @@ public final class CivilianFulfilmentGameTests {
             helper.assertTrue(joined.contains("Happiness:"), "report contains Happiness");
             helper.assertTrue(joined.contains("Fulfilment:"), "report contains Fulfilment");
             helper.assertTrue(joined.contains("[PLACEHOLDER]"), "report flags Vocation placeholder");
-            helper.assertTrue(joined.contains("[PARTIAL]"), "report flags Enjoyment partial placeholder");
+            helper.assertTrue(joined.contains("Enjoyment (15%):"), "report includes live Enjoyment meter");
 
             // Tolerant NBT codec survives empty/corrupt tags
             CivilianFulfilment.Saved loaded = CivilianFulfilmentNbt.load(new CompoundTag(),

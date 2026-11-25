@@ -294,7 +294,9 @@ public final class CivilianFulfilmentMeters {
     }
 
     public static MeterReading enjoymentMeter(CivilianEntity civilian, double placeholderDefault) {
-        return FulfilmentModel.enjoyment(civilian.fulfilment().likedMealsCount(), placeholderDefault);
+        return FulfilmentModel.enjoyment(
+                civilian.fulfilment().likedMealsCount(),
+                civilian.fulfilment().likedHobbyTicksCount());
     }
 
     // ---- Debug formatting ----

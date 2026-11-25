@@ -200,13 +200,17 @@ class FulfilmentModelTest {
         assertEquals(1.0, FulfilmentModel.commitment(504.0), EPS);
         assertEquals(1.0, FulfilmentModel.commitment(1000.0), EPS);
 
-        // Enjoyment (live food half + 50% placeholder activity half = 0.25)
-        MeterReading e0 = FulfilmentModel.enjoyment(0, 0.5);
-        assertEquals(SourceKind.PARTIAL, e0.source());
-        assertEquals(0.25, e0.value(), EPS);
-        assertEquals(0.50, FulfilmentModel.enjoyment(3, 0.5).value(), EPS);
-        assertEquals(0.75, FulfilmentModel.enjoyment(6, 0.5).value(), EPS);
-        assertEquals(0.75, FulfilmentModel.enjoyment(12, 0.5).value(), EPS);
+        // Enjoyment (live food half + live liked-hobby-time half)
+        MeterReading e0 = FulfilmentModel.enjoyment(0, 0L);
+        assertEquals(SourceKind.LIVE, e0.source());
+        assertEquals(0.0, e0.value(), EPS);
+        assertEquals(0.25, FulfilmentModel.enjoyment(3, 0L).value(), EPS);
+        assertEquals(0.50, FulfilmentModel.enjoyment(6, 0L).value(), EPS);
+        assertEquals(0.50, FulfilmentModel.enjoyment(12, 0L).value(), EPS);
+        assertEquals(0.25, FulfilmentModel.enjoyment(0, FulfilmentModel.ENJOYMENT_HOBBY_FULL_TICKS / 2).value(), EPS);
+        assertEquals(0.50, FulfilmentModel.enjoyment(0, FulfilmentModel.ENJOYMENT_HOBBY_FULL_TICKS).value(), EPS);
+        assertEquals(1.00, FulfilmentModel.enjoyment(6, FulfilmentModel.ENJOYMENT_HOBBY_FULL_TICKS).value(), EPS);
+        assertEquals(1.00, FulfilmentModel.enjoyment(12, FulfilmentModel.ENJOYMENT_HOBBY_FULL_TICKS * 2).value(), EPS);
     }
 
     @Test

@@ -40,8 +40,10 @@ public final class FulfilmentModel {
     /** Newcomer bonus added to Commitment on arrival, decaying linearly to 0 over {@link #NEWCOMER_DECAY_DAYS}. */
     public static final double NEWCOMER_BONUS_MAX = 0.5;
     public static final double NEWCOMER_DECAY_DAYS = 25.0;
-    /** Liked meals over 3 days that max out the food half (0.5) of Enjoyment (2/day = 6 meals? Spec: / 12 -> 0.5 at 6 meals). */
+    /** Liked meals over 3 days that max out the food half (0.5) of Enjoyment (2/day = 6 meals; / 12 -> 0.5 at 6). */
     public static final double ENJOYMENT_MEALS_DIVISOR = 12.0;
+    /** PROVISIONAL: active ticks spent on liked hobbies over 3 days that max out the activity half (0.5) of Enjoyment (6:00 = 2:00/day). */
+    public static final long ENJOYMENT_HOBBY_FULL_TICKS = 7_200L;
     /** Default Fulfilment threshold T below which grievance builds and above which it drains. */
     public static final double DEFAULT_GRIEVANCE_THRESHOLD = 0.75;
     /** PROVISIONAL default grievance build multiplier per active day times shortfall. */
@@ -379,19 +381,27 @@ public final class FulfilmentModel {
         return NEWCOMER_BONUS_MAX * (1.0 - d / NEWCOMER_DECAY_DAYS);
     }
 
-    /** Purpose / Enjoyment: liked meals over 3 days / 12 (max 0.5) + activity half (max 0.5). */
+    /** Purpose / Enjoyment: liked meals over 3 days / 12 (max 0.5) + liked hobby time (max 0.5). */
     public static double enjoymentFoodHalf(int likedMeals3Days) {
         return Math.min(0.5, Math.max(0, likedMeals3Days) / ENJOYMENT_MEALS_DIVISOR);
     }
 
-    /** Purpose / Enjoyment reading with live food half and placeholder activity half (permanent 50% of 0.5 = 0.25). */
-    public static MeterReading enjoyment(int likedMeals3Days, double placeholderDefault) {
+    /** Purpose / Enjoyment activity half: liked hobby ticks over 3 days / {@link #ENJOYMENT_HOBBY_FULL_TICKS} * 0.5 (max 0.5). */
+    public static double enjoymentActivityHalf(long likedHobbyTicks3Days) {
+        return Math.min(0.5, 0.5 * Math.max(0L, likedHobbyTicks3Days) / (double) ENJOYMENT_HOBBY_FULL_TICKS);
+    }
+
+    /** Purpose / Enjoyment reading with live liked-meal half and live liked-hobby-time half. */
+    public static MeterReading enjoyment(int likedMeals3Days, long likedHobbyTicks3Days) {
         double foodHalf = enjoymentFoodHalf(likedMeals3Days);
-        double activityHalf = 0.5 * clamp01(placeholderDefault);
+        long safeTicks = Math.max(0L, likedHobbyTicks3Days);
+        double activityHalf = enjoymentActivityHalf(safeTicks);
+        double hobbyMin = safeTicks / 1_200.0;
+        double targetMin = ENJOYMENT_HOBBY_FULL_TICKS / 1_200.0;
         String detail = String.format(java.util.Locale.ROOT,
-                "liked meals %d/6 (%.2f) + activity %.2f [placeholder]",
-                Math.max(0, likedMeals3Days), foodHalf, activityHalf);
-        return MeterReading.partial(foodHalf + activityHalf, detail);
+                "liked meals %d/6 (%.2f) + hobbies %.1f/%.1fm (%.2f)",
+                Math.max(0, likedMeals3Days), foodHalf, hobbyMin, targetMin, activityHalf);
+        return MeterReading.live(foodHalf + activityHalf, detail);
     }
 
     /** Linearly interpolated Expectation E(n) from sorted (n, E) points. */
