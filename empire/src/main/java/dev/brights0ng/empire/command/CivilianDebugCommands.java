@@ -27,16 +27,20 @@ import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.TravellerSlot;
+import dev.brights0ng.empire.data.WorkAssignment;
 import dev.brights0ng.empire.rules.ArrivalRule;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianFood;
 import dev.brights0ng.empire.rules.CivilianFulfilment;
 import dev.brights0ng.empire.rules.CivilianLines;
+import dev.brights0ng.empire.rules.CivilianSchedule;
 import dev.brights0ng.empire.rules.CivilianTraits;
 import dev.brights0ng.empire.rules.CivilianTraits.BaseTrait;
+import dev.brights0ng.empire.rules.ScheduleClock;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -121,6 +125,35 @@ public final class CivilianDebugCommands {
                         .then(Commands.literal("days")
                                 .then(Commands.argument("days", DoubleArgumentType.doubleArg(0.0, 10000.0))
                                         .executes(ctx -> fulfilmentDays(ctx.getSource(), DoubleArgumentType.getDouble(ctx, "days"))))))
+                .then(Commands.literal("schedule")
+                        .executes(ctx -> scheduleInfo(ctx.getSource()))
+                        .then(Commands.literal("rebuild")
+                                .executes(ctx -> scheduleRebuild(ctx.getSource()))))
+                .then(Commands.literal("work")
+                        .then(Commands.literal("clear")
+                                .executes(ctx -> workClear(ctx.getSource())))
+                        .then(Commands.literal("here")
+                                .executes(ctx -> workAssign(ctx.getSource(), BlockPos.containing(ctx.getSource().getPosition()), 7, false))
+                                .then(Commands.argument("minutes", IntegerArgumentType.integer(1, 14))
+                                        .executes(ctx -> workAssign(ctx.getSource(), BlockPos.containing(ctx.getSource().getPosition()),
+                                                IntegerArgumentType.getInteger(ctx, "minutes"), false))
+                                        .then(Commands.literal("indoor")
+                                                .executes(ctx -> workAssign(ctx.getSource(), BlockPos.containing(ctx.getSource().getPosition()),
+                                                        IntegerArgumentType.getInteger(ctx, "minutes"), true)))
+                                        .then(Commands.literal("outdoor")
+                                                .executes(ctx -> workAssign(ctx.getSource(), BlockPos.containing(ctx.getSource().getPosition()),
+                                                        IntegerArgumentType.getInteger(ctx, "minutes"), false)))))
+                        .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                .executes(ctx -> workAssign(ctx.getSource(), BlockPosArgument.getBlockPos(ctx, "pos"), 7, false))
+                                .then(Commands.argument("minutes", IntegerArgumentType.integer(1, 14))
+                                        .executes(ctx -> workAssign(ctx.getSource(), BlockPosArgument.getBlockPos(ctx, "pos"),
+                                                IntegerArgumentType.getInteger(ctx, "minutes"), false))
+                                        .then(Commands.literal("indoor")
+                                                .executes(ctx -> workAssign(ctx.getSource(), BlockPosArgument.getBlockPos(ctx, "pos"),
+                                                        IntegerArgumentType.getInteger(ctx, "minutes"), true)))
+                                        .then(Commands.literal("outdoor")
+                                                .executes(ctx -> workAssign(ctx.getSource(), BlockPosArgument.getBlockPos(ctx, "pos"),
+                                                        IntegerArgumentType.getInteger(ctx, "minutes"), false))))))
                 .then(Commands.literal("traveller")
                         .then(playerArgument()
                                 .executes(ctx -> traveller(ctx.getSource(), player(ctx)))))
@@ -457,6 +490,54 @@ public final class CivilianDebugCommands {
         civilian.syncNeedsToRecord();
         source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "%s days lived %.1f",
                 civilian.getName().getString(), civilian.fulfilment().daysLived())), true);
+        return 1;
+    }
+
+    private static int scheduleInfo(CommandSourceStack source) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        for (Component line : civilian.aiController().formatScheduleReport(source.getLevel())) {
+            source.sendSuccess(() -> line, false);
+        }
+        return 1;
+    }
+
+    private static int scheduleRebuild(CommandSourceStack source) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        civilian.aiController().forceRebuildSchedule(source.getLevel());
+        for (Component line : civilian.aiController().formatScheduleReport(source.getLevel())) {
+            source.sendSuccess(() -> line, false);
+        }
+        return 1;
+    }
+
+    private static int workAssign(CommandSourceStack source, BlockPos pos, int minutes, boolean indoor) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        int askTicks = Math.clamp(minutes * ScheduleClock.TICKS_PER_MINUTE,
+                CivilianSchedule.MIN_WORK_TICKS, 16_800);
+        WorkAssignment assignment = WorkAssignment.of(pos, indoor, askTicks, "debug_work");
+        civilian.setWorkAssignment(assignment);
+        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " assigned work @ "
+                + pos.toShortString() + " (" + (indoor ? "indoor" : "outdoor")
+                + ", ask=" + ScheduleClock.format(askTicks) + ")"), true);
+        return 1;
+    }
+
+    private static int workClear(CommandSourceStack source) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        civilian.setWorkAssignment(null);
+        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " work assignment cleared"), true);
         return 1;
     }
 

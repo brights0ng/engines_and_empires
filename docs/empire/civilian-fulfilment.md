@@ -11,7 +11,7 @@ Written by Claude from Bright's design decisions, 2026-10-25; updated 2026-10-26
 ### Decisions, 2026-11-21 (Bright)
 - **Shelter uses `HOME` regions' walkable indoor floor blocks per occupant:** `0` with no valid `HOME` region; otherwise `clamp(walkableIndoorFloor / (inhabitants × 25), 0, 1)`, so each citizen maxes Shelter at 25 walkable indoor floor blocks.
 - **Liked foods are specific food items rather than food categories:** rolled from the data-driven item tag `empire:civilian_favourite_foods` (cooked meats & fish, prepared Naturalist foods, bread, baked potato, dried kelp, stews, cookies, pumpkin pie, honey bottle, and non-rare, non-poisonous fruits/vegetables). Food preferences are rolled, saved, and live-calculated for the food half of Enjoyment (`0.0–0.5`). A traveller's join-requirement food (`TravellerWants`) is always one of its liked foods.
-- **Liked activities are rolled and saved, permanently at 50% for now:** activities (`fishing`, `pub_chat`, `relax_at_home`, `walk`) are rolled and persisted on each civilian, but not monitored yet — the activity half of Enjoyment returns a permanent 50% placeholder (`0.25`, flagged partial in debug).
+- **Liked activities are rolled and saved, live-tracked for Enjoyment (updated 2026-11-24):** `pub_chat` was replaced by `reading` (final v1 set: `fishing`, `reading`, `relax_at_home`, `walk`; legacy `"pub_chat"` NBT migrates to `reading`). The activity half of Enjoyment (`0.0–0.5`) is now `LIVE`, credited by active ticks spent performing liked hobbies over the 3-day rolling window (`7,200` ticks = 6:00 / 3 days = 2:00/day maxes `0.5`).
 - **Comfort config defaults:** comfort range `10.0–35.0 °C` (matching `ColdSweatCompat`), danger margin `15.0 °C` past either bound (`0.0` at `-5 °C` / `50 °C`), sampled via `paradyne-lib`'s `TemperatureProvider` (`air + room`, falling back to `0.5` placeholder when Meteodyne is absent or returns `NaN`).
 - **Grievance scale & provisional rates:** `0.0–1.0` scale, threshold `0.75`, configurable provisional build (`1.0 / day × shortfall`) and drain (`0.5 / day` above threshold), paused whenever no empire member is online. Accumulates and is shown in debug; unrest/leaving effects come later.
 
@@ -35,7 +35,7 @@ Written by Claude from Bright's design decisions, 2026-10-25; updated 2026-10-26
 | | Socializing | 5% | social interactions over the last 3 days / 5, cap 1 (same or different people) |
 | | Commitment | 10% | days lived in the settlement / 504 (504 in-game days ≈ 7 real days), plus the newcomer bonus (§4), cap 1 |
 | Purpose | Vocation | 10% | **undefined until jobs exist** (provider default 0.5) |
-| | Enjoyment | 15% | min(0.5, liked-food meals over 3 days / 12) + activity half (permanent 50% placeholder = 0.25 until activities exist). Two of each per day = max |
+| | Enjoyment | 15% | min(0.5, liked-food meals over 3 days / 12) + min(0.5, 0.5 × liked-hobby ticks over 3 days / 7,200). Two liked meals + 2:00 liked hobbies per day = max (LIVE as of `empire/civilian-ai`) |
 
 Tier fraction r(k) = the tier's weighted meter sum / the tier's total weight (25%).
 
