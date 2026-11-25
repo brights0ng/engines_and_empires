@@ -2,7 +2,7 @@
 // Edited by Gemini: registered TalcBorderRenderer for client-side empire perimeter border visualization when holding talc.
 // Edited by Claude: TalcBorderRenderer now registers its own listeners (render, block changes, chunk loads).
 // Edited by Claude: ClaimCacheKeeper keeps the claims around the player fresh (protection prediction, talc borders).
-// Edited by Gemini: registered RegionRenderer for in-world 3D region rendering when holding talc.
+// Edited by Gemini: registered RegionRenderer for in-world 3D region rendering when holding the Administrative Ledger.
 package dev.brights0ng.empire;
 
 import dev.brights0ng.empire.client.ClaimCacheKeeper;

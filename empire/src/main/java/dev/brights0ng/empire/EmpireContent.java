@@ -1,4 +1,4 @@
-// Written by Gemini; loot condition type, creative tab, bonfire solidity and the civilian entity added by Claude.
+// Written by Gemini; loot condition type, creative tab, bonfire solidity and the civilian entity added by Claude; Administrative Ledger added by Gemini.
 package dev.brights0ng.empire;
 
 import dev.brights0ng.empire.bonfire.BonfireBlock;
@@ -6,6 +6,7 @@ import dev.brights0ng.empire.bonfire.BonfireBlockEntity;
 import dev.brights0ng.empire.bonfire.BonfireItem;
 import dev.brights0ng.empire.bonfire.BonfirePartBlock;
 import dev.brights0ng.empire.civilian.CivilianEntity;
+import dev.brights0ng.empire.ledger.AdministrativeLedgerItem;
 import dev.brights0ng.empire.loot.CorrectToolForDrops;
 import dev.brights0ng.empire.talc.BlessedTalcItem;
 import dev.brights0ng.empire.talc.TarnishedTalcItem;
@@ -110,6 +111,10 @@ public final class EmpireContent {
     public static final DeferredItem<TarnishedTalcItem> TARNISHED_TALC = ITEMS.register("tarnished_talc",
             () -> new TarnishedTalcItem(new Item.Properties()));
 
+    public static final DeferredItem<AdministrativeLedgerItem> ADMINISTRATIVE_LEDGER = ITEMS.register(
+            "administrative_ledger",
+            () -> new AdministrativeLedgerItem(new Item.Properties().stacksTo(1)));
+
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<BonfireBlockEntity>> BONFIRE_BE =
             BLOCK_ENTITY_TYPES.register("bonfire",
                     () -> BlockEntityType.Builder.of(BonfireBlockEntity::new, BONFIRE.get()).build(null));
@@ -137,6 +142,7 @@ public final class EmpireContent {
                         output.accept(RAW_TALC.get());
                         output.accept(BLESSED_TALC.get());
                         output.accept(TARNISHED_TALC.get());
+                        output.accept(ADMINISTRATIVE_LEDGER.get());
                     })
                     .build());
 

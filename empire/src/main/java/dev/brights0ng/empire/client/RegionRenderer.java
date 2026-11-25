@@ -4,12 +4,11 @@ package dev.brights0ng.empire.client;
 import java.util.ArrayList;
 import java.util.List;
 
+import dev.brights0ng.empire.ledger.AdministrativeLedgerItem;
 import dev.brights0ng.empire.region.RegionClientCache;
 import dev.brights0ng.empire.region.RegionNetwork;
 import dev.brights0ng.empire.region.RegionPayloads;
 import dev.brights0ng.empire.rules.RegionType;
-import dev.brights0ng.empire.talc.BlessedTalcItem;
-import dev.brights0ng.empire.talc.TarnishedTalcItem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -22,7 +21,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * Draws the player's empire's nearby 3D regions while the player holds Blessed or Tarnished Talc:
+ * Draws the player's empire's nearby 3D regions while the player holds the {@link AdministrativeLedgerItem}:
  * chalk ribbons along the geometric edges of each region and shimmering translucent veils across its faces.
  * Shares {@link VeilMeshRenderer} and {@link EmpireRenderTypes#BORDER_VEIL} with {@link TalcBorderRenderer}.
  */
@@ -46,7 +45,7 @@ public final class RegionRenderer {
                 || !mc.level.dimension().equals(Level.OVERWORLD)) {
             return;
         }
-        if (!isHoldingTalc(player)) {
+        if (!isHoldingLedger(player)) {
             return;
         }
         int pcx = player.blockPosition().getX() >> 4;
@@ -73,11 +72,7 @@ public final class RegionRenderer {
             return;
         }
 
-        ItemStack main = player.getMainHandItem();
-        ItemStack off = player.getOffhandItem();
-        boolean holdingBlessed = main.getItem() instanceof BlessedTalcItem || off.getItem() instanceof BlessedTalcItem;
-        boolean holdingTarnished = main.getItem() instanceof TarnishedTalcItem || off.getItem() instanceof TarnishedTalcItem;
-        if (!holdingBlessed && !holdingTarnished) {
+        if (!isHoldingLedger(player)) {
             clearMeshes();
             return;
         }
@@ -93,15 +88,13 @@ public final class RegionRenderer {
         }
 
         float time = VeilMeshRenderer.animationTime(level.getGameTime(), event);
-        boolean tarnished = holdingTarnished;
-        VeilMeshRenderer.draw(event, mc, meshes, time, (style, out) -> colors(style, tarnished, out));
+        VeilMeshRenderer.draw(event, mc, meshes, time, RegionRenderer::colors);
     }
 
-    private static boolean isHoldingTalc(LocalPlayer player) {
+    private static boolean isHoldingLedger(LocalPlayer player) {
         ItemStack main = player.getMainHandItem();
         ItemStack off = player.getOffhandItem();
-        return main.getItem() instanceof BlessedTalcItem || off.getItem() instanceof BlessedTalcItem
-                || main.getItem() instanceof TarnishedTalcItem || off.getItem() instanceof TarnishedTalcItem;
+        return main.getItem() instanceof AdministrativeLedgerItem || off.getItem() instanceof AdministrativeLedgerItem;
     }
 
     private static List<VeilMesh> buildMeshes(List<RegionPayloads.RegionSnapshot> snapshots) {
@@ -135,34 +128,20 @@ public final class RegionRenderer {
     }
 
     /** Chalk RGB in out[0..2], veil RGB in out[3..5]. Each {@link RegionType} has its own palette entry. */
-    private static void colors(int style, boolean tarnished, int[] out) {
+    private static void colors(int style, int[] out) {
         if (style == RegionGeometry.STYLE_SEPARATOR) {
             // Room separator blocks: burnished gold/yellow matching Empire protected boundaries
-            if (tarnished) {
-                set(out, 225, 180, 70, 235, 195, 95);
-            } else {
-                set(out, 255, 200, 55, 255, 215, 90);
-            }
+            set(out, 255, 200, 55, 255, 215, 90);
             return;
         }
         RegionType type = RegionGeometry.typeForStyle(style);
         if (type == null) {
             // Invalid region: crimson warning
-            if (tarnished) {
-                set(out, 195, 55, 68, 225, 78, 78);
-            } else {
-                set(out, 220, 53, 69, 255, 82, 82);
-            }
+            set(out, 220, 53, 69, 255, 82, 82);
             return;
         }
         switch (type) {
-            case HOME -> {
-                if (tarnished) {
-                    set(out, 80, 145, 215, 95, 160, 225);
-                } else {
-                    set(out, 90, 175, 255, 110, 190, 255);
-                }
-            }
+            case HOME -> set(out, 90, 175, 255, 110, 190, 255);
         }
     }
 

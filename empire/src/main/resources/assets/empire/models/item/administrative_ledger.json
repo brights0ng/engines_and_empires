@@ -1,0 +1,311 @@
+{
+  "credit": "Made with Blockbench",
+  "textures": {
+    "0": "minecraft:block/stripped_spruce_log",
+    "1": "empire:item/administrative_ledger",
+    "particle": "#0"
+  },
+  "elements": [
+    {
+      "name": "Spruce board",
+      "from": [
+        3,
+        1,
+        7.5
+      ],
+      "to": [
+        13,
+        15,
+        8.5
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          8,
+          8,
+          8
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            3,
+            1,
+            13,
+            15
+          ],
+          "texture": "#0"
+        },
+        "east": {
+          "uv": [
+            14,
+            1,
+            15,
+            15
+          ],
+          "texture": "#0"
+        },
+        "south": {
+          "uv": [
+            3,
+            1,
+            13,
+            15
+          ],
+          "texture": "#0"
+        },
+        "west": {
+          "uv": [
+            1,
+            1,
+            2,
+            15
+          ],
+          "texture": "#0"
+        },
+        "up": {
+          "uv": [
+            3,
+            0,
+            13,
+            1
+          ],
+          "texture": "#0"
+        },
+        "down": {
+          "uv": [
+            3,
+            15,
+            13,
+            16
+          ],
+          "texture": "#0"
+        }
+      }
+    },
+    {
+      "name": "Blank paper",
+      "from": [
+        4,
+        2,
+        8.5
+      ],
+      "to": [
+        12,
+        13,
+        8.75
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          8,
+          8,
+          8
+        ]
+      },
+      "faces": {
+        "east": {
+          "uv": [
+            8,
+            0,
+            8.25,
+            11
+          ],
+          "texture": "#1"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            8,
+            11
+          ],
+          "texture": "#1"
+        },
+        "west": {
+          "uv": [
+            8,
+            0,
+            8.25,
+            11
+          ],
+          "texture": "#1"
+        },
+        "up": {
+          "uv": [
+            8,
+            12,
+            16,
+            12.25
+          ],
+          "texture": "#1"
+        },
+        "down": {
+          "uv": [
+            8,
+            12,
+            16,
+            12.25
+          ],
+          "texture": "#1"
+        }
+      }
+    },
+    {
+      "name": "Steel clip",
+      "from": [
+        5,
+        13,
+        8.51563
+      ],
+      "to": [
+        11,
+        16,
+        8.51563
+      ],
+      "rotation": {
+        "angle": 0,
+        "axis": "y",
+        "origin": [
+          8,
+          8,
+          8
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            15,
+            1,
+            9,
+            4
+          ],
+          "texture": "#1"
+        },
+        "south": {
+          "uv": [
+            9,
+            1,
+            15,
+            4
+          ],
+          "texture": "#1"
+        }
+      }
+    }
+  ],
+  "display": {
+    "gui": {
+      "rotation": [
+        8,
+        -13,
+        -4
+      ],
+      "scale": [
+        1.03,
+        1.03,
+        1.03
+      ]
+    },
+    "ground": {
+      "rotation": [
+        80,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        2,
+        0
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "scale": [
+        0.93,
+        0.93,
+        0.93
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        -12,
+        -17,
+        7
+      ],
+      "translation": [
+        0,
+        2,
+        1
+      ],
+      "scale": [
+        0.88,
+        0.88,
+        0.88
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        -12,
+        -17,
+        7
+      ],
+      "translation": [
+        0,
+        2,
+        1
+      ],
+      "scale": [
+        0.88,
+        0.88,
+        0.88
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        -14,
+        0,
+        6
+      ],
+      "translation": [
+        0,
+        3,
+        1
+      ],
+      "scale": [
+        0.74,
+        0.74,
+        0.74
+      ]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [
+        -14,
+        0,
+        6
+      ],
+      "translation": [
+        0,
+        3,
+        1
+      ],
+      "scale": [
+        0.74,
+        0.74,
+        0.74
+      ]
+    }
+  },
+  "gui_light": "front"
+}

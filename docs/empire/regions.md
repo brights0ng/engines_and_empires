@@ -1,4 +1,4 @@
-<!-- Written by Gemini (2026-11-20) from Bright's decisions in this session; updated with implementation and verification by Gemini (2026-11-20); updated with shared veil/chalk region rendering by Gemini (2026-11-20); updated with whitelist expansion and H3+W3 region updates by Gemini (2026-11-21); updated with Rooms & INDOOR/OUTDOOR labelling by Gemini (2026-11-21). -->
+<!-- Written by Gemini (2026-11-20) from Bright's decisions in this session; updated with implementation and verification by Gemini (2026-11-20); updated with shared veil/chalk region rendering by Gemini (2026-11-20); updated with whitelist expansion and H3+W3 region updates by Gemini (2026-11-21); updated with Rooms & INDOOR/OUTDOOR labelling by Gemini (2026-11-21); updated with Administrative Ledger item by Gemini (2026-11-25). -->
 # Empire: Regions (framework, `HOME`, rooms, and in-world rendering)
 
 **Date:** 2026-11-20 · **Status:** built (phases R1–R4 + shared veil/chalk rendering). In-game visual check remains for Bright.
@@ -51,7 +51,11 @@
   - **Partitioning:** Regions partition into 6-connected rooms separated by region-configured separator blocks (`RoomSeparator`: `DOOR` (`#minecraft:doors`), `TRAPDOOR` (`#minecraft:trapdoors`), `FENCE_GATE` (`#minecraft:fence_gates`); fences/walls are obstructions, not separators). Open and closed separator blockstates separate equally. Separator blocks belong to neither room they border.
   - **General `INDOOR`/`OUTDOOR` labelling:** Opt-in per region type (`RoomLabel`: `INDOOR`, `OUTDOOR`). Any room containing or 6-adjacent to a non-separator whitelisted block with direct sky access is labelled `OUTDOOR`; all other rooms are `INDOOR`.
   - **`HOME` rooms:** Separated by **doors only**, with `INDOOR`/`OUTDOOR` labelling enabled. `OUTDOOR` rooms remain in `region.blocks()` (not pruned), do **not** count toward `HOME` effective volume (50–500 min / capacity 1–4), and are skipped by `TOO_DARK` and `NO_BED`. Beds in `OUTDOOR` rooms cannot be claimed or slept in; if a wall/door breaks and turns a claimed room `OUTDOOR`, civilians in that room are detached and their beds released.
-  - **Rendering & debug:** Talc region rendering draws only `INDOOR` rooms (ignoring `OUTDOOR` rooms), and highlights separator blocks in yellow (matching Empire protected boundaries). `/empire debug region info` reports room counts, labels, separator count, and effective volume.
+  - **Rendering & debug:** Region rendering draws only `INDOOR` rooms (ignoring `OUTDOOR` rooms), and highlights separator blocks in yellow (matching Empire protected boundaries). `/empire debug region info` reports room counts, labels, separator count, and effective volume.
+- **D11 Administrative Ledger (Bright, 2026-11-25):**
+  - Item id `empire:administrative_ledger` ("Administrative Ledger", `stacksTo(1)`, listed in `EMPIRE_TAB`), clipboard model (`stripped_spruce_log` board + paper/clip texture), shaped recipe: `minecraft:ink_sac` top center, `minecraft:paper` middle, `#minecraft:signs` bottom center.
+  - Right-clicking any bed (head or foot, normalized to head) while holding the Administrative Ledger cancels vanilla bed sleep/spawn-setting and scans/registers an `AUTO` `HOME` region seeded at the bed head (`LedgerInteractions`), with action-bar feedback (capacity & indoor rooms on success; specific failure reason on failure) and a page-turn sound. Clicking a bed already inside an existing `HOME` of the player's empire immediately re-validates it and reports its live status (or restores it if newly repaired).
+  - Holding the Administrative Ledger (main hand or offhand) activates 3D region rendering (`RegionRenderer`), replacing the temporary talc trigger (Blessed and Tarnished Talc now render only chunk borders via `TalcBorderRenderer`).
 
 ---
 
@@ -97,8 +101,8 @@
 ### In-world rendering (`dev.brights0ng.empire.client` & `dev.brights0ng.empire.region`)
 - **Shared renderer:** `VeilMesh` (pure Java, extracted from `TalcBorderGeometry.Mesh`) and `VeilMeshRenderer` (extracted from `TalcBorderRenderer`) unify chalk-ribbon and shimmering-veil rendering through `EmpireRenderTypes.BORDER_VEIL` (`LEQUAL` depth test, translucent, `NO_CULL`, `POLYGON_OFFSET_LAYERING`), sharing distance fade, chalk opacity, and veil shimmer wave so changes to boundary rendering apply identically to regions.
 - **3D region geometry (`RegionGeometry`, pure Java):** builds a `VeilMesh` for each region's `BlockPos` set — exposed outer faces (`±X, ±Y, ±Z`, nudged inward by `VeilMesh.LIFT`) rendered as `VEIL_UNIFORM`, with geometric crease edges (90° outer corners and 270° inner corners, plus corner caps) framed by `VeilMesh.HALF_W` `CHALK` ribbons with zero quad overlap.
-- **Trigger & palette (`RegionRenderer`):** active while holding Blessed or Tarnished Talc (until the Administration Ledger exists). Each `RegionType` has its own palette entry (`HOME` in blue, slightly dulled under Tarnished Talc; invalid regions in crimson).
-- **Client sync (`RegionPayloads`, `RegionNetwork`, `RegionClientCache`):** C2S `Request` / S2C `Sync` syncs nearby regions of the player's empire on demand while holding talc, with immediate server pushes when regions are created, removed, or change validity.
+- **Trigger & palette (`RegionRenderer`):** active while holding the Administrative Ledger (`empire:administrative_ledger`) in either hand (Blessed and Tarnished Talc show only chunk borders). Each `RegionType` has its own palette entry (`HOME` in blue; invalid regions in crimson; room separators in yellow).
+- **Client sync (`RegionPayloads`, `RegionNetwork`, `RegionClientCache`):** C2S `Request` / S2C `Sync` syncs nearby regions of the player's empire on demand while holding the Administrative Ledger, with immediate server pushes when regions are created, removed, or change validity.
 
 ### Sleep & command integration
 - `CivilianBeds`: when claiming a bed, gathers unclaimed `PoiTypes.HOME` beds within 48 blocks on staked land, closest first. Pass 1 checks beds already inside a `VALID` `HOME` with spare capacity; Pass 2 tries unmarked homeless beds one at a time to auto-create a `HOME`, marking failed beds dirty in `RegionManager` until a 3×3 chunk update or dawn. Death, leaving, disband, re-recruitment, and debug clear/release detach the citizen from its `HOME` region.
@@ -119,7 +123,7 @@
 
 ## Open / Future passes
 
-- **Administration Ledger item:** Manual region outlining, auto-fill trigger, naming/re-typing, and management UI.
+- **Administrative Ledger (later features):** Manual region outlining, naming/re-typing, job-target binding, and settlement management UI.
 - **Cots:** Beds/cots that citizens can sleep in anywhere outside a `HOME`.
 - **Citizen self-repair:** Before detaching from an invalidated region, citizens attempt to fix the issue (replace a broken block, break a placed hazard, re-light) first.
 - **Additional region types & Meteodyne:** `PUB`, `FARM`, `LARDER`, `WORKSHOP`, etc., plus optional indoor temperature/shelter checks via `empire.compat.meteodyne`.
