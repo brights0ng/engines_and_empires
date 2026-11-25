@@ -5,14 +5,18 @@ import dev.brights0ng.empire.Empire;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
+import dev.brights0ng.empire.region.FarmRegionScanner;
 import dev.brights0ng.empire.region.HomeRegionScanner;
+import dev.brights0ng.empire.region.RegionClientCache;
 import dev.brights0ng.empire.region.RegionManager;
 import dev.brights0ng.empire.region.RegionNetwork;
+import dev.brights0ng.empire.region.RegionPayloads;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.RegionInvalidReason;
 import dev.brights0ng.empire.rules.RegionOrigin;
 import dev.brights0ng.empire.rules.RegionRules;
 import dev.brights0ng.empire.rules.RegionType;
+import dev.brights0ng.empire.rules.RoomLabel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -30,17 +34,48 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * Right-click interactions for the {@link AdministrativeLedgerItem}.
- *
- * <p>Right-clicking any bed (head or foot) while holding the Administrative Ledger cancels vanilla bed interaction
- * and scans/registers an {@link RegionOrigin#AUTO} {@link RegionType#HOME} region seeded at the bed's head. If the bed
- * already lies inside a {@code HOME} of the player's empire, the existing region is immediately re-validated and its
- * current status is reported on the action bar.
+ * Right-click and left-click interactions for the {@link AdministrativeLedgerItem}.
+ * <ul>
+ *   <li>Right-clicking a region's home block (bed for {@link RegionType#HOME}, composter for {@link RegionType#FARM})
+ *       creates or selects that region.</li>
+ *   <li>While a {@code FARM} is selected, right-clicking a shed-whitelisted block (composter, chest, trapped chest,
+ *       barrel, Create item vault) or field-whitelisted block (farmland, crop) flood-fills and adds/merges a room.</li>
+ *   <li>Right-clicking a selected region's own room rescans and displays its status; shift-right-clicking removes that
+ *       room (deleting the region if no rooms remain).</li>
+ *   <li>Clicking another region's non-home block reports an error while a region is selected; clicking another region's
+ *       home block switches selection to that region.</li>
+ *   <li>Left-clicking (block or air) while holding the ledger, or unequipping the ledger, exits selection.</li>
+ *   <li>Non-home blocks outside regions (or without a region selected) interact normally.</li>
+ * </ul>
  */
 @EventBusSubscriber(modid = Empire.MODID)
 public final class LedgerInteractions {
+
+    @SubscribeEvent
+    public static void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
+        Player player = event.getEntity();
+        if (!LedgerSelection.isHoldingLedger(player)) {
+            return;
+        }
+        Level level = event.getLevel();
+        if (level.isClientSide()) {
+            if (RegionClientCache.selectedRegionId() != null) {
+                event.setCanceled(true);
+                RegionClientCache.clearSelectionLocally();
+                PacketDistributor.sendToServer(RegionPayloads.Deselect.INSTANCE);
+            }
+            return;
+        }
+        ServerLevel serverLevel = (ServerLevel) level;
+        if (serverLevel.dimension().equals(Level.OVERWORLD) && LedgerSelection.clear(serverLevel, player)) {
+            event.setCanceled(true);
+            playPageTurn(serverLevel, player.blockPosition(), 0.85F);
+            player.displayClientMessage(Component.translatable("message.empire.ledger.unselected"), true);
+        }
+    }
 
     @SubscribeEvent
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
@@ -55,90 +90,348 @@ public final class LedgerInteractions {
         Level level = event.getLevel();
         BlockPos clickedPos = event.getPos();
         BlockState state = level.getBlockState(clickedPos);
-        if (!state.is(BlockTags.BEDS)) {
-            return;
-        }
-
-        // Intercept before BedBlock.useWithoutItem so right-clicking never sleeps, sets spawn, or explodes the bed.
-        event.setCanceled(true);
-        event.setCancellationResult(InteractionResult.sidedSuccess(level.isClientSide()));
+        boolean isBed = state.is(BlockTags.BEDS);
+        boolean isComposter = FarmRegionScanner.isComposter(state);
+        boolean isHomeBlock = isBed || isComposter;
+        RoomLabel farmBlockLabel = FarmRegionScanner.labelForClickedBlock(state);
 
         if (level.isClientSide()) {
+            if (shouldCancelClientClick(clickedPos, isHomeBlock, farmBlockLabel)) {
+                event.setCanceled(true);
+                event.setCancellationResult(InteractionResult.SUCCESS);
+            }
             return;
         }
 
         Player player = event.getEntity();
         ServerLevel serverLevel = (ServerLevel) level;
         if (!serverLevel.dimension().equals(Level.OVERWORLD)) {
-            player.displayClientMessage(Component.translatable("message.empire.not_overworld"), true);
+            if (isHomeBlock) {
+                cancelServer(event);
+                player.displayClientMessage(Component.translatable("message.empire.not_overworld"), true);
+            }
             return;
         }
 
         EmpireSavedData data = EmpireSavedData.of(serverLevel);
         EmpireRecord empire = data.getEmpireOf(player.getUUID());
         if (empire == null) {
-            player.displayClientMessage(Component.translatable("message.empire.no_empire"), true);
+            if (isHomeBlock) {
+                cancelServer(event);
+                player.displayClientMessage(Component.translatable("message.empire.no_empire"), true);
+            }
             return;
         }
 
-        BlockPos bedHead = resolveBedHead(serverLevel, clickedPos, state);
-        long chunk = ChunkKeys.pack(bedHead.getX() >> 4, bedHead.getZ() >> 4);
-        if (!empire.state().staked().contains(chunk)) {
-            fail(player, RegionInvalidReason.UNSTAKED);
-            return;
+        RegionRecord selected = LedgerSelection.selectedRegion(serverLevel, player, data, empire);
+        BlockPos targetPos = isBed ? resolveBedHead(serverLevel, clickedPos, state) : clickedPos;
+        RegionRecord existing = data.regionAt(targetPos);
+
+        // If a player just placed a composter next to an existing farm and clicked it before the 1-tick deferred
+        // auto-reshape ran, flush adjacent dirty farms so the composter attaches to and selects that farm.
+        if (existing == null && isComposter) {
+            flushAdjacentDirtyFarms(serverLevel, data, empire, targetPos);
+            existing = data.regionAt(targetPos);
         }
 
-        RegionRecord existing = data.regionAt(bedHead);
+        // Case 1: clicked block belongs to an existing region.
         if (existing != null) {
-            if (!existing.empireId().equals(empire.id()) || existing.type() != RegionType.HOME) {
-                fail(player, RegionInvalidReason.OVERLAPS_EXISTING);
+            // 1a. Clicked inside the currently selected region.
+            if (selected != null && existing.id().equals(selected.id())) {
+                cancelServer(event);
+                if (player.isShiftKeyDown() && selected.type() == RegionType.FARM) {
+                    handleRemoveFarmRoom(serverLevel, data, empire, player, selected, targetPos);
+                    return;
+                }
+                handleSelectedRegionClick(serverLevel, data, player, selected, targetPos);
                 return;
             }
-            boolean wasValid = existing.valid();
-            RegionManager.updateRegion(serverLevel, data, existing, serverLevel.getGameTime());
-            if (data.region(existing.id()) != null) {
-                if (existing.valid()) {
-                    if (!wasValid) {
-                        playPageTurn(serverLevel, bedHead, 1.1F);
-                        player.displayClientMessage(homeSummaryMessage("restored", existing), true);
-                    } else if (existing.isOutdoorBlock(bedHead)) {
-                        player.displayClientMessage(
-                                Component.translatable("message.empire.ledger.home.bed_outdoor"), true);
-                    } else {
-                        playPageTurn(serverLevel, bedHead, 1.0F);
-                        player.displayClientMessage(homeStatusMessage(existing), true);
-                    }
-                } else {
-                    player.displayClientMessage(Component.translatable(
-                            "message.empire.ledger.home.invalid", reasonComponent(existing.invalidReason())), true);
+
+            // 1b. Clicked inside another empire's region.
+            if (!existing.empireId().equals(empire.id())) {
+                if (selected != null || isHomeBlock) {
+                    cancelServer(event);
+                    player.displayClientMessage(Component.translatable("message.empire.ledger.other_region"), true);
                 }
                 return;
             }
+
+            // 1c. Clicked inside another region of the player's empire.
+            if (isHomeBlockFor(existing.type(), isBed, isComposter)) {
+                cancelServer(event);
+                handleSelectExistingRegion(serverLevel, data, player, existing, targetPos);
+                return;
+            }
+
+            // Non-home block of another region: report error when a region is selected (or when clicking a mismatched
+            // home block type like a bed inside a farm); otherwise let vanilla interaction run normally.
+            if (selected != null || isHomeBlock) {
+                cancelServer(event);
+                player.displayClientMessage(Component.translatable("message.empire.ledger.other_region"), true);
+            }
+            return;
         }
 
-        if (HomeRegionScanner.isExposedToSky(serverLevel, bedHead.getX(), bedHead.getY(), bedHead.getZ())) {
-            fail(player, RegionInvalidReason.EXPOSED_TO_SKY);
+        // Case 2: clicked block is NOT in any existing region.
+        // 2a. Selected FARM + shed/field whitelisted block -> add or merge a room into the selected farm.
+        if (selected != null && selected.type() == RegionType.FARM && farmBlockLabel != null) {
+            cancelServer(event);
+            handleAddFarmRoom(serverLevel, data, empire, player, selected, targetPos);
+            return;
+        }
+
+        // 2b. Unclaimed bed -> scan and register a new AUTO HOME (and select it).
+        if (isBed) {
+            cancelServer(event);
+            handleCreateHome(serverLevel, data, empire, player, targetPos);
+            return;
+        }
+
+        // 2c. Unclaimed composter (with no farm selected) -> scan and register a new AUTO FARM (and select it).
+        if (isComposter) {
+            cancelServer(event);
+            handleCreateFarm(serverLevel, data, empire, player, targetPos);
+        }
+        // 2d. Non-home block outside any region (and not a farm room addition): interact normally.
+    }
+
+    private static boolean shouldCancelClientClick(BlockPos clickedPos, boolean isHomeBlock,
+                                                   RoomLabel farmBlockLabel) {
+        if (isHomeBlock) {
+            return true;
+        }
+        if (RegionClientCache.selectedRegionId() == null) {
+            return false;
+        }
+        if (RegionClientCache.regionAt(clickedPos) != null) {
+            return true;
+        }
+        RegionPayloads.RegionSnapshot selected = RegionClientCache.selectedRegion();
+        return selected != null && selected.type() == RegionType.FARM && farmBlockLabel != null;
+    }
+
+    private static void cancelServer(PlayerInteractEvent.RightClickBlock event) {
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+    }
+
+    private static boolean isHomeBlockFor(RegionType type, boolean isBed, boolean isComposter) {
+        return (type == RegionType.HOME && isBed) || (type == RegionType.FARM && isComposter);
+    }
+
+    private static void flushAdjacentDirtyFarms(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
+                                                BlockPos pos) {
+        long now = level.getGameTime();
+        for (RegionRecord region : java.util.List.copyOf(data.regionsOf(empire.id()))) {
+            if (region.type() == RegionType.FARM
+                    && region.isDirtyFlag()
+                    && region.isWithinInflatedBounds(pos, 1)) {
+                RegionManager.updateRegion(level, data, region, now);
+            }
+        }
+    }
+
+    private static void handleSelectExistingRegion(ServerLevel level, EmpireSavedData data, Player player,
+                                                   RegionRecord existing, BlockPos pos) {
+        boolean wasValid = existing.valid();
+        RegionManager.updateRegion(level, data, existing, level.getGameTime());
+        if (data.region(existing.id()) == null) {
+            return;
+        }
+        LedgerSelection.select(level, player, existing.id());
+        if (existing.type() == RegionType.HOME) {
+            reportHomeStatus(level, player, existing, pos, wasValid);
+        } else if (existing.type() == RegionType.FARM) {
+            reportFarmSelection(level, player, existing, pos, wasValid);
+        }
+    }
+
+    private static void handleSelectedRegionClick(ServerLevel level, EmpireSavedData data, Player player,
+                                                  RegionRecord selected, BlockPos pos) {
+        boolean wasValid = selected.valid();
+        RegionManager.updateRegion(level, data, selected, level.getGameTime());
+        if (data.region(selected.id()) == null) {
+            LedgerSelection.clearForRegion(level, selected.id());
+            return;
+        }
+        if (selected.type() == RegionType.HOME) {
+            reportHomeStatus(level, player, selected, pos, wasValid);
+        } else if (selected.type() == RegionType.FARM) {
+            reportFarmRoomStatus(level, player, selected, pos, wasValid);
+        }
+    }
+
+    private static void handleCreateHome(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
+                                         Player player, BlockPos bedHead) {
+        long chunk = ChunkKeys.pack(bedHead.getX() >> 4, bedHead.getZ() >> 4);
+        if (!empire.state().staked().contains(chunk)) {
+            failHome(player, RegionInvalidReason.UNSTAKED);
+            return;
+        }
+        if (HomeRegionScanner.isExposedToSky(level, bedHead.getX(), bedHead.getY(), bedHead.getZ())) {
+            failHome(player, RegionInvalidReason.EXPOSED_TO_SKY);
             return;
         }
 
         HomeRegionScanner.ScanResult scan = HomeRegionScanner.scan(
-                serverLevel, data, empire, bedHead, RegionOrigin.AUTO);
+                level, data, empire, bedHead, RegionOrigin.AUTO);
         if (!scan.succeeded()) {
-            fail(player, scan.failure());
+            failHome(player, scan.failure());
             return;
         }
 
         RegionRecord created = scan.region();
         if (!created.isIndoorBlock(bedHead)) {
-            fail(player, RegionInvalidReason.EXPOSED_TO_SKY);
+            failHome(player, RegionInvalidReason.EXPOSED_TO_SKY);
             return;
         }
 
         data.addRegion(created);
         RegionManager.clearFailedBedsNear(bedHead);
-        RegionNetwork.pushToEmpire(serverLevel, empire.id());
-        playPageTurn(serverLevel, bedHead, 1.1F);
+        LedgerSelection.select(level, player, created.id());
+        RegionNetwork.pushToEmpire(level, empire.id());
+        playPageTurn(level, bedHead, 1.1F);
         player.displayClientMessage(homeSummaryMessage("created", created), true);
+    }
+
+    private static void handleCreateFarm(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
+                                         Player player, BlockPos composterPos) {
+        long chunk = ChunkKeys.pack(composterPos.getX() >> 4, composterPos.getZ() >> 4);
+        if (!empire.state().staked().contains(chunk)) {
+            failFarm(player, RegionInvalidReason.UNSTAKED);
+            return;
+        }
+
+        FarmRegionScanner.ScanResult scan = FarmRegionScanner.scanNewFarm(
+                level, data, empire, composterPos, RegionOrigin.AUTO);
+        if (!scan.succeeded()) {
+            failFarm(player, scan.failure());
+            return;
+        }
+
+        RegionRecord created = scan.region();
+        data.addRegion(created);
+        LedgerSelection.select(level, player, created.id());
+        RegionNetwork.pushToEmpire(level, empire.id());
+        playPageTurn(level, composterPos, 1.1F);
+        player.displayClientMessage(Component.translatable(
+                "message.empire.ledger.farm.created",
+                created.blockCount(),
+                created.storageBlocks().size()), true);
+    }
+
+    private static void handleAddFarmRoom(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
+                                          Player player, RegionRecord farm, BlockPos pos) {
+        FarmRegionScanner.AddRoomResult result = FarmRegionScanner.addRoom(level, data, empire, farm, pos);
+        if (!result.succeeded()) {
+            player.displayClientMessage(Component.translatable(
+                    "message.empire.ledger.farm.room_failed", reasonComponent(result.failure())), true);
+            return;
+        }
+
+        RegionNetwork.pushToEmpire(level, empire.id());
+        playPageTurn(level, pos, 1.1F);
+        RegionRecord.RoomRecord room = result.room();
+        if (room == null) {
+            return;
+        }
+        String action = result.merged() ? "merged" : "added";
+        if (room.isShed()) {
+            player.displayClientMessage(Component.translatable(
+                    "message.empire.ledger.farm.shed_" + action,
+                    room.blockCount(),
+                    room.storageCount()), true);
+        } else {
+            player.displayClientMessage(Component.translatable(
+                    "message.empire.ledger.farm.field_" + action,
+                    room.blockCount()), true);
+        }
+    }
+
+    private static void handleRemoveFarmRoom(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
+                                             Player player, RegionRecord farm, BlockPos pos) {
+        FarmRegionScanner.RemoveRoomResult result = FarmRegionScanner.removeRoomAt(
+                level, data, farm, pos, level.getGameTime());
+        if (result.outcome() == FarmRegionScanner.RemoveOutcome.NONE) {
+            return;
+        }
+        if (result.outcome() == FarmRegionScanner.RemoveOutcome.DELETED_REGION) {
+            LedgerSelection.clearForRegion(level, farm.id());
+            RegionNetwork.pushToEmpire(level, empire.id());
+            playPageTurn(level, pos, 0.85F);
+            player.displayClientMessage(Component.translatable("message.empire.ledger.farm.deleted"), true);
+            return;
+        }
+        RegionNetwork.pushToEmpire(level, empire.id());
+        playPageTurn(level, pos, 0.9F);
+        String kindKey = result.removedLabel() == RoomLabel.SHED
+                ? "message.empire.ledger.farm.room_removed_shed"
+                : "message.empire.ledger.farm.room_removed_field";
+        player.displayClientMessage(Component.translatable(kindKey, farm.rooms().size()), true);
+    }
+
+    private static void reportHomeStatus(ServerLevel level, Player player, RegionRecord home, BlockPos pos,
+                                         boolean wasValid) {
+        if (home.valid()) {
+            if (!wasValid) {
+                playPageTurn(level, pos, 1.1F);
+                player.displayClientMessage(homeSummaryMessage("restored", home), true);
+            } else if (home.isOutdoorBlock(pos)) {
+                player.displayClientMessage(
+                        Component.translatable("message.empire.ledger.home.bed_outdoor"), true);
+            } else {
+                playPageTurn(level, pos, 1.0F);
+                player.displayClientMessage(homeStatusMessage(home), true);
+            }
+        } else {
+            player.displayClientMessage(Component.translatable(
+                    "message.empire.ledger.home.invalid", reasonComponent(home.invalidReason())), true);
+        }
+    }
+
+    private static void reportFarmSelection(ServerLevel level, Player player, RegionRecord farm, BlockPos pos,
+                                            boolean wasValid) {
+        if (farm.valid()) {
+            playPageTurn(level, pos, wasValid ? 1.0F : 1.1F);
+            String key = wasValid ? "message.empire.ledger.farm.selected" : "message.empire.ledger.farm.restored";
+            player.displayClientMessage(Component.translatable(
+                    key,
+                    farm.roomCountWithLabel(RoomLabel.SHED),
+                    farm.roomCountWithLabel(RoomLabel.FIELD),
+                    farm.storageBlocks().size()), true);
+        } else {
+            playPageTurn(level, pos, 0.9F);
+            player.displayClientMessage(Component.translatable(
+                    "message.empire.ledger.farm.invalid", reasonComponent(farm.invalidReason())), true);
+        }
+    }
+
+    private static void reportFarmRoomStatus(ServerLevel level, Player player, RegionRecord farm, BlockPos pos,
+                                             boolean wasValid) {
+        if (!farm.valid()) {
+            playPageTurn(level, pos, 0.9F);
+            player.displayClientMessage(Component.translatable(
+                    "message.empire.ledger.farm.invalid", reasonComponent(farm.invalidReason())), true);
+            return;
+        }
+        playPageTurn(level, pos, wasValid ? 1.0F : 1.1F);
+        RegionRecord.RoomRecord room = farm.roomAt(pos);
+        if (room != null && room.isShed()) {
+            player.displayClientMessage(Component.translatable(
+                    "message.empire.ledger.farm.room_status_shed",
+                    room.blockCount(),
+                    room.storageCount()), true);
+        } else if (room != null && room.isField()) {
+            player.displayClientMessage(Component.translatable(
+                    "message.empire.ledger.farm.room_status_field",
+                    room.blockCount()), true);
+        } else {
+            player.displayClientMessage(Component.translatable(
+                    "message.empire.ledger.farm.selected",
+                    farm.roomCountWithLabel(RoomLabel.SHED),
+                    farm.roomCountWithLabel(RoomLabel.FIELD),
+                    farm.storageBlocks().size()), true);
+        }
     }
 
     /** Normalizes a clicked bed block (head or foot) to its {@link BedPart#HEAD} position when present. */
@@ -154,9 +447,14 @@ public final class LedgerInteractions {
         return pos;
     }
 
-    private static void fail(Player player, RegionInvalidReason reason) {
+    private static void failHome(Player player, RegionInvalidReason reason) {
         player.displayClientMessage(
                 Component.translatable("message.empire.ledger.home.failed", reasonComponent(reason)), true);
+    }
+
+    private static void failFarm(Player player, RegionInvalidReason reason) {
+        player.displayClientMessage(
+                Component.translatable("message.empire.ledger.farm.failed", reasonComponent(reason)), true);
     }
 
     private static Component reasonComponent(RegionInvalidReason reason) {

@@ -14,6 +14,7 @@ import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
+import dev.brights0ng.empire.ledger.LedgerSelection;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.DawnClock;
 import dev.brights0ng.empire.rules.RegionInvalidReason;
@@ -142,6 +143,7 @@ public final class RegionManager {
                             region.origin(), region.valid(), region.invalidSinceGameTime(), now)) {
                         detachAllInhabitants(overworld, data, region);
                         data.removeRegion(region.id());
+                        LedgerSelection.clearForRegion(overworld, region.id());
                         RegionNetwork.pushToEmpire(overworld, region.empireId());
                     }
                 }
@@ -253,6 +255,7 @@ public final class RegionManager {
             detachAllInhabitants(overworld, data, region);
             SCHEDULED_EXPIRIES.remove(region.id());
             data.removeRegion(region.id());
+            LedgerSelection.clearForRegion(overworld, region.id());
             return;
         }
 
@@ -260,6 +263,8 @@ public final class RegionManager {
             region.setDirtyFlag(false);
             if (region.type() == RegionType.HOME && region.origin() == RegionOrigin.AUTO) {
                 updateAutoHome(overworld, data, empire, region, gameTime);
+            } else if (region.type() == RegionType.FARM && region.origin() == RegionOrigin.AUTO) {
+                updateAutoFarm(overworld, data, empire, region, gameTime);
             } else {
                 updateFixedRegion(overworld, data, empire, region, gameTime);
             }
@@ -269,6 +274,7 @@ public final class RegionManager {
             detachAllInhabitants(overworld, data, region);
             SCHEDULED_EXPIRIES.remove(region.id());
             data.removeRegion(region.id());
+            LedgerSelection.clearForRegion(overworld, region.id());
             RegionNetwork.pushToEmpire(overworld, region.empireId());
         }
     }
@@ -305,12 +311,44 @@ public final class RegionManager {
         }
     }
 
+    private static void updateAutoFarm(ServerLevel overworld, EmpireSavedData data, EmpireRecord empire,
+                                       RegionRecord region, long gameTime) {
+        FarmRegionScanner.RescanResult rescan = FarmRegionScanner.rescan(overworld, data, empire, region);
+        if (rescan.seed() != region.seed()) {
+            region.setSeed(rescan.seed());
+            data.setDirty();
+        }
+        if (rescan.succeeded()) {
+            boolean shapeChanged = !region.blocks().equals(rescan.blocks());
+            if (shapeChanged) {
+                data.replaceRegionBlocks(region, rescan.blocks());
+            }
+            boolean roomsChanged = region.setRoomRecords(rescan.rooms(), java.util.Set.of());
+            if (roomsChanged) {
+                data.setDirty();
+            }
+            boolean becameValid = !region.valid();
+            if (becameValid) {
+                region.markValid();
+                SCHEDULED_EXPIRIES.remove(region.id());
+                data.setDirty();
+            }
+            if (shapeChanged || roomsChanged || becameValid) {
+                region.bumpRevision();
+                RegionNetwork.pushToEmpire(overworld, region.empireId());
+            }
+        } else {
+            applyInvalid(overworld, data, region, rescan.failure(), gameTime);
+        }
+    }
+
     private static void updateFixedRegion(ServerLevel overworld, EmpireSavedData data, EmpireRecord empire,
                                           RegionRecord region, long gameTime) {
         boolean roomsChanged = region.type() == RegionType.HOME
                 && HomeRegionScanner.refreshRooms(overworld, region);
         RegionInvalidReason reason = switch (region.type()) {
             case HOME -> HomeRegionScanner.validate(overworld, data, empire, region);
+            case FARM -> FarmRegionScanner.validate(overworld, data, empire, region);
         };
         if (reason == RegionInvalidReason.NONE) {
             boolean becameValid = !region.valid();

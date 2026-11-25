@@ -37,17 +37,29 @@ import net.minecraft.nbt.Tag;
  */
 public final class RegionRecord {
 
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
-    /** One connected room inside a region, with its own block set and {@link RoomLabel}s. */
+    /** One connected room inside a region, with its own seed, block set, {@link RoomLabel}s, and optional storage blocks. */
     public static final class RoomRecord {
 
         private final int index;
+        private final long seed;
         private final LongOpenHashSet blocks;
         private final Set<RoomLabel> labels;
+        private final LongOpenHashSet storageBlocks;
 
         public RoomRecord(int index, Collection<Long> blocks, Set<RoomLabel> labels) {
+            this(index, firstBlockOrZero(blocks), blocks, labels, Collections.emptyList());
+        }
+
+        public RoomRecord(int index, long[] blocks, Set<RoomLabel> labels) {
+            this(index, blocks.length > 0 ? blocks[0] : 0L, blocks, labels, new long[0]);
+        }
+
+        public RoomRecord(int index, long seed, Collection<Long> blocks, Set<RoomLabel> labels,
+                          Collection<Long> storageBlocks) {
             this.index = index;
+            this.seed = seed;
             this.blocks = new LongOpenHashSet(blocks.size());
             for (long key : blocks) {
                 this.blocks.add(key);
@@ -55,18 +67,28 @@ public final class RegionRecord {
             this.labels = labels.isEmpty()
                     ? Collections.emptySet()
                     : Collections.unmodifiableSet(EnumSet.copyOf(labels));
+            this.storageBlocks = new LongOpenHashSet(storageBlocks.size());
+            for (long key : storageBlocks) {
+                this.storageBlocks.add(key);
+            }
         }
 
-        public RoomRecord(int index, long[] blocks, Set<RoomLabel> labels) {
+        public RoomRecord(int index, long seed, long[] blocks, Set<RoomLabel> labels, long[] storageBlocks) {
             this.index = index;
+            this.seed = seed;
             this.blocks = new LongOpenHashSet(blocks);
             this.labels = labels.isEmpty()
                     ? Collections.emptySet()
                     : Collections.unmodifiableSet(EnumSet.copyOf(labels));
+            this.storageBlocks = new LongOpenHashSet(storageBlocks);
         }
 
         public int index() {
             return index;
+        }
+
+        public long seed() {
+            return seed;
         }
 
         public int blockCount() {
@@ -92,6 +114,30 @@ public final class RegionRecord {
         public boolean isOutdoor() {
             return labels.contains(RoomLabel.OUTDOOR);
         }
+
+        public boolean isShed() {
+            return labels.contains(RoomLabel.SHED);
+        }
+
+        public boolean isField() {
+            return labels.contains(RoomLabel.FIELD);
+        }
+
+        public LongSet storageBlocks() {
+            return LongSets.unmodifiable(storageBlocks);
+        }
+
+        public int storageCount() {
+            return storageBlocks.size();
+        }
+
+        public boolean isStorage(long packedPos) {
+            return storageBlocks.contains(packedPos);
+        }
+
+        public boolean isStorage(BlockPos pos) {
+            return storageBlocks.contains(pos.asLong());
+        }
     }
 
     private final UUID id;
@@ -108,6 +154,8 @@ public final class RegionRecord {
     private final List<RoomRecord> rooms = new ArrayList<>();
     /** Packed coordinates of room-separator blocks inside {@link #blocks} (belong to no room). */
     private final LongOpenHashSet separators = new LongOpenHashSet();
+    /** Aggregated packed coordinates of storage blocks across this region's rooms (rebuilt from {@link #rooms}). */
+    private final LongOpenHashSet storageBlocks = new LongOpenHashSet();
     /** Transient lookup: packed block coordinate -> index in {@link #rooms}, or {@code -1} if separator/unpartitioned. */
     private final Long2IntOpenHashMap blockToRoom = new Long2IntOpenHashMap();
     {
@@ -240,6 +288,7 @@ public final class RegionRecord {
         cachedIndoorFloorArea = -1;
         rooms.clear();
         separators.clear();
+        storageBlocks.clear();
         blockToRoom.clear();
         if (partition == null) {
             return changed;
@@ -257,6 +306,83 @@ public final class RegionRecord {
             }
         }
         return changed;
+    }
+
+    /**
+     * Replaces this region's rooms directly with explicit {@link RoomRecord}s (preserving per-room seeds and marked
+     * storage blocks, e.g. for {@link RegionType#FARM}). Returns true if rooms, separators, seeds, or storage changed.
+     */
+    public boolean setRoomRecords(List<RoomRecord> newRooms, Collection<Long> newSeparators) {
+        boolean changed = !roomRecordsMatch(newRooms, newSeparators);
+        cachedIndoorFloorArea = -1;
+        rooms.clear();
+        separators.clear();
+        storageBlocks.clear();
+        blockToRoom.clear();
+        if (newSeparators != null) {
+            for (long sep : newSeparators) {
+                separators.add(sep);
+            }
+        }
+        if (newRooms != null) {
+            for (RoomRecord incoming : newRooms) {
+                int idx = rooms.size();
+                RoomRecord rec = incoming.index == idx
+                        ? incoming
+                        : new RoomRecord(idx, incoming.seed, incoming.blocks, incoming.labels, incoming.storageBlocks);
+                rooms.add(rec);
+                LongIterator it = rec.blocks.iterator();
+                while (it.hasNext()) {
+                    blockToRoom.put(it.nextLong(), idx);
+                }
+                LongIterator sit = rec.storageBlocks.iterator();
+                while (sit.hasNext()) {
+                    storageBlocks.add(sit.nextLong());
+                }
+            }
+        }
+        return changed;
+    }
+
+    private boolean roomRecordsMatch(List<RoomRecord> incomingRooms, Collection<Long> incomingSeparators) {
+        int sepCount = incomingSeparators == null ? 0 : incomingSeparators.size();
+        int roomCount = incomingRooms == null ? 0 : incomingRooms.size();
+        if (separators.size() != sepCount || rooms.size() != roomCount) {
+            return false;
+        }
+        if (incomingSeparators != null) {
+            for (long sep : incomingSeparators) {
+                if (!separators.contains(sep)) {
+                    return false;
+                }
+            }
+        }
+        if (incomingRooms != null) {
+            for (RoomRecord incoming : incomingRooms) {
+                if (incoming.blocks.isEmpty()) {
+                    continue;
+                }
+                long sample = incoming.blocks.iterator().nextLong();
+                int existingIdx = blockToRoom.get(sample);
+                if (existingIdx < 0 || existingIdx >= rooms.size()) {
+                    return false;
+                }
+                RoomRecord existing = rooms.get(existingIdx);
+                if (existing.blockCount() != incoming.blockCount()
+                        || existing.seed != incoming.seed
+                        || !existing.labels.equals(incoming.labels)
+                        || !existing.storageBlocks.equals(incoming.storageBlocks)) {
+                    return false;
+                }
+                LongIterator it = incoming.blocks.iterator();
+                while (it.hasNext()) {
+                    if (!existing.blocks.contains(it.nextLong())) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     /** True if this region's current rooms and separators match {@code partition} (ignoring room index ordering). */
@@ -302,6 +428,53 @@ public final class RegionRecord {
 
     public LongSet separators() {
         return LongSets.unmodifiable(separators);
+    }
+
+    /** Packed coordinates of all blocks marked as storage across this region's rooms (e.g. chests/barrels/vaults in farm sheds). */
+    public LongSet storageBlocks() {
+        return LongSets.unmodifiable(storageBlocks);
+    }
+
+    public boolean isStorageBlock(long packedPos) {
+        return storageBlocks.contains(packedPos);
+    }
+
+    public boolean isStorageBlock(BlockPos pos) {
+        return storageBlocks.contains(pos.asLong());
+    }
+
+    public int roomCountWithLabel(RoomLabel label) {
+        int count = 0;
+        for (RoomRecord room : rooms) {
+            if (room.hasLabel(label)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Blocks belonging to rooms tagged with {@code label} (used for per-label region rendering). */
+    public long[] renderBlocksForLabel(RoomLabel label) {
+        int count = 0;
+        for (RoomRecord room : rooms) {
+            if (room.hasLabel(label)) {
+                count += room.blockCount();
+            }
+        }
+        if (count == 0) {
+            return new long[0];
+        }
+        long[] out = new long[count];
+        int pos = 0;
+        for (RoomRecord room : rooms) {
+            if (room.hasLabel(label)) {
+                LongIterator it = room.blocks.iterator();
+                while (it.hasNext()) {
+                    out[pos++] = it.nextLong();
+                }
+            }
+        }
+        return out;
     }
 
     public boolean isSeparator(long packedPos) {
@@ -576,12 +749,16 @@ public final class RegionRecord {
             ListTag roomsTag = new ListTag();
             for (RoomRecord room : rooms) {
                 CompoundTag rt = new CompoundTag();
+                rt.putLong("seed", room.seed);
                 rt.put("blocks", new LongArrayTag(room.blocks.toLongArray()));
                 ListTag labelsTag = new ListTag();
                 for (RoomLabel label : room.labels) {
                     labelsTag.add(StringTag.valueOf(label.id()));
                 }
                 rt.put("labels", labelsTag);
+                if (!room.storageBlocks.isEmpty()) {
+                    rt.put("storage", new LongArrayTag(room.storageBlocks.toLongArray()));
+                }
                 roomsTag.add(rt);
             }
             tag.put("rooms", roomsTag);
@@ -625,6 +802,9 @@ public final class RegionRecord {
             for (int i = 0; i < roomsTag.size(); i++) {
                 CompoundTag rt = roomsTag.getCompound(i);
                 long[] roomBlocks = rt.getLongArray("blocks");
+                long roomSeed = rt.contains("seed", Tag.TAG_ANY_NUMERIC)
+                        ? rt.getLong("seed")
+                        : (roomBlocks.length > 0 ? roomBlocks[0] : 0L);
                 EnumSet<RoomLabel> labels = EnumSet.noneOf(RoomLabel.class);
                 ListTag labelsTag = rt.getList("labels", Tag.TAG_STRING);
                 for (int j = 0; j < labelsTag.size(); j++) {
@@ -633,12 +813,18 @@ public final class RegionRecord {
                         labels.add(label);
                     }
                 }
-                RoomRecord room = new RoomRecord(record.rooms.size(), roomBlocks, labels);
+                long[] roomStorage = rt.contains("storage", Tag.TAG_LONG_ARRAY)
+                        ? rt.getLongArray("storage")
+                        : new long[0];
+                RoomRecord room = new RoomRecord(record.rooms.size(), roomSeed, roomBlocks, labels, roomStorage);
                 int idx = room.index();
                 record.rooms.add(room);
                 LongIterator it = room.blocks.iterator();
                 while (it.hasNext()) {
                     record.blockToRoom.put(it.nextLong(), idx);
+                }
+                for (long s : roomStorage) {
+                    record.storageBlocks.add(s);
                 }
             }
         }

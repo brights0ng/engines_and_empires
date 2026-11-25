@@ -5,7 +5,8 @@ import javax.annotation.Nullable;
 
 /** Purpose of an empire region. */
 public enum RegionType {
-    HOME("home");
+    HOME("home"),
+    FARM("farm");
 
     private final String id;
 

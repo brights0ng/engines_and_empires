@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import dev.brights0ng.empire.rules.BlockKeys;
 import dev.brights0ng.empire.rules.RegionType;
+import dev.brights0ng.empire.rules.RoomLabel;
 
 class RegionGeometryTest {
 
@@ -184,5 +185,17 @@ class RegionGeometryTest {
             assertNotEquals(RegionGeometry.STYLE_SEPARATOR, style);
             assertEquals(type, RegionGeometry.typeForStyle(style));
         }
+
+        // Farm shed/field and selected styles are all distinct from each other and from invalid/separator.
+        int shed = RegionGeometry.styleFor(RegionType.FARM, RoomLabel.SHED, true, false);
+        int shedSel = RegionGeometry.styleFor(RegionType.FARM, RoomLabel.SHED, true, true);
+        int field = RegionGeometry.styleFor(RegionType.FARM, RoomLabel.FIELD, true, false);
+        int fieldSel = RegionGeometry.styleFor(RegionType.FARM, RoomLabel.FIELD, true, true);
+        int homeSel = RegionGeometry.styleFor(RegionType.HOME, null, true, true);
+        int invSel = RegionGeometry.styleFor(RegionType.FARM, RoomLabel.SHED, false, true);
+        Set<Integer> distinct = Set.of(
+                RegionGeometry.STYLE_INVALID, RegionGeometry.STYLE_SEPARATOR,
+                shed, shedSel, field, fieldSel, homeSel, invSel);
+        assertEquals(8, distinct.size());
     }
 }

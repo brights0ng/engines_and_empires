@@ -14,6 +14,10 @@ public final class RegionRules {
     public static final int HOME_MIN_HEIGHT = 2;
     /** Maximum citizen capacity for a single {@code HOME} region (D6). */
     public static final int HOME_MAX_CAPACITY = 4;
+    /** Maximum block count for a single {@code FARM} shed room. */
+    public static final int FARM_SHED_MAX_BLOCKS = 500;
+    /** Maximum block count for a single {@code FARM} field room. */
+    public static final int FARM_FIELD_MAX_BLOCKS = 5000;
     /** Ticks an invalid {@link RegionOrigin#AUTO} region persists before automatic deletion (3 MC days, D7). */
     public static final long INVALID_AUTO_DELETE_TICKS = 72_000L;
 

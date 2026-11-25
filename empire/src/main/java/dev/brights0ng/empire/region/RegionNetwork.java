@@ -4,6 +4,7 @@ package dev.brights0ng.empire.region;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.WeakHashMap;
 
@@ -11,8 +12,14 @@ import dev.brights0ng.empire.Empire;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
+import dev.brights0ng.empire.ledger.LedgerSelection;
+import dev.brights0ng.empire.rules.RegionType;
+import dev.brights0ng.empire.rules.RoomLabel;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -23,16 +30,18 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /**
- * Syncs an empire's nearby regions to clients for in-world veil/chalk rendering.
+ * Syncs an empire's nearby regions and active ledger selection to clients for in-world veil/chalk rendering.
  */
 @EventBusSubscriber(modid = Empire.MODID)
 public final class RegionNetwork {
 
-    private static final String VERSION = "2";
+    private static final String VERSION = "3";
     /** Minimum ticks between answering explicit client requests from the same player. */
     private static final int ANSWER_GAP = 5;
     /** Default chunk radius used when pushing region updates to online empire members. */
     public static final int RENDER_RADIUS = 5;
+
+    private static final long[] EMPTY_LONGS = new long[0];
 
     private static final Map<UUID, Long> LAST_ANSWERED = new WeakHashMap<>();
 
@@ -40,6 +49,7 @@ public final class RegionNetwork {
     static void onRegisterPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(VERSION);
         registrar.playToServer(RegionPayloads.Request.TYPE, RegionPayloads.Request.STREAM_CODEC, RegionNetwork::onRequest);
+        registrar.playToServer(RegionPayloads.Deselect.TYPE, RegionPayloads.Deselect.STREAM_CODEC, RegionNetwork::onDeselect);
         registrar.playToClient(RegionPayloads.Sync.TYPE, RegionPayloads.Sync.STREAM_CODEC,
                 (sync, context) -> RegionClientCache.accept(sync));
     }
@@ -52,6 +62,18 @@ public final class RegionNetwork {
     private static void onRequest(RegionPayloads.Request request, IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player) {
             answer(player, request);
+        }
+    }
+
+    private static void onDeselect(RegionPayloads.Deselect payload, IPayloadContext context) {
+        if (context.player() instanceof ServerPlayer player) {
+            ServerLevel level = player.serverLevel();
+            if (level.dimension() == Level.OVERWORLD
+                    && LedgerSelection.isHoldingLedger(player)
+                    && LedgerSelection.clear(level, player)) {
+                level.playSound(null, player.blockPosition(), SoundEvents.BOOK_PAGE_TURN, SoundSource.PLAYERS, 1.0F, 0.85F);
+                player.displayClientMessage(Component.translatable("message.empire.ledger.unselected"), true);
+            }
         }
     }
 
@@ -76,6 +98,16 @@ public final class RegionNetwork {
         PacketDistributor.sendToPlayer(player, build(level, player.getUUID(), request.x(), request.z(), radius));
     }
 
+    /** Pushes updated nearby regions and current selection to a single Overworld player. */
+    public static void pushToPlayer(ServerLevel overworld, ServerPlayer player) {
+        if (!canReceive(player)) {
+            return;
+        }
+        int pcx = player.blockPosition().getX() >> 4;
+        int pcz = player.blockPosition().getZ() >> 4;
+        PacketDistributor.sendToPlayer(player, build(overworld, player.getUUID(), pcx, pcz, RENDER_RADIUS));
+    }
+
     /** Pushes updated nearby regions to every online Overworld member of {@code empireId}. */
     public static void pushToEmpire(ServerLevel overworld, UUID empireId) {
         EmpireSavedData data = EmpireSavedData.of(overworld);
@@ -97,7 +129,7 @@ public final class RegionNetwork {
         EmpireSavedData data = EmpireSavedData.of(overworld);
         EmpireRecord empire = viewerUuid != null ? data.getEmpireOf(viewerUuid) : null;
         if (empire == null) {
-            return new RegionPayloads.Sync(List.of());
+            return new RegionPayloads.Sync(List.of(), Optional.empty());
         }
         int minBlockX = (cx - radius) << 4;
         int maxBlockX = ((cx + radius + 1) << 4) - 1;
@@ -113,16 +145,34 @@ public final class RegionNetwork {
                     || region.maxZ() < minBlockZ || region.minZ() > maxBlockZ) {
                 continue;
             }
+            long[] primary;
+            long[] secondary;
+            if (region.type() == RegionType.FARM && region.valid()) {
+                primary = region.renderBlocksForLabel(RoomLabel.SHED);
+                secondary = region.renderBlocksForLabel(RoomLabel.FIELD);
+            } else {
+                primary = region.renderBlocks();
+                secondary = EMPTY_LONGS;
+            }
             out.add(new RegionPayloads.RegionSnapshot(
                     region.id(),
                     region.type(),
                     region.valid(),
                     region.minX(),
                     region.minZ(),
-                    region.renderBlocks(),
+                    primary,
+                    secondary,
                     region.renderSeparators()));
         }
-        return new RegionPayloads.Sync(out);
+
+        UUID selectedId = LedgerSelection.selectedRegionId(viewerUuid);
+        if (selectedId != null) {
+            RegionRecord selected = data.region(selectedId);
+            if (selected == null || !selected.empireId().equals(empire.id())) {
+                selectedId = null;
+            }
+        }
+        return new RegionPayloads.Sync(out, Optional.ofNullable(selectedId));
     }
 
     /** Whether {@code player} has a client listening for sync payloads: game tests' mock players have no network channel. */

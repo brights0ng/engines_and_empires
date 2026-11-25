@@ -8,7 +8,9 @@ import java.util.Locale;
  */
 public enum RoomLabel {
     INDOOR,
-    OUTDOOR;
+    OUTDOOR,
+    SHED,
+    FIELD;
 
     private final String id = name().toLowerCase(Locale.ROOT);
 

@@ -56,6 +56,22 @@ class RegionRulesTest {
         }
         assertEquals(RegionInvalidReason.NONE, RegionInvalidReason.byId("unknown"));
         assertEquals(RegionInvalidReason.NONE, RegionInvalidReason.byId(null));
+
+        for (RoomLabel label : RoomLabel.values()) {
+            assertEquals(label, RoomLabel.byId(label.id()));
+        }
+        assertNull(RoomLabel.byId("unknown"));
+        assertNull(RoomLabel.byId(null));
+    }
+
+    @Test
+    void farmCapsMatchSpec() {
+        assertEquals(500, RegionRules.FARM_SHED_MAX_BLOCKS);
+        assertEquals(5000, RegionRules.FARM_FIELD_MAX_BLOCKS);
+        assertEquals(RegionType.FARM, RegionType.byId("farm"));
+        assertEquals(RoomLabel.SHED, RoomLabel.byId("shed"));
+        assertEquals(RoomLabel.FIELD, RoomLabel.byId("field"));
+        assertEquals(RegionInvalidReason.NO_SHED, RegionInvalidReason.byId("no_shed"));
     }
 
     @Test

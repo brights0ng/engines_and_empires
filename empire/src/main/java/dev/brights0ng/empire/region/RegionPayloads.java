@@ -3,6 +3,7 @@ package dev.brights0ng.empire.region;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import dev.brights0ng.empire.Empire;
@@ -15,14 +16,14 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
- * Network payloads for syncing an empire's nearby 3D regions to clients for in-world rendering.
+ * Network payloads for syncing an empire's nearby 3D regions and active Administrative Ledger selection.
  */
 public final class RegionPayloads {
 
     /** Maximum chunk radius a client may request regions for. */
     public static final int MAX_RADIUS = 16;
-    /** Safety bound on decoded block count per region snapshot. */
-    private static final int MAX_SNAPSHOT_BLOCKS = 16_384;
+    /** Safety bound on decoded block count per block array in a region snapshot. */
+    private static final int MAX_SNAPSHOT_BLOCKS = 131_072;
 
     private static final StreamCodec<ByteBuf, RegionType> REGION_TYPE_CODEC = ByteBufCodecs.STRING_UTF8.map(
             id -> {
@@ -69,9 +70,26 @@ public final class RegionPayloads {
         }
     }
 
-    /** Compact client-side view of one region: id, type, validity, mesh origin, rendered room blocks and separator blocks. */
+    /** Client notifies the server that the player left-clicked while holding the ledger to clear region selection. */
+    public record Deselect() implements CustomPacketPayload {
+
+        public static final Deselect INSTANCE = new Deselect();
+        public static final Type<Deselect> TYPE = new Type<>(Empire.id("region_deselect"));
+        public static final StreamCodec<ByteBuf, Deselect> STREAM_CODEC = StreamCodec.unit(INSTANCE);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * Compact client-side view of one region: id, type, validity, mesh origin, primary blocks ({@code HOME} indoor
+     * rooms, {@code FARM} shed rooms when valid, or all non-separator blocks when invalid), secondary blocks
+     * ({@code FARM} field rooms when valid), and room separator blocks.
+     */
     public record RegionSnapshot(UUID id, RegionType type, boolean valid, int originX, int originZ,
-                                 long[] blocks, long[] separators) {
+                                 long[] blocks, long[] secondaryBlocks, long[] separators) {
 
         public static final StreamCodec<ByteBuf, RegionSnapshot> STREAM_CODEC = new StreamCodec<>() {
             @Override
@@ -82,8 +100,9 @@ public final class RegionPayloads {
                 int originX = VarInt.read(buf);
                 int originZ = VarInt.read(buf);
                 long[] blocks = LONG_ARRAY_CODEC.decode(buf);
+                long[] secondaryBlocks = LONG_ARRAY_CODEC.decode(buf);
                 long[] separators = LONG_ARRAY_CODEC.decode(buf);
-                return new RegionSnapshot(id, type, valid, originX, originZ, blocks, separators);
+                return new RegionSnapshot(id, type, valid, originX, originZ, blocks, secondaryBlocks, separators);
             }
 
             @Override
@@ -94,18 +113,20 @@ public final class RegionPayloads {
                 VarInt.write(buf, value.originX());
                 VarInt.write(buf, value.originZ());
                 LONG_ARRAY_CODEC.encode(buf, value.blocks());
+                LONG_ARRAY_CODEC.encode(buf, value.secondaryBlocks());
                 LONG_ARRAY_CODEC.encode(buf, value.separators());
             }
         };
     }
 
-    /** Server sends the player's empire's nearby regions for rendering. */
-    public record Sync(List<RegionSnapshot> regions) implements CustomPacketPayload {
+    /** Server sends the player's empire's nearby regions and currently selected region id (if any) for rendering. */
+    public record Sync(List<RegionSnapshot> regions, Optional<UUID> selectedRegionId) implements CustomPacketPayload {
 
         public static final Type<Sync> TYPE = new Type<>(Empire.id("region_render_sync"));
 
         public static final StreamCodec<ByteBuf, Sync> STREAM_CODEC = StreamCodec.composite(
                 RegionSnapshot.STREAM_CODEC.apply(ByteBufCodecs.collection(ArrayList::new)), Sync::regions,
+                ByteBufCodecs.optional(UUIDUtil.STREAM_CODEC), Sync::selectedRegionId,
                 Sync::new);
 
         @Override

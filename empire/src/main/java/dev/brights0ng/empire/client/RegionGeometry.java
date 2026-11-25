@@ -6,6 +6,7 @@ import java.util.Set;
 
 import dev.brights0ng.empire.rules.BlockKeys;
 import dev.brights0ng.empire.rules.RegionType;
+import dev.brights0ng.empire.rules.RoomLabel;
 
 /**
  * Builds a {@link VeilMesh} for an arbitrary 3D region of packed {@link BlockKeys} coordinates.
@@ -24,6 +25,18 @@ public final class RegionGeometry {
     public static final int STYLE_SEPARATOR = -1;
     /** Style id used for invalid regions (drawn in crimson/red). Valid regions use {@code type.ordinal() + 1}. */
     public static final int STYLE_INVALID = 0;
+    /** Style id used for a currently selected invalid region. */
+    public static final int STYLE_INVALID_SELECTED = -2;
+    /** Style id used for a currently selected {@link RegionType#HOME}. */
+    public static final int STYLE_HOME_SELECTED = -3;
+    /** Style id used for an unselected {@link RegionType#FARM} {@link RoomLabel#SHED} room. */
+    public static final int STYLE_FARM_SHED = -4;
+    /** Style id used for a currently selected {@link RegionType#FARM} {@link RoomLabel#SHED} room. */
+    public static final int STYLE_FARM_SHED_SELECTED = -5;
+    /** Style id used for an unselected {@link RegionType#FARM} {@link RoomLabel#FIELD} room. */
+    public static final int STYLE_FARM_FIELD = -6;
+    /** Style id used for a currently selected {@link RegionType#FARM} {@link RoomLabel#FIELD} room. */
+    public static final int STYLE_FARM_FIELD_SELECTED = -7;
 
     private static final double[] CUTS = {0.0, VeilMesh.HALF_W, 1.0 - VeilMesh.HALF_W, 1.0};
 
@@ -33,6 +46,25 @@ public final class RegionGeometry {
             return STYLE_INVALID;
         }
         return type.ordinal() + 1;
+    }
+
+    /** Returns the mesh style id for a region of {@code type}, optional room {@code label}, validity, and selection state. */
+    public static int styleFor(RegionType type, RoomLabel label, boolean valid, boolean selected) {
+        if (!valid || type == null) {
+            return selected ? STYLE_INVALID_SELECTED : STYLE_INVALID;
+        }
+        return switch (type) {
+            case HOME -> selected ? STYLE_HOME_SELECTED : styleFor(RegionType.HOME, true);
+            case FARM -> {
+                if (label == RoomLabel.SHED) {
+                    yield selected ? STYLE_FARM_SHED_SELECTED : STYLE_FARM_SHED;
+                }
+                if (label == RoomLabel.FIELD) {
+                    yield selected ? STYLE_FARM_FIELD_SELECTED : STYLE_FARM_FIELD;
+                }
+                yield selected ? STYLE_FARM_FIELD_SELECTED : styleFor(RegionType.FARM, true);
+            }
+        };
     }
 
     /** Resolves a valid style id back to its {@link RegionType}, or {@code null} for {@link #STYLE_INVALID}. */

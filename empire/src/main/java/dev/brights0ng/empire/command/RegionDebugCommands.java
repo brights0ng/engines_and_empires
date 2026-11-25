@@ -15,6 +15,8 @@ import com.mojang.brigadier.context.CommandContext;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
+import dev.brights0ng.empire.ledger.LedgerSelection;
+import dev.brights0ng.empire.region.FarmRegionScanner;
 import dev.brights0ng.empire.region.HomeRegionScanner;
 import dev.brights0ng.empire.region.RegionManager;
 import dev.brights0ng.empire.region.RegionNetwork;
@@ -22,6 +24,7 @@ import dev.brights0ng.empire.rules.BlockKeys;
 import dev.brights0ng.empire.rules.RegionOrigin;
 import dev.brights0ng.empire.rules.RegionRules;
 import dev.brights0ng.empire.rules.RegionType;
+import dev.brights0ng.empire.rules.RoomLabel;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -56,7 +59,13 @@ public final class RegionDebugCommands {
                                 .then(Commands.literal("auto")
                                         .executes(ctx -> scanHome(ctx.getSource(), RegionOrigin.AUTO)))
                                 .then(Commands.literal("manual")
-                                        .executes(ctx -> scanHome(ctx.getSource(), RegionOrigin.MANUAL)))))
+                                        .executes(ctx -> scanHome(ctx.getSource(), RegionOrigin.MANUAL))))
+                        .then(Commands.literal("farm")
+                                .executes(ctx -> scanFarm(ctx.getSource(), RegionOrigin.AUTO))
+                                .then(Commands.literal("auto")
+                                        .executes(ctx -> scanFarm(ctx.getSource(), RegionOrigin.AUTO)))
+                                .then(Commands.literal("manual")
+                                        .executes(ctx -> scanFarm(ctx.getSource(), RegionOrigin.MANUAL)))))
                 .then(Commands.literal("validate")
                         .executes(ctx -> validate(ctx.getSource())))
                 .then(Commands.literal("remove")
@@ -149,11 +158,19 @@ public final class RegionDebugCommands {
         List<RegionRecord.RoomRecord> rooms = region.rooms();
         int indoorCount = 0;
         int outdoorCount = 0;
+        int shedCount = 0;
+        int fieldCount = 0;
         for (RegionRecord.RoomRecord room : rooms) {
             if (room.isOutdoor()) {
                 outdoorCount++;
             } else if (room.isIndoor()) {
                 indoorCount++;
+            }
+            if (room.isShed()) {
+                shedCount++;
+            }
+            if (room.isField()) {
+                fieldCount++;
             }
         }
         String here;
@@ -162,13 +179,19 @@ public final class RegionDebugCommands {
         } else {
             RegionRecord.RoomRecord standingRoom = region.roomAt(pos);
             here = standingRoom != null
-                    ? "room #" + standingRoom.index() + " " + formatLabels(standingRoom) + " (" + standingRoom.blockCount() + " blocks)"
+                    ? "room #" + standingRoom.index() + " " + formatLabels(standingRoom) + " (" + standingRoom.blockCount() + " blocks"
+                            + (standingRoom.storageCount() > 0 ? ", " + standingRoom.storageCount() + " storage" : "") + ")"
                     : "unassigned";
         }
         int inRooms = indoorCount;
         int outRooms = outdoorCount;
+        int sheds = shedCount;
+        int fields = fieldCount;
+        String breakdown = region.type() == RegionType.FARM
+                ? sheds + " shed, " + fields + " field, storage=" + region.storageBlocks().size()
+                : inRooms + " indoor, " + outRooms + " outdoor";
         source.sendSuccess(() -> Component.literal("Rooms: " + rooms.size()
-                + " (" + inRooms + " indoor, " + outRooms + " outdoor) — here: " + here), false);
+                + " (" + breakdown + ") — here: " + here), false);
         if (!rooms.isEmpty()) {
             StringBuilder summary = new StringBuilder("  ");
             for (int i = 0; i < rooms.size(); i++) {
@@ -227,6 +250,33 @@ public final class RegionDebugCommands {
         return 1;
     }
 
+    private static int scanFarm(CommandSourceStack source, RegionOrigin origin) {
+        ServerLevel overworld = source.getServer().overworld();
+        if (source.getLevel() != overworld) {
+            source.sendFailure(Component.literal("Regions only exist in the Overworld"));
+            return 0;
+        }
+        EmpireRecord empire = empireOf(source, null);
+        if (empire == null) {
+            return 0;
+        }
+        BlockPos pos = BlockPos.containing(source.getPosition());
+        EmpireSavedData data = EmpireSavedData.of(overworld);
+        FarmRegionScanner.ScanResult scan = FarmRegionScanner.scanNewFarm(overworld, data, empire, pos, origin);
+        if (!scan.succeeded()) {
+            source.sendFailure(Component.literal("FARM scan failed at " + pos.toShortString() + ": " + scan.failure().id()));
+            return 0;
+        }
+        RegionRecord created = scan.region();
+        data.addRegion(created);
+        RegionNetwork.pushToEmpire(overworld, empire.id());
+        source.sendSuccess(() -> Component.literal("Created " + origin.id() + " FARM [" + shortId(created.id())
+                + "]: " + created.blockCount() + " blocks, "
+                + created.roomCountWithLabel(RoomLabel.SHED) + " shed(s), "
+                + created.storageBlocks().size() + " storage"), true);
+        return 1;
+    }
+
     private static int validate(CommandSourceStack source) {
         ServerLevel overworld = source.getServer().overworld();
         RegionManager.updateAllNow(overworld);
@@ -268,6 +318,7 @@ public final class RegionDebugCommands {
         }
         RegionManager.detachAllInhabitants(overworld, data, match);
         data.removeRegion(match.id());
+        LedgerSelection.clearForRegion(overworld, match.id());
         RegionNetwork.pushToEmpire(overworld, match.empireId());
         RegionRecord removed = match;
         source.sendSuccess(() -> Component.literal("Removed region [" + shortId(removed.id()) + "]"), true);
@@ -285,6 +336,7 @@ public final class RegionDebugCommands {
         for (RegionRecord region : regions) {
             RegionManager.detachAllInhabitants(overworld, data, region);
             data.removeRegion(region.id());
+            LedgerSelection.clearForRegion(overworld, region.id());
         }
         RegionNetwork.pushToEmpire(overworld, empire.id());
         int count = regions.size();

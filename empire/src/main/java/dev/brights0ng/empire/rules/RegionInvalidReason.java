@@ -10,6 +10,7 @@ public enum RegionInvalidReason {
     TOO_LARGE,
     TOO_SHORT,
     NO_BED,
+    NO_SHED,
     EXPOSED_TO_SKY,
     TOO_DARK,
     HAZARD,
