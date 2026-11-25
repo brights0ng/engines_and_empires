@@ -1,8 +1,12 @@
 // Written by Gemini.
 package dev.brights0ng.empire.region;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -23,6 +27,8 @@ import dev.brights0ng.empire.rules.RegionRules;
 import dev.brights0ng.empire.rules.RegionType;
 import dev.brights0ng.empire.rules.RoomSeparator;
 import it.unimi.dsi.fastutil.longs.LongIterator;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
@@ -71,6 +77,153 @@ public final class HomeRegionScanner {
         public boolean succeeded() {
             return failure == RegionInvalidReason.NONE && !blocks.isEmpty();
         }
+    }
+
+    public enum RemoveOutcome {
+        NONE,
+        REMOVED_ROOM,
+        DELETED_REGION
+    }
+
+    /**
+     * Removes the room containing {@code pos} from {@code home}, deleting {@code home} if no rooms (or no kept indoor
+     * rooms connected to remaining outdoor porches) remain. Any door separators bordering the removed room are added to
+     * {@code home.blockedSeparators()} so future {@code AUTO} rescans do not re-absorb the removed room.
+     */
+    public static RemoveOutcome removeRoomAt(ServerLevel level, EmpireSavedData data, RegionRecord home,
+                                             BlockPos pos, long gameTime) {
+        if (home.rooms().isEmpty()) {
+            if (!home.containsBlock(pos)) {
+                return RemoveOutcome.NONE;
+            }
+            RegionManager.detachAllInhabitants(level, data, home);
+            data.removeRegion(home.id());
+            return RemoveOutcome.DELETED_REGION;
+        }
+        RegionRecord.RoomRecord target = home.roomAt(pos);
+        if (target == null) {
+            return RemoveOutcome.NONE;
+        }
+
+        List<RegionRecord.RoomRecord> candidates = new ArrayList<>();
+        boolean hasKeptIndoor = false;
+        for (RegionRecord.RoomRecord room : home.rooms()) {
+            if (room != target) {
+                candidates.add(room);
+                if (!room.isOutdoor()) {
+                    hasKeptIndoor = true;
+                }
+            }
+        }
+
+        // Identify separators bordering the removed room so they are severed and blocked from future auto-rescans.
+        LongOpenHashSet severedSeparators = new LongOpenHashSet();
+        LongOpenHashSet keptSeparators = new LongOpenHashSet();
+        LongIterator sepIt = home.separators().iterator();
+        while (sepIt.hasNext()) {
+            long sep = sepIt.nextLong();
+            if (isAdjacentToBlockSet(sep, target.blocks())) {
+                severedSeparators.add(sep);
+            } else {
+                keptSeparators.add(sep);
+            }
+        }
+
+        // Drop outdoor rooms that are no longer connected to any kept indoor room (so removing the sole indoor room
+        // of a home with a covered porch deletes the home cleanly instead of leaving an orphaned porch).
+        List<RegionRecord.RoomRecord> remaining = new ArrayList<>();
+        if (hasKeptIndoor) {
+            boolean[] reachable = new boolean[candidates.size()];
+            Deque<Integer> queue = new ArrayDeque<>();
+            for (int i = 0; i < candidates.size(); i++) {
+                if (!candidates.get(i).isOutdoor()) {
+                    reachable[i] = true;
+                    queue.add(i);
+                }
+            }
+            while (!queue.isEmpty()) {
+                RegionRecord.RoomRecord cur = candidates.get(queue.poll());
+                LongIterator sIt = keptSeparators.iterator();
+                while (sIt.hasNext()) {
+                    long sep = sIt.nextLong();
+                    if (!isAdjacentToBlockSet(sep, cur.blocks())) {
+                        continue;
+                    }
+                    for (int j = 0; j < candidates.size(); j++) {
+                        if (!reachable[j] && isAdjacentToBlockSet(sep, candidates.get(j).blocks())) {
+                            reachable[j] = true;
+                            queue.add(j);
+                        }
+                    }
+                }
+            }
+            for (int i = 0; i < candidates.size(); i++) {
+                if (reachable[i]) {
+                    remaining.add(candidates.get(i));
+                }
+            }
+        } else if (target.isOutdoor()) {
+            // If an invalid home had only outdoor rooms and the player removes one, keep any other rooms until empty.
+            remaining.addAll(candidates);
+        }
+
+        if (remaining.isEmpty()) {
+            RegionManager.detachAllInhabitants(level, data, home);
+            data.removeRegion(home.id());
+            return RemoveOutcome.DELETED_REGION;
+        }
+
+        // Keep only separators still adjacent to at least one kept room.
+        List<Long> finalSeparators = new ArrayList<>();
+        LongIterator ksIt = keptSeparators.iterator();
+        while (ksIt.hasNext()) {
+            long sep = ksIt.nextLong();
+            for (RegionRecord.RoomRecord room : remaining) {
+                if (isAdjacentToBlockSet(sep, room.blocks())) {
+                    finalSeparators.add(sep);
+                    break;
+                }
+            }
+        }
+
+        Set<Long> allBlocks = new HashSet<>();
+        for (RegionRecord.RoomRecord room : remaining) {
+            LongIterator bit = room.blocks().iterator();
+            while (bit.hasNext()) {
+                allBlocks.add(bit.nextLong());
+            }
+        }
+        allBlocks.addAll(finalSeparators);
+
+        if (!severedSeparators.isEmpty()) {
+            List<Long> blocked = new ArrayList<>(severedSeparators.size());
+            LongIterator blIt = severedSeparators.iterator();
+            while (blIt.hasNext()) {
+                blocked.add(blIt.nextLong());
+            }
+            home.addBlockedSeparators(blocked);
+        }
+
+        data.replaceRegionBlocks(home, allBlocks);
+        home.setRoomRecords(remaining, finalSeparators);
+        home.setSeed(resolveSeed(level, home));
+        home.bumpRevision();
+        data.setDirty();
+
+        RegionManager.updateRegion(level, data, home, gameTime);
+        return RemoveOutcome.REMOVED_ROOM;
+    }
+
+    private static boolean isAdjacentToBlockSet(long packedPos, LongSet set) {
+        int x = BlockKeys.getX(packedPos);
+        int y = BlockKeys.getY(packedPos);
+        int z = BlockKeys.getZ(packedPos);
+        for (int i = 0; i < 6; i++) {
+            if (set.contains(BlockKeys.pack(x + DX[i], y + DY[i], z + DZ[i]))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Partitions a {@code HOME} block set into door-separated rooms labelled {@code INDOOR} or {@code OUTDOOR}. */
@@ -123,7 +276,7 @@ public final class HomeRegionScanner {
     public static ScanResult scan(ServerLevel level, EmpireSavedData data, EmpireRecord empire, BlockPos start,
                                   RegionOrigin origin) {
         RegionFloodFill.Result fill = floodFill(
-                level, data, empire, start.getX(), start.getY(), start.getZ(), null);
+                level, data, empire, start.getX(), start.getY(), start.getZ(), null, null);
 
         if (!fill.succeeded()) {
             return new ScanResult(null, fill.failure());
@@ -151,7 +304,8 @@ public final class HomeRegionScanner {
             return new RescanResult(Set.of(), RegionRooms.Partition.EMPTY, seed, RegionInvalidReason.UNSTAKED);
         }
         RegionFloodFill.Result fill = floodFill(
-                level, data, empire, BlockKeys.getX(seed), BlockKeys.getY(seed), BlockKeys.getZ(seed), region.id());
+                level, data, empire, BlockKeys.getX(seed), BlockKeys.getY(seed), BlockKeys.getZ(seed),
+                region.id(), region.blockedSeparators());
         if (!fill.succeeded()) {
             return new RescanResult(Set.of(), RegionRooms.Partition.EMPTY, seed, fill.failure());
         }
@@ -208,7 +362,8 @@ public final class HomeRegionScanner {
 
     private static RegionFloodFill.Result floodFill(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
                                                     int startX, int startY, int startZ,
-                                                    @Nullable UUID ignoreRegionId) {
+                                                    @Nullable UUID ignoreRegionId,
+                                                    @Nullable LongSet blockedSeparators) {
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         return RegionFloodFill.fill(
                 startX, startY, startZ,
@@ -226,7 +381,11 @@ public final class HomeRegionScanner {
                     if (!empire.state().staked().contains(chunk)) {
                         return RegionFloodFill.Cell.BOUNDARY;
                     }
-                    RegionRecord existing = data.regionAt(BlockKeys.pack(x, y, z));
+                    long key = BlockKeys.pack(x, y, z);
+                    if (blockedSeparators != null && blockedSeparators.contains(key)) {
+                        return RegionFloodFill.Cell.BOUNDARY;
+                    }
+                    RegionRecord existing = data.regionAt(key);
                     if (existing != null && !existing.id().equals(ignoreRegionId)) {
                         return RegionFloodFill.Cell.BOUNDARY;
                     }

@@ -1,6 +1,7 @@
 // Written by Gemini; rewritten by Claude (geometry moved to TalcBorderGeometry, mesh cached, colours and claim rules kept); golden protected land by Claude; claims now asked for by ClaimCacheKeeper; edited by Gemini (delegated quad rendering to shared VeilMeshRenderer).
 package dev.brights0ng.empire.client;
 
+import dev.brights0ng.empire.ledger.AdministrativeLedgerItem;
 import dev.brights0ng.empire.map.ClaimMapCache;
 import dev.brights0ng.empire.rules.ClaimGrid;
 import dev.brights0ng.empire.talc.BlessedTalcItem;
@@ -94,7 +95,8 @@ public final class TalcBorderRenderer {
         ItemStack off = player.getOffhandItem();
         boolean holdingBlessed = main.getItem() instanceof BlessedTalcItem || off.getItem() instanceof BlessedTalcItem;
         boolean holdingTarnished = main.getItem() instanceof TarnishedTalcItem || off.getItem() instanceof TarnishedTalcItem;
-        if (!holdingBlessed && !holdingTarnished) {
+        boolean holdingLedger = main.getItem() instanceof AdministrativeLedgerItem || off.getItem() instanceof AdministrativeLedgerItem;
+        if (!holdingBlessed && !holdingTarnished && !holdingLedger) {
             mesh = null;
             return;
         }

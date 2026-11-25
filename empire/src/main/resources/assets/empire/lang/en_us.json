@@ -52,6 +52,8 @@
   "message.empire.ledger.home.invalid": "Home invalid: %s",
   "message.empire.ledger.home.failed": "Cannot register Home: %s",
   "message.empire.ledger.home.bed_outdoor": "This bed is in an outdoor area of a Home",
+  "message.empire.ledger.home.room_removed": "Removed room from Home (%d rooms remaining)",
+  "message.empire.ledger.home.deleted": "Removed last room; Home deleted",
   "message.empire.ledger.unselected": "Region selection cleared",
   "message.empire.ledger.other_region": "This block is part of another region",
   "message.empire.ledger.farm.created": "Farm registered (1 shed, %d blocks, %d storage)",

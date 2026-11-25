@@ -154,6 +154,8 @@ public final class RegionRecord {
     private final List<RoomRecord> rooms = new ArrayList<>();
     /** Packed coordinates of room-separator blocks inside {@link #blocks} (belong to no room). */
     private final LongOpenHashSet separators = new LongOpenHashSet();
+    /** Packed coordinates of separator blocks severed by manual room removal so auto-reshape does not re-absorb them. */
+    private final LongOpenHashSet blockedSeparators = new LongOpenHashSet();
     /** Aggregated packed coordinates of storage blocks across this region's rooms (rebuilt from {@link #rooms}). */
     private final LongOpenHashSet storageBlocks = new LongOpenHashSet();
     /** Transient lookup: packed block coordinate -> index in {@link #rooms}, or {@code -1} if separator/unpartitioned. */
@@ -428,6 +430,17 @@ public final class RegionRecord {
 
     public LongSet separators() {
         return LongSets.unmodifiable(separators);
+    }
+
+    /** Separator blocks severed by manual room removal; treated as flood-fill boundaries during auto-reshape. */
+    public LongSet blockedSeparators() {
+        return LongSets.unmodifiable(blockedSeparators);
+    }
+
+    public void addBlockedSeparators(Collection<Long> positions) {
+        for (long key : positions) {
+            blockedSeparators.add(key);
+        }
     }
 
     /** Packed coordinates of all blocks marked as storage across this region's rooms (e.g. chests/barrels/vaults in farm sheds). */
@@ -745,6 +758,9 @@ public final class RegionRecord {
         if (!separators.isEmpty()) {
             tag.put("separators", new LongArrayTag(separators.toLongArray()));
         }
+        if (!blockedSeparators.isEmpty()) {
+            tag.put("blocked_separators", new LongArrayTag(blockedSeparators.toLongArray()));
+        }
         if (!rooms.isEmpty()) {
             ListTag roomsTag = new ListTag();
             for (RoomRecord room : rooms) {
@@ -795,6 +811,11 @@ public final class RegionRecord {
         if (tag.contains("separators", Tag.TAG_LONG_ARRAY)) {
             for (long sep : tag.getLongArray("separators")) {
                 record.separators.add(sep);
+            }
+        }
+        if (tag.contains("blocked_separators", Tag.TAG_LONG_ARRAY)) {
+            for (long sep : tag.getLongArray("blocked_separators")) {
+                record.blockedSeparators.add(sep);
             }
         }
         if (tag.contains("rooms", Tag.TAG_LIST)) {

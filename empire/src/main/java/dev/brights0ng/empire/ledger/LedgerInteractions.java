@@ -18,6 +18,7 @@ import dev.brights0ng.empire.rules.RegionRules;
 import dev.brights0ng.empire.rules.RegionType;
 import dev.brights0ng.empire.rules.RoomLabel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
@@ -96,7 +97,8 @@ public final class LedgerInteractions {
         RoomLabel farmBlockLabel = FarmRegionScanner.labelForClickedBlock(state);
 
         if (level.isClientSide()) {
-            if (shouldCancelClientClick(clickedPos, isHomeBlock, farmBlockLabel)) {
+            if (shouldCancelClientClick(clickedPos, event.getFace(), event.getEntity().isShiftKeyDown(),
+                    isHomeBlock, farmBlockLabel)) {
                 event.setCanceled(true);
                 event.setCancellationResult(InteractionResult.SUCCESS);
             }
@@ -134,13 +136,34 @@ public final class LedgerInteractions {
             existing = data.regionAt(targetPos);
         }
 
+        // For air-interior regions (such as HOME), clicking the floor or inner wall hits the solid shell block outside
+        // region.blocks() while clickedPos.relative(face) is inside the room. Support that face-adjacent lookup when
+        // shift-removing a room from the selected region or selecting an invalidated region.
+        if (existing == null && !isHomeBlock && event.getFace() != null
+                && !(selected != null && selected.type() == RegionType.FARM && farmBlockLabel != null)) {
+            BlockPos facePos = clickedPos.relative(event.getFace());
+            RegionRecord faceRegion = data.regionAt(facePos);
+            if (faceRegion != null && faceRegion.empireId().equals(empire.id())) {
+                boolean shiftRemovingSelected = player.isShiftKeyDown()
+                        && selected != null && faceRegion.id().equals(selected.id());
+                if (shiftRemovingSelected || !faceRegion.valid()) {
+                    targetPos = facePos;
+                    existing = faceRegion;
+                }
+            }
+        }
+
         // Case 1: clicked block belongs to an existing region.
         if (existing != null) {
             // 1a. Clicked inside the currently selected region.
             if (selected != null && existing.id().equals(selected.id())) {
                 cancelServer(event);
-                if (player.isShiftKeyDown() && selected.type() == RegionType.FARM) {
-                    handleRemoveFarmRoom(serverLevel, data, empire, player, selected, targetPos);
+                if (player.isShiftKeyDown()) {
+                    if (selected.type() == RegionType.FARM) {
+                        handleRemoveFarmRoom(serverLevel, data, empire, player, selected, targetPos);
+                    } else if (selected.type() == RegionType.HOME) {
+                        handleRemoveHomeRoom(serverLevel, data, empire, player, selected, targetPos);
+                    }
                     return;
                 }
                 handleSelectedRegionClick(serverLevel, data, player, selected, targetPos);
@@ -157,7 +180,7 @@ public final class LedgerInteractions {
             }
 
             // 1c. Clicked inside another region of the player's empire.
-            if (isHomeBlockFor(existing.type(), isBed, isComposter)) {
+            if (!existing.valid() || isHomeBlockFor(existing.type(), isBed, isComposter)) {
                 cancelServer(event);
                 handleSelectExistingRegion(serverLevel, data, player, existing, targetPos);
                 return;
@@ -195,19 +218,35 @@ public final class LedgerInteractions {
         // 2d. Non-home block outside any region (and not a farm room addition): interact normally.
     }
 
-    private static boolean shouldCancelClientClick(BlockPos clickedPos, boolean isHomeBlock,
-                                                   RoomLabel farmBlockLabel) {
+    private static boolean shouldCancelClientClick(BlockPos clickedPos, Direction face, boolean shiftDown,
+                                                   boolean isHomeBlock, RoomLabel farmBlockLabel) {
         if (isHomeBlock) {
             return true;
+        }
+        RegionPayloads.RegionSnapshot clickedSnap = RegionClientCache.regionAt(clickedPos);
+        if (clickedSnap != null && !clickedSnap.valid()) {
+            return true;
+        }
+        RegionPayloads.RegionSnapshot selected = RegionClientCache.selectedRegion();
+        boolean addingFarmRoom = selected != null && selected.type() == RegionType.FARM && farmBlockLabel != null;
+        if (clickedSnap == null && face != null && !addingFarmRoom) {
+            RegionPayloads.RegionSnapshot faceSnap = RegionClientCache.regionAt(clickedPos.relative(face));
+            if (faceSnap != null) {
+                if (!faceSnap.valid()) {
+                    return true;
+                }
+                if (shiftDown && faceSnap.id().equals(RegionClientCache.selectedRegionId())) {
+                    return true;
+                }
+            }
         }
         if (RegionClientCache.selectedRegionId() == null) {
             return false;
         }
-        if (RegionClientCache.regionAt(clickedPos) != null) {
+        if (clickedSnap != null) {
             return true;
         }
-        RegionPayloads.RegionSnapshot selected = RegionClientCache.selectedRegion();
-        return selected != null && selected.type() == RegionType.FARM && farmBlockLabel != null;
+        return addingFarmRoom;
     }
 
     private static void cancelServer(PlayerInteractEvent.RightClickBlock event) {
@@ -368,6 +407,26 @@ public final class LedgerInteractions {
                 ? "message.empire.ledger.farm.room_removed_shed"
                 : "message.empire.ledger.farm.room_removed_field";
         player.displayClientMessage(Component.translatable(kindKey, farm.rooms().size()), true);
+    }
+
+    private static void handleRemoveHomeRoom(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
+                                             Player player, RegionRecord home, BlockPos pos) {
+        HomeRegionScanner.RemoveOutcome outcome = HomeRegionScanner.removeRoomAt(
+                level, data, home, pos, level.getGameTime());
+        if (outcome == HomeRegionScanner.RemoveOutcome.NONE) {
+            return;
+        }
+        if (outcome == HomeRegionScanner.RemoveOutcome.DELETED_REGION) {
+            LedgerSelection.clearForRegion(level, home.id());
+            RegionNetwork.pushToEmpire(level, empire.id());
+            playPageTurn(level, pos, 0.85F);
+            player.displayClientMessage(Component.translatable("message.empire.ledger.home.deleted"), true);
+            return;
+        }
+        RegionNetwork.pushToEmpire(level, empire.id());
+        playPageTurn(level, pos, 0.9F);
+        player.displayClientMessage(Component.translatable(
+                "message.empire.ledger.home.room_removed", indoorRoomCount(home)), true);
     }
 
     private static void reportHomeStatus(ServerLevel level, Player player, RegionRecord home, BlockPos pos,

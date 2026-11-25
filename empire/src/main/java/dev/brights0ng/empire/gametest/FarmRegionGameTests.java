@@ -374,7 +374,16 @@ public final class FarmRegionGameTests {
                         "reason is NO_SHED, got " + farm.invalidReason());
                 helper.assertTrue(RegionManager.hasScheduledExpiry(farm.id()), "3-day expiry scheduled for AUTO farm");
 
+                // Unselect the invalid shedless farm, then right-click its remaining field -> selects the invalid farm!
+                founder.setShiftKeyDown(false);
+                LedgerSelection.clear(level, founder);
+                helper.assertTrue(LedgerSelection.selectedRegionId(founder.getUUID()) == null, "unselected");
+                helper.assertTrue(rightClick(founder, farmTile).isCanceled(), "clicking invalid field handled");
+                helper.assertTrue(farm.id().equals(LedgerSelection.selectedRegionId(founder.getUUID())),
+                        "clicking anywhere in invalidated farm reselects it");
+
                 // Shift-right-click the last remaining room (field) -> deletes the farm and clears selection!
+                founder.setShiftKeyDown(true);
                 helper.assertTrue(rightClick(founder, farmTile).isCanceled(), "shift-click last room canceled");
                 helper.assertTrue(data.region(farm.id()) == null, "farm deleted when last room removed");
                 helper.assertTrue(LedgerSelection.selectedRegionId(founder.getUUID()) == null,

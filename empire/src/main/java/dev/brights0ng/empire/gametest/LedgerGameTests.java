@@ -10,6 +10,7 @@ import dev.brights0ng.empire.EmpireContent;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
+import dev.brights0ng.empire.ledger.LedgerSelection;
 import dev.brights0ng.empire.region.RegionManager;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.RegionOrigin;
@@ -266,6 +267,83 @@ public final class LedgerGameTests {
                 rightClick(founder, darkBed);
                 helper.assertTrue(home.valid(), "re-clicking repaired HOME bed restored validity immediately");
             } finally {
+                disband(helper, empire);
+                clearBlocks(level, placed);
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = "ledger_home_shift_remove_and_invalid_select", timeoutTicks = 25)
+    public static void shiftClickRemovesHomeRoomsDeletesWhenEmptyAndInvalidHomeSelectsAnywhere(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        List<BlockPos> placed = new ArrayList<>();
+        Player founder = helper.makeMockPlayer(GameType.SURVIVAL);
+        founder.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(EmpireContent.ADMINISTRATIVE_LEDGER.get()));
+        EmpireRecord empire = found(helper, founder);
+        EmpireSavedData data = EmpireSavedData.of(level);
+
+        // Two door-separated 5x2x5 indoor rooms (A and B), each with a bed.
+        BlockPos roomA = buildRoom(level, mainPos(helper).offset(2, 0, -2), 5, 2, 5, true, placed);
+        BlockPos bedA = placeBed(level, roomA.offset(0, 0, 0), Direction.EAST, placed);
+        BlockPos roomB = buildRoom(level, roomA.offset(6, 0, 0), 5, 2, 5, true, placed);
+        BlockPos bedB = placeBed(level, roomB.offset(3, 0, 0), Direction.EAST, placed);
+
+        BlockPos doorLower = roomA.offset(5, 0, 2);
+        BlockPos doorUpper = roomA.offset(5, 1, 2);
+        int flags = Block.UPDATE_ALL | Block.UPDATE_KNOWN_SHAPE;
+        level.setBlock(doorLower, Blocks.OAK_DOOR.defaultBlockState(), flags);
+        level.setBlock(doorUpper, Blocks.OAK_DOOR.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.DoorBlock.HALF,
+                        net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER), flags);
+
+        helper.runAtTickTime(4, () -> {
+            try {
+                // Create & select 2-room HOME via bedA.
+                helper.assertTrue(rightClick(founder, bedA).isCanceled(), "create 2-room HOME");
+                RegionRecord home = data.regionAt(bedA);
+                helper.assertTrue(home != null && home.valid() && home.rooms().size() == 2,
+                        "2-room HOME created and valid");
+                helper.assertTrue(home.id().equals(LedgerSelection.selectedRegionId(founder.getUUID())),
+                        "HOME selected");
+
+                // Shift-right-click floor inside roomB (face UP into roomB's air) -> removes roomB, keeps roomA!
+                founder.setShiftKeyDown(true);
+                helper.assertTrue(rightClick(founder, roomB.offset(1, -1, 1)).isCanceled(),
+                        "shift-click floor of roomB canceled");
+                helper.assertTrue(data.region(home.id()) != null && home.valid(), "HOME stays valid via roomA");
+                helper.assertTrue(home.rooms().size() == 1, "roomB removed, 1 room remains");
+                helper.assertFalse(home.containsBlock(bedB), "roomB excluded from HOME");
+                helper.assertTrue(home.containsBlock(bedA), "roomA kept in HOME");
+
+                // Rescanning roomA must NOT re-absorb roomB through the severed door!
+                RegionManager.updateRegion(level, data, home, level.getGameTime() + 25L);
+                helper.assertTrue(home.rooms().size() == 1 && !home.containsBlock(bedB),
+                        "auto-reshape does not re-absorb manually removed roomB");
+
+                // Break bedA so HOME becomes INVALID(NO_BED), unselect, then click roomA's floor -> selects invalid HOME!
+                founder.setShiftKeyDown(false);
+                LedgerSelection.clear(level, founder);
+                level.setBlock(roomA.offset(0, 0, 0), Blocks.AIR.defaultBlockState(), flags);
+                level.setBlock(bedA, Blocks.AIR.defaultBlockState(), flags);
+                RegionManager.updateRegion(level, data, home, level.getGameTime() + 50L);
+                helper.assertFalse(home.valid(), "HOME invalidated without bed");
+
+                helper.assertTrue(rightClick(founder, roomA.offset(1, -1, 1)).isCanceled(),
+                        "clicking floor inside invalidated HOME handled");
+                helper.assertTrue(home.id().equals(LedgerSelection.selectedRegionId(founder.getUUID())),
+                        "invalidated HOME selected without a bed");
+
+                // Shift-right-click last remaining room (roomA's floor) -> deletes the HOME and clears selection!
+                founder.setShiftKeyDown(true);
+                helper.assertTrue(rightClick(founder, roomA.offset(1, -1, 1)).isCanceled(),
+                        "shift-click last room of HOME canceled");
+                helper.assertTrue(data.region(home.id()) == null, "HOME deleted when last room removed");
+                helper.assertTrue(LedgerSelection.selectedRegionId(founder.getUUID()) == null,
+                        "selection cleared on HOME deletion");
+            } finally {
+                founder.setShiftKeyDown(false);
+                LedgerSelection.clear(level, founder);
                 disband(helper, empire);
                 clearBlocks(level, placed);
             }
