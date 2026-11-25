@@ -118,4 +118,16 @@ class LoadPlanTest {
         assertEquals(Set.of(c(0, 0), c(1, 0)), tickets.clear());
         assertTrue(tickets.held().isEmpty());
     }
+
+    @Test
+    void nearestStakedPointFindsClosestBorderBlock() {
+        Set<Long> s = staked(); // (-1..1, -1..1) plus (2, 0): x in [-16..47] on z in [0..15]
+        // Far east of (2, 0) at x=100, z=7 -> clamps to eastern border of (2, 0): x=47, z=7
+        assertEquals(new LoadPlan.BlockXZ(47, 7), LoadPlan.nearestStakedPoint(100, 7, s));
+        // Far north of (0, -1) at x=5, z=-100 -> clamps to northern border of (0, -1): x=5, z=-16
+        assertEquals(new LoadPlan.BlockXZ(5, -16), LoadPlan.nearestStakedPoint(5, -100, s));
+        // Already inside staked land -> returns same point
+        assertEquals(new LoadPlan.BlockXZ(10, 10), LoadPlan.nearestStakedPoint(10, 10, s));
+        assertEquals(null, LoadPlan.nearestStakedPoint(0, 0, Set.of()));
+    }
 }

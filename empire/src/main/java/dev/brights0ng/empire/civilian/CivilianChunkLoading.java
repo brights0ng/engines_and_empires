@@ -1,7 +1,8 @@
-// Written by Claude.
+// Written by Claude; extended with D12 off-empire anchor tickets and move-back by Gemini.
 package dev.brights0ng.empire.civilian;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -18,8 +19,14 @@ import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.LoadPlan;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.TicketType;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.common.world.chunk.RegisterTicketControllersEvent;
@@ -46,8 +53,21 @@ public final class CivilianChunkLoading {
     public static final TicketController TICKETS = new TicketController(Empire.id("civilians"),
             (level, helper) -> List.copyOf(helper.getEntityTickets().keySet()).forEach(helper::removeAllTickets));
 
+    /** Memory-only level-33 anchor ticket for a loaded citizen outside its empire's staked chunks (D12). */
+    private static final TicketType<ChunkPos> OFF_EMPIRE_ANCHOR = TicketType.create(
+            "empire_civilian_anchor", Comparator.comparingLong(ChunkPos::toLong));
+    /** Brief entity-loading ticket (level 31) used after restart to pull an unloaded off-empire citizen home (D12). */
+    private static final TicketType<ChunkPos> RESTART_PULL_BACK = TicketType.create(
+            "empire_civilian_pullback", Comparator.comparingLong(ChunkPos::toLong));
+    private static final int ANCHOR_DISTANCE = 0; // level 33 (memory-only, nothing ticks)
+    private static final int PULL_BACK_DISTANCE = 2; // level 31 (brief entity load to move citizen back)
+
     /** Each empire's held tickets; transient. */
     private static final Map<UUID, LoadPlan.Tickets> HELD = new HashMap<>();
+    /** Level-33 anchor chunk currently held per off-empire citizen id; transient. */
+    private static final Map<UUID, ChunkPos> ANCHORS = new HashMap<>();
+    /** Temporary pull-back chunk currently held per unloaded off-empire citizen id; transient. */
+    private static final Map<UUID, ChunkPos> PULL_BACKS = new HashMap<>();
     /** Game tests only: replaces the configured mode while set. */
     @Nullable
     private static LoadPlan.Mode modeOverride;
@@ -67,6 +87,8 @@ public final class CivilianChunkLoading {
     @SubscribeEvent
     static void onServerStopped(ServerStoppedEvent event) {
         HELD.clear();
+        ANCHORS.clear();
+        PULL_BACKS.clear();
     }
 
     /** One recompute of every empire's tickets (all in the Overworld). Public for the game tests. */
@@ -117,9 +139,182 @@ public final class CivilianChunkLoading {
             }
             return true;
         });
+        if (reconcileOffEmpire(overworld, data)) {
+            dirty = true;
+        }
         if (dirty) {
             data.setDirty();
         }
+    }
+
+    /**
+     * D12 off-empire move-back (civilian chunk-loading plan §3.2):
+     * <ul>
+     *   <li>A loaded citizen outside its empire's staked chunks holds a memory-only level-33 anchor ticket while a
+     *       non-spectator player is within 128 blocks; once no player is within 128 blocks it is teleported to the
+     *       nearest staked chunk's surface and its anchor is released.</li>
+     *   <li>An unloaded citizen record saved outside its empire's staked chunks (e.g. after a restart) briefly loads
+     *       its chunk to pull the body back inside staked territory.</li>
+     * </ul>
+     */
+    public static boolean reconcileOffEmpire(ServerLevel overworld) {
+        EmpireSavedData data = EmpireSavedData.of(overworld);
+        boolean dirty = reconcileOffEmpire(overworld, data);
+        if (dirty) {
+            data.setDirty();
+        }
+        return dirty;
+    }
+
+    private static boolean reconcileOffEmpire(ServerLevel overworld, EmpireSavedData data) {
+        boolean dirty = false;
+        Set<UUID> liveIds = new HashSet<>();
+        double r2 = LoadPlan.MOVE_BACK_PLAYER_RADIUS * LoadPlan.MOVE_BACK_PLAYER_RADIUS;
+
+        for (CivilianRecord record : List.copyOf(data.allCivilians())) {
+            EmpireRecord empire = data.getEmpire(record.empire());
+            if (empire == null) {
+                continue;
+            }
+            Set<Long> staked = empire.state().staked();
+            if (staked.isEmpty()) {
+                continue;
+            }
+            liveIds.add(record.id());
+
+            Entity entity = overworld.getEntity(record.body());
+            if (entity instanceof CivilianEntity citizen) {
+                if (citizen.status() != CivilianEntity.Status.CITIZEN || !citizen.isAlive()) {
+                    releaseAnchor(overworld, record.id());
+                    releasePullBack(overworld, record.id());
+                    continue;
+                }
+                long actualChunk = citizen.chunkPosition().toLong();
+                if (staked.contains(actualChunk)) {
+                    releaseAnchor(overworld, record.id());
+                    releasePullBack(overworld, record.id());
+                    continue;
+                }
+                // Outside staked territory!
+                if (hasNearbyNonSpectatorPlayer(overworld, citizen.getX(), citizen.getZ(), r2)) {
+                    setAnchor(overworld, record.id(), citizen.chunkPosition());
+                    releasePullBack(overworld, record.id());
+                } else {
+                    if (teleportToNearestStaked(overworld, citizen, record, staked)) {
+                        dirty = true;
+                    }
+                    releaseAnchor(overworld, record.id());
+                    releasePullBack(overworld, record.id());
+                }
+            } else if (entity == null) {
+                // Record's body is not currently loaded; if saved outside staked chunks, briefly load to pull it back.
+                releaseAnchor(overworld, record.id());
+                if (!staked.contains(record.lastChunk())
+                        && !hasNearbyNonSpectatorPlayer(overworld, record.lastPos().getX() + 0.5, record.lastPos().getZ() + 0.5, r2)) {
+                    setPullBack(overworld, record.id(), new ChunkPos(record.lastChunk()));
+                } else {
+                    releasePullBack(overworld, record.id());
+                }
+            } else {
+                // Non-civilian stand-in entity (used in chunk-loading tests): never relocate.
+                releaseAnchor(overworld, record.id());
+                releasePullBack(overworld, record.id());
+            }
+        }
+
+        // Release tickets for removed/dead/disbanded citizens.
+        ANCHORS.entrySet().removeIf(e -> {
+            if (liveIds.contains(e.getKey())) {
+                return false;
+            }
+            overworld.getChunkSource().removeRegionTicket(OFF_EMPIRE_ANCHOR, e.getValue(), ANCHOR_DISTANCE, e.getValue());
+            return true;
+        });
+        PULL_BACKS.entrySet().removeIf(e -> {
+            if (liveIds.contains(e.getKey())) {
+                return false;
+            }
+            overworld.getChunkSource().removeRegionTicket(RESTART_PULL_BACK, e.getValue(), PULL_BACK_DISTANCE, e.getValue());
+            return true;
+        });
+        return dirty;
+    }
+
+    private static boolean teleportToNearestStaked(ServerLevel level, CivilianEntity citizen,
+                                                   CivilianRecord record, Set<Long> staked) {
+        LoadPlan.BlockXZ target = LoadPlan.nearestStakedPoint(citizen.getBlockX(), citizen.getBlockZ(), staked);
+        if (target == null) {
+            return false;
+        }
+        int cx = target.x() >> 4;
+        int cz = target.z() >> 4;
+        int y = level.hasChunk(cx, cz)
+                ? level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, target.x(), target.z())
+                : citizen.getBlockY();
+        BlockPos dest = new BlockPos(target.x(), y, target.z());
+        citizen.getNavigation().stop();
+        citizen.teleportTo(dest.getX() + 0.5, dest.getY(), dest.getZ() + 0.5);
+        long destChunk = ChunkKeys.pack(cx, cz);
+        record.setLast(dest, destChunk);
+        citizen.aiController().stopAll(level);
+        return true;
+    }
+
+    private static boolean hasNearbyNonSpectatorPlayer(ServerLevel level, double x, double z, double r2) {
+        for (Player player : level.players()) {
+            if (player.isSpectator() || !player.isAlive()) {
+                continue;
+            }
+            double dx = player.getX() - x;
+            double dz = player.getZ() - z;
+            if (dx * dx + dz * dz <= r2) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void setAnchor(ServerLevel level, UUID civId, ChunkPos chunk) {
+        ChunkPos prev = ANCHORS.get(civId);
+        if (chunk.equals(prev)) {
+            return;
+        }
+        if (prev != null) {
+            level.getChunkSource().removeRegionTicket(OFF_EMPIRE_ANCHOR, prev, ANCHOR_DISTANCE, prev);
+        }
+        level.getChunkSource().addRegionTicket(OFF_EMPIRE_ANCHOR, chunk, ANCHOR_DISTANCE, chunk);
+        ANCHORS.put(civId, chunk);
+    }
+
+    private static void releaseAnchor(ServerLevel level, UUID civId) {
+        ChunkPos prev = ANCHORS.remove(civId);
+        if (prev != null) {
+            level.getChunkSource().removeRegionTicket(OFF_EMPIRE_ANCHOR, prev, ANCHOR_DISTANCE, prev);
+        }
+    }
+
+    private static void setPullBack(ServerLevel level, UUID civId, ChunkPos chunk) {
+        ChunkPos prev = PULL_BACKS.get(civId);
+        if (chunk.equals(prev)) {
+            return;
+        }
+        if (prev != null) {
+            level.getChunkSource().removeRegionTicket(RESTART_PULL_BACK, prev, PULL_BACK_DISTANCE, prev);
+        }
+        level.getChunkSource().addRegionTicket(RESTART_PULL_BACK, chunk, PULL_BACK_DISTANCE, chunk);
+        PULL_BACKS.put(civId, chunk);
+    }
+
+    private static void releasePullBack(ServerLevel level, UUID civId) {
+        ChunkPos prev = PULL_BACKS.remove(civId);
+        if (prev != null) {
+            level.getChunkSource().removeRegionTicket(RESTART_PULL_BACK, prev, PULL_BACK_DISTANCE, prev);
+        }
+    }
+
+    /** Number of off-empire level-33 anchor tickets currently held (for diagnostics and tests). */
+    public static int anchorCount() {
+        return ANCHORS.size();
     }
 
     private static boolean memberOnline(MinecraftServer server, EmpireRecord empire) {

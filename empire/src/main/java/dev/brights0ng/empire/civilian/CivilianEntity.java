@@ -977,6 +977,7 @@ public class CivilianEntity extends PathfinderMob {
                 if (empire != null && CivilianFulfilmentMeters.isSafetyHitSource(source, empire)) {
                     empire.safety().recordHit();
                     data.setDirty();
+                    aiController().notifyHostileDamage(serverLevel.getGameTime());
                 }
             }
         }

@@ -32,6 +32,42 @@ public final class LoadPlan {
     public static final int KEEP_TICKS = 600;
     /** Server time with no member online after which an empire stops loading (Bright, D11: 5 days at 20 TPS). */
     public static final long INACTIVE_TICKS = 5L * 24 * 60 * 60 * 20;
+    /** Horizontal radius within which a non-spectator player defers off-empire move-back (Bright, D12: 128 blocks). */
+    public static final double MOVE_BACK_PLAYER_RADIUS = 128.0;
+
+    /** Pure 2D block coordinate returned by {@link #nearestStakedPoint(int, int, Set)}. */
+    public record BlockXZ(int x, int z) {
+    }
+
+    /**
+     * Returns the closest block {@code (x, z)} inside any chunk of {@code staked} to {@code (fromX, fromZ)} (D12
+     * off-empire move-back target), or {@code null} if {@code staked} is empty.
+     */
+    public static BlockXZ nearestStakedPoint(int fromX, int fromZ, Set<Long> staked) {
+        if (staked == null || staked.isEmpty()) {
+            return null;
+        }
+        long bestDistSq = Long.MAX_VALUE;
+        long bestChunk = Long.MAX_VALUE;
+        int bestX = 0;
+        int bestZ = 0;
+        for (long chunk : staked) {
+            int minX = ChunkKeys.getX(chunk) << 4;
+            int minZ = ChunkKeys.getZ(chunk) << 4;
+            int clampedX = Math.clamp(fromX, minX, minX + 15);
+            int clampedZ = Math.clamp(fromZ, minZ, minZ + 15);
+            long dx = (long) clampedX - fromX;
+            long dz = (long) clampedZ - fromZ;
+            long d2 = dx * dx + dz * dz;
+            if (d2 < bestDistSq || (d2 == bestDistSq && chunk < bestChunk)) {
+                bestDistSq = d2;
+                bestChunk = chunk;
+                bestX = clampedX;
+                bestZ = clampedZ;
+            }
+        }
+        return new BlockXZ(bestX, bestZ);
+    }
 
     /**
      * Whether an empire's civilians may load chunks: never with {@link Mode#OFF} or without members (frozen, D10); with
