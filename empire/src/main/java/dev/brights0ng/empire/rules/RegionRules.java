@@ -18,8 +18,21 @@ public final class RegionRules {
     public static final int FARM_SHED_MAX_BLOCKS = 500;
     /** Maximum block count for a single {@code FARM} field room. */
     public static final int FARM_FIELD_MAX_BLOCKS = 5000;
+    /** PROVISIONAL: maximum assigned farmers per {@code FARM} region (Bright, 2026-11-25). */
+    public static final int FARM_MAX_WORKERS = 1;
     /** Ticks an invalid {@link RegionOrigin#AUTO} region persists before automatic deletion (3 MC days, D7). */
     public static final long INVALID_AUTO_DELETE_TICKS = 72_000L;
+
+    /** Maximum number of workers that may be assigned to a region of {@code type} ({@code 0} for non-workplaces). */
+    public static int workerCapacity(RegionType type) {
+        if (type == null) {
+            return 0;
+        }
+        return switch (type) {
+            case FARM -> FARM_MAX_WORKERS;
+            case HOME -> 0;
+        };
+    }
 
     /**
      * Citizen capacity of a {@code HOME} region by interior block count (D6):

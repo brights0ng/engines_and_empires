@@ -132,7 +132,7 @@
 
 ## Open / Future passes
 
-- **Administrative Ledger (later features):** Manual region outlining, naming/re-typing, job-target binding, and settlement management UI.
+- **Administrative Ledger (later features):** Manual region outlining, naming/re-typing, and settlement management UI (job assignment for `FARM` is now built; see `docs/empire/occupations.md`).
 - **Cots:** Beds/cots that citizens can sleep in anywhere outside a `HOME`.
 - **Citizen self-repair:** Before detaching from an invalidated region, citizens attempt to fix the issue (replace a broken block, break a placed hazard, re-light) first.
 - **Additional region types & Meteodyne:** `PUB`, `FARM`, `LARDER`, `WORKSHOP`, etc., plus optional indoor temperature/shelter checks via `empire.compat.meteodyne`.

@@ -1,7 +1,13 @@
 // Written by Gemini.
 package dev.brights0ng.empire.ledger;
 
+import javax.annotation.Nullable;
+
+import java.util.UUID;
+
 import dev.brights0ng.empire.Empire;
+import dev.brights0ng.empire.civilian.CivilianEntity;
+import dev.brights0ng.empire.civilian.CivilianOccupations;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
@@ -12,6 +18,8 @@ import dev.brights0ng.empire.region.RegionManager;
 import dev.brights0ng.empire.region.RegionNetwork;
 import dev.brights0ng.empire.region.RegionPayloads;
 import dev.brights0ng.empire.rules.ChunkKeys;
+import dev.brights0ng.empire.rules.CivilianLines;
+import dev.brights0ng.empire.rules.Occupation;
 import dev.brights0ng.empire.rules.RegionInvalidReason;
 import dev.brights0ng.empire.rules.RegionOrigin;
 import dev.brights0ng.empire.rules.RegionRules;
@@ -24,6 +32,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -75,6 +84,130 @@ public final class LedgerInteractions {
             event.setCanceled(true);
             playPageTurn(serverLevel, player.blockPosition(), 0.85F);
             player.displayClientMessage(Component.translatable("message.empire.ledger.unselected"), true);
+        }
+    }
+
+    /**
+     * Right-clicking a citizen while holding the Administrative Ledger with a workplace region selected assigns them
+     * to that region's occupation; shift-right-clicking unemploys them if their workplace region is selected (and
+     * suppresses the debug stats dump whenever the player holds a ledger).
+     */
+    @SubscribeEvent
+    public static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
+        if (event.getHand() != InteractionHand.MAIN_HAND) {
+            return;
+        }
+        if (!(event.getTarget() instanceof CivilianEntity civilian) || !civilian.isAlive()) {
+            return;
+        }
+        Player player = event.getEntity();
+        if (!LedgerSelection.isHoldingLedger(player)) {
+            return;
+        }
+
+        Level level = event.getLevel();
+        boolean shiftDown = player.isShiftKeyDown();
+        if (level.isClientSide()) {
+            if (shiftDown || RegionClientCache.selectedRegionId() != null) {
+                event.setCanceled(true);
+                event.setCancellationResult(InteractionResult.SUCCESS);
+            }
+            return;
+        }
+
+        ServerLevel serverLevel = (ServerLevel) level;
+        if (!serverLevel.dimension().equals(Level.OVERWORLD)) {
+            if (shiftDown) {
+                event.setCanceled(true);
+                event.setCancellationResult(InteractionResult.SUCCESS);
+                player.displayClientMessage(Component.translatable("message.empire.not_overworld"), true);
+            }
+            return;
+        }
+
+        EmpireSavedData data = EmpireSavedData.of(serverLevel);
+        EmpireRecord empire = data.getEmpireOf(player.getUUID());
+        RegionRecord selected = empire != null
+                ? LedgerSelection.selectedRegion(serverLevel, player, data, empire)
+                : null;
+
+        if (shiftDown) {
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            if (empire == null) {
+                player.displayClientMessage(Component.translatable("message.empire.no_empire"), true);
+                return;
+            }
+            handleUnemployCivilian(serverLevel, data, empire, player, selected, civilian);
+            return;
+        }
+
+        if (selected == null) {
+            return;
+        }
+
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+        handleAssignCivilian(serverLevel, data, player, selected, civilian);
+    }
+
+    private static void handleAssignCivilian(ServerLevel level, EmpireSavedData data, Player player,
+                                             RegionRecord selected, CivilianEntity civilian) {
+        CivilianOccupations.AssignResult result = CivilianOccupations.assign(level, data, civilian, selected);
+        String name = civilian.getName().getString();
+        int workers = CivilianOccupations.activeWorkerCount(data, selected);
+        int cap = RegionRules.workerCapacity(selected.type());
+        switch (result.outcome()) {
+            case OK -> {
+                playPageTurn(level, civilian.blockPosition(), 1.1F);
+                civilian.say(CivilianLines.Category.HIRED);
+                Component occName = Component.translatable(result.occupation().langKey());
+                player.displayClientMessage(Component.translatable(
+                        "message.empire.ledger.worker.assigned", name, occName, workers, cap), true);
+            }
+            case ALREADY_ASSIGNED_HERE -> player.displayClientMessage(
+                    Component.translatable("message.empire.ledger.worker.already_here", name), true);
+            case AT_CAPACITY -> player.displayClientMessage(
+                    Component.translatable("message.empire.ledger.worker.full", workers, cap), true);
+            case REGION_INVALID -> player.displayClientMessage(
+                    Component.translatable("message.empire.ledger.worker.region_invalid"), true);
+            case UNSUPPORTED_REGION -> player.displayClientMessage(
+                    Component.translatable("message.empire.ledger.worker.unsupported"), true);
+            case NOT_CITIZEN, WRONG_EMPIRE -> player.displayClientMessage(
+                    Component.translatable("message.empire.ledger.worker.not_citizen"), true);
+        }
+    }
+
+    private static void handleUnemployCivilian(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
+                                               Player player, @Nullable RegionRecord selected,
+                                               CivilianEntity civilian) {
+        var record = civilian.ownRecord(data);
+        if (civilian.status() != CivilianEntity.Status.CITIZEN || record == null
+                || !record.empire().equals(empire.id())) {
+            player.displayClientMessage(Component.translatable("message.empire.ledger.worker.not_citizen"), true);
+            return;
+        }
+        String name = civilian.getName().getString();
+        Occupation currentOcc = CivilianOccupations.occupationOf(civilian);
+        UUID workplaceId = CivilianOccupations.workplaceIdOf(civilian);
+        if (!currentOcc.isEmployed() || workplaceId == null) {
+            player.displayClientMessage(
+                    Component.translatable("message.empire.ledger.worker.not_employed", name), true);
+            return;
+        }
+        if (selected == null || !selected.id().equals(workplaceId)) {
+            player.displayClientMessage(
+                    Component.translatable("message.empire.ledger.worker.select_workplace", name), true);
+            return;
+        }
+        if (CivilianOccupations.unassign(level, data, civilian)) {
+            playPageTurn(level, civilian.blockPosition(), 0.85F);
+            civilian.say(CivilianLines.Category.UNEMPLOYED);
+            int workers = CivilianOccupations.activeWorkerCount(data, selected);
+            int cap = RegionRules.workerCapacity(selected.type());
+            Component occName = Component.translatable(currentOcc.langKey());
+            player.displayClientMessage(Component.translatable(
+                    "message.empire.ledger.worker.unassigned", name, occName, workers, cap), true);
         }
     }
 
@@ -281,7 +414,7 @@ public final class LedgerInteractions {
         if (existing.type() == RegionType.HOME) {
             reportHomeStatus(level, player, existing, pos, wasValid);
         } else if (existing.type() == RegionType.FARM) {
-            reportFarmSelection(level, player, existing, pos, wasValid);
+            reportFarmSelection(level, data, player, existing, pos, wasValid);
         }
     }
 
@@ -296,7 +429,7 @@ public final class LedgerInteractions {
         if (selected.type() == RegionType.HOME) {
             reportHomeStatus(level, player, selected, pos, wasValid);
         } else if (selected.type() == RegionType.FARM) {
-            reportFarmRoomStatus(level, player, selected, pos, wasValid);
+            reportFarmRoomStatus(level, data, player, selected, pos, wasValid);
         }
     }
 
@@ -356,7 +489,9 @@ public final class LedgerInteractions {
         player.displayClientMessage(Component.translatable(
                 "message.empire.ledger.farm.created",
                 created.blockCount(),
-                created.storageBlocks().size()), true);
+                created.storageBlocks().size(),
+                CivilianOccupations.activeWorkerCount(data, created),
+                RegionRules.workerCapacity(RegionType.FARM)), true);
     }
 
     private static void handleAddFarmRoom(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
@@ -448,8 +583,8 @@ public final class LedgerInteractions {
         }
     }
 
-    private static void reportFarmSelection(ServerLevel level, Player player, RegionRecord farm, BlockPos pos,
-                                            boolean wasValid) {
+    private static void reportFarmSelection(ServerLevel level, EmpireSavedData data, Player player,
+                                            RegionRecord farm, BlockPos pos, boolean wasValid) {
         if (farm.valid()) {
             playPageTurn(level, pos, wasValid ? 1.0F : 1.1F);
             String key = wasValid ? "message.empire.ledger.farm.selected" : "message.empire.ledger.farm.restored";
@@ -457,7 +592,9 @@ public final class LedgerInteractions {
                     key,
                     farm.roomCountWithLabel(RoomLabel.SHED),
                     farm.roomCountWithLabel(RoomLabel.FIELD),
-                    farm.storageBlocks().size()), true);
+                    farm.storageBlocks().size(),
+                    CivilianOccupations.activeWorkerCount(data, farm),
+                    RegionRules.workerCapacity(RegionType.FARM)), true);
         } else {
             playPageTurn(level, pos, 0.9F);
             player.displayClientMessage(Component.translatable(
@@ -465,8 +602,8 @@ public final class LedgerInteractions {
         }
     }
 
-    private static void reportFarmRoomStatus(ServerLevel level, Player player, RegionRecord farm, BlockPos pos,
-                                             boolean wasValid) {
+    private static void reportFarmRoomStatus(ServerLevel level, EmpireSavedData data, Player player,
+                                             RegionRecord farm, BlockPos pos, boolean wasValid) {
         if (!farm.valid()) {
             playPageTurn(level, pos, 0.9F);
             player.displayClientMessage(Component.translatable(
@@ -489,7 +626,9 @@ public final class LedgerInteractions {
                     "message.empire.ledger.farm.selected",
                     farm.roomCountWithLabel(RoomLabel.SHED),
                     farm.roomCountWithLabel(RoomLabel.FIELD),
-                    farm.storageBlocks().size()), true);
+                    farm.storageBlocks().size(),
+                    CivilianOccupations.activeWorkerCount(data, farm),
+                    RegionRules.workerCapacity(RegionType.FARM)), true);
         }
     }
 

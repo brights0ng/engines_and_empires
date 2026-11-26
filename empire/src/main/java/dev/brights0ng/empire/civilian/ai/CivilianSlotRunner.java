@@ -320,6 +320,9 @@ public final class CivilianSlotRunner {
             if (!work.indoor() && !ScheduleClock.isOutdoorTime(now)) {
                 return true;
             }
+            if (work.isOccupation() && !locations.isAvailable(ctx, LocationKey.WORK)) {
+                return true;
+            }
         }
         if (slot.kind() == SlotKind.SOCIALIZE && schedule.remainingSocialTicks() <= 0) {
             return true;
@@ -343,7 +346,7 @@ public final class CivilianSlotRunner {
             case MEAL -> List.of(new EatScheduledMealTask());
             case WORK -> {
                 WorkAssignment work = ctx.civilian().workAssignment();
-                yield work != null ? workProvider.createWorkTasks(work) : List.of();
+                yield work != null ? workProvider.createWorkTasks(work, locations) : List.of();
             }
             case SOCIALIZE -> List.of(new ChatWithNearbyTask(), new GatherAtSocialSpotTask());
             case HOBBY -> {

@@ -20,12 +20,14 @@ import dev.brights0ng.empire.civilian.CivilianBeds;
 import dev.brights0ng.empire.civilian.CivilianChunkLoading;
 import dev.brights0ng.empire.civilian.CivilianEntity;
 import dev.brights0ng.empire.civilian.CivilianFulfilmentMeters;
+import dev.brights0ng.empire.civilian.CivilianOccupations;
 import dev.brights0ng.empire.civilian.CivilianRoster;
 import dev.brights0ng.empire.civilian.CivilianSpawning;
 import dev.brights0ng.empire.civilian.TravellerArrivals;
 import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
+import dev.brights0ng.empire.data.RegionRecord;
 import dev.brights0ng.empire.data.TravellerSlot;
 import dev.brights0ng.empire.data.WorkAssignment;
 import dev.brights0ng.empire.rules.ArrivalRule;
@@ -36,6 +38,7 @@ import dev.brights0ng.empire.rules.CivilianLines;
 import dev.brights0ng.empire.rules.CivilianSchedule;
 import dev.brights0ng.empire.rules.CivilianTraits;
 import dev.brights0ng.empire.rules.CivilianTraits.BaseTrait;
+import dev.brights0ng.empire.rules.Occupation;
 import dev.brights0ng.empire.rules.ScheduleClock;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -154,6 +157,16 @@ public final class CivilianDebugCommands {
                                         .then(Commands.literal("outdoor")
                                                 .executes(ctx -> workAssign(ctx.getSource(), BlockPosArgument.getBlockPos(ctx, "pos"),
                                                         IntegerArgumentType.getInteger(ctx, "minutes"), false))))))
+                .then(Commands.literal("job")
+                        .then(Commands.literal("clear")
+                                .executes(ctx -> jobClear(ctx.getSource())))
+                        .then(Commands.literal("assign")
+                                .executes(ctx -> jobAssignHere(ctx.getSource()))
+                                .then(Commands.literal("here")
+                                        .executes(ctx -> jobAssignHere(ctx.getSource())))
+                                .then(Commands.argument("regionIdPrefix", StringArgumentType.word())
+                                        .executes(ctx -> jobAssignById(ctx.getSource(),
+                                                StringArgumentType.getString(ctx, "regionIdPrefix"))))))
                 .then(Commands.literal("traveller")
                         .then(playerArgument()
                                 .executes(ctx -> traveller(ctx.getSource(), player(ctx)))))
@@ -245,6 +258,7 @@ public final class CivilianDebugCommands {
                 CivilianRecord record = data.civilian(civilian.civilianId());
                 if (record != null && record.body().equals(civilian.getUUID())) {
                     CivilianBeds.releaseAndDetach(source.getServer().overworld(), record.empire(), record.id(), record.bed());
+                    CivilianOccupations.detachFromWorkplace(data, record.id(), record.schedule().work());
                     data.removeCivilian(record.id());
                 }
             } else if (civilian.status() == CivilianEntity.Status.TRAVELLER) {
@@ -536,8 +550,80 @@ public final class CivilianDebugCommands {
         if (civilian == null) {
             return 0;
         }
-        civilian.setWorkAssignment(null);
+        CivilianOccupations.unassign(source.getServer().overworld(), EmpireSavedData.of(source.getServer()), civilian);
         source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " work assignment cleared"), true);
+        return 1;
+    }
+
+    private static int jobAssignHere(CommandSourceStack source) {
+        ServerLevel overworld = source.getServer().overworld();
+        if (source.getLevel() != overworld) {
+            source.sendFailure(Component.literal("Regions only exist in the Overworld"));
+            return 0;
+        }
+        BlockPos pos = BlockPos.containing(source.getPosition());
+        EmpireSavedData data = EmpireSavedData.of(overworld);
+        RegionRecord region = data.regionAt(pos);
+        if (region == null) {
+            region = data.regionAt(pos.below());
+        }
+        if (region == null) {
+            source.sendFailure(Component.literal("No region at " + pos.toShortString()));
+            return 0;
+        }
+        return jobAssignRegion(source, overworld, data, region);
+    }
+
+    private static int jobAssignById(CommandSourceStack source, String idPrefix) {
+        ServerLevel overworld = source.getServer().overworld();
+        EmpireSavedData data = EmpireSavedData.of(overworld);
+        String prefix = idPrefix.toLowerCase(Locale.ROOT);
+        RegionRecord match = null;
+        for (RegionRecord region : data.allRegions()) {
+            if (region.id().toString().toLowerCase(Locale.ROOT).startsWith(prefix)) {
+                if (match != null) {
+                    source.sendFailure(Component.literal("Ambiguous region id prefix: " + idPrefix));
+                    return 0;
+                }
+                match = region;
+            }
+        }
+        if (match == null) {
+            source.sendFailure(Component.literal("No region matching prefix: " + idPrefix));
+            return 0;
+        }
+        return jobAssignRegion(source, overworld, data, match);
+    }
+
+    private static int jobAssignRegion(CommandSourceStack source, ServerLevel overworld, EmpireSavedData data,
+                                       RegionRecord region) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        CivilianOccupations.AssignResult result = CivilianOccupations.assign(overworld, data, civilian, region);
+        if (!result.succeeded()) {
+            source.sendFailure(Component.literal("Could not assign " + civilian.getName().getString()
+                    + " to region [" + region.id().toString().substring(0, 8) + "]: " + result.outcome().name()));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " assigned as "
+                + result.occupation().id() + " @ [" + region.id().toString().substring(0, 8) + "]"), true);
+        return 1;
+    }
+
+    private static int jobClear(CommandSourceStack source) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        boolean cleared = CivilianOccupations.unassign(
+                source.getServer().overworld(), EmpireSavedData.of(source.getServer()), civilian);
+        if (!cleared) {
+            source.sendFailure(Component.literal(civilian.getName().getString() + " is already unemployed"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " is now unemployed"), true);
         return 1;
     }
 
@@ -599,6 +685,7 @@ public final class CivilianDebugCommands {
         for (CivilianRecord civilian : records) {
             boolean loaded = overworld.getEntity(civilian.body()) != null;
             double maxHp = civilian.traits().derivedStats().maxHealth();
+            Occupation occ = CivilianOccupations.occupationOf(civilian);
             source.sendSuccess(() -> Component.literal(civilian.name() + " [" + civilian.id().toString().substring(0, 8)
                     + "] body " + (loaded ? "loaded" : "not loaded") + ", last at " + civilian.lastPos().toShortString()
                     + ", food " + civilian.food().foodLevel() + ", hp "
@@ -606,7 +693,8 @@ public final class CivilianDebugCommands {
                     + String.format(Locale.ROOT, "/%.0f, sleep ", maxHp)
                     + (Float.isNaN(civilian.sleep().lastNight()) ? "none" : String.format(Locale.ROOT, "%.2f", civilian.sleep().lastNight()))
                     + String.format(Locale.ROOT, ", griev %.2f", civilian.fulfilment().grievance())
-                    + (civilian.bed() != null ? ", bed " + civilian.bed().toShortString() : "")), false);
+                    + (civilian.bed() != null ? ", bed " + civilian.bed().toShortString() : "")
+                    + (occ.isEmployed() ? ", job " + occ.id() : "")), false);
         }
         TravellerSlot slot = data.traveller(record.id());
         if (slot != null) {

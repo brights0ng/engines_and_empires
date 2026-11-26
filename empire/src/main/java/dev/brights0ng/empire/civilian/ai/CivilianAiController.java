@@ -193,6 +193,18 @@ public final class CivilianAiController {
         civilian.syncNeedsToRecord();
     }
 
+    /** Called when an assigned workplace region changes validity (pauses work on invalidation; resumes on repair). */
+    public void onWorkplaceStatusChanged(ServerLevel level) {
+        EmpireSavedData data = EmpireSavedData.of(level);
+        CivilianRecord record = civilian.ownRecord(data);
+        EmpireRecord empire = record != null ? data.getEmpire(record.empire()) : null;
+        AiContext ctx = AiContext.of(level, civilian, data, empire);
+        CivilianSchedule.PlannedSlot active = slotRunner.activeSlot();
+        if (active != null && (active.kind() == SlotKind.WORK || active.kind() == SlotKind.RELAX)) {
+            slotRunner.stop(ctx);
+        }
+    }
+
     /** Stops any active slot/action cleanly (e.g. when entering dialogue, leaving, or sleeping). */
     public void stopAll(ServerLevel level) {
         EmpireSavedData data = EmpireSavedData.of(level);
@@ -485,10 +497,22 @@ public final class CivilianAiController {
         lines.add(Component.literal(s.summaryLine(tickOfDay)
                 + (ScheduleClock.isOutdoorTime(tickOfDay) ? " [outdoor OK]" : " [indoor only]")));
         WorkAssignment work = civilian.workAssignment();
-        lines.add(Component.literal("Work: " + (work == null ? "unassigned"
-                : work.label() + " @ " + work.anchor().toShortString()
-                + (work.indoor() ? " (indoor)" : " (outdoor)")
-                + " ask=" + ScheduleClock.format(work.dailyAskTicks()))));
+        if (work == null) {
+            lines.add(Component.literal("Work: unassigned"));
+        } else if (work.isOccupation() && work.workplaceRegionId() != null) {
+            var region = EmpireSavedData.of(level).region(work.workplaceRegionId());
+            String status = region == null ? "MISSING"
+                    : (region.valid() ? "VALID" : "INVALID:" + region.invalidReason().id());
+            lines.add(Component.literal("Work: " + work.occupation().id()
+                    + " @ region [" + work.workplaceRegionId().toString().substring(0, 8) + "] (" + status + ")"
+                    + (work.indoor() ? " (indoor)" : " (outdoor)")
+                    + " ask=" + ScheduleClock.format(work.dailyAskTicks())));
+        } else {
+            String posStr = work.anchor() != null ? work.anchor().toShortString() : "none";
+            lines.add(Component.literal("Work: " + work.label() + " @ " + posStr
+                    + (work.indoor() ? " (indoor)" : " (outdoor)")
+                    + " ask=" + ScheduleClock.format(work.dailyAskTicks())));
+        }
 
         StringBuilder anchorLine = new StringBuilder("Anchors: ");
         List<Anchor> anchors = s.anchors();

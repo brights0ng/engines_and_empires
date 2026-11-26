@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 import javax.annotation.Nullable;
 
@@ -17,6 +18,7 @@ import dev.brights0ng.empire.rules.CivilianSchedule.Anchor;
 import dev.brights0ng.empire.rules.CivilianSchedule.AnchorKind;
 import dev.brights0ng.empire.rules.CrowdMemory;
 import dev.brights0ng.empire.rules.LocationKey;
+import dev.brights0ng.empire.rules.Occupation;
 import dev.brights0ng.empire.rules.RouteMemory;
 import dev.brights0ng.empire.rules.ScheduleClock;
 import net.minecraft.core.BlockPos;
@@ -134,7 +136,15 @@ public final class CivilianScheduleNbt {
         WorkAssignment work = bundle.work();
         if (work != null) {
             CompoundTag wt = new CompoundTag();
-            wt.putLong("pos", work.anchor().asLong());
+            if (work.occupation().isEmployed()) {
+                wt.putString("occupation", work.occupation().id());
+            }
+            if (work.workplaceRegionId() != null) {
+                wt.putUUID("region", work.workplaceRegionId());
+            }
+            if (work.anchor() != null) {
+                wt.putLong("pos", work.anchor().asLong());
+            }
             wt.putBoolean("indoor", work.indoor());
             wt.putInt("ask", work.dailyAskTicks());
             wt.putString("label", work.label());
@@ -257,13 +267,22 @@ public final class CivilianScheduleNbt {
         WorkAssignment work = null;
         if (tag.contains(KEY_WORK, Tag.TAG_COMPOUND)) {
             CompoundTag wt = tag.getCompound(KEY_WORK);
-            if (wt.contains("pos", Tag.TAG_ANY_NUMERIC)) {
-                BlockPos pos = BlockPos.of(wt.getLong("pos"));
+            Occupation occ = wt.contains("occupation", Tag.TAG_STRING)
+                    ? Occupation.byId(wt.getString("occupation"))
+                    : null;
+            UUID regionId = wt.hasUUID("region") ? wt.getUUID("region") : null;
+            BlockPos pos = wt.contains("pos", Tag.TAG_ANY_NUMERIC) ? BlockPos.of(wt.getLong("pos")) : null;
+            if (occ != null && occ.isEmployed() && regionId != null) {
+                boolean indoor = wt.contains("indoor", Tag.TAG_ANY_NUMERIC) ? wt.getBoolean("indoor") : occ.indoor();
+                int ask = wt.contains("ask", Tag.TAG_ANY_NUMERIC) ? wt.getInt("ask") : occ.defaultDailyAskTicks();
+                String label = wt.contains("label", Tag.TAG_STRING) ? wt.getString("label") : occ.id();
+                work = new WorkAssignment(occ, regionId, pos, indoor, ask, label);
+            } else if (pos != null) {
                 boolean indoor = wt.getBoolean("indoor");
                 int ask = wt.contains("ask", Tag.TAG_ANY_NUMERIC)
                         ? wt.getInt("ask") : CivilianSchedule.DEFAULT_WORK_ASK_TICKS;
                 String label = wt.getString("label");
-                work = new WorkAssignment(pos, indoor, ask, label);
+                work = WorkAssignment.of(pos, indoor, ask, label);
             }
         }
 

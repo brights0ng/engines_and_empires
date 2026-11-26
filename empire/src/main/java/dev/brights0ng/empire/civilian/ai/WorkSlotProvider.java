@@ -4,17 +4,26 @@ package dev.brights0ng.empire.civilian.ai;
 import java.util.List;
 
 import dev.brights0ng.empire.data.WorkAssignment;
+import dev.brights0ng.empire.rules.Occupation;
 
 /**
  * Extensible Level-2 workplace provider interface: given a citizen's {@link WorkAssignment}, supplies the candidate
- * Level-3 {@link CivilianTask}s for a {@code WORK} Slot. Future workplace regions ({@code FARM}, {@code WORKSHOP},
- * etc.) implement this interface without changing the scheduler or slot runner.
+ * Level-3 {@link CivilianTask}s for a {@code WORK} Slot. Each {@link Occupation} registers its tasks here without
+ * changing the scheduler or slot runner.
  */
 @FunctionalInterface
 public interface WorkSlotProvider {
 
-    List<CivilianTask> createWorkTasks(WorkAssignment assignment);
+    List<CivilianTask> createWorkTasks(WorkAssignment assignment, LocationResolver locations);
 
-    /** Default placeholder provider until concrete workplace regions exist. */
-    WorkSlotProvider DEFAULT = assignment -> List.of(new StubWorkTask(assignment));
+    /** Occupation-dispatched provider with fallback to {@link StubWorkTask} for coordinate-only debug assignments. */
+    WorkSlotProvider DEFAULT = (assignment, locations) -> {
+        if (assignment.isOccupation()) {
+            return switch (assignment.occupation()) {
+                case FARMER -> List.of(new FarmerStandByShedTask(locations));
+                case UNEMPLOYED -> List.of();
+            };
+        }
+        return assignment.anchor() != null ? List.of(new StubWorkTask(assignment)) : List.of();
+    };
 }

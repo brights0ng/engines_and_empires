@@ -9,10 +9,13 @@ import dev.brights0ng.empire.civilian.CivilianRoster;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.RegionRecord;
 import dev.brights0ng.empire.data.WorkAssignment;
+import dev.brights0ng.empire.rules.BlockKeys;
 import dev.brights0ng.empire.rules.ChunkKeys;
 import dev.brights0ng.empire.rules.LocationKey;
+import dev.brights0ng.empire.rules.Occupation;
 import dev.brights0ng.empire.rules.RegionType;
 import dev.brights0ng.empire.rules.RouteMemory;
+import it.unimi.dsi.fastutil.longs.LongIterator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -48,15 +51,167 @@ public final class LocationResolver {
 
         return switch (key) {
             case HOME -> resolveHome(ctx);
-            case WORK -> {
-                WorkAssignment work = civ.workAssignment();
-                yield work != null ? work.anchor() : null;
-            }
+            case WORK -> resolveWork(ctx);
             case FOOD_SITE, SOCIAL_HUB -> resolveGatheringSpot(level, empire, seed, civ.blockPosition());
             case HOBBY_FISHING -> resolveFishingSpot(ctx);
             case HOBBY_READING, HOBBY_RELAX_HOME -> resolveIndoorComfortSpot(ctx);
             case HOBBY_WALK -> resolveWalkSpot(ctx, ctx.civilian().getRandom().nextInt(360));
         };
+    }
+
+    /**
+     * Resolves {@link LocationKey#WORK} dynamically: for region-backed occupations (e.g. {@link Occupation#FARMER}),
+     * checks that the workplace region is still valid and picks a standable block beside its seed shed; for
+     * coordinate-only debug assignments, returns the fixed anchor.
+     */
+    @Nullable
+    private BlockPos resolveWork(AiContext ctx) {
+        WorkAssignment work = ctx.civilian().workAssignment();
+        if (work == null) {
+            return null;
+        }
+        if (work.isOccupation()) {
+            if (work.occupation() == Occupation.FARMER) {
+                RegionRecord farm = resolveValidFarm(ctx, work);
+                return farm != null ? resolveFarmSeedShedStandSpot(ctx, farm) : null;
+            }
+            return null;
+        }
+        return work.anchor();
+    }
+
+    /** Returns the seed block of the farmer's assigned farm's seed shed (look target), or {@code null} if invalid. */
+    @Nullable
+    public BlockPos resolveFarmShedFocus(AiContext ctx) {
+        WorkAssignment work = ctx.civilian().workAssignment();
+        if (work == null || !work.isOccupation() || work.occupation() != Occupation.FARMER) {
+            return null;
+        }
+        RegionRecord farm = resolveValidFarm(ctx, work);
+        if (farm == null) {
+            return null;
+        }
+        RegionRecord.RoomRecord shed = resolveSeedShedRoom(farm);
+        return shed != null ? BlockPos.of(shed.seed()) : null;
+    }
+
+    /** Returns the seed shed room of {@code farm} (the room containing {@code farm.seed()}, or first {@code SHED}). */
+    @Nullable
+    public static RegionRecord.RoomRecord resolveSeedShedRoom(RegionRecord farm) {
+        RegionRecord.RoomRecord seedRoom = farm.roomAt(farm.seed());
+        if (seedRoom != null && seedRoom.isShed()) {
+            return seedRoom;
+        }
+        for (RegionRecord.RoomRecord room : farm.rooms()) {
+            if (room.isShed()) {
+                return room;
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    private static RegionRecord resolveValidFarm(AiContext ctx, WorkAssignment work) {
+        EmpireRecord empire = ctx.empire();
+        if (empire == null || work.workplaceRegionId() == null) {
+            return null;
+        }
+        RegionRecord region = ctx.data().region(work.workplaceRegionId());
+        if (region == null || !region.valid() || region.type() != RegionType.FARM
+                || !region.empireId().equals(empire.id())) {
+            return null;
+        }
+        return region;
+    }
+
+    /**
+     * Finds a deterministic standable block adjacent to (or within a short radius of) {@code farm}'s seed shed on
+     * staked empire land. Because shed blocks themselves are solid workstations/storage, farmers stand right beside
+     * the shed rather than inside it.
+     */
+    @Nullable
+    public static BlockPos resolveFarmSeedShedStandSpot(AiContext ctx, RegionRecord farm) {
+        RegionRecord.RoomRecord shed = resolveSeedShedRoom(farm);
+        if (shed == null) {
+            return null;
+        }
+        ServerLevel level = ctx.level();
+        EmpireRecord empire = ctx.empire();
+        BlockPos seedPos = BlockPos.of(shed.seed());
+        if (!level.hasChunkAt(seedPos)) {
+            return seedPos;
+        }
+
+        // Pass 1: immediate horizontal neighbor of any block in the seed shed (dy in {0, -1, +1}), closest to seedPos.
+        BlockPos best = null;
+        double bestDistSq = Double.MAX_VALUE;
+        BlockPos.MutableBlockPos cand = new BlockPos.MutableBlockPos();
+        LongIterator it = shed.blocks().iterator();
+        while (it.hasNext()) {
+            long key = it.nextLong();
+            int bx = BlockKeys.getX(key);
+            int by = BlockKeys.getY(key);
+            int bz = BlockKeys.getZ(key);
+            for (Direction dir : Direction.Plane.HORIZONTAL) {
+                int nx = bx + dir.getStepX();
+                int nz = bz + dir.getStepZ();
+                for (int dy : new int[] {0, -1, 1}) {
+                    int ny = by + dy;
+                    long candKey = BlockKeys.pack(nx, ny, nz);
+                    if (shed.blocks().contains(candKey)) {
+                        continue;
+                    }
+                    if (empire != null && !empire.state().staked().contains(ChunkKeys.pack(nx >> 4, nz >> 4))) {
+                        continue;
+                    }
+                    cand.set(nx, ny, nz);
+                    if (level.hasChunkAt(cand) && CivilianBeds.isStandable(level, cand)) {
+                        double d2 = cand.distSqr(seedPos);
+                        if (best == null || d2 < bestDistSq || (d2 == bestDistSq && cand.asLong() < best.asLong())) {
+                            best = cand.immutable();
+                            bestDistSq = d2;
+                        }
+                    }
+                }
+            }
+        }
+        if (best != null) {
+            return best;
+        }
+
+        // Pass 2: wider search around seedPos (radius 2..4) if the shed's immediate edges are walled off.
+        for (int r = 2; r <= 4; r++) {
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != r) {
+                        continue;
+                    }
+                    int nx = seedPos.getX() + dx;
+                    int nz = seedPos.getZ() + dz;
+                    if (empire != null && !empire.state().staked().contains(ChunkKeys.pack(nx >> 4, nz >> 4))) {
+                        continue;
+                    }
+                    for (int dy = -2; dy <= 2; dy++) {
+                        int ny = seedPos.getY() + dy;
+                        if (shed.blocks().contains(BlockKeys.pack(nx, ny, nz))) {
+                            continue;
+                        }
+                        cand.set(nx, ny, nz);
+                        if (level.hasChunkAt(cand) && CivilianBeds.isStandable(level, cand)) {
+                            double d2 = cand.distSqr(seedPos);
+                            if (best == null || d2 < bestDistSq || (d2 == bestDistSq && cand.asLong() < best.asLong())) {
+                                best = cand.immutable();
+                                bestDistSq = d2;
+                            }
+                        }
+                    }
+                }
+            }
+            if (best != null) {
+                return best;
+            }
+        }
+        return null;
     }
 
     /** True if {@code key} currently resolves to a concrete destination in the world. */

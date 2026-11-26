@@ -27,6 +27,7 @@ import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
 import dev.brights0ng.empire.data.WorkAssignment;
+import dev.brights0ng.empire.ledger.LedgerSelection;
 import dev.brights0ng.empire.rules.CivilianAppearance;
 import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianDerivedStats;
@@ -41,6 +42,7 @@ import dev.brights0ng.empire.rules.CivilianSleep;
 import dev.brights0ng.empire.rules.CivilianTraits;
 import dev.brights0ng.empire.rules.CivilianTraits.BaseTrait;
 import dev.brights0ng.empire.rules.CrowdMemory;
+import dev.brights0ng.empire.rules.Occupation;
 import dev.brights0ng.empire.rules.RegionRules;
 import dev.brights0ng.empire.rules.RouteMemory;
 import dev.brights0ng.empire.rules.TravellerWants;
@@ -474,6 +476,11 @@ public class CivilianEntity extends PathfinderMob {
         return workAssignment;
     }
 
+    /** Current assigned {@link Occupation}, or {@link Occupation#UNEMPLOYED} if unassigned or debug-only. */
+    public Occupation occupation() {
+        return CivilianOccupations.occupationOf(this);
+    }
+
     public CivilianAiController aiController() {
         if (aiController == null) {
             aiController = new CivilianAiController(this);
@@ -723,6 +730,24 @@ public class CivilianEntity extends PathfinderMob {
             }
         }
         lines.add(Component.literal(bedLine.toString()));
+
+        StringBuilder jobLine = new StringBuilder("Occupation: ");
+        if (workAssignment != null && workAssignment.isOccupation() && workAssignment.workplaceRegionId() != null) {
+            RegionRecord workplace = data.region(workAssignment.workplaceRegionId());
+            jobLine.append(workAssignment.occupation().id())
+                    .append(" | Workplace: ").append(workAssignment.workplaceRegionId().toString(), 0, 8);
+            if (workplace != null) {
+                String validity = workplace.valid() ? "VALID" : "INVALID:" + workplace.invalidReason().id();
+                jobLine.append(" (").append(workplace.type().id()).append(", ").append(validity)
+                        .append(", ").append(CivilianOccupations.activeWorkerCount(data, workplace))
+                        .append("/").append(RegionRules.workerCapacity(workplace.type())).append(")");
+            } else {
+                jobLine.append(" (MISSING)");
+            }
+        } else {
+            jobLine.append("unemployed");
+        }
+        lines.add(Component.literal(jobLine.toString()));
 
         if (status == Status.TRAVELLER) {
             TravellerWants.Want w = TravellerWants.WANTS.get(want);
@@ -1582,7 +1607,7 @@ public class CivilianEntity extends PathfinderMob {
             if (player.isSpectator()) {
                 return InteractionResult.PASS;
             }
-            if (player.isSecondaryUseActive() && status != Status.LEAVING) {
+            if (player.isSecondaryUseActive() && status != Status.LEAVING && !LedgerSelection.isHoldingLedger(player)) {
                 if (level() instanceof ServerLevel serverLevel) {
                     for (Component line : debugInfoLines(serverLevel)) {
                         player.sendSystemMessage(line);

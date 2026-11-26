@@ -1,4 +1,4 @@
-// Written by Claude; added woken grumble category by Gemini.
+// Written by Claude; added woken, hired and unemployed categories by Gemini.
 package dev.brights0ng.empire.rules;
 
 import java.util.Locale;
@@ -8,7 +8,7 @@ import java.util.random.RandomGenerator;
 public final class CivilianLines {
 
     public enum Category {
-        IDLE(8), GREETING(5), RAIN(4), NIGHT(4), REPLY(8), WOKEN(4);
+        IDLE(8), GREETING(5), RAIN(4), NIGHT(4), REPLY(8), WOKEN(4), HIRED(3), UNEMPLOYED(3);
 
         private final int count;
 

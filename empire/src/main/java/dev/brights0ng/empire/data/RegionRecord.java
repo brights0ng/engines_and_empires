@@ -169,8 +169,10 @@ public final class RegionRecord {
     private int maxX;
     private int maxY;
     private int maxZ;
-    /** Citizen record UUIDs currently attached to this region (e.g. HOME inhabitants). */
+    /** Citizen record UUIDs currently attached to this region as residents (e.g. HOME inhabitants). */
     private final Set<UUID> inhabitants = new LinkedHashSet<>();
+    /** Citizen record UUIDs currently assigned to work at this region (e.g. FARM farmers). */
+    private final Set<UUID> workers = new LinkedHashSet<>();
     private boolean valid = true;
     private RegionInvalidReason invalidReason = RegionInvalidReason.NONE;
     private long invalidSinceGameTime = -1L;
@@ -695,6 +697,26 @@ public final class RegionRecord {
         inhabitants.clear();
     }
 
+    public Set<UUID> workers() {
+        return Collections.unmodifiableSet(workers);
+    }
+
+    public boolean hasWorker(UUID civilianId) {
+        return workers.contains(civilianId);
+    }
+
+    public boolean addWorker(UUID civilianId) {
+        return workers.add(civilianId);
+    }
+
+    public boolean removeWorker(UUID civilianId) {
+        return workers.remove(civilianId);
+    }
+
+    public void clearWorkers() {
+        workers.clear();
+    }
+
     public boolean valid() {
         return valid;
     }
@@ -784,6 +806,13 @@ public final class RegionRecord {
             inhabitantsTag.add(NbtUtils.createUUID(inhabitant));
         }
         tag.put("inhabitants", inhabitantsTag);
+        if (!workers.isEmpty()) {
+            ListTag workersTag = new ListTag();
+            for (UUID worker : workers) {
+                workersTag.add(NbtUtils.createUUID(worker));
+            }
+            tag.put("workers", workersTag);
+        }
         tag.putBoolean("valid", valid);
         tag.putString("invalid_reason", invalidReason.id());
         tag.putLong("invalid_since", invalidSinceGameTime);
@@ -852,6 +881,12 @@ public final class RegionRecord {
         ListTag inhabitantsTag = tag.getList("inhabitants", Tag.TAG_INT_ARRAY);
         for (int i = 0; i < inhabitantsTag.size(); i++) {
             record.inhabitants.add(NbtUtils.loadUUID(inhabitantsTag.get(i)));
+        }
+        if (tag.contains("workers", Tag.TAG_LIST)) {
+            ListTag workersTag = tag.getList("workers", Tag.TAG_INT_ARRAY);
+            for (int i = 0; i < workersTag.size(); i++) {
+                record.workers.add(NbtUtils.loadUUID(workersTag.get(i)));
+            }
         }
         record.valid = !tag.contains("valid") || tag.getBoolean("valid");
         record.invalidReason = RegionInvalidReason.byId(tag.getString("invalid_reason"));

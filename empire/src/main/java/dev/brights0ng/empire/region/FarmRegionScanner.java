@@ -11,6 +11,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import dev.brights0ng.empire.Empire;
+import dev.brights0ng.empire.civilian.CivilianOccupations;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
@@ -281,6 +282,7 @@ public final class FarmRegionScanner {
 
         if (remaining.isEmpty()) {
             RegionManager.detachAllInhabitants(level, data, farm);
+            CivilianOccupations.detachAllWorkers(level, data, farm);
             data.removeRegion(farm.id());
             return new RemoveRoomResult(RemoveOutcome.DELETED_REGION, removedLabel);
         }

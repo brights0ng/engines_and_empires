@@ -12,6 +12,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 
+import dev.brights0ng.empire.civilian.CivilianOccupations;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
@@ -109,18 +110,19 @@ public final class RegionDebugCommands {
         if (empire == null) {
             return 0;
         }
-        List<RegionRecord> regions = EmpireSavedData.of(source.getServer()).regionsOf(empire.id());
+        EmpireSavedData data = EmpireSavedData.of(source.getServer());
+        List<RegionRecord> regions = data.regionsOf(empire.id());
         source.sendSuccess(() -> Component.literal(regions.size() + " region" + (regions.size() == 1 ? "" : "s")), false);
         for (RegionRecord region : regions) {
-            String cap = region.type() == RegionType.HOME
-                    ? region.inhabitants().size() + "/" + RegionRules.homeCapacity(region.effectiveVolume())
-                    : String.valueOf(region.inhabitants().size());
+            String occupancy = region.type() == RegionType.HOME
+                    ? "inhabitants=" + region.inhabitants().size() + "/" + RegionRules.homeCapacity(region.effectiveVolume())
+                    : "workers=" + CivilianOccupations.activeWorkerCount(data, region) + "/" + RegionRules.workerCapacity(region.type());
             String status = region.valid() ? "VALID" : "INVALID(" + region.invalidReason().id() + ")";
             source.sendSuccess(() -> Component.literal("[" + shortId(region.id()) + "] "
                     + region.type().id() + " (" + region.origin().id() + ") " + status
                     + ", blocks=" + region.effectiveVolume() + "/" + region.blockCount()
                     + ", rooms=" + region.rooms().size()
-                    + ", inhabitants=" + cap
+                    + ", " + occupancy
                     + ", bounds=(" + region.minX() + "," + region.minY() + "," + region.minZ()
                     + ")..(" + region.maxX() + "," + region.maxY() + "," + region.maxZ() + ")"), false);
         }
@@ -134,23 +136,24 @@ public final class RegionDebugCommands {
             return 0;
         }
         BlockPos pos = BlockPos.containing(source.getPosition());
-        RegionRecord region = EmpireSavedData.of(overworld).regionAt(pos);
+        EmpireSavedData data = EmpireSavedData.of(overworld);
+        RegionRecord region = data.regionAt(pos);
         if (region == null) {
             source.sendFailure(Component.literal("No region at " + pos.toShortString()));
             return 0;
         }
         String status = region.valid() ? "VALID"
                 : "INVALID (" + region.invalidReason().id() + ", since tick " + region.invalidSinceGameTime() + ")";
-        String cap = region.type() == RegionType.HOME
-                ? region.inhabitants().size() + "/" + RegionRules.homeCapacity(region.effectiveVolume())
-                : String.valueOf(region.inhabitants().size());
+        String occupancy = region.type() == RegionType.HOME
+                ? "inhabitants: " + region.inhabitants().size() + "/" + RegionRules.homeCapacity(region.effectiveVolume())
+                : "workers: " + CivilianOccupations.activeWorkerCount(data, region) + "/" + RegionRules.workerCapacity(region.type());
         source.sendSuccess(() -> Component.literal("Region [" + shortId(region.id()) + "] "
                 + region.type().id() + " (" + region.origin().id() + ") — " + status), false);
         long seed = region.seed();
         source.sendSuccess(() -> Component.literal("Blocks: " + region.blockCount()
                 + " (effective: " + region.effectiveVolume() + ", separators: " + region.separators().size() + ")"
                 + ", chunks: " + region.chunks().size()
-                + ", inhabitants: " + cap
+                + ", " + occupancy
                 + ", seed: (" + BlockKeys.getX(seed) + "," + BlockKeys.getY(seed) + "," + BlockKeys.getZ(seed) + ")"
                 + ", bounds: (" + region.minX() + "," + region.minY() + "," + region.minZ()
                 + ")..(" + region.maxX() + "," + region.maxY() + "," + region.maxZ() + ")"), false);
@@ -317,6 +320,7 @@ public final class RegionDebugCommands {
             return 0;
         }
         RegionManager.detachAllInhabitants(overworld, data, match);
+        CivilianOccupations.detachAllWorkers(overworld, data, match);
         data.removeRegion(match.id());
         LedgerSelection.clearForRegion(overworld, match.id());
         RegionNetwork.pushToEmpire(overworld, match.empireId());
@@ -335,6 +339,7 @@ public final class RegionDebugCommands {
         List<RegionRecord> regions = data.regionsOf(empire.id());
         for (RegionRecord region : regions) {
             RegionManager.detachAllInhabitants(overworld, data, region);
+            CivilianOccupations.detachAllWorkers(overworld, data, region);
             data.removeRegion(region.id());
             LedgerSelection.clearForRegion(overworld, region.id());
         }

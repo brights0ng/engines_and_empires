@@ -141,6 +141,7 @@ public final class CivilianRoster {
             CivilianBeds.release(overworld, record.bed());
             if (overworld.getEntity(record.body()) instanceof CivilianEntity body) {
                 body.setClaimedBed(null);
+                body.setWorkAssignment(null);
                 body.startLeaving();
             }
         }
@@ -157,6 +158,7 @@ public final class CivilianRoster {
             if (record != null) {
                 CivilianBeds.releaseAndDetach(level, record.empire(), record.id(),
                         record.bed() != null ? record.bed() : civilian.claimedBed());
+                CivilianOccupations.detachFromWorkplace(data, record.id(), record.schedule().work());
                 data.removeCivilian(record.id());
                 STRIKES.remove(record.id());
                 EmpireRecord empire = data.getEmpire(record.empire());
@@ -231,6 +233,7 @@ public final class CivilianRoster {
             CivilianRecord old = civilian.ownRecord(data);
             if (old != null) {
                 CivilianBeds.releaseAndDetach(level, old.empire(), old.id(), old.bed());
+                CivilianOccupations.detachFromWorkplace(data, old.id(), old.schedule().work());
                 civilian.setClaimedBed(null);
                 data.removeCivilian(old.id());
             }

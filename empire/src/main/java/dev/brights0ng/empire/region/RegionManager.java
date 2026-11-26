@@ -10,6 +10,7 @@ import java.util.UUID;
 import dev.brights0ng.empire.Empire;
 import dev.brights0ng.empire.civilian.CivilianBeds;
 import dev.brights0ng.empire.civilian.CivilianEntity;
+import dev.brights0ng.empire.civilian.CivilianOccupations;
 import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
@@ -142,6 +143,7 @@ public final class RegionManager {
                     if (region != null && RegionRules.shouldAutoDelete(
                             region.origin(), region.valid(), region.invalidSinceGameTime(), now)) {
                         detachAllInhabitants(overworld, data, region);
+                        CivilianOccupations.detachAllWorkers(overworld, data, region);
                         data.removeRegion(region.id());
                         LedgerSelection.clearForRegion(overworld, region.id());
                         RegionNetwork.pushToEmpire(overworld, region.empireId());
@@ -253,6 +255,7 @@ public final class RegionManager {
         EmpireRecord empire = data.getEmpire(region.empireId());
         if (empire == null) {
             detachAllInhabitants(overworld, data, region);
+            CivilianOccupations.detachAllWorkers(overworld, data, region);
             SCHEDULED_EXPIRIES.remove(region.id());
             data.removeRegion(region.id());
             LedgerSelection.clearForRegion(overworld, region.id());
@@ -272,6 +275,7 @@ public final class RegionManager {
 
         if (RegionRules.shouldAutoDelete(region.origin(), region.valid(), region.invalidSinceGameTime(), gameTime)) {
             detachAllInhabitants(overworld, data, region);
+            CivilianOccupations.detachAllWorkers(overworld, data, region);
             SCHEDULED_EXPIRIES.remove(region.id());
             data.removeRegion(region.id());
             LedgerSelection.clearForRegion(overworld, region.id());
@@ -332,6 +336,7 @@ public final class RegionManager {
                 region.markValid();
                 SCHEDULED_EXPIRIES.remove(region.id());
                 data.setDirty();
+                CivilianOccupations.onWorkplaceValidityChanged(overworld, data, region);
             }
             if (shapeChanged || roomsChanged || becameValid) {
                 region.bumpRevision();
@@ -355,6 +360,9 @@ public final class RegionManager {
             if (becameValid) {
                 region.markValid();
                 SCHEDULED_EXPIRIES.remove(region.id());
+                if (!region.workers().isEmpty()) {
+                    CivilianOccupations.onWorkplaceValidityChanged(overworld, data, region);
+                }
             }
             if (roomsChanged) {
                 reconcileInhabitants(overworld, data, region);
@@ -384,6 +392,10 @@ public final class RegionManager {
         }
         if (wasValid || !region.inhabitants().isEmpty()) {
             detachAllInhabitants(overworld, data, region);
+        }
+        // Workplace regions pause workers while INVALID rather than unassigning them (Bright, 2026-11-25).
+        if (wasValid && !region.workers().isEmpty()) {
+            CivilianOccupations.onWorkplaceValidityChanged(overworld, data, region);
         }
     }
 
