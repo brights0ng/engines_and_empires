@@ -183,7 +183,8 @@ public final class RegionDebugCommands {
             RegionRecord.RoomRecord standingRoom = region.roomAt(pos);
             here = standingRoom != null
                     ? "room #" + standingRoom.index() + " " + formatLabels(standingRoom) + " (" + standingRoom.blockCount() + " blocks"
-                            + (standingRoom.storageCount() > 0 ? ", " + standingRoom.storageCount() + " storage" : "") + ")"
+                            + (standingRoom.storageCount() > 0 ? ", " + standingRoom.storageCount() + " storage" : "")
+                            + (standingRoom.preferredCropId() != null ? ", crop=" + standingRoom.preferredCropId() : "") + ")"
                     : "unassigned";
         }
         int inRooms = indoorCount;

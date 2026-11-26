@@ -8,6 +8,7 @@ import java.util.UUID;
 import dev.brights0ng.empire.Empire;
 import dev.brights0ng.empire.civilian.CivilianEntity;
 import dev.brights0ng.empire.civilian.CivilianOccupations;
+import dev.brights0ng.empire.civilian.ai.FarmCrops;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
@@ -35,6 +36,7 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BedBlock;
@@ -216,8 +218,19 @@ public final class LedgerInteractions {
         if (event.getUseItem() == TriState.FALSE) {
             return;
         }
+        Player player = event.getEntity();
         ItemStack stack = event.getItemStack();
-        if (!(stack.getItem() instanceof AdministrativeLedgerItem)) {
+        boolean ledgerInActiveHand = stack.getItem() instanceof AdministrativeLedgerItem;
+        boolean ledgerInOffhand = event.getHand() == InteractionHand.MAIN_HAND
+                && !ledgerInActiveHand
+                && player.getOffhandItem().getItem() instanceof AdministrativeLedgerItem;
+
+        // Offhand Ledger + Selected FARM + FIELD click: set crop override (seed/produce in main hand) or clear (empty hand).
+        if (ledgerInOffhand) {
+            handleOffhandLedgerFieldCrop(event, player, stack);
+            return;
+        }
+        if (!ledgerInActiveHand) {
             return;
         }
 
@@ -238,7 +251,6 @@ public final class LedgerInteractions {
             return;
         }
 
-        Player player = event.getEntity();
         ServerLevel serverLevel = (ServerLevel) level;
         if (!serverLevel.dimension().equals(Level.OVERWORLD)) {
             if (isHomeBlock) {
@@ -418,10 +430,66 @@ public final class LedgerInteractions {
         }
     }
 
+    private static void handleOffhandLedgerFieldCrop(PlayerInteractEvent.RightClickBlock event, Player player,
+                                                     ItemStack mainHand) {
+        if (player.isShiftKeyDown()) {
+            return;
+        }
+        boolean isEmptyHand = mainHand.isEmpty();
+        Item canonicalSeed = isEmptyHand ? null : FarmCrops.canonicalSeedForItem(mainHand.getItem());
+        if (!isEmptyHand && canonicalSeed == null) {
+            return;
+        }
+        Level level = event.getLevel();
+        BlockPos clickedPos = event.getPos();
+        if (level.isClientSide()) {
+            RegionPayloads.RegionSnapshot selected = RegionClientCache.selectedRegion();
+            RegionPayloads.RegionSnapshot clickedSnap = RegionClientCache.regionAt(clickedPos);
+            if (selected != null && selected.type() == RegionType.FARM
+                    && clickedSnap != null && clickedSnap.id().equals(selected.id())) {
+                event.setCanceled(true);
+                event.setCancellationResult(InteractionResult.SUCCESS);
+            }
+            return;
+        }
+        ServerLevel serverLevel = (ServerLevel) level;
+        if (!serverLevel.dimension().equals(Level.OVERWORLD)) {
+            return;
+        }
+        EmpireSavedData data = EmpireSavedData.of(serverLevel);
+        EmpireRecord empire = data.getEmpireOf(player.getUUID());
+        if (empire == null) {
+            return;
+        }
+        RegionRecord selected = LedgerSelection.selectedRegion(serverLevel, player, data, empire);
+        if (selected == null || selected.type() != RegionType.FARM) {
+            return;
+        }
+        RegionRecord.RoomRecord room = selected.roomAt(clickedPos);
+        if (room == null || !room.isField()) {
+            return;
+        }
+        cancelServer(event);
+        if (isEmptyHand) {
+            selected.setRoomPreferredCrop(room.index(), null);
+            data.setDirty();
+            playPageTurn(serverLevel, clickedPos, 0.9F);
+            player.displayClientMessage(Component.translatable("message.empire.ledger.farm.field_crop_cleared"), true);
+        } else {
+            String seedId = FarmCrops.itemId(canonicalSeed);
+            selected.setRoomPreferredCrop(room.index(), seedId);
+            data.setDirty();
+            playPageTurn(serverLevel, clickedPos, 1.1F);
+            player.displayClientMessage(Component.translatable(
+                    "message.empire.ledger.farm.field_crop_set", canonicalSeed.getDescription()), true);
+        }
+    }
+
     private static void handleSelectedRegionClick(ServerLevel level, EmpireSavedData data, Player player,
                                                   RegionRecord selected, BlockPos pos) {
         boolean wasValid = selected.valid();
-        RegionManager.updateRegion(level, data, selected, level.getGameTime());
+        // Explicit ledger click on a selected farm allows field rooms to shrink to match remaining live farmland/crops.
+        RegionManager.updateRegion(level, data, selected, level.getGameTime(), selected.type() == RegionType.FARM);
         if (data.region(selected.id()) == null) {
             LedgerSelection.clearForRegion(level, selected.id());
             return;
@@ -618,9 +686,17 @@ public final class LedgerInteractions {
                     room.blockCount(),
                     room.storageCount()), true);
         } else if (room != null && room.isField()) {
-            player.displayClientMessage(Component.translatable(
-                    "message.empire.ledger.farm.room_status_field",
-                    room.blockCount()), true);
+            Item preferred = FarmCrops.seedItemById(room.preferredCropId());
+            if (preferred != null) {
+                player.displayClientMessage(Component.translatable(
+                        "message.empire.ledger.farm.room_status_field_crop",
+                        room.blockCount(),
+                        preferred.getDescription()), true);
+            } else {
+                player.displayClientMessage(Component.translatable(
+                        "message.empire.ledger.farm.room_status_field",
+                        room.blockCount()), true);
+            }
         } else {
             player.displayClientMessage(Component.translatable(
                     "message.empire.ledger.farm.selected",

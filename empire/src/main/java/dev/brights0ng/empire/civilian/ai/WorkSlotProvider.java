@@ -20,7 +20,19 @@ public interface WorkSlotProvider {
     WorkSlotProvider DEFAULT = (assignment, locations) -> {
         if (assignment.isOccupation()) {
             return switch (assignment.occupation()) {
-                case FARMER -> List.of(new FarmerStandByShedTask(locations));
+                case FARMER -> {
+                    FarmWorkScanner scanner = new FarmWorkScanner();
+                    yield List.of(
+                            new EndShiftStoreWorkGearTask(scanner),
+                            new DumpToStorageTask(scanner),
+                            new FetchSuppliesTask(scanner),
+                            new RetillSoilTask(scanner),
+                            new HarvestAndReplantTask(scanner),
+                            new PlantSeedsTask(scanner),
+                            new PickupDropsTask(scanner),
+                            new FarmerStandByShedTask(locations)
+                    );
+                }
                 case UNEMPLOYED -> List.of();
             };
         }

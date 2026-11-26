@@ -17,6 +17,8 @@ import dev.brights0ng.empire.EmpireConfig;
 import dev.brights0ng.empire.civilian.CivilianNetwork.CivilianSpeechPayload;
 import dev.brights0ng.empire.civilian.ai.CivilianAiController;
 import dev.brights0ng.empire.civilian.ai.CivilianAiGoal;
+import dev.brights0ng.empire.civilian.ai.EquipAction;
+import dev.brights0ng.empire.civilian.ai.FarmCrops;
 import dev.brights0ng.empire.data.CivilianFulfilmentNbt;
 import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.CivilianFoodNbt;
@@ -1378,11 +1380,19 @@ public class CivilianEntity extends PathfinderMob {
 
     /**
      * Attempts to start eating one fitting food item from pockets through vanilla item use. When {@code preferLiked}
-     * is true, checks the civilian's favourite foods first before falling back to any fitting food.
+     * is true, checks the civilian's favourite foods first before falling back to any fitting food. Raw farm produce
+     * is eaten only as an emergency fallback when no proper food fits and hunger is at or below the emergency snack
+     * threshold (Bright, 2026-11-26).
      */
     public boolean startEatingFromInventory(boolean preferLiked) {
-        if (isLyingDown() || isUsingItem() || !getMainHandItem().isEmpty()) {
+        if (isLyingDown() || isUsingItem()) {
             return false;
+        }
+        if (!getMainHandItem().isEmpty()) {
+            EquipAction.stowMainHand(this);
+            if (!getMainHandItem().isEmpty()) {
+                return false;
+            }
         }
         int slot = findFittingPocketFoodSlot(preferLiked);
         if (slot < 0) {
@@ -1404,13 +1414,20 @@ public class CivilianEntity extends PathfinderMob {
         if (missing <= 0) {
             return -1;
         }
-        int firstAny = -1;
+        boolean allowRawProduce = food.foodLevel() <= aiController().emergencyFoodThreshold();
+        int firstProper = -1;
+        int firstRaw = -1;
+        int likedRaw = -1;
         for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
             ItemStack stack = inventory.getItem(slot);
             FoodProperties properties = stack.getFoodProperties(this);
-            if (!stack.isEmpty() && properties != null && properties.nutrition() <= missing) {
-                if (firstAny < 0) {
-                    firstAny = slot;
+            if (stack.isEmpty() || properties == null || properties.nutrition() > missing) {
+                continue;
+            }
+            boolean rawProduce = FarmCrops.isRawFarmProduceFood(stack);
+            if (!rawProduce) {
+                if (firstProper < 0) {
+                    firstProper = slot;
                 }
                 if (!preferLiked) {
                     return slot;
@@ -1419,9 +1436,22 @@ public class CivilianEntity extends PathfinderMob {
                 if (key != null && fulfilment.preferences().likesFood(key.toString())) {
                     return slot;
                 }
+            } else if (allowRawProduce) {
+                if (firstRaw < 0) {
+                    firstRaw = slot;
+                }
+                if (preferLiked && likedRaw < 0) {
+                    ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+                    if (key != null && fulfilment.preferences().likesFood(key.toString())) {
+                        likedRaw = slot;
+                    }
+                }
             }
         }
-        return firstAny;
+        if (firstProper >= 0) {
+            return firstProper;
+        }
+        return likedRaw >= 0 ? likedRaw : firstRaw;
     }
 
     private void tryEatFromInventory() {
@@ -1478,7 +1508,7 @@ public class CivilianEntity extends PathfinderMob {
         syncNeedsToRecord();
     }
 
-    private void storeOrDrop(ItemStack stack) {
+    public void storeOrDrop(ItemStack stack) {
         if (stack.isEmpty()) return;
         ItemStack overflow = inventory.addItem(stack);
         if (!overflow.isEmpty()) spawnAtLocation(overflow);

@@ -30,6 +30,11 @@ public interface CivilianTask {
         return true;
     }
 
+    /** True if this task runs only during the end-of-shift wrap-up phase (e.g. stowing tools/work gear). */
+    default boolean isEndShiftTask() {
+        return false;
+    }
+
     default String activeActionName() {
         return "none";
     }

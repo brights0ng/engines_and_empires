@@ -219,6 +219,7 @@ public final class FarmRegionScanner {
         boolean merged = false;
         long chosenSeed = start.asLong();
         boolean hasComposterSeed = label == RoomLabel.SHED && isComposter(startState);
+        String preservedCrop = null;
 
         for (RegionRecord.RoomRecord existing : farm.rooms()) {
             if (!existing.hasLabel(label)) {
@@ -227,6 +228,9 @@ public final class FarmRegionScanner {
             }
             if (sharesAnyBlock(existing.blocks(), filled)) {
                 merged = true;
+                if (preservedCrop == null && existing.preferredCropId() != null) {
+                    preservedCrop = existing.preferredCropId();
+                }
                 // Prefer preserving an existing composter seed (for sheds) or existing room seed if still present.
                 if (filled.contains(existing.seed())) {
                     BlockPos existingSeedPos = BlockPos.of(existing.seed());
@@ -245,7 +249,8 @@ public final class FarmRegionScanner {
 
         List<Long> storage = label == RoomLabel.SHED ? collectStorageBlocks(level, filled) : List.of();
         RegionRecord.RoomRecord addedRoom = new RegionRecord.RoomRecord(
-                updatedRooms.size(), chosenSeed, filled, EnumSet.of(label), storage);
+                updatedRooms.size(), chosenSeed, filled, EnumSet.of(label), storage,
+                label == RoomLabel.FIELD ? preservedCrop : null);
         updatedRooms.add(addedRoom);
 
         Set<Long> allBlocks = unionRoomBlocks(updatedRooms);
@@ -300,12 +305,17 @@ public final class FarmRegionScanner {
     }
 
     /**
-     * Auto-reshapes every {@link RoomLabel#SHED} and {@link RoomLabel#FIELD} room in {@code farm} from its per-room
-     * seed (migrating seeds if broken, merging touching same-tag rooms, keeping opposite-tag rooms as boundaries, and
-     * dropping empty rooms), then checks validity (at least one shed, territory, caps, hazards).
+     * Auto-reshapes every {@link RoomLabel#SHED} and {@link RoomLabel#FIELD} room in {@code farm}.
+     * Automatic rescans preserve {@code FIELD} room size (never shrinking trampled/harvested soil; Bright, 2026-11-26)
+     * while still allowing fields to expand/merge; explicit ledger rescans pass {@code allowShrinkFields = true}.
      */
     public static RescanResult rescan(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
                                       RegionRecord farm) {
+        return rescan(level, data, empire, farm, false);
+    }
+
+    public static RescanResult rescan(ServerLevel level, EmpireSavedData data, EmpireRecord empire,
+                                      RegionRecord farm, boolean allowShrinkFields) {
         List<RegionRecord.RoomRecord> oldSheds = new ArrayList<>();
         List<RegionRecord.RoomRecord> oldFields = new ArrayList<>();
         for (RegionRecord.RoomRecord room : farm.rooms()) {
@@ -373,31 +383,131 @@ public final class FarmRegionScanner {
         }
 
         // 2. Rescan FIELD rooms (stopping at newly rescanned SHED blocks; merging any fields that now touch).
+        // When allowShrinkFields is false (auto-rescan on block edits), existing field blocks are preserved so trampled
+        // or harvested soil stays part of the field until explicitly re-scanned with the ledger (Bright, 2026-11-26).
         LongOpenHashSet coveredFieldBlocks = new LongOpenHashSet();
         List<RegionRecord.RoomRecord> newFields = new ArrayList<>();
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        BlockPos.MutableBlockPos neighbor = new BlockPos.MutableBlockPos();
+
         for (RegionRecord.RoomRecord oldField : oldFields) {
-            long seed = resolveFieldSeed(level, data, empire, farm.id(), oldField, coveredShedBlocks);
-            if (seed == Long.MIN_VALUE) {
-                continue;
+            if (allowShrinkFields) {
+                long seed = resolveFieldSeed(level, data, empire, farm.id(), oldField, coveredShedBlocks);
+                if (seed == Long.MIN_VALUE) {
+                    continue;
+                }
+                if (coveredFieldBlocks.contains(seed) || coveredShedBlocks.contains(seed)) {
+                    continue;
+                }
+                if (!empire.state().staked().contains(BlockKeys.chunkKey(seed))) {
+                    return new RescanResult(Set.of(), List.of(), farm.seed(), RegionInvalidReason.UNSTAKED);
+                }
+                RegionFloodFill.Result fill = fillRoom(
+                        level, data, empire,
+                        BlockKeys.getX(seed), BlockKeys.getY(seed), BlockKeys.getZ(seed),
+                        RoomLabel.FIELD, farm.id(), coveredShedBlocks);
+                if (!fill.succeeded()) {
+                    return new RescanResult(Set.of(), List.of(), farm.seed(), fill.failure());
+                }
+                String crop = findPreservedCrop(oldFields, fill.blocks(), oldField.preferredCropId());
+                for (long key : fill.blocks()) {
+                    coveredFieldBlocks.add(key);
+                }
+                newFields.add(new RegionRecord.RoomRecord(
+                        newSheds.size() + newFields.size(), seed, fill.blocks(), EnumSet.of(RoomLabel.FIELD),
+                        List.of(), crop));
+            } else {
+                Set<Long> retained = new HashSet<>();
+                LongIterator oldIt = oldField.blocks().iterator();
+                while (oldIt.hasNext()) {
+                    long key = oldIt.nextLong();
+                    if (coveredShedBlocks.contains(key)) {
+                        continue;
+                    }
+                    if (!empire.state().staked().contains(BlockKeys.chunkKey(key))) {
+                        return new RescanResult(Set.of(), List.of(), farm.seed(), RegionInvalidReason.UNSTAKED);
+                    }
+                    RegionRecord existingOwner = data.regionAt(key);
+                    if (existingOwner != null && !existingOwner.id().equals(farm.id())) {
+                        continue;
+                    }
+                    int x = BlockKeys.getX(key);
+                    int y = BlockKeys.getY(key);
+                    int z = BlockKeys.getZ(key);
+                    cursor.set(x, y, z);
+                    if (level.hasChunkAt(cursor)) {
+                        if (isHazard(level.getBlockState(cursor))) {
+                            return new RescanResult(Set.of(), List.of(), farm.seed(), RegionInvalidReason.HAZARD);
+                        }
+                        for (int i = 0; i < 6; i++) {
+                            neighbor.set(x + DX[i], y + DY[i], z + DZ[i]);
+                            if (level.hasChunkAt(neighbor) && isHazard(level.getBlockState(neighbor))) {
+                                return new RescanResult(Set.of(), List.of(), farm.seed(), RegionInvalidReason.HAZARD);
+                            }
+                        }
+                    }
+                    retained.add(key);
+                }
+                if (retained.isEmpty()) {
+                    continue;
+                }
+                // Expand outward from any live farmland/crop cells in this field so newly tilled extensions auto-attach.
+                LongOpenHashSet expandedSeeds = new LongOpenHashSet();
+                LongIterator expandIt = oldField.blocks().iterator();
+                while (expandIt.hasNext()) {
+                    long key = expandIt.nextLong();
+                    if (coveredShedBlocks.contains(key) || expandedSeeds.contains(key)) {
+                        continue;
+                    }
+                    cursor.set(BlockKeys.getX(key), BlockKeys.getY(key), BlockKeys.getZ(key));
+                    if (!level.hasChunkAt(cursor) || !isDirectFieldBlock(level.getBlockState(cursor))) {
+                        continue;
+                    }
+                    RegionFloodFill.Result expand = fillRoom(
+                            level, data, empire,
+                            cursor.getX(), cursor.getY(), cursor.getZ(),
+                            RoomLabel.FIELD, farm.id(), coveredShedBlocks);
+                    if (!expand.succeeded()) {
+                        return new RescanResult(Set.of(), List.of(), farm.seed(), expand.failure());
+                    }
+                    for (long ek : expand.blocks()) {
+                        expandedSeeds.add(ek);
+                        retained.add(ek);
+                    }
+                }
+                long liveSeed = resolveFieldSeed(level, data, empire, farm.id(), oldField, coveredShedBlocks);
+                if (retained.size() > RegionRules.FARM_FIELD_MAX_BLOCKS) {
+                    return new RescanResult(Set.of(), List.of(), farm.seed(), RegionInvalidReason.TOO_LARGE);
+                }
+
+                // Merge with any already-processed newField that overlaps or 6-touches retained.
+                List<RegionRecord.RoomRecord> mergedList = new ArrayList<>(newFields.size() + 1);
+                Set<Long> combinedSet = new HashSet<>(retained);
+                long chosenSeed = retained.contains(oldField.seed()) ? oldField.seed()
+                        : (liveSeed != Long.MIN_VALUE ? liveSeed : retained.iterator().next());
+                String chosenCrop = oldField.preferredCropId();
+                for (RegionRecord.RoomRecord prev : newFields) {
+                    if (sharesOrTouches(prev.blocks(), combinedSet)) {
+                        LongIterator pit = prev.blocks().iterator();
+                        while (pit.hasNext()) {
+                            combinedSet.add(pit.nextLong());
+                        }
+                        if (chosenCrop == null && prev.preferredCropId() != null) {
+                            chosenCrop = prev.preferredCropId();
+                        }
+                    } else {
+                        mergedList.add(prev);
+                    }
+                }
+                if (combinedSet.size() > RegionRules.FARM_FIELD_MAX_BLOCKS) {
+                    return new RescanResult(Set.of(), List.of(), farm.seed(), RegionInvalidReason.TOO_LARGE);
+                }
+                mergedList.add(new RegionRecord.RoomRecord(
+                        newSheds.size() + mergedList.size(), chosenSeed, combinedSet, EnumSet.of(RoomLabel.FIELD),
+                        List.of(), chosenCrop));
+                newFields = mergedList;
+                coveredFieldBlocks.addAll(combinedSet);
             }
-            if (coveredFieldBlocks.contains(seed) || coveredShedBlocks.contains(seed)) {
-                continue;
-            }
-            if (!empire.state().staked().contains(BlockKeys.chunkKey(seed))) {
-                return new RescanResult(Set.of(), List.of(), farm.seed(), RegionInvalidReason.UNSTAKED);
-            }
-            RegionFloodFill.Result fill = fillRoom(
-                    level, data, empire,
-                    BlockKeys.getX(seed), BlockKeys.getY(seed), BlockKeys.getZ(seed),
-                    RoomLabel.FIELD, farm.id(), coveredShedBlocks);
-            if (!fill.succeeded()) {
-                return new RescanResult(Set.of(), List.of(), farm.seed(), fill.failure());
-            }
-            for (long key : fill.blocks()) {
-                coveredFieldBlocks.add(key);
-            }
-            newFields.add(new RegionRecord.RoomRecord(
-                    newSheds.size() + newFields.size(), seed, fill.blocks(), EnumSet.of(RoomLabel.FIELD), List.of()));
         }
 
         if (newSheds.isEmpty()) {
@@ -407,11 +517,11 @@ public final class FarmRegionScanner {
         List<RegionRecord.RoomRecord> combined = new ArrayList<>(newSheds.size() + newFields.size());
         for (RegionRecord.RoomRecord s : newSheds) {
             combined.add(new RegionRecord.RoomRecord(
-                    combined.size(), s.seed(), s.blocks(), s.labels(), s.storageBlocks()));
+                    combined.size(), s.seed(), s.blocks(), s.labels(), s.storageBlocks(), s.preferredCropId()));
         }
         for (RegionRecord.RoomRecord f : newFields) {
             combined.add(new RegionRecord.RoomRecord(
-                    combined.size(), f.seed(), f.blocks(), f.labels(), f.storageBlocks()));
+                    combined.size(), f.seed(), f.blocks(), f.labels(), f.storageBlocks(), f.preferredCropId()));
         }
 
         Set<Long> allBlocks = new HashSet<>(coveredShedBlocks.size() + coveredFieldBlocks.size());
@@ -426,6 +536,39 @@ public final class FarmRegionScanner {
 
         long newFarmSeed = pickFarmSeed(level, combined, farm.seed());
         return new RescanResult(allBlocks, combined, newFarmSeed, RegionInvalidReason.NONE);
+    }
+
+    @Nullable
+    private static String findPreservedCrop(List<RegionRecord.RoomRecord> oldFields, Set<Long> filled,
+                                            @Nullable String primaryCrop) {
+        if (primaryCrop != null) {
+            return primaryCrop;
+        }
+        for (RegionRecord.RoomRecord old : oldFields) {
+            if (old.preferredCropId() != null && sharesAnyBlock(old.blocks(), filled)) {
+                return old.preferredCropId();
+            }
+        }
+        return null;
+    }
+
+    private static boolean sharesOrTouches(LongSet a, Set<Long> b) {
+        LongIterator it = a.iterator();
+        while (it.hasNext()) {
+            long key = it.nextLong();
+            if (b.contains(key)) {
+                return true;
+            }
+            int x = BlockKeys.getX(key);
+            int y = BlockKeys.getY(key);
+            int z = BlockKeys.getZ(key);
+            for (int i = 0; i < 6; i++) {
+                if (b.contains(BlockKeys.pack(x + DX[i], y + DY[i], z + DZ[i]))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**

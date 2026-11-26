@@ -1,8 +1,8 @@
 <!-- Written by Gemini (2026-11-25) from Bright's design decisions in this session. -->
 # Empire: Occupations & Farmer (v1)
 
-**Date:** 2026-11-25 · **Status:** built on branch `empire/farmer-occupation` (worktree `../EnginesAndEmpires-empire`). In-game visual and UX feel (ledger hiring/unemploying feedback, speech bubbles, farmer walking to and standing by the seed shed) remain for Bright to check in a client.
-**Scope:** foundational Occupation system connecting Empire's 4-level Civilian AI (`WORK` slots) with workplace regions (`RegionType.FARM`), starting with `Occupation.FARMER` standing near their farm's seed shed during outdoor work hours.
+**Date:** 2026-11-25 (updated 2026-11-26) · **Status:** built on branch `empire/farmer-occupation` (worktree `../EnginesAndEmpires-empire`). In-game visual and UX feel (ledger hiring/unemploying feedback, speech bubbles, offhand ledger crop override, farmer harvesting/replanting/tilling/chest interactions, and end-of-shift tool stowage) remain for Bright to check in a client.
+**Scope:** foundational Occupation system connecting Empire's 4-level Civilian AI (`WORK` slots) with workplace regions (`RegionType.FARM`), reusable Level-4 Atomic Actions, and full `Occupation.FARMER` v1 job mechanics (`CropBlock` harvesting/replanting, shed storage dumping/fetching, hoe-required re-tilling, pure seeding, majority crop + offhand ledger override, end-of-shift stowage, and emergency-only raw produce eating).
 
 ---
 
@@ -15,6 +15,9 @@
 | **D3** | **Worker Capacity & Shed Targeting:** Provisional cap of **1 farmer per `FARM`** (`RegionRules.FARM_MAX_WORKERS = 1`). When a farm has multiple `SHED` rooms, the farmer targets a standable spot adjacent to the farm's **seed shed** (the room containing `farm.seed()`, falling back to the first `SHED` room). |
 | **D4** | **Schedule & Vocation:** `FARMER` uses the existing scheduler defaults — outdoor shift (`04:00–16:00` via `ScheduleClock.isOutdoorTime`), `7:00` (`8,400` ticks) daily work ask scaled by traits and fulfilment, respecting meals, sleep, hobbies, and interrupts. The `Vocation` fulfilment meter stays on its `0.5` placeholder for now. |
 | **D5** | **Feedback & Dialogue:** Assigning or unemploying a civilian plays a ledger page-turn sound, shows an action-bar message, and triggers a speech bubble (`CivilianLines.Category.HIRED` / `UNEMPLOYED`). Selecting or creating a `FARM` with the ledger shows its current worker count (`X/1 workers`). |
+| **D6** | **Tools & Crop Scope (2026-11-26):** Farmers require a hoe (`#minecraft:hoes` / `HOE_TILL`, taking 1 durability per till, fetched from shed storage if needed) to re-till dirt, and harvest basic `CropBlock` crops bare-handed. Harvesting, planting, and tilling all scale with `heavyLaborSpeedMultiplier × productivity` and `activityExhaustionMultiplier`; storage transfers scale with `routingEfficiencyMultiplier × productivity`; all interactions use `blockReach`. |
+| **D7** | **Non-Shrinking Fields & Crop Selection (2026-11-26):** `FIELD` rooms never shrink on automatic block-edit rescans (preserving trampled dirt for re-tilling); explicit main-hand Ledger click on a selected farm's room rescans and shrinks to remaining live farmland/crops. By default each `FIELD` room plants its majority growing `CropBlock` (falling back to first available seed for fresh fields). Holding the Ledger in **offhand** while a farm is selected and right-clicking a `FIELD` room with a crop seed or produce overrides that room's crop (leaving immature existing crops to finish growing); right-clicking with an **empty main hand** resets to automatic majority. |
+| **D8** | **Storage Dumping, End-of-Shift Stowage & Raw Produce Eating (2026-11-26):** During work, farmers dump farm produce and surplus seeds into `SHED` `storageBlocks` (via `Capabilities.ItemHandler.BLOCK`), retaining only enough seeds/plantables to cover currently missing farm spots (capped at 1 stack per seed type) and never dumping personal meals or hoes. At end of shift (quota reached or `END_SHIFT_BUFFER_TICKS` before departure), `EndShiftStoreWorkGearTask` stows all hoes, seeds, and raw produce into shed storage while leaving personal meals in pockets. Raw crop produce is only eaten if out of proper foods and at or below the emergency snack threshold (never filling above it). |
 
 ---
 
@@ -50,10 +53,12 @@
 
 ---
 
-## 4. Verification (2026-11-25)
+## 4. Verification (2026-11-26)
 
 - **Unit & architecture tests (`:empire:compileJava :empire:compileTestJava :empire:test :test`):**
-  - `:empire:test`: **237 passed, 0 failed, 0 skipped** across 37 suites (including new `OccupationTest` and updated `CivilianLinesTest` verifying `hired` and `unemployed` lang keys).
+  - `:empire:test`: **241 passed, 0 failed, 0 skipped** across 38 suites (including `OccupationTest`, new `FarmerUtilityTest`, and updated `CivilianLinesTest` verifying `hired` and `unemployed` lang keys).
   - `:test` (core): **33 passed, 0 failed, 0 skipped** across 5 suites (including `ArchitectureTest`).
-- **Empire standalone game test server (`:empire:runGameTestServer`):** **187/188 passed** — all **4/4 new `FarmOccupationGameTests`**, all `FarmRegionGameTests`, all `LedgerGameTests`, and all `CivilianAiGameTests` passed. The sole failure was the pre-existing documented timing flake `CivilianSleepGameTests.unreachableBedSkippedUntilRegionUpdated` (untouched).
-- **Not verified (left for Bright's in-game playtest):** visual/UX feel of ledger hiring/unemploying feedback, speech bubbles, farm selection worker-count action bar, and watching a farmer walk to and stand beside their seed shed across a full day cycle in a live client.
+- **Empire standalone game test server (`:empire:runGameTestServer`, 193 tests total):**
+  - All **5/5 new `FarmerJobGameTests`**, all **4/4 `FarmOccupationGameTests`**, all `FarmRegionGameTests`, all `CivilianAiGameTests`, and all `CivilianNeedsGameTests` passed on both runs.
+  - Pre-existing random-origin chunk-boundary / block-light propagation flakes in unrelated `HOME` bed tests (`unreachablebedskippeduntilregionupdated`, `turningoneroomoutdoordetachesitscivilianwhileotherindoorroomstaysvalid`, `nightskipteleportsawakecitizensandleavessleepersinplace`, etc., documented previously in `civilian-fulfilment.md`) occurred across different coordinates between runs and were left untouched.
+- **Not verified (left for Bright's in-game playtest):** live client feel of harvesting/replanting animations & sounds, chest lid/sound interactions, offhand ledger crop override/clear feedback, end-of-shift gear stowage, and full-day Farmer rhythm.

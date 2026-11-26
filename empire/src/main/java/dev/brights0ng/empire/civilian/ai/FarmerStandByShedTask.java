@@ -4,6 +4,7 @@ package dev.brights0ng.empire.civilian.ai;
 import javax.annotation.Nullable;
 
 import dev.brights0ng.empire.data.WorkAssignment;
+import dev.brights0ng.empire.rules.FarmerUtility;
 import dev.brights0ng.empire.rules.LocationKey;
 import dev.brights0ng.empire.rules.Occupation;
 import net.minecraft.core.BlockPos;
@@ -41,7 +42,7 @@ public final class FarmerStandByShedTask implements CivilianTask {
 
     @Override
     public double baseWeight() {
-        return 80.0;
+        return FarmerUtility.BASE_WAIT_WEIGHT;
     }
 
     @Override

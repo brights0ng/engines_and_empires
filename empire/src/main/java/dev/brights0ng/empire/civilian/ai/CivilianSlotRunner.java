@@ -30,8 +30,12 @@ public final class CivilianSlotRunner {
 
     /** PROVISIONAL: safety cap on waiting for a clean action finish past {@code departAt} (10s = 200t). */
     public static final int CLEAN_FINISH_GRACE_TICKS = 200;
+    /** PROVISIONAL: lead time before {@code departAt} to start end-of-shift tool/gear wrap-up (8s = 160t). */
+    public static final int END_SHIFT_BUFFER_TICKS = 160;
+    /** PROVISIONAL: safety cap on end-of-shift wrap-up tasks so sleep/meal anchors are never blocked (30s = 600t). */
+    public static final int END_SHIFT_WRAP_UP_CAP_TICKS = 600;
     private static final double TRAVEL_REACH = 3.0;
-    private static final int TASK_RECHECK_INTERVAL = 40;
+    private static final int TASK_RECHECK_INTERVAL = 20;
 
     private final LocationResolver locations;
     private final WorkSlotProvider workProvider;
@@ -47,6 +51,8 @@ public final class CivilianSlotRunner {
     private int recheckTicks;
     private boolean yielding;
     private int yieldWaitTicks;
+    private boolean wrappingUp;
+    private int wrapUpTicks;
     private boolean travelFailedStuck;
 
     public CivilianSlotRunner(LocationResolver locations, WorkSlotProvider workProvider) {
@@ -88,6 +94,8 @@ public final class CivilianSlotRunner {
         this.recheckTicks = 0;
         this.yielding = false;
         this.yieldWaitTicks = 0;
+        this.wrappingUp = false;
+        this.wrapUpTicks = 0;
         this.travelFailedStuck = false;
         this.candidateTasks = buildTasksFor(ctx, decision.slot());
 
@@ -158,7 +166,38 @@ public final class CivilianSlotRunner {
             }
         }
 
-        // 3. Check stop / yield conditions (deadline, quota, preemptive cap, outdoor window)
+        // 3. End-of-shift wrap-up (e.g. putting away tools, seeds, and work produce) or clean stop/yield
+        if (wrappingUp) {
+            wrapUpTicks++;
+            if (wrapUpTicks >= END_SHIFT_WRAP_UP_CAP_TICKS
+                    || (activeSlot.kind() == SlotKind.WORK && !locations.isAvailable(ctx, LocationKey.WORK))) {
+                finishSlot(ctx);
+                return false;
+            }
+            if (activeTask == null) {
+                activeTask = pickEndShiftTask(ctx);
+                if (activeTask == null) {
+                    finishSlot(ctx);
+                    return false;
+                }
+                activeTask.start(ctx);
+            }
+            activeElapsedTicks++;
+            CivilianAction.Status wrapStatus = activeTask.tick(ctx);
+            if (wrapStatus != CivilianAction.Status.RUNNING) {
+                activeTask.stop(ctx);
+                activeTask = null;
+                CivilianTask nextWrap = pickEndShiftTask(ctx);
+                if (nextWrap == null) {
+                    finishSlot(ctx);
+                    return false;
+                }
+                activeTask = nextWrap;
+                activeTask.start(ctx);
+            }
+            return true;
+        }
+
         if (!yielding && shouldStopSlot(ctx, activeSlot)) {
             yielding = true;
             yieldWaitTicks = 0;
@@ -166,6 +205,21 @@ public final class CivilianSlotRunner {
 
         if (yielding) {
             if (activeTask == null || activeTask.canYieldCleanly() || yieldWaitTicks >= CLEAN_FINISH_GRACE_TICKS) {
+                if (activeSlot.kind() == SlotKind.WORK && locations.isAvailable(ctx, LocationKey.WORK)) {
+                    CivilianTask endShift = pickEndShiftTask(ctx);
+                    if (endShift != null) {
+                        if (activeTask != null) {
+                            activeTask.stop(ctx);
+                            activeTask = null;
+                        }
+                        wrappingUp = true;
+                        wrapUpTicks = 0;
+                        yielding = false;
+                        activeTask = endShift;
+                        activeTask.start(ctx);
+                        return true;
+                    }
+                }
                 finishSlot(ctx);
                 return false;
             }
@@ -201,11 +255,22 @@ public final class CivilianSlotRunner {
                 return false;
             }
             if (yielding || shouldStopSlot(ctx, activeSlot)) {
+                if (activeSlot.kind() == SlotKind.WORK && locations.isAvailable(ctx, LocationKey.WORK)) {
+                    CivilianTask endShift = pickEndShiftTask(ctx);
+                    if (endShift != null) {
+                        wrappingUp = true;
+                        wrapUpTicks = 0;
+                        yielding = false;
+                        activeTask = endShift;
+                        activeTask.start(ctx);
+                        return true;
+                    }
+                }
                 finishSlot(ctx);
                 return false;
             }
-            // Pick next best task inside the same slot (e.g. BedSleepTask <-> RoughSleepTask handoff)
-            CivilianTask next = pickBestTask(ctx, null);
+            // Pick next best task inside the same slot (keeping momentum on the just-finished task type)
+            CivilianTask next = pickBestTask(ctx, taskStatus == CivilianAction.Status.SUCCEEDED ? finished : null);
             if (next == null) {
                 if (activeSlot.kind() != SlotKind.SLEEP) {
                     finishSlot(ctx);
@@ -218,8 +283,9 @@ public final class CivilianSlotRunner {
             return true;
         }
 
-        // Periodic light re-check for opportunistic higher-utility tasks inside SOCIALIZE (e.g. peer walked up)
-        if (activeSlot.kind() == SlotKind.SOCIALIZE && activeTask.canYieldCleanly()) {
+        // Periodic light re-check for opportunistic higher-utility tasks inside SOCIALIZE and WORK
+        if ((activeSlot.kind() == SlotKind.SOCIALIZE || activeSlot.kind() == SlotKind.WORK)
+                && activeTask.canYieldCleanly()) {
             recheckTicks++;
             if (recheckTicks >= TASK_RECHECK_INTERVAL) {
                 recheckTicks = 0;
@@ -247,7 +313,10 @@ public final class CivilianSlotRunner {
         candidateTasks = List.of();
         yielding = false;
         yieldWaitTicks = 0;
+        wrappingUp = false;
+        wrapUpTicks = 0;
         activeElapsedTicks = 0;
+        EquipAction.stowMainHand(ctx.civilian());
     }
 
     public String describeState() {
@@ -323,6 +392,9 @@ public final class CivilianSlotRunner {
             if (work.isOccupation() && !locations.isAvailable(ctx, LocationKey.WORK)) {
                 return true;
             }
+            if (now >= slot.departAtTick() - END_SHIFT_BUFFER_TICKS && pickEndShiftTask(ctx) != null) {
+                return true;
+            }
         }
         if (slot.kind() == SlotKind.SOCIALIZE && schedule.remainingSocialTicks() <= 0) {
             return true;
@@ -362,6 +434,9 @@ public final class CivilianSlotRunner {
     private CivilianTask pickBestTask(AiContext ctx, @Nullable CivilianTask current) {
         List<Candidate<CivilianTask>> scored = new ArrayList<>(candidateTasks.size());
         for (CivilianTask task : candidateTasks) {
+            if (task.isEndShiftTask()) {
+                continue;
+            }
             boolean eligible = task.isEligible(ctx);
             scored.add(new Candidate<>(
                     task,
@@ -371,6 +446,21 @@ public final class CivilianSlotRunner {
                     task == current,
                     TaskUtility.DEFAULT_MOMENTUM_BONUS
             ));
+        }
+        return TaskUtility.pickBest(scored);
+    }
+
+    @Nullable
+    private CivilianTask pickEndShiftTask(AiContext ctx) {
+        List<Candidate<CivilianTask>> scored = new ArrayList<>();
+        for (CivilianTask task : candidateTasks) {
+            if (!task.isEndShiftTask()) {
+                continue;
+            }
+            boolean eligible = task.isEligible(ctx);
+            if (eligible) {
+                scored.add(new Candidate<>(task, true, task.baseWeight(), task.urgency(ctx), false, 0.0));
+            }
         }
         return TaskUtility.pickBest(scored);
     }

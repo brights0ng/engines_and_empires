@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -47,17 +48,24 @@ public final class RegionRecord {
         private final LongOpenHashSet blocks;
         private final Set<RoomLabel> labels;
         private final LongOpenHashSet storageBlocks;
+        @Nullable
+        private final String preferredCropId;
 
         public RoomRecord(int index, Collection<Long> blocks, Set<RoomLabel> labels) {
-            this(index, firstBlockOrZero(blocks), blocks, labels, Collections.emptyList());
+            this(index, firstBlockOrZero(blocks), blocks, labels, Collections.emptyList(), null);
         }
 
         public RoomRecord(int index, long[] blocks, Set<RoomLabel> labels) {
-            this(index, blocks.length > 0 ? blocks[0] : 0L, blocks, labels, new long[0]);
+            this(index, blocks.length > 0 ? blocks[0] : 0L, blocks, labels, new long[0], null);
         }
 
         public RoomRecord(int index, long seed, Collection<Long> blocks, Set<RoomLabel> labels,
                           Collection<Long> storageBlocks) {
+            this(index, seed, blocks, labels, storageBlocks, null);
+        }
+
+        public RoomRecord(int index, long seed, Collection<Long> blocks, Set<RoomLabel> labels,
+                          Collection<Long> storageBlocks, @Nullable String preferredCropId) {
             this.index = index;
             this.seed = seed;
             this.blocks = new LongOpenHashSet(blocks.size());
@@ -71,9 +79,15 @@ public final class RegionRecord {
             for (long key : storageBlocks) {
                 this.storageBlocks.add(key);
             }
+            this.preferredCropId = (preferredCropId == null || preferredCropId.isBlank()) ? null : preferredCropId.trim();
         }
 
         public RoomRecord(int index, long seed, long[] blocks, Set<RoomLabel> labels, long[] storageBlocks) {
+            this(index, seed, blocks, labels, storageBlocks, null);
+        }
+
+        public RoomRecord(int index, long seed, long[] blocks, Set<RoomLabel> labels, long[] storageBlocks,
+                          @Nullable String preferredCropId) {
             this.index = index;
             this.seed = seed;
             this.blocks = new LongOpenHashSet(blocks);
@@ -81,6 +95,7 @@ public final class RegionRecord {
                     ? Collections.emptySet()
                     : Collections.unmodifiableSet(EnumSet.copyOf(labels));
             this.storageBlocks = new LongOpenHashSet(storageBlocks);
+            this.preferredCropId = (preferredCropId == null || preferredCropId.isBlank()) ? null : preferredCropId.trim();
         }
 
         public int index() {
@@ -137,6 +152,16 @@ public final class RegionRecord {
 
         public boolean isStorage(BlockPos pos) {
             return storageBlocks.contains(pos.asLong());
+        }
+
+        /** Optional player-overridden seed item id for {@code FIELD} rooms (null = automatic majority crop). */
+        @Nullable
+        public String preferredCropId() {
+            return preferredCropId;
+        }
+
+        public RoomRecord withPreferredCropId(@Nullable String cropId) {
+            return new RoomRecord(index, seed, blocks, labels, storageBlocks, cropId);
         }
     }
 
@@ -333,7 +358,8 @@ public final class RegionRecord {
                 int idx = rooms.size();
                 RoomRecord rec = incoming.index == idx
                         ? incoming
-                        : new RoomRecord(idx, incoming.seed, incoming.blocks, incoming.labels, incoming.storageBlocks);
+                        : new RoomRecord(idx, incoming.seed, incoming.blocks, incoming.labels,
+                                incoming.storageBlocks, incoming.preferredCropId);
                 rooms.add(rec);
                 LongIterator it = rec.blocks.iterator();
                 while (it.hasNext()) {
@@ -375,7 +401,8 @@ public final class RegionRecord {
                 if (existing.blockCount() != incoming.blockCount()
                         || existing.seed != incoming.seed
                         || !existing.labels.equals(incoming.labels)
-                        || !existing.storageBlocks.equals(incoming.storageBlocks)) {
+                        || !existing.storageBlocks.equals(incoming.storageBlocks)
+                        || !Objects.equals(existing.preferredCropId, incoming.preferredCropId)) {
                     return false;
                 }
                 LongIterator it = incoming.blocks.iterator();
@@ -428,6 +455,21 @@ public final class RegionRecord {
 
     public List<RoomRecord> rooms() {
         return Collections.unmodifiableList(rooms);
+    }
+
+    /** Sets or clears a room's player-overridden seed item id and bumps revision if changed. */
+    public boolean setRoomPreferredCrop(int roomIndex, @Nullable String preferredCropId) {
+        if (roomIndex < 0 || roomIndex >= rooms.size()) {
+            return false;
+        }
+        RoomRecord existing = rooms.get(roomIndex);
+        String normalized = (preferredCropId == null || preferredCropId.isBlank()) ? null : preferredCropId.trim();
+        if (Objects.equals(existing.preferredCropId(), normalized)) {
+            return false;
+        }
+        rooms.set(roomIndex, existing.withPreferredCropId(normalized));
+        bumpRevision();
+        return true;
     }
 
     public LongSet separators() {
@@ -797,6 +839,9 @@ public final class RegionRecord {
                 if (!room.storageBlocks.isEmpty()) {
                     rt.put("storage", new LongArrayTag(room.storageBlocks.toLongArray()));
                 }
+                if (room.preferredCropId != null) {
+                    rt.putString("crop", room.preferredCropId);
+                }
                 roomsTag.add(rt);
             }
             tag.put("rooms", roomsTag);
@@ -866,7 +911,8 @@ public final class RegionRecord {
                 long[] roomStorage = rt.contains("storage", Tag.TAG_LONG_ARRAY)
                         ? rt.getLongArray("storage")
                         : new long[0];
-                RoomRecord room = new RoomRecord(record.rooms.size(), roomSeed, roomBlocks, labels, roomStorage);
+                String roomCrop = rt.contains("crop", Tag.TAG_STRING) ? rt.getString("crop") : null;
+                RoomRecord room = new RoomRecord(record.rooms.size(), roomSeed, roomBlocks, labels, roomStorage, roomCrop);
                 int idx = room.index();
                 record.rooms.add(room);
                 LongIterator it = room.blocks.iterator();

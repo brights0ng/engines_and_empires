@@ -249,6 +249,15 @@ public final class RegionManager {
      * </ul>
      */
     public static void updateRegion(ServerLevel overworld, EmpireSavedData data, RegionRecord region, long gameTime) {
+        updateRegion(overworld, data, region, gameTime, false);
+    }
+
+    /**
+     * Updates a single region; when {@code allowShrinkFields} is true (explicit Ledger click re-scan), {@code FARM}
+     * {@code FIELD} rooms shrink to match remaining live farmland/crops.
+     */
+    public static void updateRegion(ServerLevel overworld, EmpireSavedData data, RegionRecord region,
+                                    long gameTime, boolean allowShrinkFields) {
         SCHEDULED_UPDATES.remove(region.id());
         region.setLastUpdateGameTime(gameTime);
 
@@ -267,7 +276,7 @@ public final class RegionManager {
             if (region.type() == RegionType.HOME && region.origin() == RegionOrigin.AUTO) {
                 updateAutoHome(overworld, data, empire, region, gameTime);
             } else if (region.type() == RegionType.FARM && region.origin() == RegionOrigin.AUTO) {
-                updateAutoFarm(overworld, data, empire, region, gameTime);
+                updateAutoFarm(overworld, data, empire, region, gameTime, allowShrinkFields);
             } else {
                 updateFixedRegion(overworld, data, empire, region, gameTime);
             }
@@ -316,8 +325,9 @@ public final class RegionManager {
     }
 
     private static void updateAutoFarm(ServerLevel overworld, EmpireSavedData data, EmpireRecord empire,
-                                       RegionRecord region, long gameTime) {
-        FarmRegionScanner.RescanResult rescan = FarmRegionScanner.rescan(overworld, data, empire, region);
+                                       RegionRecord region, long gameTime, boolean allowShrinkFields) {
+        FarmRegionScanner.RescanResult rescan = FarmRegionScanner.rescan(
+                overworld, data, empire, region, allowShrinkFields);
         if (rescan.seed() != region.seed()) {
             region.setSeed(rescan.seed());
             data.setDirty();
