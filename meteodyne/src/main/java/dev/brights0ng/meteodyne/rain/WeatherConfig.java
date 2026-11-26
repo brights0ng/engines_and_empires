@@ -13,6 +13,8 @@
 // (GreedyFluids M8e; CONVECTION and 1 by default, Bright 2026-11-20).
 // Updated by Claude: [heat] airflowDynamicStart, tiles opening by heat sources and lava start near where they settle
 // (GreedyFluids M8e e3).
+// Updated by Claude: [heat] airflowFixedWallSurface removed: lava and magma always meet their air by free convection
+// (GreedyFluids M8e4, Bright 2026-11-22).
 package dev.brights0ng.meteodyne.rain;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
@@ -463,15 +465,6 @@ public final class WeatherConfig {
             .defineInRange("airflowSurfaceFilm", dev.brights0ng.meteodyne.airflow.AirflowCells.Table.DEFAULT_SURFACE_FILM,
                     0.00001, 10.0);
 
-    public static final ModConfigSpec.EnumValue<dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface>
-            AIRFLOW_FIXED_WALL_SURFACE = BUILDER
-            .comment("AIRFLOW: how lava and magma faces heat the air beside them (GreedyFluids M8e). CONVECTION: free",
-                    "convection off the hot face (a lava face gives its air about 13-15 kW). FILM: through the still-air",
-                    "film alone (about half that). RAY: as any wall, through the film and half the blocks behind the",
-                    "face (before M8e: a lava pool over deep stone barely warms its air). Applies from the next /reload",
-                    "or restart.")
-            .defineEnum("airflowFixedWallSurface", dev.brights0ng.greedyfluids.grid.CellGrid3D.DEFAULT_FIXED_SURFACE);
-
     public static final ModConfigSpec.IntValue AIRFLOW_FIXED_WALL_KEEP_FINE = BUILDER
             .comment("AIRFLOW: how far around lava and magma facing air the air is always kept at full resolution,",
                     "blocks (GreedyFluids M8e). 0 lets the heat of a lava pool in a closed room spread evenly through",
@@ -611,11 +604,6 @@ public final class WeatherConfig {
     /** AIRFLOW: the surface film on each face of a solid, m²·K/W. */
     public static double airflowSurfaceFilm() {
         return SPEC.isLoaded() ? AIRFLOW_SURFACE_FILM.get() : dev.brights0ng.meteodyne.airflow.AirflowCells.Table.DEFAULT_SURFACE_FILM;
-    }
-
-    /** AIRFLOW: how lava and magma faces couple to their air (M8e). */
-    public static dev.brights0ng.greedyfluids.grid.CellGrid3D.FixedSurface airflowFixedWallSurface() {
-        return SPEC.isLoaded() ? AIRFLOW_FIXED_WALL_SURFACE.get() : dev.brights0ng.greedyfluids.grid.CellGrid3D.DEFAULT_FIXED_SURFACE;
     }
 
     /** AIRFLOW: the keep-fine radius around lava and magma facing air, blocks (M8e). */

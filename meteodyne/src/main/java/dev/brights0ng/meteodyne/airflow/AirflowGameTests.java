@@ -6,6 +6,7 @@
 // regions run without them; M8b5b: a cut room merges into one region and splits, the B3 test with merging off; M8c c0:
 // the recorder's background dump read back; M8c c4: a stand-in keeps a far tile alive).
 // Edited by Claude: a save that ran away heals when its tile is loaded (2026-11-21).
+// Edited by Claude: that test tolerates other tests' heat sources in its tile, and says where the worst cell is (M8e4).
 package dev.brights0ng.meteodyne.airflow;
 
 import java.io.IOException;
@@ -1484,19 +1485,38 @@ public final class AirflowGameTests {
                         helper.assertTrue(s.status() == AirflowRuntime.Status.RUNNING && s.failures() == 0,
                                 "running and never failed: " + s.status() + ", " + s.failure());
                         helper.assertTrue(regions.freshRebuilds() == 0, "no runaway to rebuild after");
+                        // M8e4: other tests' structures (campfires, lava) can sit inside this tile and warm their own
+                        // cells within these few steps, so the check is that almost all the air starts at its
+                        // background: a save restored as it was would put nearly every cell far off, or out of band.
                         AirFrame f = s.frame().frame();
                         double worst = 0;
+                        int sampled = 0, off = 0, wx = 0, wy = 0, wz = 0;
                         for (int y = 0; y < f.ny(); y += 2) {
                             for (int z = 0; z < f.nz(); z += 4) {
                                 for (int x = 0; x < f.nx(); x += 4) {
                                     if (f.isAir(x + 0.5, y + 0.5, z + 0.5)) {
-                                        worst = Math.max(worst, Math.abs(f.temperature(x + 0.5, y + 0.5, z + 0.5)
-                                                - f.background().at(x, y, z)));
+                                        double d = Math.abs(f.temperature(x + 0.5, y + 0.5, z + 0.5)
+                                                - f.background().at(x, y, z));
+                                        sampled++;
+                                        off += d >= 5 ? 1 : 0;
+                                        if (d > worst) {
+                                            worst = d;
+                                            wx = x;
+                                            wy = y;
+                                            wz = z;
+                                        }
                                     }
                                 }
                             }
                         }
-                        helper.assertTrue(worst < 5, "the air starts at its background: " + worst + " C off");
+                        AirflowRegions.Region g = regions.regionAt(anchor.x, anchor.y, anchor.z);
+                        String where = String.format(java.util.Locale.ROOT, "worst %.2f C off at %d %d %d; %d of %d "
+                                + "sampled cells 5 C or more off", worst, g.x0() + wx, g.y0() + wy, g.z0() + wz, off,
+                                sampled);
+                        helper.assertTrue(sampled > 0 && off <= sampled / 100,
+                                "the air starts at its background: " + where);
+                        helper.assertTrue(AirflowPlausibility.plausible(worst + f.background().at(wx, wy, wz)),
+                                "and inside the band: " + where);
                     } finally {
                         cleanup.run();
                     }
