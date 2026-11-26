@@ -1,4 +1,4 @@
-// Written by Gemini; loot condition type, creative tab, bonfire solidity and the civilian entity added by Claude; Administrative Ledger added by Gemini.
+// Written by Gemini; loot condition type, creative tab, bonfire solidity and the civilian entity added by Claude; Administrative Ledger and civilian inventory menu added by Gemini.
 package dev.brights0ng.empire;
 
 import dev.brights0ng.empire.bonfire.BonfireBlock;
@@ -6,6 +6,7 @@ import dev.brights0ng.empire.bonfire.BonfireBlockEntity;
 import dev.brights0ng.empire.bonfire.BonfireItem;
 import dev.brights0ng.empire.bonfire.BonfirePartBlock;
 import dev.brights0ng.empire.civilian.CivilianEntity;
+import dev.brights0ng.empire.civilian.CivilianInventoryMenu;
 import dev.brights0ng.empire.ledger.AdministrativeLedgerItem;
 import dev.brights0ng.empire.loot.CorrectToolForDrops;
 import dev.brights0ng.empire.talc.BlessedTalcItem;
@@ -14,6 +15,8 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.flag.FeatureFlags;
+import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
@@ -45,6 +48,8 @@ public final class EmpireContent {
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Empire.MODID);
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES =
             DeferredRegister.create(Registries.ENTITY_TYPE, Empire.MODID);
+    public static final DeferredRegister<MenuType<?>> MENUS =
+            DeferredRegister.create(Registries.MENU, Empire.MODID);
 
     /** {@code empire:correct_tool_for_drops} (levitite's loot tables). */
     public static final DeferredHolder<LootItemConditionType, LootItemConditionType> CORRECT_TOOL_FOR_DROPS =
@@ -127,6 +132,11 @@ public final class EmpireContent {
                     .clientTrackingRange(10)
                     .build("civilian"));
 
+    /** Debug chest-style menu for viewing and editing a civilian's hands and 9 pocket slots. */
+    public static final DeferredHolder<MenuType<?>, MenuType<CivilianInventoryMenu>> CIVILIAN_INVENTORY_MENU =
+            MENUS.register("civilian_inventory",
+                    () -> new MenuType<>(CivilianInventoryMenu::new, FeatureFlags.DEFAULT_FLAGS));
+
     /**
      * The creative tab for everything Empire registers, icon the bonfire. The items are only in this tab, not also in the
      * game's own (same pattern as Seismic Surveyance's tab). The bonfire's structure part has no item.
@@ -153,6 +163,7 @@ public final class EmpireContent {
         LOOT_CONDITION_TYPES.register(modEventBus);
         TABS.register(modEventBus);
         ENTITY_TYPES.register(modEventBus);
+        MENUS.register(modEventBus);
         modEventBus.addListener(EmpireContent::onEntityAttributes);
     }
 

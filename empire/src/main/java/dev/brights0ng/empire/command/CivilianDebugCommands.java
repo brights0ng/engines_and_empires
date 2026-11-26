@@ -1,4 +1,4 @@
-// Written by Claude; extended with ability, needs, inventory and eating commands by ChatGPT; extended with sleep, bed cleanup, fulfilment and traits commands by Gemini.
+// Written by Claude; extended with ability, needs, inventory and eating commands by ChatGPT; extended with sleep, bed cleanup, fulfilment, traits, AI, job and live inventory menu commands by Gemini.
 package dev.brights0ng.empire.command;
 
 import java.util.ArrayList;
@@ -20,6 +20,7 @@ import dev.brights0ng.empire.civilian.CivilianBeds;
 import dev.brights0ng.empire.civilian.CivilianChunkLoading;
 import dev.brights0ng.empire.civilian.CivilianEntity;
 import dev.brights0ng.empire.civilian.CivilianFulfilmentMeters;
+import dev.brights0ng.empire.civilian.CivilianInventoryMenu;
 import dev.brights0ng.empire.civilian.CivilianOccupations;
 import dev.brights0ng.empire.civilian.CivilianRoster;
 import dev.brights0ng.empire.civilian.CivilianSpawning;
@@ -48,6 +49,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -90,6 +93,8 @@ public final class CivilianDebugCommands {
                                 .executes(ctx -> look(ctx.getSource(), code(ctx)))))
                 .then(Commands.literal("info")
                         .executes(ctx -> info(ctx.getSource())))
+                .then(Commands.literal("inv")
+                        .executes(ctx -> inv(ctx.getSource())))
                 .then(Commands.literal("food")
                         .then(Commands.argument("level", IntegerArgumentType.integer(0, 20))
                                 .executes(ctx -> food(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "level"), 0.0F))
@@ -394,6 +399,26 @@ public final class CivilianDebugCommands {
         for (Component line : civilian.debugInfoLines(source.getLevel())) {
             source.sendSuccess(() -> line, false);
         }
+        return 1;
+    }
+
+    private static int inv(CommandSourceStack source) {
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
+            source.sendFailure(Component.literal("Only a player can open a civilian inventory"));
+            return 0;
+        }
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        if (!player.canInteractWithEntity(civilian, Container.DEFAULT_DISTANCE_BUFFER)) {
+            source.sendFailure(Component.literal("Move closer to " + civilian.getName().getString() + " to open inventory"));
+            return 0;
+        }
+        Component title = Component.translatable("gui.empire.civilian_inventory.title", civilian.getDisplayName());
+        player.openMenu(new SimpleMenuProvider(
+                (containerId, playerInventory, p) -> new CivilianInventoryMenu(containerId, playerInventory, civilian),
+                title));
         return 1;
     }
 

@@ -1500,6 +1500,19 @@ public class CivilianEntity extends PathfinderMob {
         if (!level().isClientSide && inventoryMeal) returnInventoryMeal();
     }
 
+    /**
+     * Stops any active item use without moving the main-hand stack back into pockets, so direct debug inventory
+     * edits to the main hand never duplicate or overwrite the edited stack.
+     */
+    public void cancelActiveUseForDirectHandEdit() {
+        if (inventoryMeal) {
+            inventoryMeal = false;
+        }
+        if (isUsingItem()) {
+            stopUsingItem();
+        }
+    }
+
     private void returnInventoryMeal() {
         inventoryMeal = false;
         ItemStack remainder = getMainHandItem();
