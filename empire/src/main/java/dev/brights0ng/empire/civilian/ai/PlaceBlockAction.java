@@ -5,9 +5,13 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import javax.annotation.Nullable;
+
 import dev.brights0ng.empire.civilian.CivilianEntity;
 import dev.brights0ng.empire.civilian.CivilianFulfilmentMeters;
 import dev.brights0ng.empire.rules.CivilianDerivedStats;
+import dev.brights0ng.empire.rules.CivilianSkill;
+import dev.brights0ng.empire.rules.CivilianSkills;
 import dev.brights0ng.empire.rules.FarmerUtility;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -20,8 +24,9 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Reusable Level-4 block-placing / seed-planting primitive: equips a matching item into {@code MAIN_HAND}, paces over
- * a duration scaled by labor speed and Fulfilment productivity, validates {@code canSurvive}, places the block,
- * consumes 1 item, applies exhaustion, and credits {@code workDoneTicks}.
+ * a duration scaled by labor speed, Fulfilment productivity, and occupational skill, validates {@code canSurvive},
+ * places the block (or drops the item on a rookie fumble), consumes 1 item, applies skill-scaled exhaustion, awards
+ * skill XP, and credits {@code workDoneTicks}.
  */
 public final class PlaceBlockAction implements CivilianAction {
 
@@ -33,19 +38,32 @@ public final class PlaceBlockAction implements CivilianAction {
     private final int baseTicks;
     private final float baseExhaustion;
     private final boolean heavyLabor;
+    @Nullable
+    private final CivilianSkill skill;
+    private final double baseXp;
 
     private int ticks;
     private int durationTicks = 1;
+    private boolean fumbled;
 
     public PlaceBlockAction(BlockPos target, Predicate<ItemStack> itemFilter,
                             Function<ItemStack, BlockState> stateFactory,
                             int baseTicks, float baseExhaustion, boolean heavyLabor) {
+        this(target, itemFilter, stateFactory, baseTicks, baseExhaustion, heavyLabor, null, 0.0);
+    }
+
+    public PlaceBlockAction(BlockPos target, Predicate<ItemStack> itemFilter,
+                            Function<ItemStack, BlockState> stateFactory,
+                            int baseTicks, float baseExhaustion, boolean heavyLabor,
+                            @Nullable CivilianSkill skill, double baseXp) {
         this.target = Objects.requireNonNull(target, "target").immutable();
         this.itemFilter = Objects.requireNonNull(itemFilter, "itemFilter");
         this.stateFactory = Objects.requireNonNull(stateFactory, "stateFactory");
         this.baseTicks = Math.max(1, baseTicks);
         this.baseExhaustion = Math.max(0.0F, baseExhaustion);
         this.heavyLabor = heavyLabor;
+        this.skill = skill;
+        this.baseXp = Math.max(0.0, baseXp);
     }
 
     @Override
@@ -53,16 +71,27 @@ public final class PlaceBlockAction implements CivilianAction {
         return "place_block(" + target.toShortString() + ")";
     }
 
+    /** True if a rookie mistake caused the civilian to drop the item on the ground instead of placing/planting it. */
+    public boolean fumbled() {
+        return fumbled;
+    }
+
+    public int durationTicks() {
+        return durationTicks;
+    }
+
     @Override
     public void start(AiContext ctx) {
         CivilianEntity civ = ctx.civilian();
         ticks = 0;
+        fumbled = false;
         civ.getNavigation().stop();
         EquipAction.equipFromPockets(civ, itemFilter);
         CivilianDerivedStats stats = civ.derivedStats();
         double laborSpeed = heavyLabor ? stats.heavyLaborSpeedMultiplier() : stats.fineWorkSpeedMultiplier();
         double productivity = CivilianFulfilmentMeters.evaluate(ctx.level(), civ).productivity();
-        durationTicks = FarmerUtility.scaledWorkTicks(baseTicks, laborSpeed, productivity);
+        double skillSpeed = skill != null ? CivilianSkills.speedMultiplier(civ.skills().level(skill)) : 1.0;
+        durationTicks = FarmerUtility.scaledWorkTicks(baseTicks, laborSpeed, productivity, skillSpeed);
     }
 
     @Override
@@ -102,18 +131,36 @@ public final class PlaceBlockAction implements CivilianAction {
             return Status.RUNNING;
         }
 
-        level.setBlock(target, toPlace, Block.UPDATE_ALL);
-        SoundType sound = toPlace.getSoundType(level, target, civ);
-        level.playSound(null, target, sound.getPlaceSound(), SoundSource.BLOCKS,
-                (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
-        held.shrink(1);
-        if (held.isEmpty()) {
-            civ.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        double skillLevel = skill != null ? civ.skills().level(skill) : CivilianSkills.ROOKIE_SKILL_CEILING;
+        fumbled = skill != null && civ.getRandom().nextDouble() < civ.currentFumbleChance(skill);
+        if (fumbled) {
+            // Non-destructive rookie fumble: drops 1 seed/item onto the ground instead of planting it.
+            ItemStack dropped = held.copyWithCount(1);
+            held.shrink(1);
+            if (held.isEmpty()) {
+                civ.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            }
+            Block.popResource(level, target, dropped);
+        } else {
+            level.setBlock(target, toPlace, Block.UPDATE_ALL);
+            SoundType sound = toPlace.getSoundType(level, target, civ);
+            level.playSound(null, target, sound.getPlaceSound(), SoundSource.BLOCKS,
+                    (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
+            held.shrink(1);
+            if (held.isEmpty()) {
+                civ.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            }
         }
         if (baseExhaustion > 0.0F) {
-            civ.food().addExhaustion(baseExhaustion * (float) civ.derivedStats().activityExhaustionMultiplier());
+            double skillExh = skill != null ? CivilianSkills.exhaustionMultiplier(skillLevel) : 1.0;
+            civ.food().addExhaustion((float) (baseExhaustion * civ.derivedStats().activityExhaustionMultiplier() * skillExh));
         }
-        civ.syncNeedsToRecord();
+        if (skill != null && baseXp > 0.0) {
+            double xp = fumbled ? baseXp * CivilianSkills.FUMBLE_ATTEMPT_XP_FACTOR : baseXp;
+            civ.awardSkillActionXp(level, skill, xp);
+        } else {
+            civ.syncNeedsToRecord();
+        }
         return Status.SUCCEEDED;
     }
 

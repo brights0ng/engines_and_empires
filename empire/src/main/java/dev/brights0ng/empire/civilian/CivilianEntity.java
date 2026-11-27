@@ -1,4 +1,4 @@
-// Written by Claude; extended with abilities, inspection, ticking needs, inventory, eating and client eating sync by ChatGPT; extended with sleep persistence, behavior, fulfilment, traits and live derived mechanics by Gemini.
+// Written by Claude; extended with abilities, inspection, ticking needs, inventory, eating and client eating sync by ChatGPT; extended with sleep persistence, behavior, fulfilment, traits, live derived mechanics and occupational skills by Gemini.
 package dev.brights0ng.empire.civilian;
 
 import java.util.ArrayList;
@@ -23,6 +23,7 @@ import dev.brights0ng.empire.data.CivilianFulfilmentNbt;
 import dev.brights0ng.empire.data.CivilianRecord;
 import dev.brights0ng.empire.data.CivilianFoodNbt;
 import dev.brights0ng.empire.data.CivilianScheduleNbt;
+import dev.brights0ng.empire.data.CivilianSkillsNbt;
 import dev.brights0ng.empire.data.CivilianSleepNbt;
 import dev.brights0ng.empire.data.CivilianTraitsNbt;
 import dev.brights0ng.empire.data.EmpireRecord;
@@ -40,6 +41,8 @@ import dev.brights0ng.empire.rules.CivilianNames;
 import dev.brights0ng.empire.rules.CivilianPreferences;
 import dev.brights0ng.empire.rules.CivilianQuirk;
 import dev.brights0ng.empire.rules.CivilianSchedule;
+import dev.brights0ng.empire.rules.CivilianSkill;
+import dev.brights0ng.empire.rules.CivilianSkills;
 import dev.brights0ng.empire.rules.CivilianSleep;
 import dev.brights0ng.empire.rules.CivilianTraits;
 import dev.brights0ng.empire.rules.CivilianTraits.BaseTrait;
@@ -183,6 +186,7 @@ public class CivilianEntity extends PathfinderMob {
 
     private static final String TAG_APPEARANCE = "Appearance";
     private static final String TAG_TRAITS = "Traits";
+    private static final String TAG_SKILLS = "Skills";
     private static final String TAG_FOOD = "Food";
     private static final String TAG_SLEEP = "Sleep";
     private static final String TAG_FULFILMENT = "Fulfilment";
@@ -215,6 +219,8 @@ public class CivilianEntity extends PathfinderMob {
     private List<CivilianQuirk> quirks = List.of();
     private CivilianDerivedStats derivedStats = CivilianDerivedStats.NEUTRAL;
     private boolean traitsPreset;
+    private CivilianSkills skills = new CivilianSkills();
+    private boolean skillsPreset;
     private double appliedHungerWeakness = 0.0;
     private CivilianFood food = new CivilianFood();
     private CivilianSleep sleep = new CivilianSleep();
@@ -456,6 +462,42 @@ public class CivilianEntity extends PathfinderMob {
         return food;
     }
 
+    public CivilianSkills skills() {
+        return skills;
+    }
+
+    /** Replaces skills before {@link #finalizeSpawn} so starting skills are not rolled. */
+    void presetSkills(CivilianSkills skills) {
+        this.skills = Objects.requireNonNull(skills, "skills");
+        this.skillsPreset = true;
+    }
+
+    /** Current comfort reading on {@code [0, 1]} for cold/fatigue precision checks (defaults to {@code 1.0} if unsampled). */
+    public double currentComfortScore() {
+        return fulfilment.hasComfortSamples() ? fulfilment.averageComfort() : 1.0;
+    }
+
+    /** Live rookie fumble probability for {@code skill}, accounting for skill level, traits, and cold/fatigue stress. */
+    public double currentFumbleChance(CivilianSkill skill) {
+        return CivilianSkills.fumbleChance(
+                skills.level(skill),
+                derivedStats,
+                currentComfortScore(),
+                sleep.lastNight(),
+                derivedStats.hungerStrengthFactor(food.foodLevel()));
+    }
+
+    /**
+     * Awards XP for a completed action in {@code skill} scaled by time efficiency, trait learning rate, Fulfilment
+     * productivity, and sleep consolidation, then writes through to the master record.
+     */
+    public double awardSkillActionXp(ServerLevel serverLevel, CivilianSkill skill, double baseActionXp) {
+        double productivity = CivilianFulfilmentMeters.evaluate(serverLevel, this).productivity();
+        double gained = skills.recordAction(skill, baseActionXp, derivedStats, productivity, sleep.lastNight());
+        syncNeedsToRecord();
+        return gained;
+    }
+
     public CivilianSleep sleep() {
         return sleep;
     }
@@ -645,6 +687,7 @@ public class CivilianEntity extends PathfinderMob {
         String quirkList = quirks.isEmpty() ? "none"
                 : String.join(", ", quirks.stream().map(CivilianQuirk::displayName).toList());
         lines.add(Component.literal("Quirks: " + quirkList));
+        lines.add(Component.literal("Skills: " + skills.formatCompactSummary()));
         lines.add(Component.literal(String.format(Locale.ROOT,
                 "Stats: Comfort %.1f..%.1fC | Hunger %.2fx basal / %.2fx act | Reach %.1fb | Speed %.2f | StrMult %.2fx",
                 derivedStats.comfortMinC(EmpireConfig.fulfilmentComfortMinC()),
@@ -828,6 +871,45 @@ public class CivilianEntity extends PathfinderMob {
         return lines;
     }
 
+    /** Full breakdown of occupational skills, XP, live modifiers, and decay status for {@code /empire debug civilian skills}. */
+    public List<Component> skillsDebugLines(ServerLevel serverLevel) {
+        List<Component> lines = new ArrayList<>();
+        double productivity = CivilianFulfilmentMeters.evaluate(serverLevel, this).productivity();
+        double comfort = currentComfortScore();
+        float lastNight = sleep.lastNight();
+        double sleepMult = CivilianSkills.sleepLearningMultiplier(lastNight);
+        double stress = CivilianSkills.coldFatigueStress(comfort, lastNight, derivedStats.hungerStrengthFactor(food.foodLevel()));
+
+        lines.add(Component.literal("=== Skills: " + getName().getString() + " (" + status.name() + ") ==="));
+        lines.add(Component.literal(String.format(Locale.ROOT,
+                "Learning: motor %.2fx / cog %.2fx | Prod %.2fx | Sleep %.2fx | Fumble %.2fx (stress %.2f, coldSens %.2fx)",
+                derivedStats.motorLearningMultiplier(), derivedStats.cognitiveLearningMultiplier(),
+                productivity, sleepMult, derivedStats.fumbleRateMultiplier(),
+                stress, derivedStats.coldFatiguePrecisionSensitivity())));
+        for (CivilianSkill skill : CivilianSkill.values()) {
+            double lvl = skills.level(skill);
+            double xpVal = skills.xp(skill);
+            int idle = skills.inactiveDays(skill);
+            boolean used = skills.usedToday(skill);
+            double fumble = currentFumbleChance(skill);
+            String state = used ? "active today"
+                    : (xpVal <= 0.0 ? "untrained"
+                    : (idle >= CivilianSkills.DECAY_GRACE_DAYS ? "decaying (" + idle + "d idle)" : idle + "/" + CivilianSkills.DECAY_GRACE_DAYS + "d grace"));
+            lines.add(Component.literal(String.format(Locale.ROOT,
+                    "  %s: %.2f [%s] (%.1f/%.0f XP) | spd %.2fx, exh %.2fx, dur %.0f%%, yld %.2fx, fmb %.0f%%, lrn %.2fx | %s",
+                    skill.displayName(), lvl, CivilianSkills.SkillTier.forLevel(lvl).displayName(),
+                    xpVal, CivilianSkills.MAX_XP,
+                    CivilianSkills.speedMultiplier(lvl),
+                    CivilianSkills.exhaustionMultiplier(lvl),
+                    CivilianSkills.toolDurabilityChance(lvl) * 100.0,
+                    CivilianSkills.cropYieldMultiplier(lvl),
+                    fumble * 100.0,
+                    skill.learningMultiplier(derivedStats),
+                    state)));
+        }
+        return lines;
+    }
+
     private static String formatStack(ItemStack stack) {
         if (stack.isEmpty()) {
             return "empty";
@@ -923,6 +1005,7 @@ public class CivilianEntity extends PathfinderMob {
 
     /** Applies a master snapshot without writing it back during join. */
     void restoreNeeds(CivilianRecord record) {
+        skills = CivilianSkills.restore(record.skills());
         food = CivilianFood.restore(record.food());
         sleep = CivilianSleep.restore(record.sleep());
         fulfilment = CivilianFulfilment.restore(record.fulfilment());
@@ -957,6 +1040,7 @@ public class CivilianEntity extends PathfinderMob {
         }
         EmpireSavedData data = EmpireSavedData.of(serverLevel);
         CivilianRecord record = ownRecord(data);
+        CivilianSkills.Saved savedSkills = skills.save();
         CivilianFood.Saved saved = food.save();
         CivilianSleep.Saved savedSleep = sleep.save();
         CivilianFulfilment.Saved savedFulfilment = fulfilment.save();
@@ -970,9 +1054,11 @@ public class CivilianEntity extends PathfinderMob {
                 }
             }
         }
-        if (record != null && (inventoryChanged || !saved.equals(record.food()) || !savedSleep.equals(record.sleep())
+        if (record != null && (inventoryChanged || !savedSkills.equals(record.skills())
+                || !saved.equals(record.food()) || !savedSleep.equals(record.sleep())
                 || !savedFulfilment.equals(record.fulfilment()) || !savedSchedule.equals(record.schedule())
                 || !Objects.equals(claimedBed, record.bed()) || Float.compare(getHealth(), record.health()) != 0)) {
+            record.setSkills(savedSkills);
             record.setFood(saved);
             record.setSleep(savedSleep);
             record.setFulfilment(savedFulfilment);
@@ -1140,6 +1226,9 @@ public class CivilianEntity extends PathfinderMob {
         } else {
             applyTraitAttributes(true);
         }
+        if (!skillsPreset) {
+            skills = CivilianSkills.rollStarting(random::nextLong, traits);
+        }
         if (!preferencesPreset) {
             fulfilment.setPreferences(CivilianPreferences.roll(
                     random::nextLong,
@@ -1173,6 +1262,7 @@ public class CivilianEntity extends PathfinderMob {
         tag.put("Inventory", ContainerHelper.saveAllItems(new CompoundTag(), inventory.getItems(), level().registryAccess()));
         tag.putInt(TAG_APPEARANCE, entityData.get(APPEARANCE));
         tag.put(TAG_TRAITS, CivilianTraitsNbt.save(traits));
+        tag.put(TAG_SKILLS, CivilianSkillsNbt.save(skills.save()));
         if (home != null) {
             tag.put(TAG_HOME, NbtUtils.writeBlockPos(home));
         }
@@ -1231,6 +1321,13 @@ public class CivilianEntity extends PathfinderMob {
         travellerEmpire = tag.hasUUID(TAG_TRAVELLER_EMPIRE) ? tag.getUUID(TAG_TRAVELLER_EMPIRE) : null;
         want = Math.floorMod(tag.getInt(TAG_WANT), TravellerWants.WANTS.size());
         leaveAt = tag.getLong(TAG_LEAVE_AT);
+        if (tag.contains(TAG_SKILLS, Tag.TAG_COMPOUND)) {
+            skills = CivilianSkills.restore(CivilianSkillsNbt.load(
+                    tag.getCompound(TAG_SKILLS),
+                    () -> CivilianSkills.defaultFor(identityUuid(), traits).save()));
+        } else {
+            skills = CivilianSkills.defaultFor(identityUuid(), traits);
+        }
         // Vanilla does not save the restriction. A citizen's or traveller's home is set again as it joins the level.
         if (home != null && status != Status.LEAVING) {
             restrictTo(home, status == Status.TRAVELLER ? TRAVELLER_RADIUS : HOME_RADIUS);
@@ -1257,6 +1354,9 @@ public class CivilianEntity extends PathfinderMob {
         if (isAlive() && !isRemoved()) {
             if (food.countActiveTick()) {
                 fulfilment.advanceDay();
+                if (status == Status.CITIZEN && skills.advanceDay()) {
+                    syncNeedsToRecord();
+                }
             }
             food.addExhaustion((float) (EmpireConfig.civilianBasalExhaustionPerTick() * derivedStats.basalExhaustionMultiplier()));
             CivilianFood.TickResult result = food.tick(getHealth(), getMaxHealth(),

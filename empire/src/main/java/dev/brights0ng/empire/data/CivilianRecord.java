@@ -1,4 +1,4 @@
-// Written by Claude; extended with abilities, needs and inventory persistence by ChatGPT; extended with sleep, bed, fulfilment and traits persistence by Gemini.
+// Written by Claude; extended with abilities, needs and inventory persistence by ChatGPT; extended with sleep, bed, fulfilment, traits and occupational skills persistence by Gemini.
 package dev.brights0ng.empire.data;
 
 import java.util.List;
@@ -12,6 +12,7 @@ import dev.brights0ng.empire.rules.CivilianAbilities;
 import dev.brights0ng.empire.rules.CivilianFood;
 import dev.brights0ng.empire.rules.CivilianFulfilment;
 import dev.brights0ng.empire.rules.CivilianPreferences;
+import dev.brights0ng.empire.rules.CivilianSkills;
 import dev.brights0ng.empire.rules.CivilianSleep;
 import dev.brights0ng.empire.rules.CivilianTraits;
 
@@ -30,7 +31,7 @@ import net.minecraft.world.item.ItemStack;
 public final class CivilianRecord {
 
     /** The saved form's version; bump it when fields change meaning. */
-    public static final int VERSION = 4;
+    public static final int VERSION = 5;
 
     private final UUID id;
     private final UUID empire;
@@ -40,6 +41,7 @@ public final class CivilianRecord {
     /** {@code CivilianAppearance.pack()}. */
     private int appearance;
     private CivilianTraits traits;
+    private CivilianSkills.Saved skills;
     private CivilianFood.Saved food = new CivilianFood().save();
     private CivilianSleep.Saved sleep = new CivilianSleep().save();
     private CivilianFulfilment.Saved fulfilment;
@@ -62,6 +64,7 @@ public final class CivilianRecord {
         this.name = name;
         this.appearance = appearance;
         this.traits = CivilianTraits.defaultFor(id);
+        this.skills = CivilianSkills.defaultFor(id, this.traits).save();
         this.fulfilment = CivilianFulfilment.Saved.empty(CivilianPreferences.defaultFor(id));
         this.lastPos = lastPos.immutable();
         this.lastChunk = lastChunk;
@@ -111,6 +114,14 @@ public final class CivilianRecord {
     /** Derived player-facing 7-score abilities computed from {@link #traits()}. */
     public CivilianAbilities abilities() {
         return traits.abilities();
+    }
+
+    public CivilianSkills.Saved skills() {
+        return skills;
+    }
+
+    public void setSkills(CivilianSkills.Saved skills) {
+        this.skills = Objects.requireNonNull(skills, "skills");
     }
 
     public CivilianFood.Saved food() {
@@ -199,6 +210,7 @@ public final class CivilianRecord {
         tag.putString("name", name);
         tag.putInt("appearance", appearance);
         tag.put("traits", CivilianTraitsNbt.save(traits));
+        tag.put("skills", CivilianSkillsNbt.save(skills));
         tag.put("food", CivilianFoodNbt.save(food));
         tag.put("sleep", CivilianSleepNbt.save(sleep));
         tag.put("fulfilment", CivilianFulfilmentNbt.save(fulfilment));
@@ -221,6 +233,12 @@ public final class CivilianRecord {
         if (tag.contains("traits", net.minecraft.nbt.Tag.TAG_COMPOUND)) {
             record.setTraits(CivilianTraitsNbt.load(
                     tag.getCompound("traits"), () -> CivilianTraits.defaultFor(record.id())));
+        }
+        if (tag.contains("skills", net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+            record.setSkills(CivilianSkillsNbt.load(
+                    tag.getCompound("skills"), () -> CivilianSkills.defaultFor(record.id(), record.traits()).save()));
+        } else {
+            record.setSkills(CivilianSkills.defaultFor(record.id(), record.traits()).save());
         }
         record.setFood(CivilianFoodNbt.load(tag.getCompound("food")));
         record.setSleep(CivilianSleepNbt.load(tag.getCompound("sleep")));

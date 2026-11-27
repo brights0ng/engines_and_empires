@@ -7,6 +7,8 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 import dev.brights0ng.empire.civilian.CivilianEntity;
+import dev.brights0ng.empire.rules.CivilianSkill;
+import dev.brights0ng.empire.rules.CivilianSkills;
 import dev.brights0ng.empire.rules.FarmerUtility;
 import net.minecraft.core.BlockPos;
 
@@ -213,7 +215,10 @@ public final class HarvestFieldTask implements CivilianTask {
                 FarmerUtility.HARVEST_BASE_TICKS,
                 FarmerUtility.HARVEST_EXHAUSTION,
                 true,
-                FarmCrops::isMatureCrop
+                FarmCrops::isMatureCrop,
+                CivilianSkill.HARVESTING,
+                CivilianSkills.HARVEST_CROP_BASE_XP,
+                true
         );
     }
 }

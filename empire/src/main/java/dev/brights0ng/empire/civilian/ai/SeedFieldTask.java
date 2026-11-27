@@ -7,6 +7,8 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 import dev.brights0ng.empire.civilian.CivilianEntity;
+import dev.brights0ng.empire.rules.CivilianSkill;
+import dev.brights0ng.empire.rules.CivilianSkills;
 import dev.brights0ng.empire.rules.FarmerUtility;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -107,7 +109,8 @@ public final class SeedFieldTask implements CivilianTask {
         }
 
         currentAction.stop(ctx);
-        boolean wasMove = currentAction instanceof MoveToAction;
+        CivilianAction finished = currentAction;
+        boolean wasMove = finished instanceof MoveToAction;
         currentAction = null;
 
         if (wasMove) {
@@ -131,7 +134,8 @@ public final class SeedFieldTask implements CivilianTask {
         }
 
         scanner.invalidate();
-        if (status != CivilianAction.Status.SUCCEEDED && currentTarget != null) {
+        boolean fumbledPlant = finished instanceof PlaceBlockAction place && place.fumbled();
+        if ((status != CivilianAction.Status.SUCCEEDED || fumbledPlant) && currentTarget != null) {
             skippedPositions.add(currentTarget.cropPos());
         }
 
@@ -254,7 +258,9 @@ public final class SeedFieldTask implements CivilianTask {
                 },
                 FarmerUtility.PLANT_BASE_TICKS,
                 FarmerUtility.PLANT_EXHAUSTION,
-                true
+                true,
+                CivilianSkill.CULTIVATION,
+                CivilianSkills.PLANT_CROP_BASE_XP
         );
     }
 }

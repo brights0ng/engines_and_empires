@@ -10,6 +10,8 @@ import javax.annotation.Nullable;
 import dev.brights0ng.empire.civilian.CivilianEntity;
 import dev.brights0ng.empire.civilian.CivilianFulfilmentMeters;
 import dev.brights0ng.empire.rules.CivilianDerivedStats;
+import dev.brights0ng.empire.rules.CivilianSkill;
+import dev.brights0ng.empire.rules.CivilianSkills;
 import dev.brights0ng.empire.rules.FarmerUtility;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -25,8 +27,8 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * Reusable Level-4 block-interaction primitive (e.g. hoeing soil into farmland, toggling stations, harvesting bushes).
  * Equips an optional required tool, faces {@code target} within {@link CivilianDerivedStats#blockReach()}, paces over
- * a speed/productivity-scaled duration, runs the {@link BlockInteraction}, applies exhaustion, and credits
- * {@code workDoneTicks}.
+ * a speed/productivity/skill-scaled duration, runs the {@link BlockInteraction} (or whiffs on a rookie fumble), applies
+ * skill-scaled tool durability and exhaustion, awards skill XP, and credits {@code workDoneTicks}.
  */
 public final class InteractBlockAction implements CivilianAction {
 
@@ -46,13 +48,26 @@ public final class InteractBlockAction implements CivilianAction {
     private final int baseTicks;
     private final float baseExhaustion;
     private final boolean heavyLabor;
+    @Nullable
+    private final CivilianSkill skill;
+    private final double baseXp;
+    private final boolean damageHeldTool;
 
     private int ticks;
     private int durationTicks = 1;
+    private boolean fumbled;
 
     public InteractBlockAction(String actionName, BlockPos target, @Nullable Predicate<ItemStack> toolFilter,
                                BiPredicate<ServerLevel, BlockPos> stillValid, BlockInteraction interaction,
                                int baseTicks, float baseExhaustion, boolean heavyLabor) {
+        this(actionName, target, toolFilter, stillValid, interaction, baseTicks, baseExhaustion, heavyLabor,
+                null, 0.0, false);
+    }
+
+    public InteractBlockAction(String actionName, BlockPos target, @Nullable Predicate<ItemStack> toolFilter,
+                               BiPredicate<ServerLevel, BlockPos> stillValid, BlockInteraction interaction,
+                               int baseTicks, float baseExhaustion, boolean heavyLabor,
+                               @Nullable CivilianSkill skill, double baseXp, boolean damageHeldTool) {
         this.actionName = Objects.requireNonNull(actionName, "actionName");
         this.target = Objects.requireNonNull(target, "target").immutable();
         this.toolFilter = toolFilter;
@@ -61,9 +76,12 @@ public final class InteractBlockAction implements CivilianAction {
         this.baseTicks = Math.max(1, baseTicks);
         this.baseExhaustion = Math.max(0.0F, baseExhaustion);
         this.heavyLabor = heavyLabor;
+        this.skill = skill;
+        this.baseXp = Math.max(0.0, baseXp);
+        this.damageHeldTool = damageHeldTool;
     }
 
-    /** Factory specialization: tills dirt/grass/path/coarse-dirt into farmland using a held hoe (1 durability). */
+    /** Factory specialization: tills dirt/grass/path/coarse-dirt into farmland using a held hoe (Cultivation skill). */
     public static InteractBlockAction till(BlockPos target) {
         return new InteractBlockAction(
                 "interact_till",
@@ -80,13 +98,13 @@ public final class InteractBlockAction implements CivilianAction {
                             : Blocks.FARMLAND.defaultBlockState();
                     level.setBlock(pos, next, Block.UPDATE_ALL);
                     level.playSound(null, pos, SoundEvents.HOE_TILL, SoundSource.BLOCKS, 1.0F, 1.0F);
-                    if (hoe.isDamageableItem()) {
-                        hoe.hurtAndBreak(1, civ, EquipmentSlot.MAINHAND);
-                    }
                     return true;
                 },
                 FarmerUtility.TILL_BASE_TICKS,
                 FarmerUtility.TILL_EXHAUSTION,
+                true,
+                CivilianSkill.CULTIVATION,
+                CivilianSkills.TILL_SOIL_BASE_XP,
                 true
         );
     }
@@ -96,10 +114,20 @@ public final class InteractBlockAction implements CivilianAction {
         return actionName + "(" + target.toShortString() + ")";
     }
 
+    /** True if a rookie mistake caused this interaction swing to whiff without changing the block. */
+    public boolean fumbled() {
+        return fumbled;
+    }
+
+    public int durationTicks() {
+        return durationTicks;
+    }
+
     @Override
     public void start(AiContext ctx) {
         CivilianEntity civ = ctx.civilian();
         ticks = 0;
+        fumbled = false;
         civ.getNavigation().stop();
         if (toolFilter != null) {
             EquipAction.equipFromPockets(civ, toolFilter);
@@ -107,7 +135,8 @@ public final class InteractBlockAction implements CivilianAction {
         CivilianDerivedStats stats = civ.derivedStats();
         double laborSpeed = heavyLabor ? stats.heavyLaborSpeedMultiplier() : stats.fineWorkSpeedMultiplier();
         double productivity = CivilianFulfilmentMeters.evaluate(ctx.level(), civ).productivity();
-        durationTicks = FarmerUtility.scaledWorkTicks(baseTicks, laborSpeed, productivity);
+        double skillSpeed = skill != null ? CivilianSkills.speedMultiplier(civ.skills().level(skill)) : 1.0;
+        durationTicks = FarmerUtility.scaledWorkTicks(baseTicks, laborSpeed, productivity, skillSpeed);
     }
 
     @Override
@@ -143,14 +172,30 @@ public final class InteractBlockAction implements CivilianAction {
             return Status.RUNNING;
         }
 
-        boolean ok = interaction.execute(level, civ, target, held);
-        if (!ok) {
-            return Status.FAILED;
+        double skillLevel = skill != null ? civ.skills().level(skill) : CivilianSkills.ROOKIE_SKILL_CEILING;
+        fumbled = skill != null && civ.getRandom().nextDouble() < civ.currentFumbleChance(skill);
+        if (!fumbled) {
+            boolean ok = interaction.execute(level, civ, target, held);
+            if (!ok) {
+                return Status.FAILED;
+            }
+        }
+        if (damageHeldTool && toolFilter != null && !held.isEmpty() && held.isDamageableItem()) {
+            double durChance = skill != null ? CivilianSkills.toolDurabilityChance(skillLevel) : 1.0;
+            if (durChance >= 1.0 || civ.getRandom().nextDouble() < durChance) {
+                held.hurtAndBreak(1, civ, EquipmentSlot.MAINHAND);
+            }
         }
         if (baseExhaustion > 0.0F) {
-            civ.food().addExhaustion(baseExhaustion * (float) civ.derivedStats().activityExhaustionMultiplier());
+            double skillExh = skill != null ? CivilianSkills.exhaustionMultiplier(skillLevel) : 1.0;
+            civ.food().addExhaustion((float) (baseExhaustion * civ.derivedStats().activityExhaustionMultiplier() * skillExh));
         }
-        civ.syncNeedsToRecord();
+        if (skill != null && baseXp > 0.0) {
+            double xp = fumbled ? baseXp * CivilianSkills.FUMBLE_ATTEMPT_XP_FACTOR : baseXp;
+            civ.awardSkillActionXp(level, skill, xp);
+        } else {
+            civ.syncNeedsToRecord();
+        }
         return Status.SUCCEEDED;
     }
 

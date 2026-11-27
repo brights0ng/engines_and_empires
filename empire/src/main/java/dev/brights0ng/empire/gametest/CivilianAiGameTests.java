@@ -383,7 +383,7 @@ public final class CivilianAiGameTests {
             c.syncNeedsToRecord();
 
             CivilianRecord record = EmpireSavedData.of(level).civilian(c.civilianId());
-            helper.assertTrue(record != null && CivilianRecord.VERSION == 4, "record v4 present");
+            helper.assertTrue(record != null && CivilianRecord.VERSION == 5, "record v5 present");
             CompoundTag savedTag = record.save(level.registryAccess());
             CivilianRecord reloaded = CivilianRecord.load(savedTag, level.registryAccess());
 

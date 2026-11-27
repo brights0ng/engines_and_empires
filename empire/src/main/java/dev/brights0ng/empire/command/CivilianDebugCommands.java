@@ -1,4 +1,4 @@
-// Written by Claude; extended with ability, needs, inventory and eating commands by ChatGPT; extended with sleep, bed cleanup, fulfilment, traits, AI, job and live inventory menu commands by Gemini.
+// Written by Claude; extended with ability, needs, inventory and eating commands by ChatGPT; extended with sleep, bed cleanup, fulfilment, traits, AI, job, live inventory menu and occupational skills commands by Gemini.
 package dev.brights0ng.empire.command;
 
 import java.util.ArrayList;
@@ -37,6 +37,8 @@ import dev.brights0ng.empire.rules.CivilianFood;
 import dev.brights0ng.empire.rules.CivilianFulfilment;
 import dev.brights0ng.empire.rules.CivilianLines;
 import dev.brights0ng.empire.rules.CivilianSchedule;
+import dev.brights0ng.empire.rules.CivilianSkill;
+import dev.brights0ng.empire.rules.CivilianSkills;
 import dev.brights0ng.empire.rules.CivilianTraits;
 import dev.brights0ng.empire.rules.CivilianTraits.BaseTrait;
 import dev.brights0ng.empire.rules.Occupation;
@@ -115,6 +117,30 @@ public final class CivilianDebugCommands {
                                 .executes(ctx -> traitsNeutral(ctx.getSource())))
                         .then(Commands.literal("reroll")
                                 .executes(ctx -> traitsReroll(ctx.getSource()))))
+                .then(Commands.literal("skills")
+                        .executes(ctx -> skillsInfo(ctx.getSource()))
+                        .then(Commands.literal("set")
+                                .then(Commands.argument("skill", StringArgumentType.word())
+                                        .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(skillIds(), builder))
+                                        .then(Commands.argument("level", DoubleArgumentType.doubleArg(0.0, 1.0))
+                                                .executes(ctx -> skillsSet(ctx.getSource(),
+                                                        StringArgumentType.getString(ctx, "skill"),
+                                                        DoubleArgumentType.getDouble(ctx, "level"))))))
+                        .then(Commands.literal("addxp")
+                                .then(Commands.argument("skill", StringArgumentType.word())
+                                        .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(skillIds(), builder))
+                                        .then(Commands.argument("xp", DoubleArgumentType.doubleArg(-CivilianSkills.MAX_XP, CivilianSkills.MAX_XP))
+                                                .executes(ctx -> skillsAddXp(ctx.getSource(),
+                                                        StringArgumentType.getString(ctx, "skill"),
+                                                        DoubleArgumentType.getDouble(ctx, "xp"))))))
+                        .then(Commands.literal("decay")
+                                .executes(ctx -> skillsDecay(ctx.getSource(), 1))
+                                .then(Commands.argument("days", IntegerArgumentType.integer(1, 1000))
+                                        .executes(ctx -> skillsDecay(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "days")))))
+                        .then(Commands.literal("reroll")
+                                .executes(ctx -> skillsReroll(ctx.getSource())))
+                        .then(Commands.literal("reset")
+                                .executes(ctx -> skillsReset(ctx.getSource()))))
                 .then(Commands.literal("sleep")
                         .then(Commands.literal("claim")
                                 .executes(ctx -> sleepClaim(ctx.getSource())))
@@ -388,6 +414,108 @@ public final class CivilianDebugCommands {
         civilian.setTraits(CivilianTraits.roll(source.getLevel().random::nextLong));
         source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " traits rerolled (abilities "
                 + civilian.abilities().code() + ")"), true);
+        return 1;
+    }
+
+    private static List<String> skillIds() {
+        List<String> ids = new ArrayList<>(CivilianSkill.values().length);
+        for (CivilianSkill s : CivilianSkill.values()) {
+            ids.add(s.id());
+        }
+        return ids;
+    }
+
+    private static int skillsInfo(CommandSourceStack source) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        for (Component line : civilian.skillsDebugLines(source.getLevel())) {
+            source.sendSuccess(() -> line, false);
+        }
+        return 1;
+    }
+
+    private static int skillsSet(CommandSourceStack source, String skillName, double level) {
+        CivilianSkill skill = CivilianSkill.byId(skillName);
+        if (skill == null) {
+            source.sendFailure(Component.literal("Unknown skill: " + skillName + " (" + String.join(", ", skillIds()) + ")"));
+            return 0;
+        }
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        civilian.skills().setLevel(skill, level);
+        civilian.syncNeedsToRecord();
+        double actual = civilian.skills().level(skill);
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "%s %s = %.2f [%s] (%.1f XP)",
+                civilian.getName().getString(), skill.displayName(), actual,
+                CivilianSkills.SkillTier.forLevel(actual).displayName(), civilian.skills().xp(skill))), true);
+        return 1;
+    }
+
+    private static int skillsAddXp(CommandSourceStack source, String skillName, double deltaXp) {
+        CivilianSkill skill = CivilianSkill.byId(skillName);
+        if (skill == null) {
+            source.sendFailure(Component.literal("Unknown skill: " + skillName + " (" + String.join(", ", skillIds()) + ")"));
+            return 0;
+        }
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        double applied = civilian.skills().addRawXp(skill, deltaXp);
+        civilian.syncNeedsToRecord();
+        double actual = civilian.skills().level(skill);
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
+                "%s %s %+.1f XP -> %.2f [%s] (%.1f/%.0f XP)",
+                civilian.getName().getString(), skill.displayName(), applied, actual,
+                CivilianSkills.SkillTier.forLevel(actual).displayName(),
+                civilian.skills().xp(skill), CivilianSkills.MAX_XP)), true);
+        return 1;
+    }
+
+    private static int skillsDecay(CommandSourceStack source, int days) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        civilian.skills().advanceDays(days);
+        civilian.syncNeedsToRecord();
+        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " advanced " + days
+                + " skill day" + (days == 1 ? "" : "s") + " (" + civilian.skills().formatCompactSummary() + ")"), true);
+        return 1;
+    }
+
+    private static int skillsReroll(CommandSourceStack source) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        CivilianSkills rolled = CivilianSkills.rollStarting(source.getLevel().random::nextLong, civilian.traits());
+        civilian.skills().clearAll();
+        for (CivilianSkill s : CivilianSkill.values()) {
+            double lvl = rolled.level(s);
+            if (lvl > 0.0) {
+                civilian.skills().setLevel(s, lvl);
+            }
+        }
+        civilian.syncNeedsToRecord();
+        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " skills rerolled ("
+                + civilian.skills().formatCompactSummary() + ")"), true);
+        return 1;
+    }
+
+    private static int skillsReset(CommandSourceStack source) {
+        CivilianEntity civilian = nearest(source);
+        if (civilian == null) {
+            return 0;
+        }
+        civilian.skills().clearAll();
+        civilian.syncNeedsToRecord();
+        source.sendSuccess(() -> Component.literal(civilian.getName().getString() + " skills reset to 0"), true);
         return 1;
     }
 

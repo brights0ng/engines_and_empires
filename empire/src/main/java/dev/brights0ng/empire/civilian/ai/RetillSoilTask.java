@@ -1,7 +1,9 @@
 // Written by Gemini.
 package dev.brights0ng.empire.civilian.ai;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -16,8 +18,11 @@ import net.minecraft.core.BlockPos;
  */
 public final class RetillSoilTask implements CivilianTask {
 
+    private static final int MAX_FUMBLE_RETRIES_PER_TILE = 3;
+
     private final FarmWorkScanner scanner;
     private final Set<BlockPos> skippedPositions = new HashSet<>();
+    private final Map<BlockPos, Integer> fumbleRetries = new HashMap<>();
     private int activeRoomIndex = -1;
     @Nullable
     private BlockPos targetSoil;
@@ -57,6 +62,7 @@ public final class RetillSoilTask implements CivilianTask {
     @Override
     public void start(AiContext ctx) {
         skippedPositions.clear();
+        fumbleRetries.clear();
         activeRoomIndex = -1;
         targetSoil = null;
         currentAction = null;
@@ -85,7 +91,8 @@ public final class RetillSoilTask implements CivilianTask {
         }
 
         currentAction.stop(ctx);
-        boolean wasMove = currentAction instanceof MoveToAction;
+        CivilianAction finished = currentAction;
+        boolean wasMove = finished instanceof MoveToAction;
         currentAction = null;
         if (wasMove) {
             if (status == CivilianAction.Status.SUCCEEDED && targetSoil != null) {
@@ -105,6 +112,11 @@ public final class RetillSoilTask implements CivilianTask {
         scanner.invalidate();
         if (status != CivilianAction.Status.SUCCEEDED && targetSoil != null) {
             skippedPositions.add(targetSoil);
+        } else if (finished instanceof InteractBlockAction interact && interact.fumbled() && targetSoil != null) {
+            int retries = fumbleRetries.merge(targetSoil, 1, Integer::sum);
+            if (retries >= MAX_FUMBLE_RETRIES_PER_TILE) {
+                skippedPositions.add(targetSoil);
+            }
         }
         if (!FarmWorkScanner.hasHoe(ctx.civilian())) {
             return CivilianAction.Status.FAILED;
@@ -121,6 +133,7 @@ public final class RetillSoilTask implements CivilianTask {
         targetSoil = null;
         activeRoomIndex = -1;
         skippedPositions.clear();
+        fumbleRetries.clear();
         EquipAction.stowMainHand(ctx.civilian());
     }
 

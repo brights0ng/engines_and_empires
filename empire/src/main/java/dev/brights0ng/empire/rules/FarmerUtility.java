@@ -115,12 +115,23 @@ public final class FarmerUtility {
      * productivity ({@code 0.5..1.0}). Always returns at least {@code 1} tick.
      */
     public static int scaledWorkTicks(int baseTicks, double speedMultiplier, double productivity) {
+        return scaledWorkTicks(baseTicks, speedMultiplier, productivity, 1.0);
+    }
+
+    /**
+     * Scales a base action duration in ticks by the citizen's trait speed multiplier, Fulfilment productivity
+     * ({@code 0.5..1.0}), and occupational skill speed multiplier ({@link CivilianSkills#speedMultiplier(double)},
+     * {@code 0.5..2.5}). Always returns at least {@code 1} tick.
+     */
+    public static int scaledWorkTicks(int baseTicks, double speedMultiplier, double productivity,
+                                      double skillSpeedMultiplier) {
         if (baseTicks <= 1) {
             return 1;
         }
         double safeSpeed = Double.isFinite(speedMultiplier) ? Math.max(0.25, speedMultiplier) : 1.0;
         double safeProd = Double.isFinite(productivity) ? clamp(productivity, 0.5, 1.0) : 1.0;
-        return Math.max(1, (int) Math.round(baseTicks / (safeSpeed * safeProd)));
+        double safeSkill = Double.isFinite(skillSpeedMultiplier) ? Math.max(0.25, skillSpeedMultiplier) : 1.0;
+        return Math.max(1, (int) Math.round(baseTicks / (safeSpeed * safeProd * safeSkill)));
     }
 
     /**

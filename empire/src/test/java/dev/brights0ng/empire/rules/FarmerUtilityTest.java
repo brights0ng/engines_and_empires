@@ -111,6 +111,10 @@ class FarmerUtilityTest {
         assertTrue(FarmerUtility.scaledWorkTicks(16, 1.4, 1.0) < 16);
         assertTrue(FarmerUtility.scaledWorkTicks(16, 0.7, 1.0) > 16);
         assertEquals(1, FarmerUtility.scaledWorkTicks(1, 5.0, 1.0));
+        // Skill speed scaling: 0.5x at 0.0 -> 24t; 1.0x at 0.25 -> 12t; 2.5x at 1.0 -> 5t.
+        assertEquals(24, FarmerUtility.scaledWorkTicks(12, 1.0, 1.0, CivilianSkills.speedMultiplier(0.0)));
+        assertEquals(12, FarmerUtility.scaledWorkTicks(12, 1.0, 1.0, CivilianSkills.speedMultiplier(0.25)));
+        assertEquals(5, FarmerUtility.scaledWorkTicks(12, 1.0, 1.0, CivilianSkills.speedMultiplier(1.0)));
     }
 
     @Test

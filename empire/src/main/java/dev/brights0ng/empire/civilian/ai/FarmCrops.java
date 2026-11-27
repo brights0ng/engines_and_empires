@@ -1,6 +1,8 @@
 // Written by Gemini.
 package dev.brights0ng.empire.civilian.ai;
 
+import java.util.List;
+
 import javax.annotation.Nullable;
 
 import net.minecraft.core.BlockPos;
@@ -166,6 +168,36 @@ public final class FarmCrops {
     /** True if {@code stack} is any farmer work item (hoe, crop seed, or raw crop produce) to stow at shift end. */
     public static boolean isFarmWorkItem(ItemStack stack) {
         return isHoe(stack) || isFarmProduceOrSeed(stack);
+    }
+
+    /**
+     * True if {@code drop} from a harvested {@link CropBlock} is the crop's produce rather than a separate non-edible
+     * planting seed (e.g. wheat, beetroot, carrot, potato, or modded produce — excluding wheat_seeds, beetroot_seeds,
+     * and poisonous_potato). Used so Harvesting skill's yield bonus scales produce without bloating seed storage.
+     */
+    public static boolean isCropProduceDrop(ItemStack drop, List<ItemStack> allDrops) {
+        if (drop.isEmpty() || drop.is(Items.POISONOUS_POTATO)) {
+            return false;
+        }
+        if (!isPlantableSeed(drop)) {
+            return true;
+        }
+        if (drop.getFoodProperties(null) != null) {
+            return true;
+        }
+        ResourceLocation key = BuiltInRegistries.ITEM.getKey(drop.getItem());
+        if (key != null) {
+            String path = key.getPath();
+            if (path.endsWith("_seeds") || path.endsWith("_seed")) {
+                return false;
+            }
+        }
+        for (ItemStack other : allDrops) {
+            if (!other.isEmpty() && !other.is(Items.POISONOUS_POTATO) && !isPlantableSeed(other)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private FarmCrops() {

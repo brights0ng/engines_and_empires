@@ -17,6 +17,7 @@ import dev.brights0ng.empire.data.RegionRecord;
 import dev.brights0ng.empire.ledger.LedgerSelection;
 import dev.brights0ng.empire.region.RegionManager;
 import dev.brights0ng.empire.rules.ChunkKeys;
+import dev.brights0ng.empire.rules.CivilianSkills;
 import dev.brights0ng.empire.rules.CivilianTraits;
 import dev.brights0ng.empire.rules.ScheduleClock;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
@@ -79,6 +80,8 @@ public final class FarmerJobGameTests {
     private static CivilianEntity spawnCitizen(GameTestHelper helper, EmpireRecord empire, BlockPos pos) {
         CivilianEntity c = CivilianSpawning.spawn(helper.getLevel(), Vec3.atBottomCenterOf(pos), null);
         c.setTraits(CivilianTraits.NEUTRAL);
+        // Simple (0.25) reproduces the 1.0x baseline speed with zero rookie fumbles for deterministic AI flow tests.
+        c.skills().setAllLevels(CivilianSkills.ROOKIE_SKILL_CEILING);
         CivilianRoster.recruit(c, empire, helper.getLevel());
         return c;
     }

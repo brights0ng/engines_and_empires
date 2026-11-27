@@ -4,9 +4,11 @@ package dev.brights0ng.empire.civilian.ai;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -228,12 +230,25 @@ public final class FarmWorkScanner {
         }
 
         List<ItemEntity> strayDrops = new ArrayList<>();
+        Set<Integer> seenDropIds = new HashSet<>();
         if (hasFields) {
             AABB fieldBox = new AABB(fieldMinX - 1.5, fieldMinY - 1.0, fieldMinZ - 1.5,
                     fieldMaxX + 2.5, fieldMaxY + 2.5, fieldMaxZ + 2.5);
             for (ItemEntity item : level.getEntitiesOfClass(ItemEntity.class, fieldBox)) {
                 if (item.isAlive() && !item.getItem().isEmpty()
-                        && FarmCrops.isFarmProduceOrSeed(item.getItem())) {
+                        && FarmCrops.isFarmProduceOrSeed(item.getItem())
+                        && seenDropIds.add(item.getId())) {
+                    strayDrops.add(item);
+                }
+            }
+        }
+        // Also collect produce/seed spills dropped near shed storage blocks (e.g. rookie Logistics fumbles).
+        for (BlockPos storagePos : storageBlocks) {
+            AABB shedBox = new AABB(storagePos).inflate(2.5, 1.5, 2.5);
+            for (ItemEntity item : level.getEntitiesOfClass(ItemEntity.class, shedBox)) {
+                if (item.isAlive() && !item.getItem().isEmpty()
+                        && FarmCrops.isFarmProduceOrSeed(item.getItem())
+                        && seenDropIds.add(item.getId())) {
                     strayDrops.add(item);
                 }
             }
