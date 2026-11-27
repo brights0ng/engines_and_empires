@@ -1,8 +1,10 @@
-// Written by Gemini; model-shaped hitbox and campfire burning by Claude.
+// Written by Gemini; model-shaped hitbox and campfire burning by Claude; pathfinding hazard classification by Gemini.
 package dev.brights0ng.empire.bonfire;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import org.jetbrains.annotations.Nullable;
 
 import dev.brights0ng.empire.EmpireContent;
 import net.minecraft.core.BlockPos;
@@ -10,6 +12,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
@@ -19,6 +22,8 @@ import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.level.pathfinder.PathComputationType;
+import net.minecraft.world.level.pathfinder.PathType;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -110,6 +115,22 @@ public class BonfirePartBlock extends Block {
     @Override
     public RenderShape getRenderShape(BlockState state) {
         return RenderShape.INVISIBLE;
+    }
+
+    @Override
+    protected boolean isPathfindable(BlockState state, PathComputationType pathComputationType) {
+        return false;
+    }
+
+    /**
+     * Center flame cells directly above the core ({@code dx == 0 && dz == 0}) are hard-blocked ({@link PathType#LAVA},
+     * malus {@code -1.0F}); outer log and flame ring cells report {@link PathType#DAMAGE_FIRE} (default malus
+     * {@code +16.0F}, which civilians upgrade to {@code -1.0F}).
+     */
+    @Override
+    public PathType getBlockPathType(BlockState state, BlockGetter level, BlockPos pos, @Nullable Mob mob) {
+        BlockPos offset = PART_OFFSETS[state.getValue(OFFSET)];
+        return offset.getX() == 0 && offset.getZ() == 0 ? PathType.LAVA : PathType.DAMAGE_FIRE;
     }
 
     @Override

@@ -1,4 +1,4 @@
-// Written by Gemini; god sacrifices wired in, particles spread over the bonfire model, Overworld-only registration, leaving an empire, main-only lighting, model-shaped hitbox and campfire burning by Claude.
+// Written by Gemini; god sacrifices wired in, particles spread over the bonfire model, Overworld-only registration, leaving an empire, main-only lighting, model-shaped hitbox and campfire burning by Claude; pathfinding hazard classification by Gemini.
 package dev.brights0ng.empire.bonfire;
 
 import org.jetbrains.annotations.Nullable;
@@ -24,6 +24,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
@@ -43,6 +44,8 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.world.level.pathfinder.PathComputationType;
+import net.minecraft.world.level.pathfinder.PathType;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -124,6 +127,17 @@ public class BonfireBlock extends BaseEntityBlock {
     @Override
     public RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
+    }
+
+    @Override
+    protected boolean isPathfindable(BlockState state, PathComputationType pathComputationType) {
+        return false;
+    }
+
+    /** Hard-blocks all pathfinding through or onto the bonfire core (malus {@code -1.0F}, like lava). */
+    @Override
+    public PathType getBlockPathType(BlockState state, BlockGetter level, BlockPos pos, @Nullable Mob mob) {
+        return PathType.LAVA;
     }
 
     @Override

@@ -9,6 +9,7 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import dev.brights0ng.empire.EmpireContent;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.data.RegionRecord;
@@ -305,14 +306,20 @@ public final class CivilianBeds {
         if (!head.getCollisionShape(level, pos.above()).isEmpty() || !head.getFluidState().isEmpty()) {
             return false;
         }
-        if (feet.is(BlockTags.FIRE) || feet.is(BlockTags.CAMPFIRES) || head.is(BlockTags.FIRE)) {
+        if (feet.is(BlockTags.FIRE) || feet.is(BlockTags.CAMPFIRES) || head.is(BlockTags.FIRE)
+                || isBonfireBlock(feet) || isBonfireBlock(head)) {
             return false;
         }
         if (floor.getCollisionShape(level, pos.below()).isEmpty() || !floor.getFluidState().isEmpty()) {
             return false;
         }
         return !floor.is(Blocks.MAGMA_BLOCK) && !floor.is(Blocks.CACTUS)
-                && !floor.is(BlockTags.FIRE) && !floor.is(BlockTags.CAMPFIRES);
+                && !floor.is(BlockTags.FIRE) && !floor.is(BlockTags.CAMPFIRES)
+                && !isBonfireBlock(floor);
+    }
+
+    private static boolean isBonfireBlock(BlockState state) {
+        return state.is(EmpireContent.BONFIRE.get()) || state.is(EmpireContent.BONFIRE_PART.get());
     }
 
     /** Safe teleport destination beside a claimed bed (for night-skip D6 teleports). */

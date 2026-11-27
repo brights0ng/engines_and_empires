@@ -97,6 +97,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.pathfinder.PathType;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -285,6 +286,8 @@ public class CivilianEntity extends PathfinderMob {
         super(type, level);
         setCanPickUpLoot(false);
         ((GroundPathNavigation) getNavigation()).setCanOpenDoors(true);
+        // Hard-forbid fire, campfires, magma, and bonfire outer cells (default DAMAGE_FIRE malus is +16.0F, soft).
+        setPathfindingMalus(PathType.DAMAGE_FIRE, -1.0F);
     }
 
     public static AttributeSupplier.Builder createAttributes() {

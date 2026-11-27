@@ -1,6 +1,7 @@
-// Written by Gemini; Overworld-only registration, campfire-tag, main bonfire 3x3, recipe, hitbox and burning tests added by Claude.
+// Written by Gemini; Overworld-only registration, campfire-tag, main bonfire 3x3, recipe, hitbox and burning tests added by Claude; pathfinding hazard and civilian avoidance tests added by Gemini.
 package dev.brights0ng.empire.gametest;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -12,9 +13,13 @@ import dev.brights0ng.empire.bonfire.BonfireEvents;
 import dev.brights0ng.empire.bonfire.BonfireItem;
 import dev.brights0ng.empire.bonfire.BonfirePartBlock;
 import dev.brights0ng.empire.bonfire.BonfireShapes;
+import dev.brights0ng.empire.civilian.CivilianBeds;
+import dev.brights0ng.empire.civilian.CivilianEntity;
+import dev.brights0ng.empire.civilian.CivilianSpawning;
 import dev.brights0ng.empire.data.EmpireRecord;
 import dev.brights0ng.empire.data.EmpireSavedData;
 import dev.brights0ng.empire.rules.ChunkKeys;
+import dev.brights0ng.empire.rules.CivilianTraits;
 import dev.brights0ng.paradynelib.gametest.GameTestStructures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -26,15 +31,22 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Pig;
+import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CampfireBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.pathfinder.Node;
+import net.minecraft.world.level.pathfinder.Path;
+import net.minecraft.world.level.pathfinder.PathType;
+import net.minecraft.world.level.pathfinder.WalkNodeEvaluator;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -447,6 +459,194 @@ public final class BonfireGameTests {
             helper.assertTrue(pig.getHealth() == pig.getMaxHealth(), "the pig in a cold pit is unhurt");
             helper.succeed();
         });
+    }
+
+    /**
+     * Bonfire pathfinding types: center column ({@code dx == 0 && dz == 0}) reports {@link PathType#LAVA} ({@code -1.0F}
+     * for all mobs); outer ring reports {@link PathType#DAMAGE_FIRE} ({@code +16.0F} default, {@code -1.0F} for
+     * civilians); adjacent ground stays walkable ({@link PathType#DANGER_FIRE}, {@code +8.0F}); and
+     * {@link CivilianBeds#isStandable} rejects bonfire cells and their tops.
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "bonfire_pathfinding")
+    public static void bonfirePathTypesBlockCenterAndPenalizeOuterRing(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos center = helper.absolutePos(new BlockPos(5, 2, 5));
+        List<BlockPos> placed = new ArrayList<>();
+        buildFloor(level, center, 4, placed);
+
+        // Use a Zombie as a generic mob with default DAMAGE_FIRE (+16.0F) and LAVA (-1.0F) maluses (Animals override DAMAGE_FIRE).
+        Zombie zombie = EntityType.ZOMBIE.create(level);
+        helper.assertTrue(zombie != null, "zombie created");
+        zombie.setPos(center.getX() - 2.5, center.getY(), center.getZ() + 0.5);
+        zombie.setNoAi(true);
+        level.addFreshEntity(zombie);
+
+        CivilianEntity civ = CivilianSpawning.spawn(level, Vec3.atBottomCenterOf(center.offset(-3, 0, 0)), null);
+        civ.setTraits(CivilianTraits.NEUTRAL);
+        civ.setNoAi(true);
+
+        try {
+            // Unlit bonfire first, then lit: both must classify identically (no stale cache on LIT toggle).
+            level.setBlock(center, EmpireContent.BONFIRE.get().defaultBlockState(), Block.UPDATE_ALL);
+            BonfireItem.placeParts(level, center);
+
+            for (boolean lit : new boolean[] {false, true}) {
+                if (lit) {
+                    level.setBlock(center, EmpireContent.BONFIRE.get().defaultBlockState()
+                            .setValue(BonfireBlock.LIT, true), Block.UPDATE_ALL);
+                }
+                for (int dy = 0; dy <= 2; dy++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        for (int dz = -1; dz <= 1; dz++) {
+                            BlockPos p = center.offset(dx, dy, dz);
+                            PathType type = WalkNodeEvaluator.getPathTypeStatic(civ, p);
+                            if (dx == 0 && dz == 0) {
+                                helper.assertTrue(type == PathType.LAVA,
+                                        "center cell " + dx + "," + dy + "," + dz + " (lit=" + lit + ") is LAVA, got " + type);
+                                helper.assertTrue(zombie.getPathfindingMalus(type) < 0.0F,
+                                        "center cell is hard-blocked (-1.0F) for generic mobs");
+                            } else {
+                                helper.assertTrue(type == PathType.DAMAGE_FIRE,
+                                        "outer cell " + dx + "," + dy + "," + dz + " (lit=" + lit + ") is DAMAGE_FIRE, got " + type);
+                                helper.assertTrue(zombie.getPathfindingMalus(type) == 16.0F,
+                                        "outer cell has +16.0F malus for generic mobs, got " + zombie.getPathfindingMalus(type));
+                            }
+                            helper.assertTrue(civ.getPathfindingMalus(type) < 0.0F,
+                                    "all bonfire cells are hard-blocked (-1.0F) for civilians at " + dx + "," + dy + "," + dz);
+                            helper.assertFalse(CivilianBeds.isStandable(level, p),
+                                    "CivilianBeds.isStandable rejects bonfire cell " + dx + "," + dy + "," + dz);
+                        }
+                    }
+                }
+
+                // Air directly above the outer ring (dy = 3) inherits DAMAGE_FIRE (-1.0F for civilians) and is not standable.
+                BlockPos aboveOuter = center.offset(1, 3, 0);
+                PathType aboveOuterType = WalkNodeEvaluator.getPathTypeStatic(civ, aboveOuter);
+                helper.assertTrue(aboveOuterType == PathType.DAMAGE_FIRE && civ.getPathfindingMalus(aboveOuterType) < 0.0F,
+                        "air directly above outer ring is hard-blocked for civilians, got " + aboveOuterType);
+                helper.assertFalse(CivilianBeds.isStandable(level, aboveOuter),
+                        "CivilianBeds.isStandable rejects top of bonfire ring");
+
+                // Adjacent ground block (dx = 2) stays walkable with DANGER_FIRE (+8.0F, no corner-cutting).
+                BlockPos adjacent = center.offset(2, 0, 0);
+                PathType adjType = WalkNodeEvaluator.getPathTypeStatic(civ, adjacent);
+                helper.assertTrue(adjType == PathType.DANGER_FIRE && civ.getPathfindingMalus(adjType) >= 0.0F,
+                        "adjacent ground beside bonfire stays reachable as DANGER_FIRE, got " + adjType);
+            }
+
+            // Civilians also hard-forbid vanilla lit campfires (DAMAGE_FIRE malus = -1.0F).
+            BlockPos campfirePos = center.offset(4, 0, 0);
+            level.setBlock(campfirePos, Blocks.CAMPFIRE.defaultBlockState().setValue(CampfireBlock.LIT, true), Block.UPDATE_ALL);
+            placed.add(campfirePos);
+            PathType campfireType = WalkNodeEvaluator.getPathTypeStatic(civ, campfirePos);
+            helper.assertTrue(campfireType == PathType.DAMAGE_FIRE && civ.getPathfindingMalus(campfireType) < 0.0F,
+                    "vanilla lit campfire is hard-blocked for civilians, got " + campfireType);
+
+            helper.succeed();
+        } finally {
+            zombie.discard();
+            civ.discard();
+            level.setBlock(center, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            clearBlocks(level, placed);
+        }
+    }
+
+    /**
+     * A civilian routed straight across a lit bonfire plans and walks a path completely around the 3x3 footprint
+     * without ever stepping onto the logs or taking fire damage.
+     */
+    @GameTest(template = GameTestStructures.EMPTY, batch = "bonfire_pathfinding", timeoutTicks = 160)
+    public static void civilianPathfindsAroundLitBonfireWithoutEnteringOrBurning(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos center = helper.absolutePos(new BlockPos(5, 2, 5));
+        List<BlockPos> placed = new ArrayList<>();
+        buildFloor(level, center, 5, placed);
+
+        level.setBlock(center, EmpireContent.BONFIRE.get().defaultBlockState().setValue(BonfireBlock.LIT, true), Block.UPDATE_ALL);
+        BonfireItem.placeParts(level, center);
+
+        BlockPos start = center.offset(-3, 0, 0);
+        BlockPos dest = center.offset(3, 0, 0);
+        CivilianEntity civ = CivilianSpawning.spawn(level, Vec3.atBottomCenterOf(start), null);
+        civ.setTraits(CivilianTraits.NEUTRAL);
+        civ.setOnGround(true);
+
+        boolean[] enteredBonfire = {false};
+        boolean[] arrived = {false};
+        boolean[] cleaned = {false};
+
+        Runnable cleanup = () -> {
+            if (!cleaned[0]) {
+                cleaned[0] = true;
+                civ.discard();
+                level.setBlock(center, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                clearBlocks(level, placed);
+            }
+        };
+
+        try {
+            Path planned = civ.getNavigation().createPath(dest, 0);
+            helper.assertTrue(planned != null && planned.canReach(), "civilian found a reachable path around the bonfire");
+            for (int i = 0; i < planned.getNodeCount(); i++) {
+                Node n = planned.getNode(i);
+                boolean insideFootprint = Math.abs(n.x - center.getX()) <= 1 && Math.abs(n.z - center.getZ()) <= 1;
+                helper.assertFalse(insideFootprint,
+                        "planned path node " + i + " (" + n.x + "," + n.y + "," + n.z + ") must stay outside bonfire 3x3");
+            }
+            civ.getNavigation().moveTo(planned, 0.8);
+        } catch (RuntimeException e) {
+            cleanup.run();
+            throw e;
+        }
+
+        helper.onEachTick(() -> {
+            if (cleaned[0] || !civ.isAlive()) {
+                return;
+            }
+            if (Math.abs(civ.getBlockX() - center.getX()) <= 1 && Math.abs(civ.getBlockZ() - center.getZ()) <= 1) {
+                enteredBonfire[0] = true;
+            }
+            if (dest.closerToCenterThan(civ.position(), 1.8)) {
+                arrived[0] = true;
+            } else if (!arrived[0] && (civ.getNavigation().isDone() || !dest.equals(civ.getNavigation().getTargetPos()))) {
+                civ.getNavigation().moveTo(dest.getX() + 0.5, dest.getY(), dest.getZ() + 0.5, 0.8);
+            }
+        });
+
+        helper.runAtTickTime(130, () -> {
+            float hp = civ.getHealth();
+            float maxHp = civ.getMaxHealth();
+            BlockPos finalPos = civ.blockPosition();
+            cleanup.run();
+            helper.assertFalse(enteredBonfire[0], "civilian never stepped into the bonfire's 3x3 footprint");
+            helper.assertTrue(hp == maxHp, "civilian took no fire damage walking around the bonfire: " + hp + "/" + maxHp);
+            helper.assertTrue(arrived[0], "civilian reached opposite side of bonfire, ended at " + finalPos.toShortString());
+            helper.succeed();
+        });
+    }
+
+    private static void buildFloor(ServerLevel level, BlockPos center, int radius, List<BlockPos> placed) {
+        int y = center.getY() - 1;
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                BlockPos floor = new BlockPos(center.getX() + dx, y, center.getZ() + dz);
+                level.setBlock(floor, Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
+                placed.add(floor);
+                for (int dy = 1; dy <= 4; dy++) {
+                    BlockPos air = floor.above(dy);
+                    if (!level.getBlockState(air).isAir()) {
+                        level.setBlock(air, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    }
+                }
+            }
+        }
+    }
+
+    private static void clearBlocks(ServerLevel level, List<BlockPos> placed) {
+        int flags = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
+        for (BlockPos pos : placed) {
+            level.setBlock(pos, Blocks.AIR.defaultBlockState(), flags);
+        }
     }
 
     private static void clearArea(GameTestHelper helper, BlockPos center) {
