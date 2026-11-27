@@ -32,6 +32,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.BeetrootBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CropBlock;
@@ -742,6 +743,219 @@ public final class FarmerJobGameTests {
                         "farmer resumed and finished harvesting all ripe wheat after dump+retill, ripeLeft=" + ripeLeft);
                 helper.assertTrue(countInStorage(level, chest, Items.POTATO) >= 64,
                         "farmer dumped overflow potatoes into shed chest");
+            } finally {
+                LedgerSelection.clear(level, founder);
+                level.setDayTime(savedTime);
+                farmer.discard();
+                disband(helper, empire);
+                clearBlocks(level, placed);
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = "farmer_harvest_threshold", timeoutTicks = 220)
+    public static void harvestRequiresFivePercentMatureWhileSeedingHasNoThreshold(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        long savedTime = level.getDayTime();
+        List<BlockPos> placed = new ArrayList<>();
+        Player founder = helper.makeMockPlayer(GameType.SURVIVAL);
+        founder.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(EmpireContent.ADMINISTRATIVE_LEDGER.get()));
+        EmpireRecord empire = found(helper, founder);
+        EmpireSavedData data = EmpireSavedData.of(level);
+
+        BlockPos main = mainPos(helper);
+        buildFloor(level, main, 9, placed);
+
+        BlockPos comp = main.offset(-4, 0, -4);
+        setBlock(level, comp, Blocks.COMPOSTER.defaultBlockState(), placed);
+
+        BlockState wetFarm = Blocks.FARMLAND.defaultBlockState().setValue(FarmBlock.MOISTURE, 7);
+        BlockState youngWheat = Blocks.WHEAT.defaultBlockState().setValue(CropBlock.AGE, 2);
+        BlockState ripeWheat = Blocks.WHEAT.defaultBlockState().setValue(CropBlock.AGE, 7);
+
+        // Field 1: 5x5 = 25 planted wheat plots with only 1 mature (4% < 5% -> must NOT harvest!).
+        BlockPos fieldOrigin = comp.offset(0, -1, 2);
+        BlockPos singleRipe = fieldOrigin;
+        for (int dx = 0; dx < 5; dx++) {
+            for (int dz = 0; dz < 5; dz++) {
+                BlockPos soil = fieldOrigin.offset(dx, 0, dz);
+                setBlock(level, soil, wetFarm, placed);
+                setBlock(level, soil.above(), (dx == 0 && dz == 0) ? ripeWheat : youngWheat, placed);
+            }
+        }
+
+        // Field 2: separate 1-plot empty farmland -> seeding has NO 5% threshold and must still plant it!
+        BlockPos emptyPlot = comp.offset(2, -1, 0);
+        setBlock(level, emptyPlot, wetFarm, placed);
+
+        rightClick(founder, comp);
+        RegionRecord farm = data.regionAt(comp);
+        helper.assertTrue(farm != null && farm.valid(), "farm created");
+        rightClick(founder, fieldOrigin);
+        rightClick(founder, emptyPlot);
+
+        level.setDayTime(dayTimeFor(TEST_SCHEDULE_DAY, ScheduleClock.mmss(6, 0)));
+        CivilianEntity farmer = spawnCitizen(helper, empire, comp.north());
+        farmer.inventory().setItem(0, new ItemStack(Items.WHEAT_SEEDS, 8));
+        helper.assertTrue(CivilianOccupations.assign(level, data, farmer, farm).succeeded(), "farmer assigned");
+
+        helper.runAtTickTime(180, () -> {
+            try {
+                helper.assertTrue(level.getBlockState(emptyPlot.above()).is(Blocks.WHEAT),
+                        "farmer still seeded single empty plot (5% threshold does not apply to seeding)");
+                BlockState ripeCheck = level.getBlockState(singleRipe.above());
+                helper.assertTrue(ripeCheck.is(Blocks.WHEAT) && ripeCheck.getValue(CropBlock.AGE) == 7,
+                        "farmer skipped harvesting 1/25 (4%) mature wheat field");
+            } finally {
+                LedgerSelection.clear(level, founder);
+                level.setDayTime(savedTime);
+                farmer.discard();
+                disband(helper, empire);
+                clearBlocks(level, placed);
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = "farmer_idle_recheck", timeoutTicks = 480)
+    public static void idleFarmerRechecksWorkEveryFifteenSeconds(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        long savedTime = level.getDayTime();
+        List<BlockPos> placed = new ArrayList<>();
+        Player founder = helper.makeMockPlayer(GameType.SURVIVAL);
+        founder.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(EmpireContent.ADMINISTRATIVE_LEDGER.get()));
+        EmpireRecord empire = found(helper, founder);
+        EmpireSavedData data = EmpireSavedData.of(level);
+
+        BlockPos main = mainPos(helper);
+        buildFloor(level, main, 9, placed);
+
+        BlockPos comp = main.offset(-4, 0, -4);
+        setBlock(level, comp, Blocks.COMPOSTER.defaultBlockState(), placed);
+
+        BlockState wetFarm = Blocks.FARMLAND.defaultBlockState().setValue(FarmBlock.MOISTURE, 7);
+        BlockState youngWheat = Blocks.WHEAT.defaultBlockState().setValue(CropBlock.AGE, 2);
+        BlockState ripeWheat = Blocks.WHEAT.defaultBlockState().setValue(CropBlock.AGE, 7);
+
+        // 5x5 = 25 planted immature wheat -> nothing to do initially, so farmer idles around the shed.
+        BlockPos fieldOrigin = comp.offset(0, -1, 2);
+        BlockPos ripeA = fieldOrigin;
+        BlockPos ripeB = fieldOrigin.east();
+        for (int dx = 0; dx < 5; dx++) {
+            for (int dz = 0; dz < 5; dz++) {
+                BlockPos soil = fieldOrigin.offset(dx, 0, dz);
+                setBlock(level, soil, wetFarm, placed);
+                setBlock(level, soil.above(), youngWheat, placed);
+            }
+        }
+
+        rightClick(founder, comp);
+        RegionRecord farm = data.regionAt(comp);
+        helper.assertTrue(farm != null && farm.valid(), "farm created");
+        rightClick(founder, fieldOrigin);
+
+        level.setDayTime(dayTimeFor(TEST_SCHEDULE_DAY, ScheduleClock.mmss(6, 0)));
+        CivilianEntity farmer = spawnCitizen(helper, empire, comp.north());
+        helper.assertTrue(CivilianOccupations.assign(level, data, farmer, farm).succeeded(), "farmer assigned");
+
+        // Once farmer is idling, ripen 2 crops (2/25 = 8% >= 5%).
+        helper.runAtTickTime(40, () -> {
+            level.setBlock(ripeA.above(), ripeWheat, Block.UPDATE_ALL);
+            level.setBlock(ripeB.above(), ripeWheat, Block.UPDATE_ALL);
+        });
+
+        // At tick 200 (~8s after ripening, well before 15s = 300t idle recheck): neither crop should be harvested yet.
+        helper.runAtTickTime(200, () -> {
+            BlockState a = level.getBlockState(ripeA.above());
+            BlockState b = level.getBlockState(ripeB.above());
+            helper.assertTrue(a.is(Blocks.WHEAT) && a.getValue(CropBlock.AGE) == 7
+                    && b.is(Blocks.WHEAT) && b.getValue(CropBlock.AGE) == 7,
+                    "idle farmer should not race over before the 15s recheck interval");
+        });
+
+        // After the 15s (300t) recheck fires, farmer should harvest both ripe crops.
+        helper.runAtTickTime(450, () -> {
+            try {
+                BlockState a = level.getBlockState(ripeA.above());
+                BlockState b = level.getBlockState(ripeB.above());
+                boolean aDone = !a.is(Blocks.WHEAT) || a.getValue(CropBlock.AGE) < 7;
+                boolean bDone = !b.is(Blocks.WHEAT) || b.getValue(CropBlock.AGE) < 7;
+                helper.assertTrue(aDone && bDone,
+                        "farmer harvested both ripe crops after the 15s idle recheck fired");
+            } finally {
+                LedgerSelection.clear(level, founder);
+                level.setDayTime(savedTime);
+                farmer.discard();
+                disband(helper, empire);
+                clearBlocks(level, placed);
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = "farmer_threshold_after_dump", timeoutTicks = 320)
+    public static void harvestFivePercentThresholdReappliesAfterDumpInterruption(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        long savedTime = level.getDayTime();
+        List<BlockPos> placed = new ArrayList<>();
+        Player founder = helper.makeMockPlayer(GameType.SURVIVAL);
+        founder.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(EmpireContent.ADMINISTRATIVE_LEDGER.get()));
+        EmpireRecord empire = found(helper, founder);
+        EmpireSavedData data = EmpireSavedData.of(level);
+
+        BlockPos main = mainPos(helper);
+        buildFloor(level, main, 9, placed);
+
+        BlockPos comp = main.offset(-4, 0, -4);
+        BlockPos chest = comp.east();
+        setBlock(level, comp, Blocks.COMPOSTER.defaultBlockState(), placed);
+        setBlock(level, chest, Blocks.CHEST.defaultBlockState(), placed);
+
+        BlockState wetFarm = Blocks.FARMLAND.defaultBlockState().setValue(FarmBlock.MOISTURE, 7);
+        BlockState youngBeet = Blocks.BEETROOTS.defaultBlockState().setValue(BeetrootBlock.AGE, 1);
+        BlockState ripeBeet = Blocks.BEETROOTS.defaultBlockState().setValue(BeetrootBlock.AGE, BeetrootBlock.MAX_AGE);
+
+        // 5x5 = 25 planted beetroots with 2 ripe (8% >= 5% -> eligible to start harvesting).
+        // Mature beetroot deterministically drops both beetroot AND beetroot_seeds (2 distinct item types).
+        BlockPos fieldOrigin = comp.offset(0, -1, 2);
+        BlockPos ripeA = fieldOrigin;
+        BlockPos ripeB = fieldOrigin.offset(4, 0, 4);
+        for (int dx = 0; dx < 5; dx++) {
+            for (int dz = 0; dz < 5; dz++) {
+                BlockPos soil = fieldOrigin.offset(dx, 0, dz);
+                setBlock(level, soil, wetFarm, placed);
+                boolean isRipe = (dx == 0 && dz == 0) || (dx == 4 && dz == 4);
+                setBlock(level, soil.above(), isRipe ? ripeBeet : youngBeet, placed);
+            }
+        }
+
+        rightClick(founder, comp);
+        RegionRecord farm = data.regionAt(comp);
+        helper.assertTrue(farm != null && farm.valid(), "farm created");
+        rightClick(founder, fieldOrigin);
+
+        level.setDayTime(dayTimeFor(TEST_SCHEDULE_DAY, ScheduleClock.mmss(6, 0)));
+        CivilianEntity farmer = spawnCitizen(helper, empire, comp.north());
+        // Keep initial pocketFillFraction (~0.51) well below Harvest urgency so Harvest runs first, while leaving
+        // only 1 free slot: harvesting beetroot #1 fills slot 8 with beetroot and deterministically overflows seeds!
+        for (int i = 0; i < 7; i++) {
+            farmer.inventory().setItem(i, new ItemStack(Items.BREAD, 1));
+        }
+        farmer.inventory().setItem(7, new ItemStack(Items.POTATO, 64));
+        helper.assertTrue(CivilianOccupations.assign(level, data, farmer, farm).succeeded(), "farmer assigned");
+
+        helper.runAtTickTime(280, () -> {
+            try {
+                helper.assertTrue(countInStorage(level, chest, Items.POTATO) >= 64,
+                        "farmer dumped potatoes after mid-harvest overflow");
+                BlockState a = level.getBlockState(ripeA.above());
+                BlockState b = level.getBlockState(ripeB.above());
+                boolean aHarvested = !a.is(Blocks.BEETROOTS) || a.getValue(BeetrootBlock.AGE) < BeetrootBlock.MAX_AGE;
+                boolean bStillRipe = b.is(Blocks.BEETROOTS) && b.getValue(BeetrootBlock.AGE) == BeetrootBlock.MAX_AGE;
+                helper.assertTrue(aHarvested, "farmer harvested first ripe beetroot before dumping");
+                helper.assertTrue(bStillRipe,
+                        "after dump, remaining 1/24-25 (<5%) ripe beetroot was left until more crops ripen");
             } finally {
                 LedgerSelection.clear(level, founder);
                 level.setDayTime(savedTime);

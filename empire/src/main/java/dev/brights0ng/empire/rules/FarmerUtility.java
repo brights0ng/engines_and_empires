@@ -30,6 +30,11 @@ public final class FarmerUtility {
      */
     public static final double FIELD_WORK_MOMENTUM_BONUS = 45.0;
 
+    /** Ticks between work checks while a farmer is idling around the shed (15 seconds = 300 ticks). */
+    public static final int IDLE_WORK_RECHECK_TICKS = 300;
+    /** Minimum fraction of planted crops in a {@code FIELD} room that must be mature before starting a harvest pass. */
+    public static final double HARVEST_MIN_MATURE_FRACTION = 0.05;
+
     // PROVISIONAL: Base atomic action durations in ticks (scaled by derived labor/routing speed * productivity)
     public static final int HARVEST_BASE_TICKS = 12;
     public static final int PLANT_BASE_TICKS = 10;
@@ -71,6 +76,17 @@ public final class FarmerUtility {
 
     public static double harvestUrgency(int ripeCount) {
         return fieldWorkUrgency(ripeCount);
+    }
+
+    /**
+     * True if a {@code FIELD} room has at least {@link #HARVEST_MIN_MATURE_FRACTION} (5% = 1/20) of its currently
+     * planted crops mature, qualifying the field for a harvest pass. Does not apply to seeding.
+     */
+    public static boolean meetsHarvestThreshold(int matureCropsInField, int totalPlantedCropsInField) {
+        if (matureCropsInField <= 0 || totalPlantedCropsInField <= 0) {
+            return false;
+        }
+        return matureCropsInField * 20L >= totalPlantedCropsInField;
     }
 
     public static double plantUrgency(int seedableEmptyCount) {

@@ -140,7 +140,7 @@ public final class FetchSuppliesTask implements CivilianTask {
     }
 
     private boolean shouldFetchSeeds(FarmWorkScanner.FarmSnapshot snap) {
-        return scanner.isSeedFetchRequested() || snap.matureCrops().isEmpty();
+        return scanner.isSeedFetchRequested() || snap.harvestableMatureCrops().isEmpty();
     }
 
     private boolean beginFetch(AiContext ctx) {

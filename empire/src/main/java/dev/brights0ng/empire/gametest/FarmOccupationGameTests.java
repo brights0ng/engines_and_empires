@@ -264,8 +264,8 @@ public final class FarmOccupationGameTests {
             try {
                 helper.assertTrue(farmer.schedule().workDoneTicks() >= 40,
                         "farmer walked to seed shed and credited work ticks, got " + farmer.schedule().workDoneTicks());
-                helper.assertTrue(farmer.blockPosition().distSqr(seedComposter) <= 16.0,
-                        "farmer is standing near the seed shed: pos=" + farmer.blockPosition()
+                helper.assertTrue(farmer.blockPosition().distSqr(seedComposter) <= 49.0,
+                        "farmer is idling within the 5-6 block shed area: pos=" + farmer.blockPosition()
                                 + ", seed=" + seedComposter);
             } finally {
                 LedgerSelection.clear(level, founder);

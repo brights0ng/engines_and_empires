@@ -10,13 +10,16 @@ import dev.brights0ng.empire.rules.Occupation;
 import net.minecraft.core.BlockPos;
 
 /**
- * Level-3 initial Farmer task: walks to a standable spot beside the assigned farm's seed shed and stands near it
- * during work hours until the daily work quota finishes, a scheduled anchor approaches, or the farm becomes invalid.
+ * Level-3 fallback Farmer task: returns to the assigned farm's seed shed area when there is no immediate work and
+ * idles naturally around the shed (looking around, strolling within a 5–6 block radius off farmland, and chatting with
+ * nearby civilians) while {@link CivilianSlotRunner} rechecks for new field work every 15 seconds.
  */
 public final class FarmerStandByShedTask implements CivilianTask {
 
-    /** Maximum distance from the resolved shed stand spot before walking closer. */
-    private static final double STAND_REACH = 2.25;
+    /** Distance threshold beyond which the farmer walks back toward the shed before idling around it. */
+    private static final double RETURN_TRIGGER_DIST = IdleNearShedAction.LOITER_RADIUS;
+    /** Arrival reach when walking back to the shed stand spot. */
+    private static final double RETURN_REACH = 3.0;
 
     private final LocationResolver locations;
     @Nullable
@@ -61,17 +64,22 @@ public final class FarmerStandByShedTask implements CivilianTask {
     }
 
     @Override
+    public int periodicRecheckIntervalTicks() {
+        return FarmerUtility.IDLE_WORK_RECHECK_TICKS;
+    }
+
+    @Override
     public void start(AiContext ctx) {
         BlockPos standSpot = locations.resolve(ctx, LocationKey.WORK);
         if (standSpot == null) {
             currentAction = null;
             return;
         }
-        if (!standSpot.closerToCenterThan(ctx.civilian().position(), STAND_REACH)) {
-            currentAction = new MoveToAction(standSpot, STAND_REACH, null, null);
+        if (!standSpot.closerToCenterThan(ctx.civilian().position(), RETURN_TRIGGER_DIST)) {
+            currentAction = new MoveToAction(standSpot, RETURN_REACH, null, null);
         } else {
             BlockPos focus = locations.resolveFarmShedFocus(ctx);
-            currentAction = new StandNearShedAction(focus != null ? focus : standSpot);
+            currentAction = new IdleNearShedAction(standSpot, focus != null ? focus : standSpot);
         }
         currentAction.start(ctx);
     }
@@ -89,13 +97,13 @@ public final class FarmerStandByShedTask implements CivilianTask {
             currentAction.stop(ctx);
             boolean wasMove = currentAction instanceof MoveToAction;
             currentAction = null;
-            if (wasMove && status == CivilianAction.Status.SUCCEEDED) {
+            if (wasMove) {
                 BlockPos standSpot = locations.resolve(ctx, LocationKey.WORK);
                 if (standSpot == null) {
                     return CivilianAction.Status.FAILED;
                 }
                 BlockPos focus = locations.resolveFarmShedFocus(ctx);
-                currentAction = new StandNearShedAction(focus != null ? focus : standSpot);
+                currentAction = new IdleNearShedAction(standSpot, focus != null ? focus : standSpot);
                 currentAction.start(ctx);
                 return CivilianAction.Status.RUNNING;
             }
@@ -114,11 +122,11 @@ public final class FarmerStandByShedTask implements CivilianTask {
 
     @Override
     public boolean canYieldCleanly() {
-        return currentAction == null || currentAction.canYieldCleanly();
+        return true;
     }
 
     @Override
     public String activeActionName() {
-        return currentAction != null ? currentAction.name() : "stand_near_shed";
+        return currentAction != null ? currentAction.name() : "idle_near_shed";
     }
 }

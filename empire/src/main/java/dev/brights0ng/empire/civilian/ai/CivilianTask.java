@@ -53,11 +53,19 @@ public interface CivilianTask {
     }
 
     /**
-     * True only for passive/idle tasks (e.g. waiting by shed) that should periodically check for newly available work.
+     * True only for passive/idle tasks (e.g. idling by shed) that should periodically check for newly available work.
      * Active work tasks return {@code false} and only trigger Level-2 re-evaluation upon completion or interruption.
      */
     default boolean allowPeriodicRecheck() {
         return false;
+    }
+
+    /**
+     * Ticks between periodic Level-2 task rechecks when {@link #allowPeriodicRecheck()} is true (or during
+     * {@code SOCIALIZE} slots). Defaults to {@link CivilianSlotRunner#TASK_RECHECK_INTERVAL}.
+     */
+    default int periodicRecheckIntervalTicks() {
+        return CivilianSlotRunner.TASK_RECHECK_INTERVAL;
     }
 
     /** True if this task runs only during the end-of-shift wrap-up phase (e.g. stowing tools/work gear). */

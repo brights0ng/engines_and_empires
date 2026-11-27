@@ -2,6 +2,7 @@
 package dev.brights0ng.empire.rules;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -138,5 +139,19 @@ class FarmerUtilityTest {
         tied.put("minecraft:wheat_seeds", 10);
         tied.put("minecraft:carrot", 10);
         assertEquals("minecraft:carrot", FarmerUtility.majorityKey(tied));
+    }
+
+    @Test
+    void harvestThresholdRequiresAtLeastFivePercentOfPlantedCrops() {
+        assertEquals(300, FarmerUtility.IDLE_WORK_RECHECK_TICKS);
+        assertFalse(FarmerUtility.meetsHarvestThreshold(0, 0));
+        assertFalse(FarmerUtility.meetsHarvestThreshold(0, 20));
+        assertFalse(FarmerUtility.meetsHarvestThreshold(1, 0));
+        assertTrue(FarmerUtility.meetsHarvestThreshold(1, 3));
+        assertTrue(FarmerUtility.meetsHarvestThreshold(1, 20), "1/20 = 5.0% meets threshold");
+        assertFalse(FarmerUtility.meetsHarvestThreshold(1, 21), "1/21 = 4.76% is below 5%");
+        assertTrue(FarmerUtility.meetsHarvestThreshold(2, 21), "2/21 = 9.52% meets threshold");
+        assertFalse(FarmerUtility.meetsHarvestThreshold(4, 100), "4/100 = 4% is below 5%");
+        assertTrue(FarmerUtility.meetsHarvestThreshold(5, 100), "5/100 = 5% meets threshold");
     }
 }

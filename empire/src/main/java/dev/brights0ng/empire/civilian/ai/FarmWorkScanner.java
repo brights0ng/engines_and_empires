@@ -56,6 +56,7 @@ public final class FarmWorkScanner {
     public record FarmSnapshot(
             @Nullable RegionRecord farm,
             List<MatureCropTarget> matureCrops,
+            List<MatureCropTarget> harvestableMatureCrops,
             List<RevertedSoilTarget> revertedDirt,
             List<EmptyPlotTarget> emptyPlots,
             Map<Item, Integer> missingBySeed,
@@ -64,14 +65,14 @@ public final class FarmWorkScanner {
             List<ItemEntity> strayDrops
     ) {
         public static final FarmSnapshot EMPTY = new FarmSnapshot(
-                null, List.of(), List.of(), List.of(), Map.of(), Map.of(), List.of(), List.of());
+                null, List.of(), List.of(), List.of(), List.of(), Map.of(), Map.of(), List.of(), List.of());
 
         public boolean valid() {
             return farm != null && farm.valid();
         }
 
         public boolean hasFieldWork() {
-            return !matureCrops.isEmpty() || !revertedDirt.isEmpty() || !emptyPlots.isEmpty();
+            return !harvestableMatureCrops.isEmpty() || !revertedDirt.isEmpty() || !emptyPlots.isEmpty();
         }
     }
 
@@ -166,6 +167,7 @@ public final class FarmWorkScanner {
 
         Item fallbackSeed = firstAvailableSeed(civ, shedSeedCounts);
         List<MatureCropTarget> matureCrops = new ArrayList<>();
+        List<MatureCropTarget> harvestableMatureCrops = new ArrayList<>();
         List<RevertedSoilTarget> revertedDirt = new ArrayList<>();
         List<EmptyPlotTarget> emptyPlots = new ArrayList<>();
         Map<Item, Integer> missingBySeed = new LinkedHashMap<>();
@@ -186,6 +188,8 @@ public final class FarmWorkScanner {
             }
             hasFields = true;
             Item roomTargetSeed = resolveTargetSeedForRoom(level, room, fallbackSeed);
+            List<MatureCropTarget> roomMatureCrops = new ArrayList<>();
+            int roomPlantedCrops = 0;
 
             LongIterator it = room.blocks().iterator();
             while (it.hasNext()) {
@@ -206,8 +210,13 @@ public final class FarmWorkScanner {
                 }
                 BlockState state = level.getBlockState(cursor);
 
-                if (FarmCrops.isMatureCrop(state)) {
-                    matureCrops.add(new MatureCropTarget(cursor.immutable(), roomIndex));
+                if (FarmCrops.isBasicCrop(state)) {
+                    roomPlantedCrops++;
+                    if (FarmCrops.isMatureCrop(state)) {
+                        MatureCropTarget target = new MatureCropTarget(cursor.immutable(), roomIndex);
+                        matureCrops.add(target);
+                        roomMatureCrops.add(target);
+                    }
                 } else if (FarmRegionScanner.isFarmland(state)) {
                     above.set(x, y + 1, z);
                     if (level.hasChunkAt(above) && level.getBlockState(above).isAir()) {
@@ -226,6 +235,10 @@ public final class FarmWorkScanner {
                         }
                     }
                 }
+            }
+
+            if (FarmerUtility.meetsHarvestThreshold(roomMatureCrops.size(), roomPlantedCrops)) {
+                harvestableMatureCrops.addAll(roomMatureCrops);
             }
         }
 
@@ -254,7 +267,7 @@ public final class FarmWorkScanner {
             }
         }
 
-        return new FarmSnapshot(farm, matureCrops, revertedDirt, emptyPlots, missingBySeed,
+        return new FarmSnapshot(farm, matureCrops, harvestableMatureCrops, revertedDirt, emptyPlots, missingBySeed,
                 shedSeedCounts, storageBlocks, strayDrops);
     }
 

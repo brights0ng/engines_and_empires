@@ -41,7 +41,7 @@ public final class HarvestFieldTask implements CivilianTask {
     @Override
     public boolean isEligible(AiContext ctx) {
         FarmWorkScanner.FarmSnapshot snap = scanner.scan(ctx);
-        if (!snap.valid() || snap.matureCrops().isEmpty()) {
+        if (!snap.valid() || snap.harvestableMatureCrops().isEmpty()) {
             return false;
         }
         CivilianEntity civ = ctx.civilian();
@@ -56,7 +56,7 @@ public final class HarvestFieldTask implements CivilianTask {
 
     @Override
     public double urgency(AiContext ctx) {
-        return FarmerUtility.harvestUrgency(scanner.scan(ctx).matureCrops().size());
+        return FarmerUtility.harvestUrgency(scanner.scan(ctx).harvestableMatureCrops().size());
     }
 
     @Override
@@ -78,7 +78,7 @@ public final class HarvestFieldTask implements CivilianTask {
         currentAction = null;
 
         FarmWorkScanner.FarmSnapshot snap = scanner.scan(ctx);
-        if (!snap.valid() || snap.matureCrops().isEmpty()) {
+        if (!snap.valid() || snap.harvestableMatureCrops().isEmpty()) {
             return;
         }
         activeRoomIndex = pickNearestRoom(ctx.civilian().blockPosition(), snap);
@@ -164,7 +164,7 @@ public final class HarvestFieldTask implements CivilianTask {
     private static int pickNearestRoom(BlockPos civPos, FarmWorkScanner.FarmSnapshot snap) {
         int bestRoom = -1;
         double bestDistSq = Double.MAX_VALUE;
-        for (FarmWorkScanner.MatureCropTarget t : snap.matureCrops()) {
+        for (FarmWorkScanner.MatureCropTarget t : snap.harvestableMatureCrops()) {
             double d2 = t.cropPos().distSqr(civPos);
             if (bestRoom < 0 || d2 < bestDistSq) {
                 bestRoom = t.roomIndex();

@@ -20,6 +20,7 @@
 | **D8** | **Storage Dumping, End-of-Shift Stowage & Raw Produce Eating (2026-11-26):** During work, farmers dump farm produce and surplus seeds into `SHED` `storageBlocks` (via `Capabilities.ItemHandler.BLOCK`), retaining only enough seeds/plantables to cover currently missing farm spots (capped at 1 stack per seed type) and never dumping personal meals or hoes. At end of shift (quota reached or `END_SHIFT_BUFFER_TICKS` before departure), `EndShiftStoreWorkGearTask` stows all hoes, seeds, and raw produce into shed storage while leaving personal meals in pockets. Raw crop produce is only eaten if out of proper foods and at or below the emergency snack threshold (never filling above it). |
 | **D9** | **Field-Scoped Harvest & Seed Split + Interruption Momentum (2026-11-26):** Replaced combined harvest+replant with separate field-scoped `HarvestFieldTask` and `SeedFieldTask` tasks. Active `WORK` tasks are no longer re-evaluated after every block or every 20 ticks; Level 2 re-evaluates only when a task completes its chosen field (nearest `FIELD` room with eligible work) or hits an interruption (harvest overflow onto the ground / unpickable ground drops, running out of carried seeds, end-of-shift, or Level-1 AI interrupts). At fresh choice, Harvest vs. Seed compares ripe crop count against seedable empty farmland count (counting only plots whose seeds exist in pockets or shed storage; ties favor Harvest). Strong `FIELD_WORK_MOMENTUM_BONUS` favors finishing remaining fields of the same task type before switching, and interruption/maintenance chores (`DumpToStorageTask`, `FetchSuppliesTask`, `RetillSoilTask`, `PickupDropsTask`) preserve primary task momentum (`MomentumPolicy.PRESERVE`). Trampled dirt is not an interruption itself, but `RetillSoilTask` takes priority at interruption/completion boundaries; seed fetching activates only when requested by `SeedFieldTask` or when no ripe crops remain. |
 | **D10** | **Player Motion & Action Recorder (2026-11-26):** Added `/empire debug record start [label]`, `stop`, `status`, and `mark <note>` with a top-left `REC mm:ss` HUD badge and streaming JSONL output under `<gameDir>/empire-recordings/` capturing 20 Hz client telemetry, ms-precision mouse/interact/hotbar/screen events, and server-confirmed world/container events for later human-like AI motion analysis. |
+| **D11** | **Farmer Shed Idling, 15s Work Recheck & 5% Harvest Threshold (2026-11-27):** Replaced rigid shed-staring (`StandNearShedAction`) with natural shed idling (`IdleNearShedAction`): farmers loiter within a 5–6 block radius of the seed shed (off farmland/crops, on staked land), looking around, watching nearby players/civilians, taking short strolls, and walking over to chat with nearby civilians. While idling, `FarmerStandByShedTask` stays running continuously and `CivilianSlotRunner` only rechecks for newly available work every **15 seconds** (`FarmerUtility.IDLE_WORK_RECHECK_TICKS = 300`). `HarvestFieldTask` only starts harvesting a `FIELD` room when at least **5%** of that field's planted crops are mature (`FarmerUtility.meetsHarvestThreshold`, exact `mature * 20 >= planted`); the 5% gate does **not** apply to seeding (`SeedFieldTask`), and re-applies cleanly after mid-harvest dump interruptions so sub-5% stragglers wait for more crops to ripen. |
 
 ---
 
@@ -29,8 +30,9 @@
 |---|---:|---|
 | `FARM_MAX_WORKERS` | `1` | `rules.RegionRules` |
 | `FARMER` daily ask | `CivilianSchedule.DEFAULT_WORK_ASK_TICKS` (`7:00` / `8,400t`) | `rules.Occupation` |
-| `StandNearShedAction.CYCLE_TICKS` | `40` (`2s`) | `civilian.ai.StandNearShedAction` |
-| `FarmerStandByShedTask.STAND_REACH` | `2.25` blocks | `civilian.ai.FarmerStandByShedTask` |
+| `FarmerUtility.IDLE_WORK_RECHECK_TICKS` | `300` (`15s`) | `rules.FarmerUtility` |
+| `FarmerUtility.HARVEST_MIN_MATURE_FRACTION` | `0.05` (`5%` of planted crops in field) | `rules.FarmerUtility` |
+| `IdleNearShedAction.LOITER_RADIUS` / `MAX_SHED_DIST` | `5.5` / `6.0` blocks | `civilian.ai.IdleNearShedAction` |
 
 ---
 
@@ -55,12 +57,12 @@
 
 ---
 
-## 4. Verification (2026-11-26)
+## 4. Verification (2026-11-26, updated 2026-11-27)
 
-- **Unit & architecture tests (`:empire:compileJava :empire:compileTestJava :empire:test :test`):**
-  - `:empire:test`: **241 passed, 0 failed, 0 skipped** across 38 suites (including `OccupationTest`, new `FarmerUtilityTest`, and updated `CivilianLinesTest` verifying `hired` and `unemployed` lang keys).
+- **Unit & architecture tests (`:empire:compileJava :empire:compileTestJava :empire:test :test`, 2026-11-27):**
+  - `:empire:test`: **255 passed, 0 failed, 0 skipped** across 40 suites (including updated `FarmerUtilityTest` covering `meetsHarvestThreshold` and `IDLE_WORK_RECHECK_TICKS`).
   - `:test` (core): **33 passed, 0 failed, 0 skipped** across 5 suites (including `ArchitectureTest`).
-- **Empire standalone game test server (`:empire:runGameTestServer`, 193 tests total):**
-  - All **5/5 new `FarmerJobGameTests`**, all **4/4 `FarmOccupationGameTests`**, all `FarmRegionGameTests`, all `CivilianAiGameTests`, and all `CivilianNeedsGameTests` passed on both runs.
-  - Pre-existing random-origin chunk-boundary / block-light propagation flakes in unrelated `HOME` bed tests (`unreachablebedskippeduntilregionupdated`, `turningoneroomoutdoordetachesitscivilianwhileotherindoorroomstaysvalid`, `nightskipteleportsawakecitizensandleavessleepersinplace`, etc., documented previously in `civilian-fulfilment.md`) occurred across different coordinates between runs and were left untouched.
-- **Not verified (left for Bright's in-game playtest):** live client feel of harvesting/replanting animations & sounds, chest lid/sound interactions, offhand ledger crop override/clear feedback, end-of-shift gear stowage, and full-day Farmer rhythm.
+- **Empire standalone game test server (`:empire:runGameTestServer`, 210 tests total, 2026-11-27):**
+  - All **11/11 `FarmerJobGameTests`** (including 3 new tests: `harvestRequiresFivePercentMatureWhileSeedingHasNoThreshold`, `idleFarmerRechecksWorkEveryFifteenSeconds`, `harvestFivePercentThresholdReappliesAfterDumpInterruption`), all **4/4 `FarmOccupationGameTests`**, and all `FarmRegionGameTests` passed on consecutive runs.
+  - Pre-existing random-origin chunk-boundary / block-light flakes in unrelated tests (`unreachablebedskippeduntilregionupdated`, `extremetemperatureinterruptseeksshelterandexitsonwarmth`, `civilianpathfindsaroundlitbonfirewithoutenteringorburning`) appeared on different runs (each passing on the alternate run) and were left untouched.
+- **Not verified (left for Bright's in-game playtest):** live client feel of natural shed idling (wandering within 5–6 blocks off farmland, glancing at players/civilians, initiating conversations), the 15-second idle work cadence, and the 5% field-harvest feel.

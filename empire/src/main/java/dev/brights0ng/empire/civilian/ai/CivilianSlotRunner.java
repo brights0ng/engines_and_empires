@@ -35,7 +35,7 @@ public final class CivilianSlotRunner {
     /** PROVISIONAL: safety cap on end-of-shift wrap-up tasks so sleep/meal anchors are never blocked (30s = 600t). */
     public static final int END_SHIFT_WRAP_UP_CAP_TICKS = 600;
     private static final double TRAVEL_REACH = 3.0;
-    private static final int TASK_RECHECK_INTERVAL = 20;
+    public static final int TASK_RECHECK_INTERVAL = 20;
 
     private final LocationResolver locations;
     private final WorkSlotProvider workProvider;
@@ -297,10 +297,10 @@ public final class CivilianSlotRunner {
 
         // Periodic light re-check only for SOCIALIZE or passive/idle waiting tasks (e.g. FarmerStandByShedTask);
         // active WORK tasks run to field completion or explicit interruption without per-block re-evaluation.
-        if ((activeSlot.kind() == SlotKind.SOCIALIZE || activeTask.allowPeriodicRecheck())
-                && activeTask.canYieldCleanly()) {
+        if (activeSlot.kind() == SlotKind.SOCIALIZE || activeTask.allowPeriodicRecheck()) {
             recheckTicks++;
-            if (recheckTicks >= TASK_RECHECK_INTERVAL) {
+            int interval = Math.max(1, activeTask.periodicRecheckIntervalTicks());
+            if (recheckTicks >= interval && activeTask.canYieldCleanly()) {
                 recheckTicks = 0;
                 CivilianTask recheckMomentum = activeTask.momentumPolicy() == CivilianTask.MomentumPolicy.CLEAR
                         ? null
