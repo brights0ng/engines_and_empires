@@ -41,6 +41,7 @@ public final class BreakBlockAction implements CivilianAction {
 
     private int ticks;
     private int durationTicks = 1;
+    private boolean droppedOverflow;
 
     public BreakBlockAction(BlockPos target, @Nullable Predicate<ItemStack> toolFilter,
                             int baseTicks, float baseExhaustion, boolean heavyLabor,
@@ -58,10 +59,16 @@ public final class BreakBlockAction implements CivilianAction {
         return "break_block(" + target.toShortString() + ")";
     }
 
+    /** True if breaking this block had to drop overflow onto the ground because pockets had no available space. */
+    public boolean droppedOverflow() {
+        return droppedOverflow;
+    }
+
     @Override
     public void start(AiContext ctx) {
         CivilianEntity civ = ctx.civilian();
         ticks = 0;
+        droppedOverflow = false;
         civ.getNavigation().stop();
         if (toolFilter != null) {
             EquipAction.equipFromPockets(civ, toolFilter);
@@ -112,7 +119,12 @@ public final class BreakBlockAction implements CivilianAction {
         level.levelEvent(LevelEvent.PARTICLES_DESTROY_BLOCK, target, Block.getId(state));
         level.removeBlock(target, false);
         for (ItemStack drop : drops) {
-            civ.storeOrDrop(drop);
+            if (!drop.isEmpty()) {
+                if (TransferItemsAction.availableSpaceFor(civ.inventory(), drop) < drop.getCount()) {
+                    droppedOverflow = true;
+                }
+                civ.storeOrDrop(drop);
+            }
         }
         if (toolFilter != null && !held.isEmpty() && held.isDamageableItem()) {
             held.hurtAndBreak(1, civ, EquipmentSlot.MAINHAND);

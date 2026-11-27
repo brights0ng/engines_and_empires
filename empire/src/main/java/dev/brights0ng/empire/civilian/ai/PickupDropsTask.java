@@ -51,6 +51,11 @@ public final class PickupDropsTask implements CivilianTask {
     }
 
     @Override
+    public MomentumPolicy momentumPolicy() {
+        return MomentumPolicy.PRESERVE;
+    }
+
+    @Override
     public void start(AiContext ctx) {
         currentAction = null;
         beginPickup(ctx);
@@ -59,13 +64,16 @@ public final class PickupDropsTask implements CivilianTask {
     @Override
     public CivilianAction.Status tick(AiContext ctx) {
         if (currentAction == null) {
-            return beginPickup(ctx) ? CivilianAction.Status.RUNNING : CivilianAction.Status.FAILED;
+            return beginPickup(ctx) ? CivilianAction.Status.RUNNING : CivilianAction.Status.SUCCEEDED;
         }
         CivilianAction.Status status = currentAction.tick(ctx);
         if (status != CivilianAction.Status.RUNNING) {
             currentAction.stop(ctx);
             currentAction = null;
             scanner.invalidate();
+            if (status == CivilianAction.Status.SUCCEEDED && beginPickup(ctx)) {
+                return CivilianAction.Status.RUNNING;
+            }
             return status;
         }
         return CivilianAction.Status.RUNNING;

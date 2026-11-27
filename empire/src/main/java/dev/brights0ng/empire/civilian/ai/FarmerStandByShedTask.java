@@ -51,6 +51,16 @@ public final class FarmerStandByShedTask implements CivilianTask {
     }
 
     @Override
+    public MomentumPolicy momentumPolicy() {
+        return MomentumPolicy.CLEAR;
+    }
+
+    @Override
+    public boolean allowPeriodicRecheck() {
+        return true;
+    }
+
+    @Override
     public void start(AiContext ctx) {
         BlockPos standSpot = locations.resolve(ctx, LocationKey.WORK);
         if (standSpot == null) {

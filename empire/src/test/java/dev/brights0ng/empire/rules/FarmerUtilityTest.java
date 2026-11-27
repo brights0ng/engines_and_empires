@@ -6,20 +6,23 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+
+import dev.brights0ng.empire.rules.TaskUtility.Candidate;
 
 class FarmerUtilityTest {
 
     @Test
     void dumpUrgencyOvertakesHarvestWhenPocketsFullAndFallsBackWhenIdle() {
         double harvestFull = TaskUtility.score(true, FarmerUtility.BASE_HARVEST_WEIGHT,
-                FarmerUtility.harvestUrgency(20), true, TaskUtility.DEFAULT_MOMENTUM_BONUS);
+                FarmerUtility.harvestUrgency(200), true, FarmerUtility.FIELD_WORK_MOMENTUM_BONUS);
         double dumpFull = TaskUtility.score(true, FarmerUtility.BASE_DUMP_WEIGHT,
                 FarmerUtility.dumpUrgency(1.0, true), false, TaskUtility.DEFAULT_MOMENTUM_BONUS);
         assertTrue(dumpFull > harvestFull,
-                "full pockets dump (" + dumpFull + ") must beat active harvest (" + harvestFull + ")");
+                "full pockets dump (" + dumpFull + ") must beat active harvest with momentum (" + harvestFull + ")");
 
         double dumpHalfBusy = TaskUtility.score(true, FarmerUtility.BASE_DUMP_WEIGHT,
                 FarmerUtility.dumpUrgency(0.5, true), false, TaskUtility.DEFAULT_MOMENTUM_BONUS);
@@ -32,6 +35,73 @@ class FarmerUtilityTest {
                 TaskUtility.DEFAULT_MOMENTUM_BONUS);
         assertTrue(dumpIdlePartial > waitScore,
                 "partial harvest dump when idle (" + dumpIdlePartial + ") must beat waiting at shed (" + waitScore + ")");
+    }
+
+    @Test
+    void harvestAndSeedChooseLargerBacklogWhenFreshAndCommitWithMomentum() {
+        assertEquals(FarmerUtility.BASE_HARVEST_WEIGHT, FarmerUtility.BASE_PLANT_WEIGHT);
+        assertTrue(FarmerUtility.fieldWorkUrgency(101) > FarmerUtility.fieldWorkUrgency(100),
+                "field work urgency stays strictly monotonic even above 100 plots");
+
+        // Fresh choice: more seedable farmland -> seed wins
+        String pickMoreEmpty = TaskUtility.pickBest(List.of(
+                new Candidate<>("harvest", true, FarmerUtility.BASE_HARVEST_WEIGHT,
+                        FarmerUtility.harvestUrgency(10), false, FarmerUtility.FIELD_WORK_MOMENTUM_BONUS),
+                new Candidate<>("seed", true, FarmerUtility.BASE_PLANT_WEIGHT,
+                        FarmerUtility.plantUrgency(11), false, FarmerUtility.FIELD_WORK_MOMENTUM_BONUS)));
+        assertEquals("seed", pickMoreEmpty);
+
+        // Fresh choice: more ripe crops -> harvest wins
+        String pickMoreRipe = TaskUtility.pickBest(List.of(
+                new Candidate<>("harvest", true, FarmerUtility.BASE_HARVEST_WEIGHT,
+                        FarmerUtility.harvestUrgency(12), false, FarmerUtility.FIELD_WORK_MOMENTUM_BONUS),
+                new Candidate<>("seed", true, FarmerUtility.BASE_PLANT_WEIGHT,
+                        FarmerUtility.plantUrgency(11), false, FarmerUtility.FIELD_WORK_MOMENTUM_BONUS)));
+        assertEquals("harvest", pickMoreRipe);
+
+        // Fresh tie -> harvest wins (declared first)
+        String pickTie = TaskUtility.pickBest(List.of(
+                new Candidate<>("harvest", true, FarmerUtility.BASE_HARVEST_WEIGHT,
+                        FarmerUtility.harvestUrgency(15), false, FarmerUtility.FIELD_WORK_MOMENTUM_BONUS),
+                new Candidate<>("seed", true, FarmerUtility.BASE_PLANT_WEIGHT,
+                        FarmerUtility.plantUrgency(15), false, FarmerUtility.FIELD_WORK_MOMENTUM_BONUS)));
+        assertEquals("harvest", pickTie);
+
+        // Active harvest momentum: even 1 ripe crop left beats 200 empty farmland plots
+        String keepHarvesting = TaskUtility.pickBest(List.of(
+                new Candidate<>("harvest", true, FarmerUtility.BASE_HARVEST_WEIGHT,
+                        FarmerUtility.harvestUrgency(1), true, FarmerUtility.FIELD_WORK_MOMENTUM_BONUS),
+                new Candidate<>("seed", true, FarmerUtility.BASE_PLANT_WEIGHT,
+                        FarmerUtility.plantUrgency(200), false, FarmerUtility.FIELD_WORK_MOMENTUM_BONUS)));
+        assertEquals("harvest", keepHarvesting);
+
+        // Active seed momentum: even 1 empty plot left beats 200 ripe crops
+        String keepSeeding = TaskUtility.pickBest(List.of(
+                new Candidate<>("harvest", true, FarmerUtility.BASE_HARVEST_WEIGHT,
+                        FarmerUtility.harvestUrgency(200), false, FarmerUtility.FIELD_WORK_MOMENTUM_BONUS),
+                new Candidate<>("seed", true, FarmerUtility.BASE_PLANT_WEIGHT,
+                        FarmerUtility.plantUrgency(1), true, FarmerUtility.FIELD_WORK_MOMENTUM_BONUS)));
+        assertEquals("seed", keepSeeding);
+    }
+
+    @Test
+    void interruptionPrioritiesOrderDumpAboveRetillAndFetchAboveActiveFieldWork() {
+        double maxActiveField = TaskUtility.score(true, FarmerUtility.BASE_FIELD_WORK_WEIGHT,
+                FarmerUtility.fieldWorkUrgency(10_000), true, FarmerUtility.FIELD_WORK_MOMENTUM_BONUS);
+        double fetchSeeds = TaskUtility.score(true, FarmerUtility.BASE_FETCH_WEIGHT,
+                FarmerUtility.fetchUrgency(false, 1), false, TaskUtility.DEFAULT_MOMENTUM_BONUS);
+        double retill = TaskUtility.score(true, FarmerUtility.BASE_RETILL_WEIGHT,
+                FarmerUtility.retillUrgency(1), false, TaskUtility.DEFAULT_MOMENTUM_BONUS);
+        double fetchHoe = TaskUtility.score(true, FarmerUtility.BASE_FETCH_WEIGHT,
+                FarmerUtility.fetchUrgency(true, 0), false, TaskUtility.DEFAULT_MOMENTUM_BONUS);
+        double fullDump = TaskUtility.score(true, FarmerUtility.BASE_DUMP_WEIGHT,
+                FarmerUtility.dumpUrgency(1.0, true), false, TaskUtility.DEFAULT_MOMENTUM_BONUS);
+
+        assertTrue(fetchSeeds > maxActiveField, "seed fetch (" + fetchSeeds + ") beats active field (" + maxActiveField + ")");
+        assertTrue(retill > fetchSeeds, "retill (" + retill + ") beats seed fetch (" + fetchSeeds + ")");
+        assertTrue(fetchHoe > maxActiveField, "hoe fetch (" + fetchHoe + ") beats active field (" + maxActiveField + ")");
+        assertTrue(fullDump > retill && fullDump > fetchHoe,
+                "full dump (" + fullDump + ") beats retill (" + retill + ") and hoe fetch (" + fetchHoe + ")");
     }
 
     @Test

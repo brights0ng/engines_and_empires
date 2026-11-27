@@ -12,14 +12,23 @@ import javax.annotation.Nullable;
 public final class FarmerUtility {
 
     // PROVISIONAL: Base weights fed into TaskUtility: Gate * (BaseWeight * Urgency + MomentumBonus)
-    public static final double BASE_END_SHIFT_WEIGHT = 160.0;
-    public static final double BASE_DUMP_WEIGHT = 120.0;
-    public static final double BASE_FETCH_WEIGHT = 95.0;
-    public static final double BASE_RETILL_WEIGHT = 85.0;
-    public static final double BASE_HARVEST_WEIGHT = 80.0;
-    public static final double BASE_PLANT_WEIGHT = 70.0;
+    public static final double BASE_END_SHIFT_WEIGHT = 200.0;
+    public static final double BASE_DUMP_WEIGHT = 150.0;
+    public static final double BASE_RETILL_WEIGHT = 140.0;
+    public static final double BASE_FETCH_WEIGHT = 135.0;
+    /** Shared base weight for field-scoped Harvest and Seed tasks so fresh selection compares backlog counts fairly. */
+    public static final double BASE_FIELD_WORK_WEIGHT = 80.0;
+    public static final double BASE_HARVEST_WEIGHT = BASE_FIELD_WORK_WEIGHT;
+    public static final double BASE_PLANT_WEIGHT = BASE_FIELD_WORK_WEIGHT;
     public static final double BASE_PICKUP_WEIGHT = 55.0;
     public static final double BASE_WAIT_WEIGHT = 10.0;
+
+    /**
+     * Strong momentum bonus for active field work (Harvest or Seed) so completing a field or recovering from an
+     * interruption heavily favors finishing the remaining fields of the same task type before switching
+     * (still beaten by full-inventory Dump, Hoe Fetch, Retill, and Seed Fetch when needed).
+     */
+    public static final double FIELD_WORK_MOMENTUM_BONUS = 45.0;
 
     // PROVISIONAL: Base atomic action durations in ticks (scaled by derived labor/routing speed * productivity)
     public static final int HARVEST_BASE_TICKS = 12;
@@ -35,48 +44,62 @@ public final class FarmerUtility {
     /**
      * Urgency for dumping farm produce/surplus seeds into shed storage.
      *
-     * <p>Follows a steep cubic curve ({@code f^3}) as pocket fullness approaches {@code 1.0} so the farmer finishes
-     * harvesting smoothly until pockets are full (jumping to {@code 1.25}, overtaking harvest even with momentum),
-     * while returning a steady fallback ({@code 0.55}) when no field work remains so partial harvests are stowed.
+     * <p>Jumps to {@code 1.25} (score {@code 187.5}) when pockets are full or overflowed so dumping always beats
+     * active field work even with momentum; stays low while busy with space remaining, and returns {@code >= 0.55}
+     * when idle so partial harvests are stowed.
      */
     public static double dumpUrgency(double pocketFillFraction, boolean hasFieldWork) {
         double f = clamp01(pocketFillFraction);
         if (f >= 0.999) {
             return 1.25;
         }
-        double curve = f * f * f * 1.15;
+        double curve = f * f * f * 0.45;
         return hasFieldWork ? curve : Math.max(curve, 0.55);
     }
 
-    public static double harvestUrgency(int ripeCount) {
-        if (ripeCount <= 0) {
+    /**
+     * Strictly monotonic count-based urgency in {@code (0.50, 1.0)} for primary field work (Harvest / Seed).
+     * Never saturates at an integer cap, so {@code countA > countB} always produces a strictly higher score when
+     * choosing between harvesting mature crops and seeding empty farmland.
+     */
+    public static double fieldWorkUrgency(int workItemCount) {
+        if (workItemCount <= 0) {
             return 0.0;
         }
-        return clamp(0.65 + 0.35 * Math.min(1.0, ripeCount / 16.0), 0.65, 1.0);
+        return 0.50 + 0.50 * (workItemCount / (workItemCount + 16.0));
     }
 
+    public static double harvestUrgency(int ripeCount) {
+        return fieldWorkUrgency(ripeCount);
+    }
+
+    public static double plantUrgency(int seedableEmptyCount) {
+        return fieldWorkUrgency(seedableEmptyCount);
+    }
+
+    /**
+     * High-priority interruption urgency for re-tilling trampled/reverted dirt ({@code 0.95..1.0}, score
+     * {@code ~133..140} — above active field work with momentum, below full-inventory dump).
+     */
     public static double retillUrgency(int revertedCount) {
         if (revertedCount <= 0) {
             return 0.0;
         }
-        return clamp(0.60 + 0.35 * Math.min(1.0, revertedCount / 8.0), 0.60, 0.95);
+        return 0.95 + 0.05 * (revertedCount / (revertedCount + 8.0));
     }
 
-    public static double plantUrgency(int emptyFarmlandCount) {
-        if (emptyFarmlandCount <= 0) {
-            return 0.0;
-        }
-        return clamp(0.55 + 0.40 * Math.min(1.0, emptyFarmlandCount / 16.0), 0.55, 0.95);
-    }
-
+    /**
+     * Urgency for fetching a hoe ({@code 1.0}, score {@code 135.0}) or needed seeds ({@code 0.94..0.96}, score
+     * {@code ~127..130}, beating active Seed+momentum while staying below Retill and full Dump).
+     */
     public static double fetchUrgency(boolean needsHoe, int missingSeeds) {
         if (!needsHoe && missingSeeds <= 0) {
             return 0.0;
         }
         if (needsHoe) {
-            return 0.95;
+            return 1.0;
         }
-        return clamp(0.70 + 0.25 * Math.min(1.0, missingSeeds / 16.0), 0.70, 0.95);
+        return 0.94 + 0.02 * (missingSeeds / (missingSeeds + 16.0));
     }
 
     public static double pickupUrgency(int strayCount) {

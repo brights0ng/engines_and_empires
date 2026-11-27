@@ -145,7 +145,7 @@ public final class FarmerJobGameTests {
         return total;
     }
 
-    @GameTest(template = GameTestStructures.EMPTY, batch = "farmer_harvest_dump", timeoutTicks = 280)
+    @GameTest(template = GameTestStructures.EMPTY, batch = "farmer_harvest_dump", timeoutTicks = 320)
     public static void farmerHarvestsReplantsAndDumpsFullPocketsKeepingPersonalMeal(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         long savedTime = level.getDayTime();
@@ -189,7 +189,7 @@ public final class FarmerJobGameTests {
         rightClick(founder, f0);
         helper.assertTrue(CivilianOccupations.assign(level, data, farmer, farm).succeeded(), "farmer assigned");
 
-        helper.runAtTickTime(250, () -> {
+        helper.runAtTickTime(290, () -> {
             try {
                 int replanted = 0;
                 for (BlockPos soil : new BlockPos[] {f0, f1, f2}) {
@@ -468,6 +468,286 @@ public final class FarmerJobGameTests {
             c.discard();
             disband(helper, empire);
         }
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = "farmer_harvest_then_seed", timeoutTicks = 360)
+    public static void farmerHarvestsAllFieldsBeforeSeedingWithMomentum(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        long savedTime = level.getDayTime();
+        List<BlockPos> placed = new ArrayList<>();
+        Player founder = helper.makeMockPlayer(GameType.SURVIVAL);
+        founder.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(EmpireContent.ADMINISTRATIVE_LEDGER.get()));
+        EmpireRecord empire = found(helper, founder);
+        EmpireSavedData data = EmpireSavedData.of(level);
+
+        BlockPos main = mainPos(helper);
+        buildFloor(level, main, 9, placed);
+
+        BlockPos comp = main.offset(2, 0, 0);
+        BlockPos chest = comp.east();
+        setBlock(level, comp, Blocks.COMPOSTER.defaultBlockState(), placed);
+        setBlock(level, chest, Blocks.CHEST.defaultBlockState(), placed);
+
+        BlockState wetFarm = Blocks.FARMLAND.defaultBlockState().setValue(FarmBlock.MOISTURE, 7);
+        BlockState ripeWheat = Blocks.WHEAT.defaultBlockState().setValue(CropBlock.AGE, 7);
+
+        // Field 1 (closer to shed): 3 mature wheat plots.
+        BlockPos[] field1 = {comp.offset(0, -1, 2), comp.offset(1, -1, 2), comp.offset(2, -1, 2)};
+        // Field 2 (separated by 1-block stone walkway -> distinct FIELD room): 2 mature wheat plots.
+        BlockPos[] field2 = {comp.offset(0, -1, 4), comp.offset(1, -1, 4)};
+        for (BlockPos s : field1) {
+            setBlock(level, s, wetFarm, placed);
+            setBlock(level, s.above(), ripeWheat, placed);
+        }
+        for (BlockPos s : field2) {
+            setBlock(level, s, wetFarm, placed);
+            setBlock(level, s.above(), ripeWheat, placed);
+        }
+
+        rightClick(founder, comp);
+        RegionRecord farm = data.regionAt(comp);
+        helper.assertTrue(farm != null && farm.valid(), "farm created");
+        rightClick(founder, field1[0]);
+        rightClick(founder, field2[0]);
+        long fieldRooms = farm.rooms().stream().filter(RegionRecord.RoomRecord::isField).count();
+        helper.assertTrue(fieldRooms == 2, "two distinct FIELD rooms scanned, got=" + fieldRooms);
+
+        level.setDayTime(dayTimeFor(TEST_SCHEDULE_DAY, ScheduleClock.mmss(6, 0)));
+        CivilianEntity farmer = spawnCitizen(helper, empire, comp.north());
+        // Carry plenty of wheat seeds so seeding would be immediately eligible once Field 1 empties!
+        farmer.inventory().setItem(0, new ItemStack(Items.WHEAT_SEEDS, 16));
+        helper.assertTrue(CivilianOccupations.assign(level, data, farmer, farm).succeeded(), "farmer assigned");
+
+        boolean[] sawSeedBeforeAllHarvested = {false};
+        boolean[] sawAllHarvestedBeforeAnySeeded = {false};
+        for (int t = 10; t <= 320; t += 4) {
+            helper.runAtTickTime(t, () -> {
+                int ripeLeft = 0;
+                int youngPlanted = 0;
+                for (BlockPos[] f : new BlockPos[][] {field1, field2}) {
+                    for (BlockPos s : f) {
+                        BlockState crop = level.getBlockState(s.above());
+                        if (crop.is(Blocks.WHEAT)) {
+                            if (crop.getValue(CropBlock.AGE) == 7) {
+                                ripeLeft++;
+                            } else {
+                                youngPlanted++;
+                            }
+                        }
+                    }
+                }
+                if (youngPlanted > 0 && ripeLeft > 0) {
+                    sawSeedBeforeAllHarvested[0] = true;
+                }
+                if (ripeLeft == 0 && youngPlanted == 0) {
+                    sawAllHarvestedBeforeAnySeeded[0] = true;
+                }
+            });
+        }
+
+        helper.runAtTickTime(330, () -> {
+            try {
+                helper.assertFalse(sawSeedBeforeAllHarvested[0],
+                        "farmer must harvest every mature crop across both fields before seeding any plot");
+                helper.assertTrue(sawAllHarvestedBeforeAnySeeded[0],
+                        "observed full harvest completion across both fields before seeding began");
+                int seeded = 0;
+                for (BlockPos[] f : new BlockPos[][] {field1, field2}) {
+                    for (BlockPos s : f) {
+                        BlockState crop = level.getBlockState(s.above());
+                        if (crop.is(Blocks.WHEAT) && crop.getValue(CropBlock.AGE) < 7) {
+                            seeded++;
+                        }
+                    }
+                }
+                helper.assertTrue(seeded == 5, "farmer seeded all 5 plots after finishing harvest, seeded=" + seeded);
+            } finally {
+                LedgerSelection.clear(level, founder);
+                level.setDayTime(savedTime);
+                farmer.discard();
+                disband(helper, empire);
+                clearBlocks(level, placed);
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = "farmer_count_choice", timeoutTicks = 320)
+    public static void farmerChoosesSeedingFirstWhenMoreSeedableFarmlandThanRipeCrops(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        long savedTime = level.getDayTime();
+        List<BlockPos> placed = new ArrayList<>();
+        Player founder = helper.makeMockPlayer(GameType.SURVIVAL);
+        founder.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(EmpireContent.ADMINISTRATIVE_LEDGER.get()));
+        EmpireRecord empire = found(helper, founder);
+        EmpireSavedData data = EmpireSavedData.of(level);
+
+        BlockPos main = mainPos(helper);
+        buildFloor(level, main, 9, placed);
+
+        BlockPos comp = main.offset(2, 0, 0);
+        BlockPos chest = comp.east();
+        setBlock(level, comp, Blocks.COMPOSTER.defaultBlockState(), placed);
+        setBlock(level, chest, Blocks.CHEST.defaultBlockState(), placed);
+
+        // Put seeds in the shed chest (0 in pockets) so farmer must choose Seed by count and fetch seeds first!
+        IItemHandler chestHandler = level.getCapability(Capabilities.ItemHandler.BLOCK, chest, null);
+        helper.assertTrue(chestHandler != null, "chest exposes ItemHandler");
+        chestHandler.insertItem(0, new ItemStack(Items.WHEAT_SEEDS, 16), false);
+
+        BlockState wetFarm = Blocks.FARMLAND.defaultBlockState().setValue(FarmBlock.MOISTURE, 7);
+        BlockState ripeWheat = Blocks.WHEAT.defaultBlockState().setValue(CropBlock.AGE, 7);
+
+        // Field 1: 4 empty farmland plots; Field 2: 2 mature wheat plots (4 > 2 -> Seed must be chosen first!).
+        BlockPos[] emptyField = {
+                comp.offset(0, -1, 2), comp.offset(1, -1, 2), comp.offset(2, -1, 2), comp.offset(3, -1, 2)
+        };
+        BlockPos[] ripeField = {comp.offset(0, -1, 4), comp.offset(1, -1, 4)};
+        for (BlockPos s : emptyField) {
+            setBlock(level, s, wetFarm, placed);
+        }
+        for (BlockPos s : ripeField) {
+            setBlock(level, s, wetFarm, placed);
+            setBlock(level, s.above(), ripeWheat, placed);
+        }
+
+        rightClick(founder, comp);
+        RegionRecord farm = data.regionAt(comp);
+        rightClick(founder, emptyField[0]);
+        rightClick(founder, ripeField[0]);
+
+        level.setDayTime(dayTimeFor(TEST_SCHEDULE_DAY, ScheduleClock.mmss(6, 0)));
+        CivilianEntity farmer = spawnCitizen(helper, empire, comp.north());
+        helper.assertTrue(CivilianOccupations.assign(level, data, farmer, farm).succeeded(), "farmer assigned");
+
+        boolean[] sawHarvestBeforeSeedingComplete = {false};
+        boolean[] sawSeedingCompleteBeforeHarvest = {false};
+        for (int t = 10; t <= 290; t += 4) {
+            helper.runAtTickTime(t, () -> {
+                int emptySeeded = 0;
+                for (BlockPos s : emptyField) {
+                    if (level.getBlockState(s.above()).is(Blocks.WHEAT)) {
+                        emptySeeded++;
+                    }
+                }
+                int ripeRemaining = 0;
+                for (BlockPos s : ripeField) {
+                    BlockState st = level.getBlockState(s.above());
+                    if (st.is(Blocks.WHEAT) && st.getValue(CropBlock.AGE) == 7) {
+                        ripeRemaining++;
+                    }
+                }
+                if (ripeRemaining < 2 && emptySeeded < 4) {
+                    sawHarvestBeforeSeedingComplete[0] = true;
+                }
+                if (emptySeeded == 4 && ripeRemaining == 2) {
+                    sawSeedingCompleteBeforeHarvest[0] = true;
+                }
+            });
+        }
+
+        helper.runAtTickTime(300, () -> {
+            try {
+                helper.assertFalse(sawHarvestBeforeSeedingComplete[0],
+                        "farmer must finish seeding empty field before harvesting ripe field when empty > ripe");
+                helper.assertTrue(sawSeedingCompleteBeforeHarvest[0],
+                        "observed all 4 empty plots seeded while both ripe crops were still untouched");
+                int ripeStillStanding = 0;
+                for (BlockPos s : ripeField) {
+                    BlockState st = level.getBlockState(s.above());
+                    if (st.is(Blocks.WHEAT) && st.getValue(CropBlock.AGE) == 7) {
+                        ripeStillStanding++;
+                    }
+                }
+                helper.assertTrue(ripeStillStanding == 0,
+                        "after finishing seeding, farmer switched and harvested the ripe field");
+            } finally {
+                LedgerSelection.clear(level, founder);
+                level.setDayTime(savedTime);
+                farmer.discard();
+                disband(helper, empire);
+                clearBlocks(level, placed);
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = GameTestStructures.EMPTY, batch = "farmer_interrupt_momentum", timeoutTicks = 360)
+    public static void overflowInterruptionDumpsRetillsAndPreservesHarvestMomentum(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        long savedTime = level.getDayTime();
+        List<BlockPos> placed = new ArrayList<>();
+        Player founder = helper.makeMockPlayer(GameType.SURVIVAL);
+        founder.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(EmpireContent.ADMINISTRATIVE_LEDGER.get()));
+        EmpireRecord empire = found(helper, founder);
+        EmpireSavedData data = EmpireSavedData.of(level);
+
+        BlockPos main = mainPos(helper);
+        buildFloor(level, main, 9, placed);
+
+        BlockPos comp = main.offset(2, 0, 0);
+        BlockPos chest = comp.east();
+        setBlock(level, comp, Blocks.COMPOSTER.defaultBlockState(), placed);
+        setBlock(level, chest, Blocks.CHEST.defaultBlockState(), placed);
+
+        IItemHandler chestHandler = level.getCapability(Capabilities.ItemHandler.BLOCK, chest, null);
+        helper.assertTrue(chestHandler != null, "chest exposes ItemHandler");
+        chestHandler.insertItem(0, new ItemStack(Items.IRON_HOE), false);
+
+        BlockState wetFarm = Blocks.FARMLAND.defaultBlockState().setValue(FarmBlock.MOISTURE, 7);
+        BlockState ripeWheat = Blocks.WHEAT.defaultBlockState().setValue(CropBlock.AGE, 7);
+
+        // 1 field with 4 ripe wheat plots; we'll trample plot 4 into dirt mid-harvest or right before harvest!
+        BlockPos[] plots = {
+                comp.offset(0, -1, 2), comp.offset(1, -1, 2), comp.offset(2, -1, 2), comp.offset(3, -1, 2)
+        };
+        BlockPos trampledSpot = comp.offset(0, -1, 3);
+        for (BlockPos s : plots) {
+            setBlock(level, s, wetFarm, placed);
+            setBlock(level, s.above(), ripeWheat, placed);
+        }
+        setBlock(level, trampledSpot, wetFarm, placed);
+
+        rightClick(founder, comp);
+        RegionRecord farm = data.regionAt(comp);
+        rightClick(founder, plots[0]);
+
+        // Trample trampledSpot into dirt after scanning (stays in FIELD room).
+        setBlock(level, trampledSpot, Blocks.DIRT.defaultBlockState(), placed);
+        RegionManager.updateRegion(level, data, farm, level.getGameTime());
+
+        level.setDayTime(dayTimeFor(TEST_SCHEDULE_DAY, ScheduleClock.mmss(6, 0)));
+        CivilianEntity farmer = spawnCitizen(helper, empire, comp.north());
+        // 8 slots filled with potatoes + 1 empty slot: harvesting wheat drops wheat (fills slot 8) + wheat_seeds (overflows!).
+        for (int i = 0; i < 8; i++) {
+            farmer.inventory().setItem(i, new ItemStack(Items.POTATO, 64));
+        }
+        helper.assertTrue(CivilianOccupations.assign(level, data, farmer, farm).succeeded(), "farmer assigned");
+
+        helper.runAtTickTime(330, () -> {
+            try {
+                helper.assertTrue(level.getBlockState(trampledSpot).is(Blocks.FARMLAND),
+                        "farmer fetched hoe and re-tilled reverted dirt during interruption");
+                int ripeLeft = 0;
+                for (BlockPos s : plots) {
+                    BlockState st = level.getBlockState(s.above());
+                    if (st.is(Blocks.WHEAT) && st.getValue(CropBlock.AGE) == 7) {
+                        ripeLeft++;
+                    }
+                }
+                helper.assertTrue(ripeLeft == 0,
+                        "farmer resumed and finished harvesting all ripe wheat after dump+retill, ripeLeft=" + ripeLeft);
+                helper.assertTrue(countInStorage(level, chest, Items.POTATO) >= 64,
+                        "farmer dumped overflow potatoes into shed chest");
+            } finally {
+                LedgerSelection.clear(level, founder);
+                level.setDayTime(savedTime);
+                farmer.discard();
+                disband(helper, empire);
+                clearBlocks(level, placed);
+            }
+            helper.succeed();
+        });
     }
 
     private FarmerJobGameTests() {

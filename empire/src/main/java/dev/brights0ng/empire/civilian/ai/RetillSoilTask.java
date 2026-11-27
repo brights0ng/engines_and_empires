@@ -1,6 +1,9 @@
 // Written by Gemini.
 package dev.brights0ng.empire.civilian.ai;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import javax.annotation.Nullable;
 
 import dev.brights0ng.empire.civilian.CivilianEntity;
@@ -8,12 +11,14 @@ import dev.brights0ng.empire.rules.FarmerUtility;
 import net.minecraft.core.BlockPos;
 
 /**
- * Level-3 Farmer task: re-tills trampled or reverted soil inside {@code FIELD} rooms back into farmland using a hoe
- * via {@link InteractBlockAction#till(BlockPos)}.
+ * Level-3 Farmer interruption/maintenance task: selects the nearest {@code FIELD} room with reverted/trampled soil
+ * and re-tills all reverted tiles in that room using a hoe, preserving primary Harvest/Seed momentum.
  */
 public final class RetillSoilTask implements CivilianTask {
 
     private final FarmWorkScanner scanner;
+    private final Set<BlockPos> skippedPositions = new HashSet<>();
+    private int activeRoomIndex = -1;
     @Nullable
     private BlockPos targetSoil;
     @Nullable
@@ -45,34 +50,66 @@ public final class RetillSoilTask implements CivilianTask {
     }
 
     @Override
+    public MomentumPolicy momentumPolicy() {
+        return MomentumPolicy.PRESERVE;
+    }
+
+    @Override
     public void start(AiContext ctx) {
+        skippedPositions.clear();
+        activeRoomIndex = -1;
         targetSoil = null;
         currentAction = null;
-        beginRetill(ctx);
+
+        FarmWorkScanner.FarmSnapshot snap = scanner.scan(ctx);
+        if (!snap.valid() || snap.revertedDirt().isEmpty() || !FarmWorkScanner.hasHoe(ctx.civilian())) {
+            return;
+        }
+        activeRoomIndex = pickNearestRoom(ctx.civilian().blockPosition(), snap);
+        if (activeRoomIndex >= 0) {
+            beginNextSoilInRoom(ctx);
+        }
     }
 
     @Override
     public CivilianAction.Status tick(AiContext ctx) {
+        if (activeRoomIndex < 0) {
+            return CivilianAction.Status.FAILED;
+        }
         if (currentAction == null) {
-            return beginRetill(ctx) ? CivilianAction.Status.RUNNING : CivilianAction.Status.FAILED;
+            return beginNextSoilInRoom(ctx) ? CivilianAction.Status.RUNNING : CivilianAction.Status.SUCCEEDED;
         }
         CivilianAction.Status status = currentAction.tick(ctx);
-        if (status != CivilianAction.Status.RUNNING) {
-            currentAction.stop(ctx);
-            boolean wasMove = currentAction instanceof MoveToAction;
-            currentAction = null;
-            if (wasMove) {
-                if (status != CivilianAction.Status.SUCCEEDED || targetSoil == null) {
+        if (status == CivilianAction.Status.RUNNING) {
+            return CivilianAction.Status.RUNNING;
+        }
+
+        currentAction.stop(ctx);
+        boolean wasMove = currentAction instanceof MoveToAction;
+        currentAction = null;
+        if (wasMove) {
+            if (status == CivilianAction.Status.SUCCEEDED && targetSoil != null) {
+                if (!FarmWorkScanner.hasHoe(ctx.civilian())) {
                     return CivilianAction.Status.FAILED;
                 }
                 currentAction = InteractBlockAction.till(targetSoil);
                 currentAction.start(ctx);
                 return CivilianAction.Status.RUNNING;
             }
-            scanner.invalidate();
-            return status;
+            if (targetSoil != null) {
+                skippedPositions.add(targetSoil);
+            }
+            return beginNextSoilInRoom(ctx) ? CivilianAction.Status.RUNNING : CivilianAction.Status.SUCCEEDED;
         }
-        return CivilianAction.Status.RUNNING;
+
+        scanner.invalidate();
+        if (status != CivilianAction.Status.SUCCEEDED && targetSoil != null) {
+            skippedPositions.add(targetSoil);
+        }
+        if (!FarmWorkScanner.hasHoe(ctx.civilian())) {
+            return CivilianAction.Status.FAILED;
+        }
+        return beginNextSoilInRoom(ctx) ? CivilianAction.Status.RUNNING : CivilianAction.Status.SUCCEEDED;
     }
 
     @Override
@@ -82,6 +119,8 @@ public final class RetillSoilTask implements CivilianTask {
             currentAction = null;
         }
         targetSoil = null;
+        activeRoomIndex = -1;
+        skippedPositions.clear();
         EquipAction.stowMainHand(ctx.civilian());
     }
 
@@ -95,7 +134,20 @@ public final class RetillSoilTask implements CivilianTask {
         return currentAction != null ? currentAction.name() : "retill_soil";
     }
 
-    private boolean beginRetill(AiContext ctx) {
+    private static int pickNearestRoom(BlockPos civPos, FarmWorkScanner.FarmSnapshot snap) {
+        int bestRoom = -1;
+        double bestDistSq = Double.MAX_VALUE;
+        for (FarmWorkScanner.RevertedSoilTarget t : snap.revertedDirt()) {
+            double d2 = t.soilPos().distSqr(civPos);
+            if (bestRoom < 0 || d2 < bestDistSq) {
+                bestRoom = t.roomIndex();
+                bestDistSq = d2;
+            }
+        }
+        return bestRoom;
+    }
+
+    private boolean beginNextSoilInRoom(AiContext ctx) {
         FarmWorkScanner.FarmSnapshot snap = scanner.scan(ctx);
         if (!snap.valid() || snap.revertedDirt().isEmpty() || !FarmWorkScanner.hasHoe(ctx.civilian())) {
             return false;
@@ -104,14 +156,18 @@ public final class RetillSoilTask implements CivilianTask {
         BlockPos civPos = civ.blockPosition();
         BlockPos best = null;
         double bestDistSq = Double.MAX_VALUE;
-        for (BlockPos pos : snap.revertedDirt()) {
-            double d2 = pos.distSqr(civPos);
+        for (FarmWorkScanner.RevertedSoilTarget t : snap.revertedDirt()) {
+            if (t.roomIndex() != activeRoomIndex || skippedPositions.contains(t.soilPos())) {
+                continue;
+            }
+            double d2 = t.soilPos().distSqr(civPos);
             if (best == null || d2 < bestDistSq) {
-                best = pos;
+                best = t.soilPos();
                 bestDistSq = d2;
             }
         }
         if (best == null) {
+            targetSoil = null;
             return false;
         }
         targetSoil = best;

@@ -12,8 +12,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.Item;
 
 /**
- * Level-3 Farmer task: unloads harvested produce and surplus seeds (beyond the per-crop missing-plot reserve, capped
- * at 1 stack per seed type) into marked {@code SHED} storage blocks. Never dumps personal meals or hoes.
+ * Level-3 Farmer interruption/chore task: unloads harvested produce and surplus seeds (beyond the per-crop missing-plot
+ * reserve, capped at 1 stack per seed type) into marked {@code SHED} storage blocks. Never dumps personal meals or
+ * hoes, and preserves primary Harvest/Seed momentum across the interruption.
  */
 public final class DumpToStorageTask implements CivilianTask {
 
@@ -50,7 +51,17 @@ public final class DumpToStorageTask implements CivilianTask {
     @Override
     public double urgency(AiContext ctx) {
         FarmWorkScanner.FarmSnapshot snap = scanner.scan(ctx);
-        return FarmerUtility.dumpUrgency(FarmWorkScanner.pocketFillFraction(ctx.civilian()), snap.hasFieldWork());
+        CivilianEntity civ = ctx.civilian();
+        boolean mustDump = scanner.isInventoryOverflowed(civ)
+                || FarmWorkScanner.hasUnpickableStrayDrops(civ, snap)
+                || (scanner.isSeedFetchRequested() && !FarmWorkScanner.canFitAnyNeededSeed(civ, snap));
+        double fill = mustDump ? 1.0 : FarmWorkScanner.pocketFillFraction(civ);
+        return FarmerUtility.dumpUrgency(fill, snap.hasFieldWork());
+    }
+
+    @Override
+    public MomentumPolicy momentumPolicy() {
+        return MomentumPolicy.PRESERVE;
     }
 
     @Override
@@ -63,7 +74,7 @@ public final class DumpToStorageTask implements CivilianTask {
     @Override
     public CivilianAction.Status tick(AiContext ctx) {
         if (currentAction == null) {
-            return beginDeposit(ctx) ? CivilianAction.Status.RUNNING : CivilianAction.Status.FAILED;
+            return beginDeposit(ctx) ? CivilianAction.Status.RUNNING : CivilianAction.Status.SUCCEEDED;
         }
         CivilianAction.Status status = currentAction.tick(ctx);
         if (status != CivilianAction.Status.RUNNING) {
@@ -77,6 +88,7 @@ public final class DumpToStorageTask implements CivilianTask {
                 FarmWorkScanner.FarmSnapshot snap = scanner.scan(ctx);
                 Map<Item, Integer> dumpable = FarmWorkScanner.computeDumpableCounts(ctx.civilian(), snap, false);
                 if (dumpable.isEmpty()) {
+                    scanner.clearInventoryOverflow();
                     return CivilianAction.Status.SUCCEEDED;
                 }
                 currentAction = createDepositAction(targetStorage, dumpable);
@@ -84,6 +96,13 @@ public final class DumpToStorageTask implements CivilianTask {
                 return CivilianAction.Status.RUNNING;
             }
             scanner.invalidate();
+            if (status == CivilianAction.Status.SUCCEEDED) {
+                // If first chest filled up and another chest can take remaining produce, continue dumping.
+                if (beginDeposit(ctx)) {
+                    return CivilianAction.Status.RUNNING;
+                }
+                scanner.clearInventoryOverflow();
+            }
             return status;
         }
         return CivilianAction.Status.RUNNING;

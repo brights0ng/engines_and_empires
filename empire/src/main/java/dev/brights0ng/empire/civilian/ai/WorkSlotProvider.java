@@ -27,8 +27,8 @@ public interface WorkSlotProvider {
                             new DumpToStorageTask(scanner),
                             new FetchSuppliesTask(scanner),
                             new RetillSoilTask(scanner),
-                            new HarvestAndReplantTask(scanner),
-                            new PlantSeedsTask(scanner),
+                            new HarvestFieldTask(scanner),
+                            new SeedFieldTask(scanner),
                             new PickupDropsTask(scanner),
                             new FarmerStandByShedTask(locations)
                     );

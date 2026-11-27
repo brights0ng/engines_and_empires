@@ -35,30 +35,34 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 
 /**
- * Shared short-TTL scanner and inventory analyzer for a {@link Occupation#FARMER}'s assigned {@link RegionType#FARM}.
- * Cached across all Farmer Level-3 tasks in the same {@code WORK} slot so utility scoring stays cheap.
+ * Shared short-TTL scanner, field-room grouper, and inventory/storage analyzer for a {@link Occupation#FARMER}'s
+ * assigned {@link RegionType#FARM}. Shared across all Farmer Level-3 tasks in the same {@code WORK} slot.
  */
 public final class FarmWorkScanner {
 
     private static final long CACHE_TTL_TICKS = 20L;
 
-    public record MatureCropTarget(BlockPos cropPos, @Nullable Item replantSeed) {
+    public record MatureCropTarget(BlockPos cropPos, int roomIndex) {
     }
 
-    public record EmptyPlotTarget(BlockPos cropPos, @Nullable Item targetSeed) {
+    public record EmptyPlotTarget(BlockPos cropPos, @Nullable Item targetSeed, int roomIndex) {
+    }
+
+    public record RevertedSoilTarget(BlockPos soilPos, int roomIndex) {
     }
 
     public record FarmSnapshot(
             @Nullable RegionRecord farm,
             List<MatureCropTarget> matureCrops,
-            List<BlockPos> revertedDirt,
+            List<RevertedSoilTarget> revertedDirt,
             List<EmptyPlotTarget> emptyPlots,
             Map<Item, Integer> missingBySeed,
+            Map<Item, Integer> shedSeedCounts,
             List<BlockPos> storageBlocks,
             List<ItemEntity> strayDrops
     ) {
         public static final FarmSnapshot EMPTY = new FarmSnapshot(
-                null, List.of(), List.of(), List.of(), Map.of(), List.of(), List.of());
+                null, List.of(), List.of(), List.of(), Map.of(), Map.of(), List.of(), List.of());
 
         public boolean valid() {
             return farm != null && farm.valid();
@@ -74,10 +78,42 @@ public final class FarmWorkScanner {
     private long cachedGameTime = Long.MIN_VALUE;
     private long cachedRevision = Long.MIN_VALUE;
 
+    /** Set by {@link SeedFieldTask} when it needs seeds from shed storage; cleared by {@link FetchSuppliesTask} or Harvest. */
+    private boolean seedFetchRequested;
+    /** Set by {@link HarvestFieldTask} when a crop drop overflows onto the ground; cleared when pockets free up or dump completes. */
+    private boolean inventoryOverflowed;
+
     public void invalidate() {
         cached = null;
         cachedGameTime = Long.MIN_VALUE;
         cachedRevision = Long.MIN_VALUE;
+    }
+
+    public boolean isSeedFetchRequested() {
+        return seedFetchRequested;
+    }
+
+    public void requestSeedFetch() {
+        seedFetchRequested = true;
+    }
+
+    public void clearSeedFetchRequest() {
+        seedFetchRequested = false;
+    }
+
+    public boolean isInventoryOverflowed(CivilianEntity civ) {
+        if (inventoryOverflowed && hasEmptyPocketSlot(civ)) {
+            inventoryOverflowed = false;
+        }
+        return inventoryOverflowed;
+    }
+
+    public void flagInventoryOverflow() {
+        inventoryOverflowed = true;
+    }
+
+    public void clearInventoryOverflow() {
+        inventoryOverflowed = false;
     }
 
     public FarmSnapshot scan(AiContext ctx) {
@@ -106,17 +142,29 @@ public final class FarmWorkScanner {
 
     private static FarmSnapshot buildSnapshot(ServerLevel level, CivilianEntity civ, RegionRecord farm) {
         List<BlockPos> storageBlocks = new ArrayList<>();
+        Map<Item, Integer> shedSeedCounts = new LinkedHashMap<>();
         LongIterator sit = farm.storageBlocks().iterator();
         while (sit.hasNext()) {
             BlockPos pos = BlockPos.of(sit.nextLong());
-            if (level.hasChunkAt(pos) && level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null) != null) {
-                storageBlocks.add(pos);
+            if (!level.hasChunkAt(pos)) {
+                continue;
+            }
+            IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
+            if (handler == null) {
+                continue;
+            }
+            storageBlocks.add(pos);
+            for (int slot = 0; slot < handler.getSlots(); slot++) {
+                ItemStack s = handler.getStackInSlot(slot);
+                if (FarmCrops.isPlantableSeed(s)) {
+                    shedSeedCounts.merge(s.getItem(), s.getCount(), Integer::sum);
+                }
             }
         }
 
-        Item fallbackSeed = firstAvailableSeed(level, civ, storageBlocks);
+        Item fallbackSeed = firstAvailableSeed(civ, shedSeedCounts);
         List<MatureCropTarget> matureCrops = new ArrayList<>();
-        List<BlockPos> revertedDirt = new ArrayList<>();
+        List<RevertedSoilTarget> revertedDirt = new ArrayList<>();
         List<EmptyPlotTarget> emptyPlots = new ArrayList<>();
         Map<Item, Integer> missingBySeed = new LinkedHashMap<>();
 
@@ -128,7 +176,9 @@ public final class FarmWorkScanner {
         int fieldMaxX = Integer.MIN_VALUE, fieldMaxY = Integer.MIN_VALUE, fieldMaxZ = Integer.MIN_VALUE;
         boolean hasFields = false;
 
-        for (RegionRecord.RoomRecord room : farm.rooms()) {
+        List<RegionRecord.RoomRecord> rooms = farm.rooms();
+        for (int roomIndex = 0; roomIndex < rooms.size(); roomIndex++) {
+            RegionRecord.RoomRecord room = rooms.get(roomIndex);
             if (!room.isField()) {
                 continue;
             }
@@ -155,12 +205,11 @@ public final class FarmWorkScanner {
                 BlockState state = level.getBlockState(cursor);
 
                 if (FarmCrops.isMatureCrop(state)) {
-                    Item replant = roomTargetSeed != null ? roomTargetSeed : FarmCrops.seedItemForCrop(level, cursor, state);
-                    matureCrops.add(new MatureCropTarget(cursor.immutable(), replant));
+                    matureCrops.add(new MatureCropTarget(cursor.immutable(), roomIndex));
                 } else if (FarmRegionScanner.isFarmland(state)) {
                     above.set(x, y + 1, z);
                     if (level.hasChunkAt(above) && level.getBlockState(above).isAir()) {
-                        emptyPlots.add(new EmptyPlotTarget(above.immutable(), roomTargetSeed));
+                        emptyPlots.add(new EmptyPlotTarget(above.immutable(), roomTargetSeed, roomIndex));
                         if (roomTargetSeed != null) {
                             missingBySeed.merge(roomTargetSeed, 1, Integer::sum);
                         }
@@ -169,7 +218,7 @@ public final class FarmWorkScanner {
                     // Never treat a block sitting above farmland as a soil layer to till.
                     below.set(x, y - 1, z);
                     if (!level.hasChunkAt(below) || !FarmRegionScanner.isFarmland(level.getBlockState(below))) {
-                        revertedDirt.add(cursor.immutable());
+                        revertedDirt.add(new RevertedSoilTarget(cursor.immutable(), roomIndex));
                         if (roomTargetSeed != null) {
                             missingBySeed.merge(roomTargetSeed, 1, Integer::sum);
                         }
@@ -190,7 +239,8 @@ public final class FarmWorkScanner {
             }
         }
 
-        return new FarmSnapshot(farm, matureCrops, revertedDirt, emptyPlots, missingBySeed, storageBlocks, strayDrops);
+        return new FarmSnapshot(farm, matureCrops, revertedDirt, emptyPlots, missingBySeed,
+                shedSeedCounts, storageBlocks, strayDrops);
     }
 
     /**
@@ -236,7 +286,7 @@ public final class FarmWorkScanner {
     }
 
     @Nullable
-    private static Item firstAvailableSeed(ServerLevel level, CivilianEntity civ, List<BlockPos> storageBlocks) {
+    private static Item firstAvailableSeed(CivilianEntity civ, Map<Item, Integer> shedSeedCounts) {
         ItemStack main = civ.getMainHandItem();
         if (FarmCrops.isPlantableSeed(main)) {
             return main.getItem();
@@ -248,22 +298,15 @@ public final class FarmWorkScanner {
                 return s.getItem();
             }
         }
-        for (BlockPos pos : storageBlocks) {
-            IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
-            if (handler == null) {
-                continue;
-            }
-            for (int i = 0; i < handler.getSlots(); i++) {
-                ItemStack s = handler.getStackInSlot(i);
-                if (FarmCrops.isPlantableSeed(s)) {
-                    return s.getItem();
-                }
+        for (Map.Entry<Item, Integer> e : shedSeedCounts.entrySet()) {
+            if (e.getValue() > 0) {
+                return e.getKey();
             }
         }
         return null;
     }
 
-    // ---- Shared Inventory & Storage Helpers ----
+    // ---- Shared Inventory, Seed Availability & Storage Helpers ----
 
     public static boolean hasHoe(CivilianEntity civ) {
         if (FarmCrops.isHoe(civ.getMainHandItem())) {
@@ -294,8 +337,89 @@ public final class FarmWorkScanner {
     }
 
     /**
-     * Pocket fullness in {@code [0, 1]} for dump urgency: returns {@code 1.0} as soon as every pocket slot is occupied
-     * (so harvesting immediately yields to dumping instead of dropping crops on the ground).
+     * Counts how many empty farmland plots can actually be seeded using seeds carried in pockets or stored in the shed
+     * (capped per seed type by total reachable seed count, and excluding shed-only seeds when pockets are completely
+     * full with nothing dumpable to free space).
+     */
+    public static int countSeedableEmptyPlots(ServerLevel level, CivilianEntity civ, FarmSnapshot snap) {
+        if (snap.emptyPlots().isEmpty()) {
+            return 0;
+        }
+        Map<Item, Integer> emptyBySeed = new LinkedHashMap<>();
+        for (EmptyPlotTarget plot : snap.emptyPlots()) {
+            if (plot.targetSeed() != null) {
+                emptyBySeed.merge(plot.targetSeed(), 1, Integer::sum);
+            }
+        }
+        boolean canDumpForSpace = false;
+        boolean checkedDump = false;
+        int total = 0;
+        for (Map.Entry<Item, Integer> e : emptyBySeed.entrySet()) {
+            Item seed = e.getKey();
+            int plots = e.getValue();
+            int carried = countCarried(civ, seed);
+            int inShed = snap.shedSeedCounts().getOrDefault(seed, 0);
+            int reachableFromShed = 0;
+            if (inShed > 0) {
+                if (canFitAny(civ, new ItemStack(seed))) {
+                    reachableFromShed = inShed;
+                } else {
+                    if (!checkedDump) {
+                        checkedDump = true;
+                        Map<Item, Integer> dumpable = computeDumpableCounts(civ, snap, false);
+                        canDumpForSpace = findDepositStorage(level, civ, snap, dumpable) != null;
+                    }
+                    if (canDumpForSpace) {
+                        reachableFromShed = inShed;
+                    }
+                }
+            }
+            total += Math.min(plots, carried + reachableFromShed);
+        }
+        return total;
+    }
+
+    /** True if {@code seed} can be used for seeding (either carried or reachable from shed storage). */
+    public static boolean isSeedReachable(ServerLevel level, CivilianEntity civ, FarmSnapshot snap, @Nullable Item seed) {
+        if (seed == null) {
+            return false;
+        }
+        if (countCarried(civ, seed) > 0) {
+            return true;
+        }
+        if (snap.shedSeedCounts().getOrDefault(seed, 0) <= 0) {
+            return false;
+        }
+        if (canFitAny(civ, new ItemStack(seed))) {
+            return true;
+        }
+        Map<Item, Integer> dumpable = computeDumpableCounts(civ, snap, false);
+        return findDepositStorage(level, civ, snap, dumpable) != null;
+    }
+
+    /** True if any stray crop/seed drop on the ground cannot fit into pockets right now. */
+    public static boolean hasUnpickableStrayDrops(CivilianEntity civ, FarmSnapshot snap) {
+        for (ItemEntity item : snap.strayDrops()) {
+            if (item.isAlive() && !item.getItem().isEmpty() && !canFitAny(civ, item.getItem())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** True if pockets can fit at least one stack/item of any currently needed seed that exists in shed storage. */
+    public static boolean canFitAnyNeededSeed(CivilianEntity civ, FarmSnapshot snap) {
+        Map<Item, Integer> needed = computeMissingSeedsToFetch(civ, snap);
+        for (Item seed : needed.keySet()) {
+            if (snap.shedSeedCounts().getOrDefault(seed, 0) > 0 && canFitAny(civ, new ItemStack(seed))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Pocket fullness in {@code [0, 1]} for dump urgency: returns {@code 1.0} as soon as every pocket slot is occupied.
      */
     public static double pocketFillFraction(CivilianEntity civ) {
         SimpleContainer inv = civ.inventory();

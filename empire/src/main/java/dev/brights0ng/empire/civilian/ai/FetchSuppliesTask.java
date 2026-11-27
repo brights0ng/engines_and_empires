@@ -12,8 +12,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.Item;
 
 /**
- * Level-3 Farmer task: fetches a hoe (when reverted soil needs tilling) and/or missing crop seeds (up to 1 stack per
- * needed crop type) from marked {@code SHED} storage blocks.
+ * Level-3 Farmer interruption/chore task: fetches a hoe (when reverted soil needs tilling) and/or missing crop seeds
+ * from marked {@code SHED} storage blocks. Seed fetching only activates when {@link SeedFieldTask} explicitly requests
+ * seeds or when no mature crops remain to harvest, so seed fetching never steals priority from an active Harvest pass.
+ * Preserves primary Harvest/Seed momentum.
  */
 public final class FetchSuppliesTask implements CivilianTask {
 
@@ -40,7 +42,9 @@ public final class FetchSuppliesTask implements CivilianTask {
         }
         CivilianEntity civ = ctx.civilian();
         boolean needHoe = !snap.revertedDirt().isEmpty() && !FarmWorkScanner.hasHoe(civ);
-        Map<Item, Integer> neededSeeds = FarmWorkScanner.computeMissingSeedsToFetch(civ, snap);
+        Map<Item, Integer> neededSeeds = shouldFetchSeeds(snap)
+                ? FarmWorkScanner.computeMissingSeedsToFetch(civ, snap)
+                : Map.of();
         return FarmWorkScanner.findWithdrawStorage(ctx.level(), civ, snap, needHoe, neededSeeds) != null;
     }
 
@@ -55,10 +59,17 @@ public final class FetchSuppliesTask implements CivilianTask {
         CivilianEntity civ = ctx.civilian();
         boolean needHoe = !snap.revertedDirt().isEmpty() && !FarmWorkScanner.hasHoe(civ);
         int missingSeeds = 0;
-        for (int n : FarmWorkScanner.computeMissingSeedsToFetch(civ, snap).values()) {
-            missingSeeds += n;
+        if (shouldFetchSeeds(snap)) {
+            for (int n : FarmWorkScanner.computeMissingSeedsToFetch(civ, snap).values()) {
+                missingSeeds += n;
+            }
         }
         return FarmerUtility.fetchUrgency(needHoe, missingSeeds);
+    }
+
+    @Override
+    public MomentumPolicy momentumPolicy() {
+        return MomentumPolicy.PRESERVE;
     }
 
     @Override
@@ -71,7 +82,7 @@ public final class FetchSuppliesTask implements CivilianTask {
     @Override
     public CivilianAction.Status tick(AiContext ctx) {
         if (currentAction == null) {
-            return beginFetch(ctx) ? CivilianAction.Status.RUNNING : CivilianAction.Status.FAILED;
+            return beginFetch(ctx) ? CivilianAction.Status.RUNNING : CivilianAction.Status.SUCCEEDED;
         }
         CivilianAction.Status status = currentAction.tick(ctx);
         if (status != CivilianAction.Status.RUNNING) {
@@ -85,8 +96,11 @@ public final class FetchSuppliesTask implements CivilianTask {
                 FarmWorkScanner.FarmSnapshot snap = scanner.scan(ctx);
                 CivilianEntity civ = ctx.civilian();
                 boolean needHoe = !snap.revertedDirt().isEmpty() && !FarmWorkScanner.hasHoe(civ);
-                Map<Item, Integer> neededSeeds = FarmWorkScanner.computeMissingSeedsToFetch(civ, snap);
+                Map<Item, Integer> neededSeeds = shouldFetchSeeds(snap)
+                        ? FarmWorkScanner.computeMissingSeedsToFetch(civ, snap)
+                        : Map.of();
                 if (!needHoe && neededSeeds.isEmpty()) {
+                    scanner.clearSeedFetchRequest();
                     return CivilianAction.Status.SUCCEEDED;
                 }
                 currentAction = createWithdrawAction(targetStorage, needHoe, neededSeeds);
@@ -94,6 +108,13 @@ public final class FetchSuppliesTask implements CivilianTask {
                 return CivilianAction.Status.RUNNING;
             }
             scanner.invalidate();
+            if (status == CivilianAction.Status.SUCCEEDED) {
+                // If another shed chest holds remaining needed supplies (e.g. hoe in chest 1, seeds in chest 2), grab them too.
+                if (beginFetch(ctx)) {
+                    return CivilianAction.Status.RUNNING;
+                }
+                scanner.clearSeedFetchRequest();
+            }
             return status;
         }
         return CivilianAction.Status.RUNNING;
@@ -118,6 +139,10 @@ public final class FetchSuppliesTask implements CivilianTask {
         return currentAction != null ? currentAction.name() : "fetch_supplies";
     }
 
+    private boolean shouldFetchSeeds(FarmWorkScanner.FarmSnapshot snap) {
+        return scanner.isSeedFetchRequested() || snap.matureCrops().isEmpty();
+    }
+
     private boolean beginFetch(AiContext ctx) {
         FarmWorkScanner.FarmSnapshot snap = scanner.scan(ctx);
         if (!snap.valid()) {
@@ -125,7 +150,9 @@ public final class FetchSuppliesTask implements CivilianTask {
         }
         CivilianEntity civ = ctx.civilian();
         boolean needHoe = !snap.revertedDirt().isEmpty() && !FarmWorkScanner.hasHoe(civ);
-        Map<Item, Integer> neededSeeds = FarmWorkScanner.computeMissingSeedsToFetch(civ, snap);
+        Map<Item, Integer> neededSeeds = shouldFetchSeeds(snap)
+                ? FarmWorkScanner.computeMissingSeedsToFetch(civ, snap)
+                : Map.of();
         BlockPos storage = FarmWorkScanner.findWithdrawStorage(ctx.level(), civ, snap, needHoe, neededSeeds);
         if (storage == null) {
             return false;

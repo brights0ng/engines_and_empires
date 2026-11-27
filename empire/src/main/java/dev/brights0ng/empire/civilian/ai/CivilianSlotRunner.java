@@ -47,6 +47,8 @@ public final class CivilianSlotRunner {
     private List<CivilianTask> candidateTasks = List.of();
     @Nullable
     private CivilianTask activeTask;
+    @Nullable
+    private CivilianTask momentumTask;
     private int activeElapsedTicks;
     private int recheckTicks;
     private boolean yielding;
@@ -228,7 +230,7 @@ public final class CivilianSlotRunner {
 
         // 4. Pick a Task via Level-2 TaskUtility if none active
         if (activeTask == null) {
-            activeTask = pickBestTask(ctx, null);
+            activeTask = pickBestTask(ctx, momentumTask);
             if (activeTask == null) {
                 if (activeSlot.kind() == SlotKind.MEAL || activeSlot.kind() == SlotKind.WORK) {
                     finishSlot(ctx);
@@ -250,6 +252,15 @@ public final class CivilianSlotRunner {
             finished.stop(ctx);
             activeTask = null;
 
+            // Update task momentum according to the finished/interrupted task's policy:
+            // interruptions (FAILED) and support chores (PRESERVE) do not clear primary task momentum.
+            switch (finished.momentumPolicy()) {
+                case SET -> momentumTask = finished;
+                case PRESERVE -> {
+                }
+                case CLEAR -> momentumTask = null;
+            }
+
             if (activeSlot.kind() == SlotKind.MEAL && taskStatus == CivilianAction.Status.SUCCEEDED) {
                 finishSlot(ctx);
                 return false;
@@ -269,8 +280,8 @@ public final class CivilianSlotRunner {
                 finishSlot(ctx);
                 return false;
             }
-            // Pick next best task inside the same slot (keeping momentum on the just-finished task type)
-            CivilianTask next = pickBestTask(ctx, taskStatus == CivilianAction.Status.SUCCEEDED ? finished : null);
+            // Re-evaluate next task at this completion/interruption boundary with preserved momentum.
+            CivilianTask next = pickBestTask(ctx, momentumTask);
             if (next == null) {
                 if (activeSlot.kind() != SlotKind.SLEEP) {
                     finishSlot(ctx);
@@ -280,17 +291,25 @@ public final class CivilianSlotRunner {
             }
             activeTask = next;
             activeTask.start(ctx);
+            recheckTicks = 0;
             return true;
         }
 
-        // Periodic light re-check for opportunistic higher-utility tasks inside SOCIALIZE and WORK
-        if ((activeSlot.kind() == SlotKind.SOCIALIZE || activeSlot.kind() == SlotKind.WORK)
+        // Periodic light re-check only for SOCIALIZE or passive/idle waiting tasks (e.g. FarmerStandByShedTask);
+        // active WORK tasks run to field completion or explicit interruption without per-block re-evaluation.
+        if ((activeSlot.kind() == SlotKind.SOCIALIZE || activeTask.allowPeriodicRecheck())
                 && activeTask.canYieldCleanly()) {
             recheckTicks++;
             if (recheckTicks >= TASK_RECHECK_INTERVAL) {
                 recheckTicks = 0;
-                CivilianTask better = pickBestTask(ctx, activeTask);
+                CivilianTask recheckMomentum = activeTask.momentumPolicy() == CivilianTask.MomentumPolicy.CLEAR
+                        ? null
+                        : (momentumTask != null ? momentumTask : activeTask);
+                CivilianTask better = pickBestTask(ctx, recheckMomentum);
                 if (better != null && better != activeTask) {
+                    if (activeTask.momentumPolicy() == CivilianTask.MomentumPolicy.CLEAR) {
+                        momentumTask = null;
+                    }
                     activeTask.stop(ctx);
                     activeTask = better;
                     activeTask.start(ctx);
@@ -309,6 +328,7 @@ public final class CivilianSlotRunner {
             activeTask.stop(ctx);
             activeTask = null;
         }
+        momentumTask = null;
         activeSlot = null;
         candidateTasks = List.of();
         yielding = false;
@@ -444,7 +464,7 @@ public final class CivilianSlotRunner {
                     task.baseWeight(),
                     eligible ? task.urgency(ctx) : 0.0,
                     task == current,
-                    TaskUtility.DEFAULT_MOMENTUM_BONUS
+                    task.momentumBonus()
             ));
         }
         return TaskUtility.pickBest(scored);
