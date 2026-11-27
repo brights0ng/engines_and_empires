@@ -1,4 +1,4 @@
-// Written by Gemini; members, the god's hunger, the civilian debug commands and the civilian roster edited by Claude.
+// Written by Gemini; members, the god's hunger, the civilian debug commands and the civilian roster edited by Claude; motion recorder debug command added by Gemini.
 package dev.brights0ng.empire.command;
 
 import java.nio.charset.StandardCharsets;
@@ -66,6 +66,7 @@ public final class EmpireCommand {
                         .requires(source -> source.hasPermission(2))
                         .then(CivilianDebugCommands.node())
                         .then(RegionDebugCommands.node())
+                        .then(RecordDebugCommands.node())
                         .then(Commands.literal("dominion")
                                 .then(Commands.argument("player", StringArgumentType.word())
                                         .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(ctx.getSource().getOnlinePlayerNames(), builder))

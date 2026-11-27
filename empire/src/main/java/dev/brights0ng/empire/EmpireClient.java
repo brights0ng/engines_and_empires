@@ -3,9 +3,11 @@
 // Edited by Claude: TalcBorderRenderer now registers its own listeners (render, block changes, chunk loads).
 // Edited by Claude: ClaimCacheKeeper keeps the claims around the player fresh (protection prediction, talc borders).
 // Edited by Gemini: registered RegionRenderer for in-world 3D region rendering when holding the Administrative Ledger.
+// Edited by Gemini: registered MotionRecorderClient for player movement/action recording via /empire debug record.
 package dev.brights0ng.empire;
 
 import dev.brights0ng.empire.client.ClaimCacheKeeper;
+import dev.brights0ng.empire.client.MotionRecorderClient;
 import dev.brights0ng.empire.client.RegionRenderer;
 import dev.brights0ng.empire.client.TalcBorderRenderer;
 import dev.brights0ng.empire.compat.seismic.EmpireSeismicClient;
@@ -28,5 +30,6 @@ public final class EmpireClient {
         ClaimCacheKeeper.register();
         TalcBorderRenderer.register();
         RegionRenderer.register();
+        MotionRecorderClient.register();
     }
 }
